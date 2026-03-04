@@ -24,8 +24,10 @@ export class GameScene extends Phaser.Scene {
   // Player
   private cockroach!: Phaser.Physics.Arcade.Sprite;
   private currentFloor: Floor = 'bottom';
-  private targetFloor: Floor = 'bottom';
   private isDead = false;
+
+  // Speed multiplier (updated each frame, used by handleSpawning)
+  private speedMultiplier = 1;
 
   // Backgrounds
   private skyBg!: Phaser.GameObjects.TileSprite;
@@ -72,7 +74,7 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.isDead = false;
     this.currentFloor = 'bottom';
-    this.targetFloor = 'bottom';
+    this.speedMultiplier = 1;
     this.currentSpeed = COCKROACH_BASE_SPEED;
     this.lastSpawnX = COCKROACH_START_X + 400;
     this.startTime = this.time.now;
@@ -195,7 +197,7 @@ export class GameScene extends Phaser.Scene {
     // Speed: accelerate forever, NO cap
     const elapsedSeconds = (this.time.now - this.startTime) / 1000;
     this.currentSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION;
-    const speedMultiplier = this.currentSpeed / COCKROACH_BASE_SPEED;
+    this.speedMultiplier = this.currentSpeed / COCKROACH_BASE_SPEED;
 
     // Auto-run
     this.cockroach.setVelocityX(this.currentSpeed);
@@ -216,17 +218,6 @@ export class GameScene extends Phaser.Scene {
     (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
     (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
 
-    // --- Floor transition logic ---
-    // When jumping from bottom to top: cockroach needs to rise above top floor
-    // before the top floor collider activates
-    if (this.targetFloor === 'top' && this.currentFloor === 'bottom') {
-      const cockroachBottom = this.cockroach.y + this.cockroach.height / 2;
-      // Once cockroach is above the top floor, switch active floor
-      if (cockroachBottom <= FLOOR_TOP_Y) {
-        this.currentFloor = 'top';
-      }
-    }
-
     // --- Off-screen death ---
     if (this.cockroach.y > GAME_HEIGHT + 50 || this.cockroach.y < -100) {
       this.die();
@@ -241,15 +232,12 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.JustDown(this.ctrlKey) ||
       Phaser.Input.Keyboard.JustDown(this.cursors.down);
 
-    const onGround = this.cockroach.body!.touching.down || this.cockroach.body!.blocked.down;
-
-    if (jumpPressed && onGround) {
+    if (jumpPressed) {
       if (this.currentFloor === 'bottom') {
-        // Jump to top floor — DON'T switch currentFloor yet!
-        // Set targetFloor, apply velocity. currentFloor switches in the
-        // transition logic above once cockroach clears the top platform.
-        this.cockroach.setVelocityY(COCKROACH_JUMP_VELOCITY);
-        this.targetFloor = 'top';
+        // Instant teleport to top floor
+        this.cockroach.y = FLOOR_TOP_Y - 48;
+        this.cockroach.setVelocityY(0);
+        this.currentFloor = 'top';
         this.audio.playJump();
       } else {
         // Small hop on top floor
@@ -259,14 +247,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (dropPressed && this.currentFloor === 'top') {
-      // Drop to bottom floor — switch immediately so we fall through top floor
+      // Instant teleport to bottom floor
+      this.cockroach.y = FLOOR_BOTTOM_Y - 48;
+      this.cockroach.setVelocityY(0);
       this.currentFloor = 'bottom';
-      this.targetFloor = 'bottom';
-      this.cockroach.setVelocityY(300);
       this.audio.playFloorSwitch();
     }
 
     // Animation state
+    const onGround = this.cockroach.body!.touching.down || this.cockroach.body!.blocked.down;
     if (!onGround) {
       this.cockroach.setTexture('cockroach-jump');
     } else {
@@ -283,13 +272,13 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Speed UI
-    this.speedText.setText(`Szybkóść: ${speedMultiplier.toFixed(1)}x`);
+    this.speedText.setText(`Szybkóść: ${this.speedMultiplier.toFixed(1)}x`);
 
     // Speed milestones
-    const currentMilestone = Math.floor(speedMultiplier);
+    const currentMilestone = Math.floor(this.speedMultiplier);
     if (currentMilestone > this.lastMilestone && currentMilestone >= 2) {
       this.lastMilestone = currentMilestone;
-      this.vfx.speedMilestoneEffect(speedMultiplier);
+      this.vfx.speedMilestoneEffect(this.speedMultiplier);
     }
 
     // Spawning
@@ -299,17 +288,20 @@ export class GameScene extends Phaser.Scene {
     this.cleanupOffscreen();
 
     // Visual effects update
-    this.vfx.update(speedMultiplier);
+    this.vfx.update(this.speedMultiplier);
 
     // Audio pitch update
-    this.audio.updatePitch(speedMultiplier);
+    this.audio.updatePitch(this.speedMultiplier);
   }
 
   private handleSpawning(): void {
     const cameraRight = this.cameras.main.scrollX + GAME_WIDTH;
     const spawnX = cameraRight + SPAWN_DISTANCE_AHEAD;
 
-    if (spawnX - this.lastSpawnX < MIN_OBSTACLE_SPACING) return;
+    // Scale minimum spacing with speed so obstacles stay dodgeable
+    const dynamicSpacing = MIN_OBSTACLE_SPACING * Math.max(1, this.speedMultiplier * 0.8);
+
+    if (spawnX - this.lastSpawnX < dynamicSpacing) return;
     this.lastSpawnX = spawnX;
 
     // Obstacle
@@ -319,7 +311,8 @@ export class GameScene extends Phaser.Scene {
     if (Math.random() < APPLE_SPAWN_CHANCE) {
       const appleFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
       const appleY = (appleFloor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y) - 30;
-      const appleX = spawnX + 100 + Math.random() * 150;
+      const appleOffset = 100 + Math.random() * 150 * Math.max(1, this.speedMultiplier * 0.5);
+      const appleX = spawnX + appleOffset;
 
       const apple = this.apples.create(appleX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
       (apple.body as Phaser.Physics.Arcade.Body).allowGravity = false;

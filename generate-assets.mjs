@@ -61,6 +61,14 @@ function roundRect(ctx, x, y, w, h, r) {
   const canvas = createCanvas(W * FRAMES, H);
   const ctx = canvas.getContext('2d');
 
+  // Body dimensions — FLAT and WIDE like a real cockroach
+  const bodyCX = 42, bodyCY = 62;   // center of the main body ellipse
+  const bodyRX = 34, bodyRY = 16;   // wide oval: ~68px wide, ~32px tall
+  const pronotumCX = 72, pronotumCY = 60;
+  const pronotumRX = 14, pronotumRY = 13;
+  const headCX = 83, headCY = 60;
+  const headRX = 7, headRY = 6;
+
   for (let f = 0; f < FRAMES; f++) {
     const ox = f * W;
     const phase = (f / FRAMES) * Math.PI * 2;
@@ -71,284 +79,216 @@ function roundRect(ctx, x, y, w, h, r) {
     // --- Ground shadow ---
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.beginPath();
-    ellipsePath(ctx, 44, 88, 34, 6);
+    ellipsePath(ctx, bodyCX, 90, 38, 5);
     ctx.fill();
 
-    // --- LEGS (3 pairs, alternating gait) ---
-    const legPairs = [
-      { bodyX: 22, bodyY: 56 },
-      { bodyX: 36, bodyY: 60 },
-      { bodyX: 50, bodyY: 56 },
+    // --- LEGS (3 pairs, tripod gait, splayed wide to sides) ---
+    ctx.lineCap = 'round';
+    const legAttach = [
+      { x: 28, y: bodyCY + 4, angle: -2.4, len1: 16, len2: 18 },   // rear left/right
+      { x: 48, y: bodyCY + 2, angle: -1.8, len1: 14, len2: 16 },   // mid
+      { x: 65, y: bodyCY,     angle: -1.2, len1: 12, len2: 14 },   // front
     ];
 
-    ctx.lineCap = 'round';
-
     for (let p = 0; p < 3; p++) {
-      const lp = legPairs[p];
-      const legPhase = phase + (p % 2 === 0 ? 0 : Math.PI);
+      const la = legAttach[p];
+      // Tripod gait: pairs 0,2 move together, pair 1 opposite
+      const legPhase = phase + (p === 1 ? Math.PI : 0);
+      const swing = Math.sin(legPhase) * 6;
+      const lift = Math.cos(legPhase) * 3;
 
-      // Left leg
-      const lFootX = lp.bodyX - 12 + Math.sin(legPhase) * 8;
-      const lFootY = 82 + Math.cos(legPhase) * 5;
-      const lKneeX = lp.bodyX - 7 + Math.sin(legPhase) * 3;
-      const lKneeY = lp.bodyY + 10;
+      // --- Top leg (drawn behind body) ---
+      const topKneeX = la.x + Math.cos(la.angle) * la.len1;
+      const topKneeY = la.y - 12 + lift;
+      const topFootX = topKneeX + Math.cos(la.angle - 0.3) * la.len2 + swing;
+      const topFootY = topKneeY - 8 - Math.abs(lift);
 
-      // Leg outline (dark, thick)
+      // outline
       ctx.strokeStyle = '#1a0800';
-      ctx.lineWidth = 4.5;
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.moveTo(lp.bodyX, lp.bodyY);
-      ctx.quadraticCurveTo(lKneeX, lKneeY, lFootX, lFootY);
+      ctx.moveTo(la.x, la.y - 4);
+      ctx.lineTo(topKneeX, topKneeY);
+      ctx.lineTo(topFootX, topFootY);
       ctx.stroke();
-      // Leg inner color
-      ctx.strokeStyle = '#4a2210';
-      ctx.lineWidth = 2.8;
+      // inner
+      ctx.strokeStyle = '#5a3015';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(lp.bodyX, lp.bodyY);
-      ctx.quadraticCurveTo(lKneeX, lKneeY, lFootX, lFootY);
+      ctx.moveTo(la.x, la.y - 4);
+      ctx.lineTo(topKneeX, topKneeY);
+      ctx.lineTo(topFootX, topFootY);
       ctx.stroke();
-      // Tiny barbed foot
+      // foot barb
       ctx.strokeStyle = '#1a0800';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(lFootX, lFootY);
-      ctx.lineTo(lFootX - 3, lFootY + 4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(lFootX, lFootY);
-      ctx.lineTo(lFootX + 2, lFootY + 3);
+      ctx.moveTo(topFootX, topFootY);
+      ctx.lineTo(topFootX + 3, topFootY - 3);
       ctx.stroke();
 
-      // Right leg
-      const rFootX = lp.bodyX + 12 - Math.sin(legPhase) * 8;
-      const rFootY = 82 - Math.cos(legPhase) * 5;
-      const rKneeX = lp.bodyX + 7 - Math.sin(legPhase) * 3;
-      const rKneeY = lp.bodyY + 10;
+      // --- Bottom leg (drawn behind body) ---
+      const botKneeX = la.x + Math.cos(Math.PI - la.angle) * la.len1;
+      const botKneeY = la.y + 12 - lift;
+      const botFootX = botKneeX + Math.cos(Math.PI - la.angle + 0.3) * la.len2 - swing;
+      const botFootY = botKneeY + 8 + Math.abs(lift);
 
       ctx.strokeStyle = '#1a0800';
-      ctx.lineWidth = 4.5;
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.moveTo(lp.bodyX, lp.bodyY);
-      ctx.quadraticCurveTo(rKneeX, rKneeY, rFootX, rFootY);
+      ctx.moveTo(la.x, la.y + 4);
+      ctx.lineTo(botKneeX, botKneeY);
+      ctx.lineTo(botFootX, botFootY);
       ctx.stroke();
-      ctx.strokeStyle = '#4a2210';
-      ctx.lineWidth = 2.8;
+      ctx.strokeStyle = '#5a3015';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(lp.bodyX, lp.bodyY);
-      ctx.quadraticCurveTo(rKneeX, rKneeY, rFootX, rFootY);
+      ctx.moveTo(la.x, la.y + 4);
+      ctx.lineTo(botKneeX, botKneeY);
+      ctx.lineTo(botFootX, botFootY);
       ctx.stroke();
       ctx.strokeStyle = '#1a0800';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(rFootX, rFootY);
-      ctx.lineTo(rFootX + 3, rFootY + 4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rFootX, rFootY);
-      ctx.lineTo(rFootX - 2, rFootY + 3);
+      ctx.moveTo(botFootX, botFootY);
+      ctx.lineTo(botFootX - 3, botFootY + 3);
       ctx.stroke();
     }
 
-    // --- BODY ---
-    // Abdomen (large back section) with outline
-    const abdGrad = ctx.createRadialGradient(30, 50, 4, 30, 50, 26);
-    abdGrad.addColorStop(0, '#8a5530');
-    abdGrad.addColorStop(0.3, '#7a4422');
-    abdGrad.addColorStop(0.6, '#5c3317');
-    abdGrad.addColorStop(1, '#3a1a08');
+    // --- BODY: Main abdomen / wing casing — wide flat oval ---
+    const abdGrad = ctx.createRadialGradient(bodyCX - 6, bodyCY - 6, 4, bodyCX, bodyCY, bodyRX);
+    abdGrad.addColorStop(0, '#a06030');
+    abdGrad.addColorStop(0.25, '#8a4e25');
+    abdGrad.addColorStop(0.5, '#6d3a18');
+    abdGrad.addColorStop(0.8, '#4a2510');
+    abdGrad.addColorStop(1, '#2e1508');
     ctx.fillStyle = abdGrad;
     ctx.beginPath();
-    ellipsePath(ctx, 30, 50, 24, 18);
+    ellipsePath(ctx, bodyCX, bodyCY, bodyRX, bodyRY);
     ctx.fill();
-    // Abdomen outline
+    // Body outline
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ellipsePath(ctx, 30, 50, 24, 18);
+    ellipsePath(ctx, bodyCX, bodyCY, bodyRX, bodyRY);
     ctx.stroke();
 
-    // Body segments (more prominent)
-    ctx.strokeStyle = 'rgba(20, 5, 0, 0.4)';
-    ctx.lineWidth = 1.2;
-    for (let s = 0; s < 5; s++) {
-      const sy = 38 + s * 5.5;
+    // Wing casing line down the middle
+    ctx.strokeStyle = 'rgba(15, 5, 0, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(bodyCX - bodyRX + 10, bodyCY);
+    ctx.lineTo(bodyCX + bodyRX - 4, bodyCY);
+    ctx.stroke();
+
+    // Wing casing side lines (subtle veins)
+    ctx.strokeStyle = 'rgba(30, 10, 0, 0.2)';
+    ctx.lineWidth = 0.8;
+    for (let v = -2; v <= 2; v++) {
+      if (v === 0) continue;
+      const vy = bodyCY + v * 5;
       ctx.beginPath();
-      ctx.moveTo(12, sy);
-      ctx.quadraticCurveTo(30, sy + 2, 48, sy);
+      ctx.moveTo(bodyCX - bodyRX + 14, vy);
+      ctx.quadraticCurveTo(bodyCX, vy + v * 0.5, bodyCX + bodyRX - 8, vy);
       ctx.stroke();
     }
 
-    // Wings (folded, layered)
-    ctx.fillStyle = 'rgba(70, 35, 12, 0.5)';
+    // Glossy carapace highlight (shiny arc on top half)
+    ctx.fillStyle = 'rgba(255,255,230,0.18)';
     ctx.beginPath();
-    ctx.moveTo(14, 38);
-    ctx.quadraticCurveTo(30, 30, 46, 38);
-    ctx.quadraticCurveTo(30, 62, 14, 38);
+    ellipsePath(ctx, bodyCX - 4, bodyCY - 6, bodyRX * 0.6, bodyRY * 0.35);
     ctx.fill();
-    // Wing vein pattern
-    ctx.strokeStyle = 'rgba(40, 15, 0, 0.35)';
-    ctx.lineWidth = 0.8;
+    // Bright specular spot
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
     ctx.beginPath();
-    ctx.moveTo(18, 40);
-    ctx.quadraticCurveTo(30, 36, 42, 40);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(20, 46);
-    ctx.quadraticCurveTo(30, 43, 40, 46);
-    ctx.stroke();
-    // Wing edge highlight
-    ctx.strokeStyle = 'rgba(120, 70, 30, 0.25)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(14, 38);
-    ctx.quadraticCurveTo(30, 30, 46, 38);
-    ctx.stroke();
+    ellipsePath(ctx, bodyCX - 10, bodyCY - 8, 8, 4);
+    ctx.fill();
 
-    // Thorax with gradient
-    const thorGrad = ctx.createRadialGradient(58, 44, 2, 58, 44, 14);
-    thorGrad.addColorStop(0, '#7a4425');
-    thorGrad.addColorStop(0.5, '#6b3820');
-    thorGrad.addColorStop(1, '#4a2810');
-    ctx.fillStyle = thorGrad;
+    // --- PRONOTUM (head shield) ---
+    const proGrad = ctx.createRadialGradient(pronotumCX, pronotumCY - 2, 2, pronotumCX, pronotumCY, pronotumRX);
+    proGrad.addColorStop(0, '#9a5a30');
+    proGrad.addColorStop(0.5, '#7a4422');
+    proGrad.addColorStop(1, '#4a2510');
+    ctx.fillStyle = proGrad;
     ctx.beginPath();
-    ellipsePath(ctx, 58, 44, 12, 14);
+    ellipsePath(ctx, pronotumCX, pronotumCY, pronotumRX, pronotumRY);
     ctx.fill();
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ellipsePath(ctx, 58, 44, 12, 14);
+    ellipsePath(ctx, pronotumCX, pronotumCY, pronotumRX, pronotumRY);
     ctx.stroke();
-
-    // Head with gradient
-    const headGrad = ctx.createRadialGradient(76, 40, 2, 76, 40, 11);
-    headGrad.addColorStop(0, '#7a4425');
-    headGrad.addColorStop(0.5, '#6b3820');
-    headGrad.addColorStop(1, '#3a1a08');
-    ctx.fillStyle = headGrad;
+    // Pronotum highlight
+    ctx.fillStyle = 'rgba(255,255,230,0.12)';
     ctx.beginPath();
-    ellipsePath(ctx, 76, 40, 11, 10);
+    ellipsePath(ctx, pronotumCX, pronotumCY - 4, pronotumRX * 0.5, pronotumRY * 0.3);
     ctx.fill();
-    ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ellipsePath(ctx, 76, 40, 11, 10);
-    ctx.stroke();
 
-    // Mandibles (thicker, meaner)
-    ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
+    // --- HEAD (small, peeking from under pronotum) ---
+    ctx.fillStyle = '#4a2810';
     ctx.beginPath();
-    ctx.moveTo(84, 44);
-    ctx.lineTo(90, 50);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(84, 36);
-    ctx.lineTo(90, 30);
-    ctx.stroke();
-
-    // EYES — big, expressive, glowing compound eyes
-    // Main eye (front)
-    const eyeGrad1 = ctx.createRadialGradient(80, 36, 1, 80, 36, 5);
-    eyeGrad1.addColorStop(0, '#ff4444');
-    eyeGrad1.addColorStop(0.5, '#dd0000');
-    eyeGrad1.addColorStop(1, '#880000');
-    ctx.fillStyle = eyeGrad1;
-    ctx.beginPath();
-    ctx.arc(80, 36, 5, 0, Math.PI * 2);
+    ellipsePath(ctx, headCX, headCY, headRX, headRY);
     ctx.fill();
     ctx.strokeStyle = '#1a0800';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(80, 36, 5, 0, Math.PI * 2);
+    ellipsePath(ctx, headCX, headCY, headRX, headRY);
     ctx.stroke();
-    // Eye highlight
-    ctx.fillStyle = '#ff8888';
-    ctx.beginPath();
-    ctx.arc(81.5, 34, 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.beginPath();
-    ctx.arc(82, 33.5, 1, 0, Math.PI * 2);
-    ctx.fill();
 
-    // Second eye (behind, slightly smaller)
-    const eyeGrad2 = ctx.createRadialGradient(75, 34, 1, 75, 34, 4);
-    eyeGrad2.addColorStop(0, '#cc3333');
-    eyeGrad2.addColorStop(0.5, '#aa0000');
-    eyeGrad2.addColorStop(1, '#660000');
-    ctx.fillStyle = eyeGrad2;
-    ctx.beginPath();
-    ctx.arc(75, 34, 4, 0, Math.PI * 2);
-    ctx.fill();
+    // --- EYES (compound, dark red, on sides of head) ---
+    const eyeY1 = headCY - 3;
+    const eyeY2 = headCY + 3;
+    for (const ey of [eyeY1, eyeY2]) {
+      const eyeGrad = ctx.createRadialGradient(headCX + 4, ey, 0.5, headCX + 4, ey, 3);
+      eyeGrad.addColorStop(0, '#dd3333');
+      eyeGrad.addColorStop(0.6, '#aa0000');
+      eyeGrad.addColorStop(1, '#660000');
+      ctx.fillStyle = eyeGrad;
+      ctx.beginPath();
+      ctx.arc(headCX + 4, ey, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1a0800';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(headCX + 4, ey, 3, 0, Math.PI * 2);
+      ctx.stroke();
+      // highlight
+      ctx.fillStyle = 'rgba(255,150,150,0.5)';
+      ctx.beginPath();
+      ctx.arc(headCX + 5, ey - 1, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // --- ANTENNAE (long, sweeping forward with curves) ---
+    const antWave = Math.sin(phase) * 4;
+    ctx.lineCap = 'round';
+    // Antenna 1 (upper)
     ctx.strokeStyle = '#1a0800';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(headCX + 5, headCY - 4);
+    ctx.quadraticCurveTo(90, headCY - 18 + antWave, 94, headCY - 36 + antWave * 0.7);
+    ctx.stroke();
+    ctx.strokeStyle = '#5a3015';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(75, 34, 4, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = '#dd6666';
-    ctx.beginPath();
-    ctx.arc(76, 32.5, 1.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Antennae (wavy, animated, thicker)
-    const antWave = Math.sin(phase) * 5;
-    ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 2.5;
-    // Antenna 1
-    ctx.beginPath();
-    ctx.moveTo(82, 32);
-    ctx.quadraticCurveTo(86, 18 + antWave, 92, 8 + antWave * 0.5);
-    ctx.stroke();
-    ctx.strokeStyle = '#4a2210';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(82, 32);
-    ctx.quadraticCurveTo(86, 18 + antWave, 92, 8 + antWave * 0.5);
-    ctx.stroke();
-    // Antenna tip bulb
-    ctx.fillStyle = '#5c3317';
-    ctx.beginPath();
-    ctx.arc(92, 8 + antWave * 0.5, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(92, 8 + antWave * 0.5, 2.5, 0, Math.PI * 2);
+    ctx.moveTo(headCX + 5, headCY - 4);
+    ctx.quadraticCurveTo(90, headCY - 18 + antWave, 94, headCY - 36 + antWave * 0.7);
     ctx.stroke();
 
-    // Antenna 2
+    // Antenna 2 (lower)
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(79, 30);
-    ctx.quadraticCurveTo(82, 14 - antWave, 88, 4 - antWave * 0.5);
+    ctx.moveTo(headCX + 5, headCY + 4);
+    ctx.quadraticCurveTo(90, headCY + 18 - antWave, 94, headCY + 36 - antWave * 0.7);
     ctx.stroke();
-    ctx.strokeStyle = '#4a2210';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#5a3015';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(79, 30);
-    ctx.quadraticCurveTo(82, 14 - antWave, 88, 4 - antWave * 0.5);
+    ctx.moveTo(headCX + 5, headCY + 4);
+    ctx.quadraticCurveTo(90, headCY + 18 - antWave, 94, headCY + 36 - antWave * 0.7);
     ctx.stroke();
-    ctx.fillStyle = '#5c3317';
-    ctx.beginPath();
-    ctx.arc(88, 4 - antWave * 0.5, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(88, 4 - antWave * 0.5, 2.5, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Shell specular highlights
-    ctx.fillStyle = 'rgba(255,255,220,0.15)';
-    ctx.beginPath();
-    ellipsePath(ctx, 26, 44, 10, 5);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,220,0.08)';
-    ctx.beginPath();
-    ellipsePath(ctx, 56, 38, 5, 3);
-    ctx.fill();
 
     ctx.restore();
   }
@@ -362,216 +302,174 @@ function roundRect(ctx, x, y, w, h, r) {
   const canvas = createCanvas(96, 96);
   const ctx = canvas.getContext('2d');
 
+  // Tilt the whole cockroach slightly upward for jump pose
   ctx.save();
   ctx.translate(48, 52);
-  ctx.rotate(-0.2);
+  ctx.rotate(-0.25);
   ctx.translate(-48, -52);
 
-  // Shadow (faint, cockroach is airborne)
-  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  const bodyCX = 38, bodyCY = 58;
+  const bodyRX = 32, bodyRY = 15;
+  const pronotumCX = 66, pronotumCY = 56;
+  const pronotumRX = 13, pronotumRY = 12;
+  const headCX = 77, headCY = 56;
+  const headRX = 6, headRY = 5;
+
+  // Faint shadow (airborne)
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
   ctx.beginPath();
-  ellipsePath(ctx, 44, 86, 26, 4);
+  ellipsePath(ctx, bodyCX, 90, 24, 3);
   ctx.fill();
 
-  // Tucked legs
+  // Tucked legs (folded tight underneath)
   ctx.lineCap = 'round';
+  const legTuck = [
+    { x: 26, y: bodyCY + 4 },
+    { x: 42, y: bodyCY + 3 },
+    { x: 58, y: bodyCY + 2 },
+  ];
   for (let p = 0; p < 3; p++) {
-    const bx = 22 + p * 14;
-    // Legs folded tight
+    const la = legTuck[p];
+    // Top tucked leg
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.quadraticCurveTo(bx - 3, 70, bx + 3, 74);
+    ctx.moveTo(la.x, la.y - 3);
+    ctx.quadraticCurveTo(la.x - 6, la.y - 10, la.x - 4, la.y - 16);
     ctx.stroke();
-    ctx.strokeStyle = '#4a2210';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#5a3015';
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.quadraticCurveTo(bx - 3, 70, bx + 3, 74);
+    ctx.moveTo(la.x, la.y - 3);
+    ctx.quadraticCurveTo(la.x - 6, la.y - 10, la.x - 4, la.y - 16);
     ctx.stroke();
-
+    // Bottom tucked leg
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.quadraticCurveTo(bx + 5, 70, bx + 1, 74);
+    ctx.moveTo(la.x, la.y + 3);
+    ctx.quadraticCurveTo(la.x - 6, la.y + 10, la.x - 4, la.y + 16);
     ctx.stroke();
-    ctx.strokeStyle = '#4a2210';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#5a3015';
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.quadraticCurveTo(bx + 5, 70, bx + 1, 74);
+    ctx.moveTo(la.x, la.y + 3);
+    ctx.quadraticCurveTo(la.x - 6, la.y + 10, la.x - 4, la.y + 16);
     ctx.stroke();
   }
 
-  // Abdomen
-  const abdGrad = ctx.createRadialGradient(30, 54, 4, 30, 54, 26);
-  abdGrad.addColorStop(0, '#8a5530');
-  abdGrad.addColorStop(0.3, '#7a4422');
-  abdGrad.addColorStop(0.6, '#5c3317');
-  abdGrad.addColorStop(1, '#3a1a08');
+  // Body (wide flat oval)
+  const abdGrad = ctx.createRadialGradient(bodyCX - 6, bodyCY - 5, 4, bodyCX, bodyCY, bodyRX);
+  abdGrad.addColorStop(0, '#a06030');
+  abdGrad.addColorStop(0.25, '#8a4e25');
+  abdGrad.addColorStop(0.5, '#6d3a18');
+  abdGrad.addColorStop(0.8, '#4a2510');
+  abdGrad.addColorStop(1, '#2e1508');
   ctx.fillStyle = abdGrad;
   ctx.beginPath();
-  ellipsePath(ctx, 30, 54, 24, 17);
-  ctx.fill();
-  ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ellipsePath(ctx, 30, 54, 24, 17);
-  ctx.stroke();
-
-  // Wings slightly spread (two layers for depth)
-  ctx.fillStyle = 'rgba(80, 45, 20, 0.45)';
-  ctx.beginPath();
-  ctx.moveTo(10, 40);
-  ctx.quadraticCurveTo(30, 26, 50, 40);
-  ctx.quadraticCurveTo(30, 66, 10, 40);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(100, 60, 30, 0.25)';
-  ctx.beginPath();
-  ctx.moveTo(6, 36);
-  ctx.quadraticCurveTo(30, 18, 54, 36);
-  ctx.quadraticCurveTo(30, 70, 6, 36);
-  ctx.fill();
-
-  // Segments
-  ctx.strokeStyle = 'rgba(20, 5, 0, 0.35)';
-  ctx.lineWidth = 1;
-  for (let s = 0; s < 4; s++) {
-    const sy = 44 + s * 5;
-    ctx.beginPath();
-    ctx.moveTo(12, sy);
-    ctx.quadraticCurveTo(30, sy + 1.5, 48, sy);
-    ctx.stroke();
-  }
-
-  // Thorax
-  const thorGrad = ctx.createRadialGradient(58, 46, 2, 58, 46, 13);
-  thorGrad.addColorStop(0, '#7a4425');
-  thorGrad.addColorStop(1, '#4a2810');
-  ctx.fillStyle = thorGrad;
-  ctx.beginPath();
-  ellipsePath(ctx, 58, 46, 12, 13);
+  ellipsePath(ctx, bodyCX, bodyCY, bodyRX, bodyRY);
   ctx.fill();
   ctx.strokeStyle = '#1a0800';
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ellipsePath(ctx, 58, 46, 12, 13);
+  ellipsePath(ctx, bodyCX, bodyCY, bodyRX, bodyRY);
+  ctx.stroke();
+
+  // Wing casing line
+  ctx.strokeStyle = 'rgba(15, 5, 0, 0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bodyCX - bodyRX + 10, bodyCY);
+  ctx.lineTo(bodyCX + bodyRX - 4, bodyCY);
+  ctx.stroke();
+
+  // Glossy highlight
+  ctx.fillStyle = 'rgba(255,255,230,0.18)';
+  ctx.beginPath();
+  ellipsePath(ctx, bodyCX - 4, bodyCY - 6, bodyRX * 0.6, bodyRY * 0.35);
+  ctx.fill();
+
+  // Pronotum
+  const proGrad = ctx.createRadialGradient(pronotumCX, pronotumCY - 2, 2, pronotumCX, pronotumCY, pronotumRX);
+  proGrad.addColorStop(0, '#9a5a30');
+  proGrad.addColorStop(0.5, '#7a4422');
+  proGrad.addColorStop(1, '#4a2510');
+  ctx.fillStyle = proGrad;
+  ctx.beginPath();
+  ellipsePath(ctx, pronotumCX, pronotumCY, pronotumRX, pronotumRY);
+  ctx.fill();
+  ctx.strokeStyle = '#1a0800';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ellipsePath(ctx, pronotumCX, pronotumCY, pronotumRX, pronotumRY);
   ctx.stroke();
 
   // Head
-  const headGrad = ctx.createRadialGradient(76, 40, 2, 76, 40, 11);
-  headGrad.addColorStop(0, '#7a4425');
-  headGrad.addColorStop(1, '#3a1a08');
-  ctx.fillStyle = headGrad;
+  ctx.fillStyle = '#4a2810';
   ctx.beginPath();
-  ellipsePath(ctx, 76, 40, 11, 10);
-  ctx.fill();
-  ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ellipsePath(ctx, 76, 40, 11, 10);
-  ctx.stroke();
-
-  // Eyes (excited, wide)
-  const eyeGrad1 = ctx.createRadialGradient(80, 36, 1, 80, 36, 5);
-  eyeGrad1.addColorStop(0, '#ff6644');
-  eyeGrad1.addColorStop(0.5, '#dd1100');
-  eyeGrad1.addColorStop(1, '#880000');
-  ctx.fillStyle = eyeGrad1;
-  ctx.beginPath();
-  ctx.arc(80, 36, 5.5, 0, Math.PI * 2);
+  ellipsePath(ctx, headCX, headCY, headRX, headRY);
   ctx.fill();
   ctx.strokeStyle = '#1a0800';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(80, 36, 5.5, 0, Math.PI * 2);
+  ellipsePath(ctx, headCX, headCY, headRX, headRY);
   ctx.stroke();
-  ctx.fillStyle = '#ff9988';
-  ctx.beginPath();
-  ctx.arc(82, 34, 2.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.beginPath();
-  ctx.arc(82.5, 33.5, 1.2, 0, Math.PI * 2);
-  ctx.fill();
 
-  // Second eye
-  ctx.fillStyle = '#aa0000';
-  ctx.beginPath();
-  ctx.arc(75, 34, 4, 0, Math.PI * 2);
-  ctx.fill();
+  // Eyes
+  for (const ey of [headCY - 3, headCY + 3]) {
+    const eyeGrad = ctx.createRadialGradient(headCX + 3, ey, 0.5, headCX + 3, ey, 3);
+    eyeGrad.addColorStop(0, '#ff5544');
+    eyeGrad.addColorStop(0.6, '#bb0000');
+    eyeGrad.addColorStop(1, '#660000');
+    ctx.fillStyle = eyeGrad;
+    ctx.beginPath();
+    ctx.arc(headCX + 3, ey, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#1a0800';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(headCX + 3, ey, 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,200,200,0.5)';
+    ctx.beginPath();
+    ctx.arc(headCX + 4, ey - 1, 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Antennae (swept forward/upward)
   ctx.strokeStyle = '#1a0800';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(headCX + 4, headCY - 4);
+  ctx.quadraticCurveTo(88, headCY - 22, 94, headCY - 40);
+  ctx.stroke();
+  ctx.strokeStyle = '#5a3015';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.arc(75, 34, 4, 0, Math.PI * 2);
+  ctx.moveTo(headCX + 4, headCY - 4);
+  ctx.quadraticCurveTo(88, headCY - 22, 94, headCY - 40);
   ctx.stroke();
-  ctx.fillStyle = '#dd6666';
-  ctx.beginPath();
-  ctx.arc(76, 32.5, 1.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Antennae swept back (speed lines feel)
-  ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(82, 32);
-  ctx.quadraticCurveTo(88, 16, 94, 6);
-  ctx.stroke();
-  ctx.strokeStyle = '#4a2210';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(82, 32);
-  ctx.quadraticCurveTo(88, 16, 94, 6);
-  ctx.stroke();
-  ctx.fillStyle = '#5c3317';
-  ctx.beginPath();
-  ctx.arc(94, 6, 2.5, 0, Math.PI * 2);
-  ctx.fill();
 
   ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(79, 30);
-  ctx.quadraticCurveTo(84, 12, 90, 2);
+  ctx.moveTo(headCX + 4, headCY + 4);
+  ctx.quadraticCurveTo(88, headCY + 12, 92, headCY + 28);
   ctx.stroke();
-  ctx.strokeStyle = '#4a2210';
+  ctx.strokeStyle = '#5a3015';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(headCX + 4, headCY + 4);
+  ctx.quadraticCurveTo(88, headCY + 12, 92, headCY + 28);
+  ctx.stroke();
+
+  // Motion lines
+  ctx.strokeStyle = 'rgba(150,130,100,0.3)';
   ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(79, 30);
-  ctx.quadraticCurveTo(84, 12, 90, 2);
-  ctx.stroke();
-  ctx.fillStyle = '#5c3317';
-  ctx.beginPath();
-  ctx.arc(90, 2, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Mandibles
-  ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(84, 44);
-  ctx.lineTo(90, 50);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(84, 36);
-  ctx.lineTo(90, 30);
-  ctx.stroke();
-
-  // Shell highlight
-  ctx.fillStyle = 'rgba(255,255,220,0.12)';
-  ctx.beginPath();
-  ellipsePath(ctx, 26, 48, 10, 5);
-  ctx.fill();
-
-  // Motion lines (jumping upward)
-  ctx.strokeStyle = 'rgba(150,130,100,0.35)';
-  ctx.lineWidth = 1.5;
-  for (let ml = 0; ml < 5; ml++) {
+  for (let ml = 0; ml < 4; ml++) {
     ctx.beginPath();
-    ctx.moveTo(16 + ml * 14, 80);
-    ctx.lineTo(12 + ml * 14, 92);
+    ctx.moveTo(10 + ml * 16, 82);
+    ctx.lineTo(6 + ml * 16, 94);
     ctx.stroke();
   }
 
@@ -580,144 +478,152 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // ============================================================
-// 3. COCKROACH DEAD (96x96) — flipped upside down
+// 3. COCKROACH DEAD (96x96) — flipped on its back, legs in air
 // ============================================================
 {
   const canvas = createCanvas(96, 96);
   const ctx = canvas.getContext('2d');
 
-  // Flip vertically
-  ctx.save();
-  ctx.translate(48, 48);
-  ctx.scale(1, -1);
-  ctx.translate(-48, -48);
+  // The cockroach is on its back — we draw the underside directly (no flip transform needed)
+  // Body centered, legs sticking UP
+  const bodyCX = 42, bodyCY = 56;
+  const bodyRX = 32, bodyRY = 15;
 
-  // Shadow
+  // Shadow underneath
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.beginPath();
-  ellipsePath(ctx, 44, 88, 30, 5);
+  ellipsePath(ctx, bodyCX, 88, 34, 4);
   ctx.fill();
 
-  // Stiff legs pointing down (appear UP after flip)
+  // --- Stiff legs pointing UP (dead, splayed, rigor mortis) ---
   ctx.lineCap = 'round';
+  const deadLegs = [
+    { x: 24, y: bodyCY },
+    { x: 40, y: bodyCY },
+    { x: 56, y: bodyCY },
+  ];
   for (let p = 0; p < 3; p++) {
-    const bx = 22 + p * 14;
-    // Left leg - stiff, spread
+    const la = deadLegs[p];
+    const splay = (p - 1) * 8; // spread outward
+
+    // Top leg (stiff, bent at joint, pointing up)
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.lineTo(bx - 12, 82);
-    ctx.lineTo(bx - 15, 88);
+    ctx.moveTo(la.x, la.y - 6);
+    ctx.lineTo(la.x - 10 + splay, la.y - 22);
+    ctx.lineTo(la.x - 6 + splay, la.y - 32);
     ctx.stroke();
-    ctx.strokeStyle = '#4a2210';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#6a4020';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.lineTo(bx - 12, 82);
-    ctx.lineTo(bx - 15, 88);
+    ctx.moveTo(la.x, la.y - 6);
+    ctx.lineTo(la.x - 10 + splay, la.y - 22);
+    ctx.lineTo(la.x - 6 + splay, la.y - 32);
     ctx.stroke();
-    // Right leg
+
+    // Bottom leg (stiff, pointing down-ish but also up since flipped)
     ctx.strokeStyle = '#1a0800';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.lineTo(bx + 12, 82);
-    ctx.lineTo(bx + 15, 88);
+    ctx.moveTo(la.x, la.y + 6);
+    ctx.lineTo(la.x + 10 - splay, la.y - 18);
+    ctx.lineTo(la.x + 14 - splay, la.y - 28);
     ctx.stroke();
-    ctx.strokeStyle = '#4a2210';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#6a4020';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(bx, 60);
-    ctx.lineTo(bx + 12, 82);
-    ctx.lineTo(bx + 15, 88);
+    ctx.moveTo(la.x, la.y + 6);
+    ctx.lineTo(la.x + 10 - splay, la.y - 18);
+    ctx.lineTo(la.x + 14 - splay, la.y - 28);
     ctx.stroke();
   }
 
-  // Abdomen (pale underside since dead)
-  const abdGrad = ctx.createRadialGradient(30, 52, 4, 30, 52, 24);
-  abdGrad.addColorStop(0, '#9a7755');
-  abdGrad.addColorStop(0.4, '#8a6644');
-  abdGrad.addColorStop(0.7, '#6c4a2e');
-  abdGrad.addColorStop(1, '#4a2810');
+  // --- Body underside (pale, lighter brown — belly up) ---
+  const abdGrad = ctx.createRadialGradient(bodyCX, bodyCY - 4, 4, bodyCX, bodyCY, bodyRX);
+  abdGrad.addColorStop(0, '#b08855');
+  abdGrad.addColorStop(0.3, '#9a7744');
+  abdGrad.addColorStop(0.6, '#7a5a30');
+  abdGrad.addColorStop(1, '#4a3018');
   ctx.fillStyle = abdGrad;
   ctx.beginPath();
-  ellipsePath(ctx, 30, 50, 24, 18);
-  ctx.fill();
-  ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ellipsePath(ctx, 30, 50, 24, 18);
-  ctx.stroke();
-
-  // Thorax
-  ctx.fillStyle = '#5a3418';
-  ctx.beginPath();
-  ellipsePath(ctx, 58, 44, 12, 14);
+  ellipsePath(ctx, bodyCX, bodyCY, bodyRX, bodyRY);
   ctx.fill();
   ctx.strokeStyle = '#1a0800';
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ellipsePath(ctx, 58, 44, 12, 14);
+  ellipsePath(ctx, bodyCX, bodyCY, bodyRX, bodyRY);
   ctx.stroke();
 
-  // Head
-  ctx.fillStyle = '#4a2810';
+  // Belly segments
+  ctx.strokeStyle = 'rgba(40, 20, 5, 0.3)';
+  ctx.lineWidth = 1;
+  for (let s = -2; s <= 2; s++) {
+    const sy = bodyCY + s * 4;
+    ctx.beginPath();
+    ctx.moveTo(bodyCX - bodyRX + 8, sy);
+    ctx.quadraticCurveTo(bodyCX, sy + s * 0.5, bodyCX + bodyRX - 8, sy);
+    ctx.stroke();
+  }
+
+  // Pronotum area (underside)
+  ctx.fillStyle = '#6a4825';
   ctx.beginPath();
-  ellipsePath(ctx, 76, 40, 11, 10);
+  ellipsePath(ctx, 68, bodyCY, 12, 11);
   ctx.fill();
   ctx.strokeStyle = '#1a0800';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ellipsePath(ctx, 76, 40, 11, 10);
-  ctx.stroke();
-
-  ctx.restore();
-
-  // X eyes (after restore so they face right side up)
-  ctx.strokeStyle = '#ff0000';
-  ctx.lineWidth = 3.5;
-  ctx.lineCap = 'round';
-  // Eye 1 (big X)
-  ctx.beginPath(); ctx.moveTo(72, 46); ctx.lineTo(80, 54); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(80, 46); ctx.lineTo(72, 54); ctx.stroke();
-  // Eye 2
-  ctx.beginPath(); ctx.moveTo(64, 48); ctx.lineTo(70, 54); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(70, 48); ctx.lineTo(64, 54); ctx.stroke();
-
-  // Droopy antennae (limp, lifeless)
-  ctx.strokeStyle = '#3a1a08';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(78, 56);
-  ctx.quadraticCurveTo(84, 66, 92, 76);
+  ellipsePath(ctx, 68, bodyCY, 12, 11);
   ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(74, 56);
-  ctx.quadraticCurveTo(78, 68, 86, 82);
-  ctx.stroke();
-  // Droopy antenna tips
-  ctx.fillStyle = '#5c3317';
-  ctx.beginPath();
-  ctx.arc(92, 76, 2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(86, 82, 2, 0, Math.PI * 2);
-  ctx.fill();
 
-  // Soul leaving body swirl (trippy touch, bigger)
+  // Head (underside)
+  ctx.fillStyle = '#4a2810';
+  ctx.beginPath();
+  ellipsePath(ctx, 78, bodyCY, 6, 5);
+  ctx.fill();
+  ctx.strokeStyle = '#1a0800';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ellipsePath(ctx, 78, bodyCY, 6, 5);
+  ctx.stroke();
+
+  // X eyes (dead!)
+  ctx.strokeStyle = '#ff0000';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  // Eye 1
+  ctx.beginPath(); ctx.moveTo(79, bodyCY - 5); ctx.lineTo(83, bodyCY - 1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(83, bodyCY - 5); ctx.lineTo(79, bodyCY - 1); ctx.stroke();
+  // Eye 2
+  ctx.beginPath(); ctx.moveTo(79, bodyCY + 1); ctx.lineTo(83, bodyCY + 5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(83, bodyCY + 1); ctx.lineTo(79, bodyCY + 5); ctx.stroke();
+
+  // Droopy antennae (limp, curling down)
+  ctx.strokeStyle = '#3a1a08';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(82, bodyCY - 3);
+  ctx.quadraticCurveTo(88, bodyCY + 8, 92, bodyCY + 22);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(82, bodyCY + 3);
+  ctx.quadraticCurveTo(90, bodyCY + 14, 94, bodyCY + 28);
+  ctx.stroke();
+
+  // Soul leaving body
   ctx.strokeStyle = 'rgba(200, 200, 255, 0.35)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(48, 28);
-  ctx.quadraticCurveTo(42, 18, 48, 12);
-  ctx.quadraticCurveTo(54, 6, 48, 0);
+  ctx.moveTo(42, 30);
+  ctx.quadraticCurveTo(36, 20, 42, 14);
+  ctx.quadraticCurveTo(48, 8, 42, 2);
   ctx.stroke();
   ctx.strokeStyle = 'rgba(200, 200, 255, 0.2)';
   ctx.beginPath();
-  ctx.moveTo(42, 30);
-  ctx.quadraticCurveTo(36, 22, 42, 16);
-  ctx.quadraticCurveTo(48, 10, 42, 4);
+  ctx.moveTo(36, 32);
+  ctx.quadraticCurveTo(30, 24, 36, 18);
+  ctx.quadraticCurveTo(42, 12, 36, 6);
   ctx.stroke();
 
   saveCanvas(canvas, 'public/sprites/cockroach-dead.png');
