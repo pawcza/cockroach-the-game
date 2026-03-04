@@ -10,7 +10,7 @@ export const FLOOR_HEIGHT = 16;
 export const COCKROACH_START_X = 150;
 export const COCKROACH_BASE_SPEED = 200;
 export const COCKROACH_ACCELERATION = 2; // px/s per second
-export const COCKROACH_JUMP_VELOCITY = -450;
+export const COCKROACH_JUMP_VELOCITY = -550;
 export const COCKROACH_GRAVITY = 800;
 
 // Spawning
