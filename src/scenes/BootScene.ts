@@ -43,8 +43,8 @@ export class BootScene extends Phaser.Scene {
 
     // --- Sprites ---
     this.load.spritesheet('cockroach-run', 'sprites/cockroach-run.png', {
-      frameWidth: 64,
-      frameHeight: 64,
+      frameWidth: 96,
+      frameHeight: 96,
     });
     this.load.image('cockroach-jump', 'sprites/cockroach-jump.png');
     this.load.image('cockroach-dead', 'sprites/cockroach-dead.png');

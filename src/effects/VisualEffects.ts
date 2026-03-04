@@ -275,13 +275,13 @@ export class VisualEffects {
 
     let label: string;
     if (multiplier >= 15) {
-      label = `${Math.floor(multiplier)}X OBLIVION`;
+      label = `${Math.floor(multiplier)}X ZAPOMNIENIE KURCZĘ!`;
     } else if (multiplier >= 10) {
-      label = `${Math.floor(multiplier)}X CHAOS`;
+      label = `${Math.floor(multiplier)}X BURDEL NA KÓŁKACH`;
     } else if (multiplier >= 5) {
-      label = `${Math.floor(multiplier)}X INSANITY!`;
+      label = `${Math.floor(multiplier)}X SZALEŃSTWO TOTALNE!`;
     } else {
-      label = `${Math.floor(multiplier)}X SPEED!`;
+      label = `${Math.floor(multiplier)}X JAZDA BEZ TRZYMANKI!`;
     }
 
     const text = this.scene.add.text(w / 2, h / 2, label, {

@@ -11,8 +11,8 @@ export class MenuScene extends Phaser.Scene {
     // Sky background as a tileSprite
     this.add.tileSprite(0, 0, width, height, 'sky').setOrigin(0, 0);
 
-    // Title: "COCKROACH"
-    this.add.text(width / 2, height / 3, 'COCKROACH', {
+    // Title: "KARALUCH"
+    this.add.text(width / 2, height / 3, 'KARALUCH', {
       fontSize: '64px',
       color: '#8b0000',
       fontFamily: 'Georgia, serif',
@@ -21,8 +21,8 @@ export class MenuScene extends Phaser.Scene {
       strokeThickness: 6,
     }).setOrigin(0.5);
 
-    // Subtitle: "THE GAME"
-    this.add.text(width / 2, height / 3 + 60, 'THE GAME', {
+    // Subtitle: "GRA PRZEGRAŃCÓW"
+    this.add.text(width / 2, height / 3 + 60, 'GRA PRZEGRAŃCÓW', {
       fontSize: '32px',
       color: '#ff6600',
       fontFamily: 'Georgia, serif',
@@ -32,14 +32,14 @@ export class MenuScene extends Phaser.Scene {
 
     // High score from localStorage
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
-    this.add.text(width / 2, height / 2 + 40, `High Score: ${highScore}`, {
+    this.add.text(width / 2, height / 2 + 40, `Najlepszy Wyńczyk: ${highScore}`, {
       fontSize: '20px',
       color: '#cccccc',
       fontFamily: 'monospace',
     }).setOrigin(0.5);
 
     // Blinking "Press SPACE to Start" prompt
-    const startText = this.add.text(width / 2, height - 80, 'Press SPACE to Start', {
+    const startText = this.add.text(width / 2, height - 80, 'Walnij SPACJĘ żeby Zacząść', {
       fontSize: '24px',
       color: '#ffffff',
       fontFamily: 'monospace',

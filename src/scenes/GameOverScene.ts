@@ -14,7 +14,7 @@ export class GameOverScene extends Phaser.Scene {
 
     // "SQUISHED!" title
     this.add
-      .text(width / 2, height / 3 - 20, 'SQUISHED!', {
+      .text(width / 2, height / 3 - 20, 'ZGNIOTŁEŚ SIĘ!', {
         fontSize: '56px',
         color: '#8b0000',
         fontFamily: 'Georgia, serif',
@@ -28,7 +28,7 @@ export class GameOverScene extends Phaser.Scene {
     const finalScore = data?.score ?? 0;
 
     this.add
-      .text(width / 2, height / 2, `Score: ${finalScore}`, {
+      .text(width / 2, height / 2, `Punktówy: ${finalScore}`, {
         fontSize: '32px',
         color: '#ffffff',
         fontFamily: 'monospace',
@@ -43,7 +43,7 @@ export class GameOverScene extends Phaser.Scene {
       .text(
         width / 2,
         height / 2 + 50,
-        `High Score: ${highScore}${isNewRecord ? '  NEW!' : ''}`,
+        `Najlepszy Wyńczyk: ${highScore}${isNewRecord ? '  NÓWKA SZTUKA!' : ''}`,
         {
           fontSize: '20px',
           color: isNewRecord ? '#ffff00' : '#999999',
@@ -54,7 +54,7 @@ export class GameOverScene extends Phaser.Scene {
 
     // Blinking restart prompt
     const restartText = this.add
-      .text(width / 2, height - 60, 'Press SPACE to Restart', {
+      .text(width / 2, height - 60, 'Walnij SPACJĘ żeby Jeszcze Raz', {
         fontSize: '20px',
         color: '#ffffff',
         fontFamily: 'monospace',

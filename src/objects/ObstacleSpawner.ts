@@ -77,6 +77,42 @@ export class ObstacleSpawner {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+
+    // SPRAY MIST — a cloud of drifting poison droplets, non-collidable
+    // The nozzle is near the top of the can
+    const nozzleY = floorY - spray.height * 0.85;
+    const sprayMist = (): void => {
+      for (let i = 0; i < 4; i++) {
+        const radius = Phaser.Math.Between(2, 5);
+        const droplet = this.scene.add.circle(
+          x + Phaser.Math.Between(-3, 3),
+          nozzleY + Phaser.Math.Between(-2, 2),
+          radius,
+          0x88dd44,
+          Phaser.Math.FloatBetween(0.15, 0.35),
+        );
+        droplet.setDepth(spray.depth - 1);
+
+        const driftX = Phaser.Math.Between(-30, 30);
+        const driftY = Phaser.Math.Between(-35, -15);
+        this.scene.tweens.add({
+          targets: droplet,
+          x: droplet.x + driftX,
+          y: droplet.y + driftY,
+          alpha: 0,
+          scale: Phaser.Math.FloatBetween(1.5, 2.5),
+          duration: Phaser.Math.Between(800, 1400),
+          ease: 'Sine.easeOut',
+          onComplete: () => droplet.destroy(),
+        });
+      }
+    };
+    // Emit mist repeatedly
+    this.scene.time.addEvent({
+      delay: 300,
+      callback: sprayMist,
+      loop: true,
+    });
   }
 
   // ── 2. NEWSPAPER ──────────────────────────────────────────────────
@@ -113,6 +149,50 @@ export class ObstacleSpawner {
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
+    });
+
+    // IMPACT BURST — scale punch and debris on each slam
+    // The slam duration is 350ms, repeats every (350 + 1200 hold + 350 yoyo + 600 delay)
+    const slamCycle = 350 + 1200 + 350 + 600;
+    this.scene.time.addEvent({
+      delay: slamCycle,
+      startAt: slamCycle - 350, // first trigger after the first slam lands (350ms)
+      loop: true,
+      callback: () => {
+        // Scale punch — newspaper briefly swells on impact
+        this.scene.tweens.add({
+          targets: newspaper,
+          scaleX: 1.3,
+          scaleY: 1.3,
+          duration: 80,
+          yoyo: true,
+          ease: 'Cubic.easeOut',
+        });
+
+        // Debris particles — tiny paper bits fly out
+        for (let i = 0; i < 6; i++) {
+          const debris = this.scene.add.rectangle(
+            x + Phaser.Math.Between(-15, 15),
+            floorY - Phaser.Math.Between(2, 8),
+            Phaser.Math.Between(2, 4),
+            Phaser.Math.Between(1, 3),
+            0xddccaa,
+            0.8,
+          );
+          const flyX = Phaser.Math.Between(-40, 40);
+          const flyY = Phaser.Math.Between(-30, -10);
+          this.scene.tweens.add({
+            targets: debris,
+            x: debris.x + flyX,
+            y: debris.y + flyY,
+            alpha: 0,
+            angle: Phaser.Math.Between(-180, 180),
+            duration: Phaser.Math.Between(400, 700),
+            ease: 'Cubic.easeOut',
+            onComplete: () => debris.destroy(),
+          });
+        }
+      },
     });
   }
 
@@ -159,6 +239,31 @@ export class ObstacleSpawner {
         },
       });
     }
+
+    // TEARS — the onion is so stinky it makes ITSELF cry
+    this.scene.time.addEvent({
+      delay: 800,
+      loop: true,
+      callback: () => {
+        const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+        const tear = this.scene.add.circle(
+          x + side * Phaser.Math.Between(4, 10),
+          floorY - onion.height * 0.55,
+          Phaser.Math.Between(1, 3),
+          0x4488ff,
+          0.7,
+        );
+        this.scene.tweens.add({
+          targets: tear,
+          y: floorY - 2,
+          alpha: 0,
+          scaleY: 1.8,
+          duration: Phaser.Math.Between(600, 1000),
+          ease: 'Quad.easeIn',
+          onComplete: () => tear.destroy(),
+        });
+      },
+    });
   }
 
   // ── 4. FLIPPER / SANDAL ──────────────────────────────────────────
@@ -184,6 +289,36 @@ export class ObstacleSpawner {
       repeat: -1,
       ease: 'Sine.easeInOut',
       hold: 200,
+    });
+
+    // WHOOSH ARC — a semi-transparent trailing arc that follows the swing
+    const whooshGfx = this.scene.add.graphics();
+    whooshGfx.setDepth(flipper.depth - 1);
+    const arcRadius = flipper.height * 0.7;
+    this.scene.events.on('update', () => {
+      if (!flipper.active) {
+        whooshGfx.destroy();
+        return;
+      }
+      whooshGfx.clear();
+      // Draw a fading arc behind the current angle
+      const currentAngle = flipper.angle;
+      const arcSpan = 25; // degrees of trail
+      const startAngleDeg = currentAngle - 90 - arcSpan;
+      const endAngleDeg = currentAngle - 90;
+      const startRad = Phaser.Math.DegToRad(startAngleDeg);
+      const endRad = Phaser.Math.DegToRad(endAngleDeg);
+
+      whooshGfx.lineStyle(3, 0xffffff, 0.25);
+      whooshGfx.beginPath();
+      whooshGfx.arc(x, pivotY, arcRadius, startRad, endRad, false);
+      whooshGfx.strokePath();
+
+      // Inner thinner arc for depth
+      whooshGfx.lineStyle(1.5, 0xffffff, 0.12);
+      whooshGfx.beginPath();
+      whooshGfx.arc(x, pivotY, arcRadius * 0.7, startRad, endRad, false);
+      whooshGfx.strokePath();
     });
   }
 
@@ -213,14 +348,41 @@ export class ObstacleSpawner {
       repeatDelay: 500,
     });
 
-    // Horizontal drift — predatory angle
+    // Horizontal drift — predatory angle, WIDER and more ERRATIC
     this.scene.tweens.add({
       targets: bird,
-      x: x - 40,
-      duration: 1400,
+      x: x - 70,
+      duration: 900,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
+    });
+
+    // Secondary erratic jitter layered on top
+    this.scene.tweens.add({
+      targets: bird,
+      x: '+=' + 20,
+      duration: 250,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Stepped',
+    });
+
+    // GROUND SHADOW — dark ellipse at floor level that tracks the bird
+    const shadow = this.scene.add.ellipse(x, floorY - 2, 30, 8, 0x000000, 0.25);
+    shadow.setDepth(0);
+    this.scene.events.on('update', () => {
+      if (!bird.active) {
+        shadow.destroy();
+        return;
+      }
+      shadow.x = bird.x;
+      // Shadow scales based on bird height — closer = bigger shadow
+      const totalDrop = floorY - startY;
+      const progress = (bird.y - startY) / totalDrop;
+      const shadowScale = 0.5 + progress * 1.0;
+      shadow.setScale(shadowScale, shadowScale * 0.5);
+      shadow.setAlpha(0.1 + progress * 0.3);
     });
   }
 
@@ -239,6 +401,30 @@ export class ObstacleSpawner {
     paw.setAlpha(0.3);
     paw.setScale(1);
 
+    const spawnClawMarks = (): void => {
+      const scratchGfx = this.scene.add.graphics();
+      scratchGfx.setDepth(paw.depth - 1);
+      // Draw 3 diagonal claw scratch lines
+      for (let i = 0; i < 3; i++) {
+        const startX = x - 12 + i * 10;
+        const startY = floorY - paw.height * 0.6;
+        scratchGfx.lineStyle(2, 0xff3333, 0.8);
+        scratchGfx.beginPath();
+        scratchGfx.moveTo(startX, startY);
+        scratchGfx.lineTo(startX + 8, startY + 20);
+        scratchGfx.strokePath();
+      }
+      // Fade out and destroy
+      this.scene.tweens.add({
+        targets: scratchGfx,
+        alpha: 0,
+        duration: 600,
+        delay: 150,
+        ease: 'Sine.easeIn',
+        onComplete: () => scratchGfx.destroy(),
+      });
+    };
+
     const playStrikeSequence = (): void => {
       this.scene.tweens.chain({
         targets: paw,
@@ -246,7 +432,13 @@ export class ObstacleSpawner {
           // Warning phase — the shadow darkens
           { alpha: 0.7, duration: 800, ease: 'Sine.easeIn' },
           // STRIKE — fast, violent, fully visible
-          { scale: 1.8, alpha: 1.0, duration: 200, ease: 'Back.easeOut' },
+          {
+            scale: 1.8,
+            alpha: 1.0,
+            duration: 200,
+            ease: 'Back.easeOut',
+            onComplete: () => spawnClawMarks(),
+          },
           // Hold the strike
           { scale: 1.8, duration: 150 },
           // Retract — slink back into the shadows

@@ -107,7 +107,7 @@ export class GameScene extends Phaser.Scene {
     // Cockroach
     this.cockroach = this.physics.add.sprite(
       COCKROACH_START_X,
-      FLOOR_BOTTOM_Y - 32,
+      FLOOR_BOTTOM_Y - 48,
       'cockroach-run',
     );
     this.cockroach.setCollideWorldBounds(false);
@@ -152,7 +152,7 @@ export class GameScene extends Phaser.Scene {
 
     // Score UI
     this.scoreText = this.add
-      .text(16, 16, 'Score: 0', {
+      .text(16, 16, 'Punktówy: 0', {
         fontSize: '20px',
         color: '#ffffff',
         fontFamily: 'monospace',
@@ -162,7 +162,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.speedText = this.add
-      .text(16, 44, 'Speed: 1.0x', {
+      .text(16, 44, 'Szybkóść: 1.0x', {
         fontSize: '14px',
         color: '#ff6600',
         fontFamily: 'monospace',
@@ -279,7 +279,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Speed UI
-    this.speedText.setText(`Speed: ${speedMultiplier.toFixed(1)}x`);
+    this.speedText.setText(`Szybkóść: ${speedMultiplier.toFixed(1)}x`);
 
     // Speed milestones
     const currentMilestone = Math.floor(speedMultiplier);
@@ -378,6 +378,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateScoreText(): void {
-    this.scoreText.setText(`Score: ${this.score}`);
+    this.scoreText.setText(`Punktówy: ${this.score}`);
   }
 }
