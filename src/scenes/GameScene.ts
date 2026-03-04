@@ -142,7 +142,11 @@ export class GameScene extends Phaser.Scene {
       this.cockroach,
       this.obstacles,
       this.hitObstacle as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-      undefined,
+      (_cockroach, obstacle) => {
+        // Only collide with obstacles on the same floor
+        const obstacleFloor = (obstacle as Phaser.Physics.Arcade.Sprite).getData('floor');
+        return !obstacleFloor || obstacleFloor === this.currentFloor;
+      },
       this,
     );
 

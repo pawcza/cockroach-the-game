@@ -43,6 +43,7 @@ export class ObstacleSpawner {
     const spray = this.obstacles.create(x, floorY, 'pest-spray') as Phaser.Physics.Arcade.Sprite;
     spray.setOrigin(0.5, 1);
     spray.setImmovable(true);
+    spray.setData('floor', floor);
     (spray.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     spray.body!.setSize(spray.width * 0.6, spray.height * 0.7);
 
@@ -126,6 +127,7 @@ export class ObstacleSpawner {
     const newspaper = this.obstacles.create(x, startY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
     newspaper.setOrigin(0.5, 1);
     newspaper.setImmovable(true);
+    newspaper.setData('floor', floor);
     (newspaper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     newspaper.body!.setSize(newspaper.width * 0.7, newspaper.height * 0.6);
 
@@ -206,6 +208,7 @@ export class ObstacleSpawner {
     const onion = this.obstacles.create(x, floorY, 'onion') as Phaser.Physics.Arcade.Sprite;
     onion.setOrigin(0.5, 1);
     onion.setImmovable(true);
+    onion.setData('floor', floor);
     (onion.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     onion.body!.setSize(onion.width * 0.6, onion.height * 0.7);
 
@@ -277,6 +280,7 @@ export class ObstacleSpawner {
     const flipper = this.obstacles.create(x, pivotY, 'flipper') as Phaser.Physics.Arcade.Sprite;
     flipper.setOrigin(0.5, 1);
     flipper.setImmovable(true);
+    flipper.setData('floor', floor);
     (flipper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     flipper.body!.setSize(flipper.width * 0.6, flipper.height * 0.7);
 
@@ -333,6 +337,7 @@ export class ObstacleSpawner {
     const bird = this.obstacles.create(x, startY, 'bird') as Phaser.Physics.Arcade.Sprite;
     bird.setOrigin(0.5, 1);
     bird.setImmovable(true);
+    bird.setData('floor', floor);
     (bird.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     bird.body!.setSize(bird.width * 0.6, bird.height * 0.5);
 
@@ -396,6 +401,7 @@ export class ObstacleSpawner {
     const paw = this.obstacles.create(x, floorY, 'cat-paw') as Phaser.Physics.Arcade.Sprite;
     paw.setOrigin(0.5, 1);
     paw.setImmovable(true);
+    paw.setData('floor', floor);
     (paw.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     paw.body!.setSize(paw.width * 0.5, paw.height * 0.5);
     paw.setAlpha(0.3);
@@ -433,14 +439,14 @@ export class ObstacleSpawner {
           { alpha: 0.7, duration: 800, ease: 'Sine.easeIn' },
           // STRIKE — fast, violent, fully visible
           {
-            scale: 1.8,
+            scale: 1.3,
             alpha: 1.0,
             duration: 200,
             ease: 'Back.easeOut',
             onComplete: () => spawnClawMarks(),
           },
           // Hold the strike
-          { scale: 1.8, duration: 150 },
+          { scale: 1.3, duration: 150 },
           // Retract — slink back into the shadows
           { scale: 1, alpha: 0.3, duration: 400, ease: 'Sine.easeIn' },
           // Pause in the shadows
