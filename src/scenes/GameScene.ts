@@ -24,6 +24,7 @@ export class GameScene extends Phaser.Scene {
   // Player
   private cockroach!: Phaser.Physics.Arcade.Sprite;
   private currentFloor: Floor = 'bottom';
+  private targetFloor: Floor = 'bottom';
   private isDead = false;
 
   // Backgrounds
@@ -71,6 +72,7 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.isDead = false;
     this.currentFloor = 'bottom';
+    this.targetFloor = 'bottom';
     this.currentSpeed = COCKROACH_BASE_SPEED;
     this.lastSpawnX = COCKROACH_START_X + 400;
     this.startTime = this.time.now;
@@ -115,11 +117,33 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = this.physics.add.group();
     this.apples = this.physics.add.group();
 
-    // Obstacle spawner (Eustace's dramatic behaviors)
+    // Obstacle spawner
     this.obstacleSpawner = new ObstacleSpawner(this, this.obstacles);
 
-    // Initial collider
-    this.swapFloorCollider();
+    // Floor colliders with process callbacks — only collide with the active floor
+    // Both are always registered, process callback decides which one is active
+    this.physics.add.collider(this.cockroach, this.floorTopTile, undefined, () => {
+      return this.currentFloor === 'top';
+    }, this);
+    this.physics.add.collider(this.cockroach, this.floorBottomTile, undefined, () => {
+      return this.currentFloor === 'bottom';
+    }, this);
+
+    // Overlap detectors
+    this.physics.add.overlap(
+      this.cockroach,
+      this.apples,
+      this.collectApple as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      undefined,
+      this,
+    );
+    this.physics.add.overlap(
+      this.cockroach,
+      this.obstacles,
+      this.hitObstacle as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      undefined,
+      this,
+    );
 
     // Camera
     this.cameras.main.startFollow(this.cockroach, true, 1, 0);
@@ -151,7 +175,7 @@ export class GameScene extends Phaser.Scene {
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.ctrlKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.CTRL);
 
-    // Visual effects (Astral Dave's trippy system)
+    // Visual effects
     this.vfx = new VisualEffects(this);
     this.vfx.init();
 
@@ -176,6 +200,23 @@ export class GameScene extends Phaser.Scene {
     this.skyBg.tilePositionX = this.cameras.main.scrollX * 0.1 * breatheFactor;
     this.midBg.tilePositionX = this.cameras.main.scrollX * 0.4 * breatheFactor;
 
+    // --- Floor transition logic ---
+    // When jumping from bottom to top: cockroach needs to rise above top floor
+    // before the top floor collider activates
+    if (this.targetFloor === 'top' && this.currentFloor === 'bottom') {
+      const cockroachBottom = this.cockroach.y + this.cockroach.height / 2;
+      // Once cockroach is above the top floor, switch active floor
+      if (cockroachBottom <= FLOOR_TOP_Y) {
+        this.currentFloor = 'top';
+      }
+    }
+
+    // --- Off-screen death ---
+    if (this.cockroach.y > GAME_HEIGHT + 50 || this.cockroach.y < -100) {
+      this.die();
+      return;
+    }
+
     // Input
     const jumpPressed =
       Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
@@ -188,20 +229,24 @@ export class GameScene extends Phaser.Scene {
 
     if (jumpPressed && onGround) {
       if (this.currentFloor === 'bottom') {
+        // Jump to top floor — DON'T switch currentFloor yet!
+        // Set targetFloor, apply velocity. currentFloor switches in the
+        // transition logic above once cockroach clears the top platform.
         this.cockroach.setVelocityY(COCKROACH_JUMP_VELOCITY);
-        this.currentFloor = 'top';
-        this.swapFloorCollider();
+        this.targetFloor = 'top';
         this.audio.playJump();
       } else {
-        this.cockroach.setVelocityY(COCKROACH_JUMP_VELOCITY * 0.6);
+        // Small hop on top floor
+        this.cockroach.setVelocityY(COCKROACH_JUMP_VELOCITY * 0.5);
         this.audio.playJump();
       }
     }
 
     if (dropPressed && this.currentFloor === 'top') {
+      // Drop to bottom floor — switch immediately so we fall through top floor
       this.currentFloor = 'bottom';
-      this.swapFloorCollider();
-      this.cockroach.setVelocityY(200);
+      this.targetFloor = 'bottom';
+      this.cockroach.setVelocityY(300);
       this.audio.playFloorSwitch();
     }
 
@@ -244,31 +289,6 @@ export class GameScene extends Phaser.Scene {
     this.audio.updatePitch(speedMultiplier);
   }
 
-  private swapFloorCollider(): void {
-    this.physics.world.colliders.destroy();
-
-    if (this.currentFloor === 'top') {
-      this.physics.add.collider(this.cockroach, this.floorTopTile);
-    } else {
-      this.physics.add.collider(this.cockroach, this.floorBottomTile);
-    }
-
-    this.physics.add.overlap(
-      this.cockroach,
-      this.apples,
-      this.collectApple as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-      undefined,
-      this,
-    );
-    this.physics.add.overlap(
-      this.cockroach,
-      this.obstacles,
-      this.hitObstacle as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
-      undefined,
-      this,
-    );
-  }
-
   private handleSpawning(): void {
     const cameraRight = this.cameras.main.scrollX + GAME_WIDTH;
     const spawnX = cameraRight + SPAWN_DISTANCE_AHEAD;
@@ -276,7 +296,7 @@ export class GameScene extends Phaser.Scene {
     if (spawnX - this.lastSpawnX < MIN_OBSTACLE_SPACING) return;
     this.lastSpawnX = spawnX;
 
-    // Use Eustace's dramatic obstacle spawner
+    // Obstacle
     this.obstacleSpawner.spawn(spawnX);
 
     // Apple (maybe)
@@ -318,6 +338,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private hitObstacle(): void {
+    this.die();
+  }
+
+  private die(): void {
     if (this.isDead) return;
     this.isDead = true;
 
@@ -325,7 +349,6 @@ export class GameScene extends Phaser.Scene {
     this.cockroach.setTexture('cockroach-dead');
     this.cockroach.setFlipY(true);
 
-    // Visual + audio death effects
     this.vfx.deathEffect();
     this.audio.playDeath();
 
