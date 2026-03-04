@@ -68,11 +68,11 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Scale pulse — it swells, it recedes
+    // Gentle scale pulse — subtle breathing, not threatening
     this.scene.tweens.add({
       targets: spray,
-      scaleX: 1.3,
-      scaleY: 1.3,
+      scaleX: 1.08,
+      scaleY: 1.08,
       duration: 800,
       yoyo: true,
       repeat: -1,
@@ -122,7 +122,7 @@ export class ObstacleSpawner {
   private spawnNewspaper(x: number): void {
     const floor = this.randomFloor();
     const floorY = this.getFloorY(floor);
-    const startY = floorY - 120;
+    const startY = floorY - 80;
 
     const newspaper = this.obstacles.create(x, startY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
     newspaper.setOrigin(0.5, 1);
@@ -131,34 +131,27 @@ export class ObstacleSpawner {
     (newspaper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     newspaper.body!.setSize(newspaper.width * 0.7, newspaper.height * 0.6);
 
-    // THE SLAM
+    // THE SLAM — predictable rhythm: down 400ms, hold 800ms, up 400ms, wait 800ms
     this.scene.tweens.add({
       targets: newspaper,
       y: floorY,
-      duration: 350,
-      ease: 'Bounce.easeOut',
-      hold: 1200,
+      duration: 400,
+      ease: 'Cubic.easeIn',
+      hold: 800,
       yoyo: true,
       repeat: -1,
-      repeatDelay: 600,
+      repeatDelay: 800,
     });
 
-    // Rotation on impact
-    this.scene.tweens.add({
-      targets: newspaper,
-      angle: { from: -5, to: 5 },
-      duration: 350,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    // Slight tilt — stays tilted, no rotation animation
+    newspaper.setAngle(-8);
 
     // IMPACT BURST — scale punch and debris on each slam
-    // The slam duration is 350ms, repeats every (350 + 1200 hold + 350 yoyo + 600 delay)
-    const slamCycle = 350 + 1200 + 350 + 600;
+    // The slam duration is 400ms, repeats every (400 + 800 hold + 400 yoyo + 800 delay)
+    const slamCycle = 400 + 800 + 400 + 800;
     this.scene.time.addEvent({
       delay: slamCycle,
-      startAt: slamCycle - 350, // first trigger after the first slam lands (350ms)
+      startAt: slamCycle - 400, // first trigger after the first slam lands (400ms)
       loop: true,
       callback: () => {
         // Scale punch — newspaper briefly swells on impact
@@ -284,15 +277,14 @@ export class ObstacleSpawner {
     (flipper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     flipper.body!.setSize(flipper.width * 0.6, flipper.height * 0.7);
 
-    // THE SWING — Sine easing accelerates through the middle
+    // THE SWING — predictable pendulum, narrower arc
     this.scene.tweens.add({
       targets: flipper,
-      angle: { from: -60, to: 60 },
-      duration: 800,
+      angle: { from: -40, to: 40 },
+      duration: 1000,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
-      hold: 200,
     });
 
     // WHOOSH ARC — a semi-transparent trailing arc that follows the swing
@@ -330,51 +322,40 @@ export class ObstacleSpawner {
   // Predatory. Sudden.
 
   private spawnBird(x: number): void {
-    const floor = this.randomFloor();
-    const floorY = this.getFloorY(floor);
-    const startY = 50;
+    // Bird swoops between the two floors — stays in the playable area
+    const topY = FLOOR_TOP_Y - 40; // just above top floor
+    const bottomY = FLOOR_BOTTOM_Y - 10; // just above bottom floor
 
-    const bird = this.obstacles.create(x, startY, 'bird') as Phaser.Physics.Arcade.Sprite;
+    const bird = this.obstacles.create(x, topY, 'bird') as Phaser.Physics.Arcade.Sprite;
     bird.setOrigin(0.5, 1);
     bird.setImmovable(true);
-    bird.setData('floor', floor);
+    // Bird can hit on either floor since it travels between them
+    bird.setData('floor', null);
     (bird.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     bird.body!.setSize(bird.width * 0.6, bird.height * 0.5);
 
-    // THE SWOOP
+    // PREDICTABLE SWOOP — smooth sine wave between top and bottom floors
     this.scene.tweens.add({
       targets: bird,
-      y: floorY,
-      duration: 700,
-      ease: 'Sine.easeOut',
+      y: bottomY,
+      duration: 1200,
+      ease: 'Sine.easeInOut',
       yoyo: true,
       repeat: -1,
-      hold: 300,
-      repeatDelay: 500,
     });
 
-    // Horizontal drift — predatory angle, WIDER and more ERRATIC
+    // Gentle horizontal drift — predictable, no jitter
     this.scene.tweens.add({
       targets: bird,
-      x: x - 70,
-      duration: 900,
+      x: x - 40,
+      duration: 1800,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
-    // Secondary erratic jitter layered on top
-    this.scene.tweens.add({
-      targets: bird,
-      x: '+=' + 20,
-      duration: 250,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Stepped',
-    });
-
-    // GROUND SHADOW — dark ellipse at floor level that tracks the bird
-    const shadow = this.scene.add.ellipse(x, floorY - 2, 30, 8, 0x000000, 0.25);
+    // GROUND SHADOW — tracks bird on bottom floor
+    const shadow = this.scene.add.ellipse(x, FLOOR_BOTTOM_Y - 2, 30, 8, 0x000000, 0.25);
     shadow.setDepth(0);
     this.scene.events.on('update', () => {
       if (!bird.active) {
@@ -382,9 +363,9 @@ export class ObstacleSpawner {
         return;
       }
       shadow.x = bird.x;
-      // Shadow scales based on bird height — closer = bigger shadow
-      const totalDrop = floorY - startY;
-      const progress = (bird.y - startY) / totalDrop;
+      // Shadow scales based on bird height — closer to bottom = bigger shadow
+      const totalDrop = bottomY - topY;
+      const progress = (bird.y - topY) / totalDrop;
       const shadowScale = 0.5 + progress * 1.0;
       shadow.setScale(shadowScale, shadowScale * 0.5);
       shadow.setAlpha(0.1 + progress * 0.3);
