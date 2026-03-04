@@ -90,8 +90,9 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setScrollFactor(0);
 
-    // Floor platforms
-    const FLOOR_WIDTH = 50000;
+    // Floor platforms — use screen-width tiles that follow the camera
+    // (avoids 50000px WebGL texture errors)
+    const FLOOR_WIDTH = GAME_WIDTH + 200; // slight overscan
 
     this.floorTopTile = this.add
       .tileSprite(0, FLOOR_TOP_Y, FLOOR_WIDTH, FLOOR_HEIGHT, 'floor-top')
@@ -199,6 +200,17 @@ export class GameScene extends Phaser.Scene {
     const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
     this.skyBg.tilePositionX = this.cameras.main.scrollX * 0.1 * breatheFactor;
     this.midBg.tilePositionX = this.cameras.main.scrollX * 0.4 * breatheFactor;
+
+    // Move floor tiles to follow camera (they're screen-width, not world-width)
+    const floorX = this.cameras.main.scrollX - 100;
+    this.floorTopTile.x = floorX;
+    this.floorTopTile.tilePositionX = this.cameras.main.scrollX;
+    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
+    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+    this.floorBottomTile.x = floorX;
+    this.floorBottomTile.tilePositionX = this.cameras.main.scrollX;
+    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
+    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
 
     // --- Floor transition logic ---
     // When jumping from bottom to top: cockroach needs to rise above top floor
