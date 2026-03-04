@@ -68,6 +68,9 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('apple', 'audio/apple.wav');
     this.load.audio('death', 'audio/death.wav');
     this.load.audio('floor-switch', 'audio/floor-switch.wav');
+    this.load.audio('dash', 'audio/dash.wav');
+    this.load.audio('menu-bgm', 'audio/menu-bgm.wav');
+    this.load.audio('gameover-bgm', 'audio/gameover-bgm.wav');
   }
 
   create(): void {

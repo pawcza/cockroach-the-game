@@ -233,6 +233,115 @@ function generateFloorSwitch() {
 }
 
 // ==========================================
+// Menu BGM — dreamy eerie ambient loop (8s)
+// ==========================================
+function generateMenuBGM() {
+  const duration = 8.0;
+  const numSamples = Math.floor(SAMPLE_RATE * duration);
+  const samples = new Array(numSamples);
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / SAMPLE_RATE;
+
+    // Low frequency drone (70 Hz + slight detune)
+    const drone1 = Math.sin(2 * Math.PI * 70 * t) * 0.15;
+    const drone2 = Math.sin(2 * Math.PI * 70.3 * t) * 0.1;
+
+    // Higher ethereal tone with slow modulation (350 Hz warbled)
+    const modFreq = 350 + 15 * Math.sin(2 * Math.PI * 0.3 * t);
+    const ethereal = Math.sin(2 * Math.PI * modFreq * t) * 0.06 *
+                     (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.5 * t));
+
+    // Very high shimmer (700 Hz, barely audible, wobbling)
+    const shimmer = Math.sin(2 * Math.PI * (700 + 20 * Math.sin(2 * Math.PI * 0.7 * t)) * t) * 0.03;
+
+    // Sub-bass pulse
+    const subPulse = Math.sin(2 * Math.PI * 35 * t) * 0.08 *
+                     (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.25 * t));
+
+    samples[i] = drone1 + drone2 + ethereal + shimmer + subPulse;
+  }
+
+  // Crossfade for seamless loop (0.5s)
+  const crossfadeSamples = Math.floor(SAMPLE_RATE * 0.5);
+  for (let i = 0; i < crossfadeSamples; i++) {
+    const fade = i / crossfadeSamples;
+    const endIdx = numSamples - crossfadeSamples + i;
+    samples[endIdx] = samples[endIdx] * (1 - fade) + samples[i] * fade;
+  }
+
+  return createWav(samples);
+}
+
+// ==========================================
+// Game Over BGM — sad descending ambient (6s)
+// ==========================================
+function generateGameOverBGM() {
+  const duration = 6.0;
+  const numSamples = Math.floor(SAMPLE_RATE * duration);
+  const samples = new Array(numSamples);
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / SAMPLE_RATE;
+    const progress = t / duration;
+
+    // Low ominous drone (60 Hz)
+    const drone = Math.sin(2 * Math.PI * 60 * t) * 0.18;
+    const drone2 = Math.sin(2 * Math.PI * 60.4 * t) * 0.12;
+
+    // Descending tone from 400Hz to 200Hz
+    const descFreq = 400 - progress * 200;
+    const descending = Math.sin(2 * Math.PI * descFreq * t) * 0.08;
+
+    // Descending minor third harmony
+    const harmFreq = descFreq * 1.2 - progress * 50;
+    const harmony = Math.sin(2 * Math.PI * harmFreq * t) * 0.04;
+
+    // Slow tremolo on everything
+    const tremolo = 0.7 + 0.3 * Math.sin(2 * Math.PI * 1.5 * t);
+
+    samples[i] = (drone + drone2 + descending + harmony) * tremolo;
+  }
+
+  // Crossfade for seamless loop (0.3s)
+  const crossfadeSamples = Math.floor(SAMPLE_RATE * 0.3);
+  for (let i = 0; i < crossfadeSamples; i++) {
+    const fade = i / crossfadeSamples;
+    const endIdx = numSamples - crossfadeSamples + i;
+    samples[endIdx] = samples[endIdx] * (1 - fade) + samples[i] * fade;
+  }
+
+  return createWav(samples);
+}
+
+// ==========================================
+// Dash — quick whoosh (white noise burst with rapid pitch sweep, 0.2s)
+// ==========================================
+function generateDash() {
+  const duration = 0.2;
+  const numSamples = Math.floor(SAMPLE_RATE * duration);
+  const samples = new Array(numSamples);
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / SAMPLE_RATE;
+    const progress = t / duration;
+
+    // White noise burst that fades out
+    const noise = (Math.random() * 2 - 1) * 0.6 * (1 - progress);
+
+    // Rapid descending pitch sweep (high to low) for whoosh feel
+    const freq = 2000 - progress * 1800;
+    const sweep = Math.sin(2 * Math.PI * freq * t) * 0.3 * (1 - progress);
+
+    // Combine noise and sweep
+    samples[i] = noise * 0.5 + sweep * 0.5;
+  }
+
+  applyEnvelope(samples, 0.005, 0.05);
+  return createWav(samples);
+}
+
+// ==========================================
 // Write all files
 // ==========================================
 
@@ -242,6 +351,9 @@ const files = [
   { name: 'apple.wav', generator: generateApple },
   { name: 'death.wav', generator: generateDeath },
   { name: 'floor-switch.wav', generator: generateFloorSwitch },
+  { name: 'dash.wav', generator: generateDash },
+  { name: 'menu-bgm.wav', generator: generateMenuBGM },
+  { name: 'gameover-bgm.wav', generator: generateGameOverBGM },
 ];
 
 for (const { name, generator } of files) {

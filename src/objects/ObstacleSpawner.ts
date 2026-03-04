@@ -45,7 +45,7 @@ export class ObstacleSpawner {
     spray.setImmovable(true);
     spray.setData('floor', floor);
     (spray.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    spray.body!.setSize(spray.width * 0.6, spray.height * 0.7);
+    spray.body!.setSize(spray.width * 0.4, spray.height * 0.5);
 
     // Can vibration — a nervous, industrial rattle
     this.scene.tweens.add({
@@ -129,7 +129,7 @@ export class ObstacleSpawner {
     newspaper.setImmovable(true);
     newspaper.setData('floor', floor);
     (newspaper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    newspaper.body!.setSize(newspaper.width * 0.7, newspaper.height * 0.6);
+    newspaper.body!.setSize(newspaper.width * 0.5, newspaper.height * 0.4);
 
     // THE SLAM — predictable rhythm: down 400ms, hold 800ms, up 400ms, wait 800ms
     this.scene.tweens.add({
@@ -203,7 +203,7 @@ export class ObstacleSpawner {
     onion.setImmovable(true);
     onion.setData('floor', floor);
     (onion.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    onion.body!.setSize(onion.width * 0.6, onion.height * 0.7);
+    onion.body!.setSize(onion.width * 0.4, onion.height * 0.5);
 
     // The wobble
     this.scene.tweens.add({
@@ -275,7 +275,7 @@ export class ObstacleSpawner {
     flipper.setImmovable(true);
     flipper.setData('floor', floor);
     (flipper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    flipper.body!.setSize(flipper.width * 0.6, flipper.height * 0.7);
+    flipper.body!.setSize(flipper.width * 0.4, flipper.height * 0.5);
 
     // THE SWING — predictable pendulum, narrower arc
     this.scene.tweens.add({
@@ -332,7 +332,7 @@ export class ObstacleSpawner {
     // Bird can hit on either floor since it travels between them
     bird.setData('floor', null);
     (bird.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    bird.body!.setSize(bird.width * 0.6, bird.height * 0.5);
+    bird.body!.setSize(bird.width * 0.4, bird.height * 0.35);
 
     // PREDICTABLE SWOOP — smooth sine wave between top and bottom floors
     this.scene.tweens.add({
@@ -344,16 +344,6 @@ export class ObstacleSpawner {
       repeat: -1,
     });
 
-    // Gentle horizontal drift — predictable, no jitter
-    this.scene.tweens.add({
-      targets: bird,
-      x: x - 40,
-      duration: 1800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
     // GROUND SHADOW — tracks bird on bottom floor
     const shadow = this.scene.add.ellipse(x, FLOOR_BOTTOM_Y - 2, 30, 8, 0x000000, 0.25);
     shadow.setDepth(0);
@@ -362,7 +352,6 @@ export class ObstacleSpawner {
         shadow.destroy();
         return;
       }
-      shadow.x = bird.x;
       // Shadow scales based on bird height — closer to bottom = bigger shadow
       const totalDrop = bottomY - topY;
       const progress = (bird.y - topY) / totalDrop;
@@ -384,7 +373,7 @@ export class ObstacleSpawner {
     paw.setImmovable(true);
     paw.setData('floor', floor);
     (paw.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    paw.body!.setSize(paw.width * 0.5, paw.height * 0.5);
+    paw.body!.setSize(paw.width * 0.35, paw.height * 0.35);
     paw.setAlpha(0.3);
     paw.setScale(1);
 

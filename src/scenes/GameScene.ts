@@ -13,6 +13,9 @@ import {
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
   APPLE_SPAWN_CHANCE,
+  DASH_DURATION,
+  DASH_COOLDOWN,
+  DASH_SPEED_MULTIPLIER,
 } from '../config/constants';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { VisualEffects } from '../effects/VisualEffects';
@@ -64,6 +67,14 @@ export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private ctrlKey!: Phaser.Input.Keyboard.Key;
+  private shiftKey!: Phaser.Input.Keyboard.Key;
+  private rightKey!: Phaser.Input.Keyboard.Key;
+
+  // Dash
+  private isDashing = false;
+  private dashCooldown = 0;
+  private dashReady = true;
+  private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -80,6 +91,10 @@ export class GameScene extends Phaser.Scene {
     this.startTime = this.time.now;
     this.lastScoreTime = this.time.now;
     this.lastMilestone = 1;
+    this.isDashing = false;
+    this.dashCooldown = 0;
+    this.dashReady = true;
+    this.dashTrailTimer = null;
 
     // Parallax backgrounds
     this.skyBg = this.add
@@ -145,7 +160,8 @@ export class GameScene extends Phaser.Scene {
       this.obstacles,
       this.hitObstacle as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
       (_cockroach, obstacle) => {
-        // Only collide with obstacles on the same floor
+        // Invulnerable during dash; only collide with obstacles on the same floor
+        if (this.isDashing) return false;
         const obstacleFloor = (obstacle as Phaser.Physics.Arcade.Sprite).getData('floor');
         return !obstacleFloor || obstacleFloor === this.currentFloor;
       },
@@ -181,6 +197,8 @@ export class GameScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.ctrlKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.CTRL);
+    this.shiftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    this.rightKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
 
     // Visual effects
     this.vfx = new VisualEffects(this);
@@ -199,8 +217,9 @@ export class GameScene extends Phaser.Scene {
     this.currentSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION;
     this.speedMultiplier = this.currentSpeed / COCKROACH_BASE_SPEED;
 
-    // Auto-run
-    this.cockroach.setVelocityX(this.currentSpeed);
+    // Auto-run (dash multiplier applied if active)
+    const dashMultiplier = this.isDashing ? DASH_SPEED_MULTIPLIER : 1;
+    this.cockroach.setVelocityX(this.currentSpeed * dashMultiplier);
 
     // Parallax scrolling (with breathe factor from VFX)
     const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
@@ -254,6 +273,15 @@ export class GameScene extends Phaser.Scene {
       this.audio.playFloorSwitch();
     }
 
+    // Dash
+    const dashPressed =
+      Phaser.Input.Keyboard.JustDown(this.shiftKey) ||
+      Phaser.Input.Keyboard.JustDown(this.rightKey);
+
+    if (dashPressed && this.dashReady && !this.isDashing) {
+      this.startDash();
+    }
+
     // Animation state
     const onGround = this.cockroach.body!.touching.down || this.cockroach.body!.blocked.down;
     if (!onGround) {
@@ -292,6 +320,88 @@ export class GameScene extends Phaser.Scene {
 
     // Audio pitch update
     this.audio.updatePitch(this.speedMultiplier);
+  }
+
+  private startDash(): void {
+    this.isDashing = true;
+    this.dashReady = false;
+
+    // Visual: semi-transparent + yellow tint
+    this.cockroach.setAlpha(0.5);
+    this.cockroach.setTint(0xffffaa);
+
+    // Audio
+    this.audio.playDash();
+
+    // Afterimage trail: spawn a fading copy every 50ms
+    this.dashTrailTimer = this.time.addEvent({
+      delay: 50,
+      repeat: Math.floor(DASH_DURATION / 50) - 1,
+      callback: () => {
+        this.spawnAfterimage();
+      },
+    });
+
+    // End dash after DASH_DURATION
+    this.time.delayedCall(DASH_DURATION, () => {
+      this.endDash();
+    });
+
+    // Cooldown: re-enable dash after DASH_COOLDOWN
+    this.time.delayedCall(DASH_COOLDOWN, () => {
+      this.dashReady = true;
+      this.playDashReadyEffect();
+    });
+  }
+
+  private endDash(): void {
+    this.isDashing = false;
+    this.cockroach.setAlpha(1);
+    this.cockroach.clearTint();
+
+    if (this.dashTrailTimer) {
+      this.dashTrailTimer.destroy();
+      this.dashTrailTimer = null;
+    }
+  }
+
+  private spawnAfterimage(): void {
+    // Create a static copy of the cockroach at its current position
+    const afterimage = this.add.sprite(
+      this.cockroach.x,
+      this.cockroach.y,
+      this.cockroach.texture.key,
+      this.cockroach.frame.name,
+    );
+    afterimage.setAlpha(0.4);
+    afterimage.setTint(0xffff00);
+    afterimage.setFlipY(this.cockroach.flipY);
+
+    // Fade out and destroy
+    this.tweens.add({
+      targets: afterimage,
+      alpha: 0,
+      duration: 200,
+      onComplete: () => {
+        afterimage.destroy();
+      },
+    });
+  }
+
+  private playDashReadyEffect(): void {
+    // Quick white flash to indicate dash is ready
+    if (this.isDead) return;
+    this.cockroach.setTint(0xffffff);
+    this.tweens.add({
+      targets: this.cockroach,
+      alpha: { from: 1, to: 0.6 },
+      duration: 100,
+      yoyo: true,
+      onComplete: () => {
+        this.cockroach.clearTint();
+        this.cockroach.setAlpha(1);
+      },
+    });
   }
 
   private handleSpawning(): void {

@@ -19,6 +19,11 @@ export const MIN_OBSTACLE_SPACING = 250;
 export const APPLE_SPAWN_CHANCE = 0.4;
 export const OBSTACLE_SPAWN_INTERVAL = 300;
 
+// Dash
+export const DASH_DURATION = 300;
+export const DASH_COOLDOWN = 2000;
+export const DASH_SPEED_MULTIPLIER = 2;
+
 // Scoring
 export const APPLE_SCORE = 10;
 export const SURVIVAL_SCORE_INTERVAL = 1000;

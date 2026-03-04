@@ -41,6 +41,10 @@ export class AudioManager {
     this.scene.sound.play('floor-switch', { volume: 0.4 });
   }
 
+  playDash(): void {
+    this.scene.sound.play('dash', { volume: 0.6 });
+  }
+
   updatePitch(speedMultiplier: number): void {
     if (!this.bgm) return;
     const rate = Phaser.Math.Clamp(1 + (speedMultiplier - 1) * 0.3, 0.5, 3.0);
