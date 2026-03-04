@@ -145,7 +145,8 @@ function generateBGM() {
 }
 
 // ==========================================
-// Jump — quick ascending tone (0.2s)
+// Jump — cartoony boing/spring (0.2s)
+// Ascending sweep 200→600Hz with vibrato wobble + second harmonic
 // ==========================================
 function generateJump() {
   const duration = 0.2;
@@ -154,81 +155,195 @@ function generateJump() {
 
   for (let i = 0; i < numSamples; i++) {
     const t = i / SAMPLE_RATE;
-    // Ascending frequency from 200 to 800 Hz
-    const freq = 200 + (t / duration) * 600;
-    samples[i] = Math.sin(2 * Math.PI * freq * t) * 0.5;
+    const progress = t / duration;
+    // Ascending frequency from 200 to 600 Hz over 150ms
+    const sweepT = Math.min(t / 0.15, 1.0);
+    const baseFreq = 200 + sweepT * 400;
+    // Vibrato wobble — 30Hz modulation, +/- 20Hz
+    const vibrato = 20 * Math.sin(2 * Math.PI * 30 * t);
+    const freq = baseFreq + vibrato;
+    // Fundamental
+    const fundamental = Math.sin(2 * Math.PI * freq * t) * 0.45;
+    // Second harmonic for richness
+    const harmonic = Math.sin(2 * Math.PI * freq * 2 * t) * 0.15;
+    // Quick amplitude envelope — punchy attack, smooth decay
+    const amp = Math.exp(-progress * 3) * (1 - Math.exp(-t * 200));
+    samples[i] = (fundamental + harmonic) * amp;
   }
 
-  applyEnvelope(samples, 0.005, 0.05);
+  applyEnvelope(samples, 0.002, 0.03);
   return createWav(samples);
 }
 
 // ==========================================
-// Apple — sparkle chime, two quick high notes (0.4s)
+// Apple — BITE CRUNCH sound (0.25s)
+// Layered noise bursts simulating teeth crunching through apple
 // ==========================================
 function generateApple() {
-  // First note: E6 (1318 Hz) for 0.15s
-  const note1 = sineWave(1318, 0.15, 0.4);
-  // Add harmonics for sparkle
-  const harm1 = sineWave(2636, 0.15, 0.15);
-
-  // Brief gap
-  const gap = new Array(Math.floor(SAMPLE_RATE * 0.05)).fill(0);
-
-  // Second note: G6 (1568 Hz) for 0.2s
-  const note2 = sineWave(1568, 0.2, 0.4);
-  const harm2 = sineWave(3136, 0.2, 0.15);
-
-  const first = mix(note1, harm1);
-  const second = mix(note2, harm2);
-
-  applyEnvelope(first, 0.005, 0.03);
-  applyEnvelope(second, 0.005, 0.06);
-
-  const result = concat(first, gap, second);
-  return createWav(result);
-}
-
-// ==========================================
-// Death — descending dramatic tone (0.8s)
-// ==========================================
-function generateDeath() {
-  const duration = 0.8;
+  const duration = 0.25;
   const numSamples = Math.floor(SAMPLE_RATE * duration);
-  const samples = new Array(numSamples);
+  const samples = new Array(numSamples).fill(0);
 
-  for (let i = 0; i < numSamples; i++) {
-    const t = i / SAMPLE_RATE;
-    // Descending from 400 to 60 Hz
-    const freq = 400 - (t / duration) * 340;
-    // Add some grit with a square-ish wave
-    const sine = Math.sin(2 * Math.PI * freq * t);
-    const square = Math.sign(Math.sin(2 * Math.PI * freq * 0.5 * t));
-    samples[i] = (sine * 0.4 + square * 0.15);
+  // Helper: band-passed noise burst
+  function noiseBurst(startTime, burstDuration, lowFreq, highFreq, volume) {
+    const startSample = Math.floor(startTime * SAMPLE_RATE);
+    const burstSamples = Math.floor(burstDuration * SAMPLE_RATE);
+    // Simple band-pass via mixing filtered noise
+    let prev = 0;
+    let prev2 = 0;
+    const cutoffHigh = highFreq / SAMPLE_RATE;
+    const cutoffLow = lowFreq / SAMPLE_RATE;
+    for (let i = 0; i < burstSamples; i++) {
+      const idx = startSample + i;
+      if (idx >= numSamples) break;
+      const t = i / SAMPLE_RATE;
+      // Raw noise
+      let noise = Math.random() * 2 - 1;
+      // Simple high-pass (remove low frequencies)
+      const alphaHP = 1 - cutoffLow * 2 * Math.PI * 0.01;
+      noise = alphaHP * (prev + noise - prev2);
+      prev2 = prev + noise - prev2;
+      prev = noise;
+      // Low-pass to cut harsh highs
+      const alphaLP = cutoffHigh * 2 * Math.PI * 0.02;
+      noise = noise * Math.min(alphaLP, 1);
+      // Sharp attack, quick decay envelope
+      const env = Math.exp(-t * 40) * (1 - Math.exp(-t * 2000));
+      samples[idx] += noise * volume * env;
+    }
   }
 
-  applyEnvelope(samples, 0.01, 0.2);
+  // Crunch layer 1: Sharp initial bite — high frequency crack (0-30ms)
+  noiseBurst(0.0, 0.035, 2000, 8000, 0.8);
+
+  // Crunch layer 2: Mid crunch — apple flesh breaking (15-65ms)
+  noiseBurst(0.015, 0.055, 800, 4000, 0.65);
+
+  // Crunch layer 3: Low crunch body — satisfying depth (10-70ms)
+  noiseBurst(0.010, 0.065, 300, 2000, 0.5);
+
+  // Tiny pop/click at the very start (teeth impact)
+  const clickSamples = Math.floor(0.003 * SAMPLE_RATE);
+  for (let i = 0; i < clickSamples && i < numSamples; i++) {
+    const t = i / SAMPLE_RATE;
+    samples[i] += Math.sin(2 * Math.PI * 1500 * t) * 0.4 * Math.exp(-t * 1500);
+  }
+
+  // Brief satisfying "pop" resonance after crunch (80-120ms)
+  const popStart = Math.floor(0.08 * SAMPLE_RATE);
+  const popDuration = Math.floor(0.04 * SAMPLE_RATE);
+  for (let i = 0; i < popDuration; i++) {
+    const idx = popStart + i;
+    if (idx >= numSamples) break;
+    const t = i / SAMPLE_RATE;
+    samples[idx] += Math.sin(2 * Math.PI * 600 * t) * 0.2 * Math.exp(-t * 80);
+  }
+
+  // Normalize
+  let maxVal = 0;
+  for (let i = 0; i < numSamples; i++) {
+    maxVal = Math.max(maxVal, Math.abs(samples[i]));
+  }
+  if (maxVal > 0) {
+    const scale = 0.85 / maxVal;
+    for (let i = 0; i < numSamples; i++) {
+      samples[i] *= scale;
+    }
+  }
+
+  applyEnvelope(samples, 0.001, 0.04);
   return createWav(samples);
 }
 
 // ==========================================
-// Floor switch — short thud/click (0.15s)
+// Death — dramatic splat/crunch (0.5s)
+// Noise burst + descending tone + bass thump
 // ==========================================
-function generateFloorSwitch() {
-  const duration = 0.15;
+function generateDeath() {
+  const duration = 0.5;
   const numSamples = Math.floor(SAMPLE_RATE * duration);
-  const samples = new Array(numSamples);
+  const samples = new Array(numSamples).fill(0);
 
   for (let i = 0; i < numSamples; i++) {
     const t = i / SAMPLE_RATE;
-    // Low thud — quick frequency drop with noise
-    const freq = 150 - (t / duration) * 120;
-    const tone = Math.sin(2 * Math.PI * freq * t) * 0.5;
-    const noise = (Math.random() * 2 - 1) * 0.1 * Math.exp(-t * 30);
-    samples[i] = tone + noise;
+    const progress = t / duration;
+
+    // Bass thump at the start (60Hz, fast decay)
+    const thump = Math.sin(2 * Math.PI * 60 * t) * 0.6 * Math.exp(-t * 15);
+
+    // Noise burst — initial splat/crunch (first 50ms)
+    let noiseBurst = 0;
+    if (t < 0.06) {
+      noiseBurst = (Math.random() * 2 - 1) * 0.7 * Math.exp(-t * 30);
+    }
+
+    // Descending tone from 800Hz to 100Hz over 400ms with grit
+    const descFreq = 800 - Math.min(progress / 0.8, 1) * 700;
+    const descTone = Math.sin(2 * Math.PI * descFreq * t) * 0.35 * Math.exp(-t * 4);
+    // Add gritty harmonics
+    const grit = Math.sin(2 * Math.PI * descFreq * 3 * t) * 0.1 * Math.exp(-t * 6);
+
+    // Crackle/crunch noise layer (decaying over 200ms)
+    let crackle = 0;
+    if (t < 0.2) {
+      crackle = (Math.random() * 2 - 1) * 0.25 * Math.exp(-t * 15);
+    }
+
+    samples[i] = thump + noiseBurst + descTone + grit + crackle;
   }
 
-  applyEnvelope(samples, 0.002, 0.05);
+  // Normalize
+  let maxVal = 0;
+  for (let i = 0; i < numSamples; i++) {
+    maxVal = Math.max(maxVal, Math.abs(samples[i]));
+  }
+  if (maxVal > 0) {
+    const scale = 0.9 / maxVal;
+    for (let i = 0; i < numSamples; i++) {
+      samples[i] *= scale;
+    }
+  }
+
+  applyEnvelope(samples, 0.002, 0.1);
+  return createWav(samples);
+}
+
+// ==========================================
+// Floor switch — quick swoosh/whoosh (0.12s)
+// Filtered noise sweep from high to low frequency
+// ==========================================
+function generateFloorSwitch() {
+  const duration = 0.12;
+  const numSamples = Math.floor(SAMPLE_RATE * duration);
+  const samples = new Array(numSamples);
+
+  // Simple one-pole low-pass filter state
+  let filteredNoise = 0;
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / SAMPLE_RATE;
+    const progress = t / duration;
+
+    // Sweep cutoff from high to low
+    const cutoff = 6000 - progress * 5500;
+    const rc = 1.0 / (2 * Math.PI * cutoff);
+    const dt = 1.0 / SAMPLE_RATE;
+    const alpha = dt / (rc + dt);
+
+    // Generate noise and filter it
+    const noise = (Math.random() * 2 - 1);
+    filteredNoise += alpha * (noise - filteredNoise);
+
+    // Add a subtle sine undertone for body
+    const swooshTone = Math.sin(2 * Math.PI * (400 - progress * 300) * t) * 0.15;
+
+    // Envelope: quick attack, smooth decay
+    const env = Math.exp(-progress * 4) * (1 - Math.exp(-t * 1000));
+
+    samples[i] = (filteredNoise * 0.7 + swooshTone) * env;
+  }
+
+  applyEnvelope(samples, 0.001, 0.02);
   return createWav(samples);
 }
 
@@ -315,29 +430,45 @@ function generateGameOverBGM() {
 }
 
 // ==========================================
-// Dash — quick whoosh (white noise burst with rapid pitch sweep, 0.2s)
+// Dash — speed boost whoosh (0.25s)
+// Ascending noise sweep with sine undertone, dramatic
 // ==========================================
 function generateDash() {
-  const duration = 0.2;
+  const duration = 0.25;
   const numSamples = Math.floor(SAMPLE_RATE * duration);
   const samples = new Array(numSamples);
+
+  // Low-pass filter state
+  let filteredNoise = 0;
 
   for (let i = 0; i < numSamples; i++) {
     const t = i / SAMPLE_RATE;
     const progress = t / duration;
 
-    // White noise burst that fades out
-    const noise = (Math.random() * 2 - 1) * 0.6 * (1 - progress);
+    // Ascending cutoff sweep (low to high) — speed boost feel
+    const cutoff = 500 + progress * 5500;
+    const rc = 1.0 / (2 * Math.PI * cutoff);
+    const dt = 1.0 / SAMPLE_RATE;
+    const alpha = dt / (rc + dt);
 
-    // Rapid descending pitch sweep (high to low) for whoosh feel
-    const freq = 2000 - progress * 1800;
-    const sweep = Math.sin(2 * Math.PI * freq * t) * 0.3 * (1 - progress);
+    // Filtered noise
+    const noise = (Math.random() * 2 - 1);
+    filteredNoise += alpha * (noise - filteredNoise);
 
-    // Combine noise and sweep
-    samples[i] = noise * 0.5 + sweep * 0.5;
+    // Ascending sine undertone for power feel
+    const sineFreq = 150 + progress * 400;
+    const sineTone = Math.sin(2 * Math.PI * sineFreq * t) * 0.25;
+
+    // Second harmonic for richness
+    const harmonic = Math.sin(2 * Math.PI * sineFreq * 2 * t) * 0.08;
+
+    // Envelope: builds up then cuts off
+    const env = Math.sin(progress * Math.PI) * (1 - Math.pow(progress, 3) * 0.5);
+
+    samples[i] = (filteredNoise * 0.55 + sineTone + harmonic) * env;
   }
 
-  applyEnvelope(samples, 0.005, 0.05);
+  applyEnvelope(samples, 0.005, 0.03);
   return createWav(samples);
 }
 

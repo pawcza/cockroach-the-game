@@ -389,18 +389,41 @@ export class GameScene extends Phaser.Scene {
   }
 
   private playDashReadyEffect(): void {
-    // Quick white flash to indicate dash is ready
+    // Bright pulsing glow — 3 flashes so player definitely notices
     if (this.isDead) return;
-    this.cockroach.setTint(0xffffff);
+    this.cockroach.setTint(0x00ffff);
     this.tweens.add({
       targets: this.cockroach,
-      alpha: { from: 1, to: 0.6 },
-      duration: 100,
+      alpha: { from: 1, to: 0.4 },
+      duration: 150,
       yoyo: true,
+      repeat: 2,
       onComplete: () => {
         this.cockroach.clearTint();
         this.cockroach.setAlpha(1);
       },
+    });
+
+    // Also flash a "DASH!" text above cockroach
+    const dashText = this.add.text(
+      this.cockroach.x, this.cockroach.y - 50,
+      'DASHERÓWKA!', {
+        fontSize: '14px',
+        fontFamily: 'monospace',
+        color: '#00ffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      },
+    );
+    dashText.setOrigin(0.5);
+    dashText.setDepth(999);
+    this.tweens.add({
+      targets: dashText,
+      y: dashText.y - 30,
+      alpha: 0,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => dashText.destroy(),
     });
   }
 
