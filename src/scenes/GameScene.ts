@@ -500,11 +500,9 @@ export class GameScene extends Phaser.Scene {
       localStorage.setItem('cockroach-highscore', this.score.toString());
     }
 
-    this.time.delayedCall(400, () => {
-      this.vfx.destroy();
-      this.audio.destroy();
-      this.scene.start('GameOverScene', { score: this.score });
-    });
+    this.vfx.destroy();
+    this.audio.destroy();
+    this.scene.start('GameOverScene', { score: this.score });
   }
 
   private updateScoreText(): void {
