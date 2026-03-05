@@ -1,15 +1,45 @@
 import Phaser from 'phaser';
+import { showScoreboard, toggleScoreboard } from '../ui/Scoreboard';
+
+interface GameOverData {
+  score: number;
+  timeSurvived?: number;
+  applesCollected?: number;
+  topSpeed?: number;
+  distance?: number;
+  obstacleType?: string | null;
+}
 
 export class GameOverScene extends Phaser.Scene {
   private gameoverBgm: Phaser.Sound.BaseSound | null = null;
+  private restartBound = false;
+
+  private static readonly DEATH_TEXT: Record<string, string> = {
+    bird: 'SRAK CIĘ OPTAKAŁ',
+    cat: 'Rozkotowany',
+    flipper: 'Kubota Ci w ryj!',
+    newspaper: 'Naleszało Ci siem',
+    onion: 'Smrót Cię zmiótł',
+    spray: 'MUGA!',
+  };
+
+  private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
+    bird: 'bird',
+    cat: 'cat-paw',
+    flipper: 'flipper',
+    newspaper: 'newspaper',
+    onion: 'onion',
+    spray: 'pest-spray',
+  };
 
   constructor() {
     super({ key: 'GameOverScene' });
   }
 
-  create(data: { score: number }): void {
+  create(data: GameOverData): void {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
+    this.restartBound = false;
 
     // Dark background
     this.cameras.main.setBackgroundColor('#0a0a0a');
@@ -42,10 +72,14 @@ export class GameOverScene extends Phaser.Scene {
       this.spawnDeathParticle(width, height);
     }
 
-    // --- "ZGNIOTLES SIE!" with shake jitter ---
+    // --- DEATH TEXT (custom per obstacle) ---
+    const deathMessage = data?.obstacleType
+      ? GameOverScene.DEATH_TEXT[data.obstacleType] || 'ZGNIOTŁEŚ SIĘ!'
+      : 'ZGNIOTŁEŚ SIĘ!';
+
     const titleText = this.add
-      .text(width / 2, height / 3 - 20, 'ZGNIOTŁEŚ SIĘ!', {
-        fontSize: '56px',
+      .text(width / 2, height / 3 - 20, deathMessage, {
+        fontSize: deathMessage.length > 15 ? '36px' : '56px',
         color: '#8b0000',
         fontFamily: 'Georgia, serif',
         fontStyle: 'bold',
@@ -54,6 +88,7 @@ export class GameOverScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // Title shake jitter
     const titleBaseX = titleText.x;
     const titleBaseY = titleText.y;
     this.time.addEvent({
@@ -64,6 +99,23 @@ export class GameOverScene extends Phaser.Scene {
         titleText.y = titleBaseY + Phaser.Math.Between(-2, 2);
       },
     });
+
+    // --- OBSTACLE IMAGE above death text ---
+    if (data?.obstacleType && GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) {
+      const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
+      const obstacleImg = this.add.image(width / 2, titleText.y - 60, textureKey);
+      obstacleImg.setScale(0.3);
+      obstacleImg.setOrigin(0.5, 1);
+
+      this.tweens.add({
+        targets: obstacleImg,
+        y: obstacleImg.y - 5,
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
 
     // --- SCORE COUNT-UP ---
     const finalScore = data?.score ?? 0;
@@ -104,10 +156,131 @@ export class GameOverScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
 
-    // Blinking restart prompt
+    // Confetti for new record
+    if (isNewRecord) {
+      for (let i = 0; i < 40; i++) {
+        const confettiColors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xff6600];
+        const color = confettiColors[i % confettiColors.length];
+        const size = Phaser.Math.Between(3, 8);
+        const confetti = this.add.rectangle(
+          Phaser.Math.Between(0, width),
+          -20,
+          size,
+          size * 2,
+          color,
+          0.9,
+        );
+        confetti.setAngle(Phaser.Math.Between(0, 360));
+
+        this.tweens.add({
+          targets: confetti,
+          y: height + 20,
+          x: confetti.x + Phaser.Math.Between(-100, 100),
+          angle: confetti.angle + Phaser.Math.Between(-360, 360),
+          duration: Phaser.Math.Between(1500, 3000),
+          delay: Phaser.Math.Between(0, 1000),
+          ease: 'Cubic.easeIn',
+          onComplete: () => confetti.destroy(),
+        });
+      }
+    }
+
+    // Stats
+    const stats: string[] = [];
+    if (data?.timeSurvived !== undefined) stats.push(`Czas Przeżywalności: ${data.timeSurvived}s`);
+    if (data?.applesCollected !== undefined && data.applesCollected > 0) stats.push(`Jabłuszka: ${data.applesCollected}`);
+    if (data?.distance !== undefined) stats.push(`Dystansik: ${data.distance}m`);
+    if (data?.topSpeed !== undefined) stats.push(`Maks Szybkóść: ${data.topSpeed.toFixed(1)}x`);
+
+    if (stats.length > 0) {
+      this.add
+        .text(width / 2, height / 2 + 90, stats.join('  |  '), {
+          fontSize: '14px',
+          color: '#888888',
+          fontFamily: 'monospace',
+        })
+        .setOrigin(0.5);
+    }
+
+    // --- GAME OVER MUSIC ---
+    this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
+    this.gameoverBgm.play();
+
+    // --- NAME INPUT or RESTART ---
+    if (isNewRecord) {
+      this.showNameInput(width, height, data);
+    } else {
+      this.showRestartPrompt(width, height);
+      this.showScoreboardButton(width, height);
+    }
+  }
+
+  private showNameInput(width: number, height: number, data: GameOverData): void {
+    const promptText = this.add
+      .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', {
+        fontSize: '14px',
+        color: '#ffff00',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5);
+
+    let playerName = '';
+    const nameText = this.add
+      .text(width / 2, height - 75, '_', {
+        fontSize: '24px',
+        color: '#ffffff',
+        fontFamily: 'monospace',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
+
+    this.tweens.add({
+      targets: nameText,
+      alpha: { from: 1, to: 0.5 },
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Enter' && playerName.length > 0) {
+        this.input.keyboard!.off('keydown', handleKey);
+        promptText.destroy();
+        nameText.setText(playerName);
+        nameText.setColor('#00ff00');
+        this.tweens.killTweensOf(nameText);
+        nameText.setAlpha(1);
+
+        this.submitScore(playerName, data).then(() => {
+          showScoreboard(this, playerName);
+        });
+        this.showRestartPrompt(width, height);
+      } else if (event.key === 'Backspace') {
+        playerName = playerName.slice(0, -1);
+        nameText.setText(playerName.length > 0 ? playerName : '_');
+      } else if (event.key === 'Escape') {
+        this.input.keyboard!.off('keydown', handleKey);
+        promptText.destroy();
+        nameText.destroy();
+        this.showRestartPrompt(width, height);
+        this.showScoreboardButton(width, height);
+      } else if (event.key.length === 1 && playerName.length < 20) {
+        playerName += event.key;
+        nameText.setText(playerName);
+      }
+    };
+
+    this.input.keyboard!.on('keydown', handleKey);
+  }
+
+  private showRestartPrompt(width: number, height: number): void {
+    if (this.restartBound) return;
+    this.restartBound = true;
+
     const restartText = this.add
-      .text(width / 2, height - 60, 'Walnij SPACJĘ żeby Jeszcze Raz', {
-        fontSize: '20px',
+      .text(width / 2, height - 30, 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy', {
+        fontSize: '14px',
         color: '#ffffff',
         fontFamily: 'monospace',
       })
@@ -122,19 +295,62 @@ export class GameOverScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // --- GAME OVER MUSIC ---
-    this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
-    this.gameoverBgm.play();
+    this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
+    this.input.keyboard!.once('keydown-R', () => this.restartGame());
+    this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
+  }
 
-    // Restart on SPACE
-    this.input.keyboard!.once('keydown-SPACE', () => {
-      if (this.gameoverBgm) {
-        this.gameoverBgm.stop();
-        this.gameoverBgm.destroy();
-        this.gameoverBgm = null;
-      }
-      this.scene.start('GameScene');
-    });
+  private restartGame(): void {
+    this.stopMusic();
+    this.scene.start('GameScene');
+  }
+
+  private goToMenu(): void {
+    this.stopMusic();
+    this.scene.start('MenuScene');
+  }
+
+  private stopMusic(): void {
+    if (this.gameoverBgm) {
+      this.gameoverBgm.stop();
+      this.gameoverBgm.destroy();
+      this.gameoverBgm = null;
+    }
+  }
+
+  private showScoreboardButton(width: number, height: number): void {
+    const btnText = this.add
+      .text(width / 2, height - 55, '[ T — Tablica Wyników ]', {
+        fontSize: '14px',
+        color: '#888888',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    btnText.on('pointerover', () => btnText.setColor('#ffffff'));
+    btnText.on('pointerout', () => btnText.setColor('#888888'));
+    btnText.on('pointerdown', () => toggleScoreboard(this, null));
+
+    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
+  }
+
+  private async submitScore(name: string, data: GameOverData): Promise<void> {
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          score: data.score,
+          deathCause: data.obstacleType || null,
+          distance: data.distance || null,
+          timeSurvived: data.timeSurvived || null,
+        }),
+      });
+    } catch {
+      // Silently fail — game works offline too
+    }
   }
 
   private spawnDeathParticle(sceneWidth: number, sceneHeight: number): void {

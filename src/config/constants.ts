@@ -17,11 +17,11 @@ export const COCKROACH_GRAVITY = 800;
 export const SPAWN_DISTANCE_AHEAD = 900;
 export const MIN_OBSTACLE_SPACING = 250;
 export const APPLE_SPAWN_CHANCE = 0.4;
-export const OBSTACLE_SPAWN_INTERVAL = 300;
+export const OBSTACLE_SPAWN_INTERVAL = 350;
 
 // Dash
-export const DASH_DURATION = 600;
-export const DASH_COOLDOWN = 2000;
+export const DASH_DURATION = 250;
+export const DASH_COOLDOWN = 1200;
 export const DASH_SPEED_MULTIPLIER = 2;
 
 // Scoring

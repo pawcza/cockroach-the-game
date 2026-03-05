@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { toggleScoreboard } from '../ui/Scoreboard';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
@@ -108,13 +109,22 @@ export class MenuScene extends Phaser.Scene {
     });
     subtitle.setAngle(-3);
 
+    // --- GAME DESCRIPTION ---
+    this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabłuszka i piwka, uciekaj przed zagładą!', {
+      fontSize: '13px',
+      color: '#cc8844',
+      fontFamily: 'monospace',
+      fontStyle: 'italic',
+    }).setOrigin(0.5).setDepth(10);
+
     // High score from localStorage
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
-    this.add.text(width / 2, height / 2 + 40, `Najlepszy Wyńczyk: ${highScore}`, {
-      fontSize: '20px',
-      color: '#cccccc',
+    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
+    this.add.text(width / 2, height / 2 + 35, `Najlepszy Wyńczyk: ${highScore}  |  Gierki: ${gamesPlayed}`, {
+      fontSize: '14px',
+      color: '#999999',
       fontFamily: 'monospace',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10);
 
     // --- Pulsing "Press SPACE" text ---
     const startText = this.add.text(width / 2, height - 110, 'Walnij SPACJĘ żeby Zacząść', {
@@ -148,6 +158,7 @@ export class MenuScene extends Phaser.Scene {
       'SPACJA / GÓRA — Skocz na górę',
       'CTRL / DÓŁ — Spadaj na dół',
       'SHIFT / PRAWO — Dasherówka!',
+      'ESC — Pauzka!',
     ];
     const controlsText = controlsLines.join('\n');
     this.add.text(width / 2, height - 45, controlsText, {
@@ -157,6 +168,32 @@ export class MenuScene extends Phaser.Scene {
       align: 'center',
       lineSpacing: 4,
     }).setOrigin(0.5);
+
+    this.add
+      .text(width - 10, height - 10, 'v0.3.0 KARALUCH', {
+        fontSize: '10px',
+        color: '#444444',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(1, 1)
+      .setDepth(10);
+
+    // --- SCOREBOARD BUTTON ---
+    const scoreboardBtn = this.add
+      .text(width / 2, height / 2 + 65, '[ T — Tablica Wyników ]', {
+        fontSize: '14px',
+        color: '#888888',
+        fontFamily: 'monospace',
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+
+    scoreboardBtn.on('pointerover', () => scoreboardBtn.setColor('#ffffff'));
+    scoreboardBtn.on('pointerout', () => scoreboardBtn.setColor('#888888'));
+    scoreboardBtn.on('pointerdown', () => toggleScoreboard(this, null));
+
+    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
 
     // --- MENU MUSIC ---
     this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });

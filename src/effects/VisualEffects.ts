@@ -115,6 +115,19 @@ export class VisualEffects {
       this.vignetteGraphics.setAlpha(0);
     }
 
+    // 4.0x: Pulsing edge glow
+    if (speedMultiplier >= 4.0) {
+      const edgeIntensity = Math.min((speedMultiplier - 4.0) / 4, 0.6);
+      const edgePulse = (Math.sin(this.colorCycleTime * 3) + 1) / 2;
+      const edgeAlpha = edgeIntensity * edgePulse;
+
+      this.borderOverlay.clear();
+      const edgeColor = speedMultiplier >= 10 ? 0xff0000 : speedMultiplier >= 7 ? 0xff6600 : 0xff00ff;
+      this.borderOverlay.lineStyle(3, edgeColor, edgeAlpha);
+      this.borderOverlay.strokeRect(1, 1, this.scene.cameras.main.width - 2, this.scene.cameras.main.height - 2);
+      this.borderOverlay.setAlpha(1);
+    }
+
     // 5.0x: Color inversion flashes
     if (speedMultiplier >= 5.0) {
       this.invertTimer += delta;
