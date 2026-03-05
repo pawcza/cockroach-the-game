@@ -126,8 +126,10 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(10);
 
-    // --- Pulsing "Press SPACE" text ---
-    const startText = this.add.text(width / 2, height - 110, 'Walnij SPACJĘ żeby Zacząść', {
+    // --- Pulsing start text ---
+    const isMobile = !this.sys.game.device.os.desktop;
+    const startLabel = isMobile ? 'Dotknij ekran żeby Zacząść' : 'Walnij SPACJĘ żeby Zacząść';
+    const startText = this.add.text(width / 2, height - 110, startLabel, {
       fontSize: '24px',
       color: '#ffffff',
       fontFamily: 'monospace',
@@ -154,12 +156,18 @@ export class MenuScene extends Phaser.Scene {
     startText.setScale(0.95);
 
     // --- CONTROLS DISPLAY ---
-    const controlsLines = [
-      'SPACJA / GÓRA — Skocz na górę',
-      'CTRL / DÓŁ — Spadaj na dół',
-      'SHIFT / PRAWO — Dasherówka!',
-      'ESC — Pauzka!',
-    ];
+    const controlsLines = isMobile
+      ? [
+          'Dotknij ekran — Zmień tor',
+          'Przycisk DASH — Dasherówka!',
+          'Przycisk ⏸ — Pauzka!',
+        ]
+      : [
+          'SPACJA / GÓRA — Skocz na górę',
+          'CTRL / DÓŁ — Spadaj na dół',
+          'SHIFT / PRAWO — Dasherówka!',
+          'ESC — Pauzka!',
+        ];
     const controlsText = controlsLines.join('\n');
     this.add.text(width / 2, height - 45, controlsText, {
       fontSize: '12px',
@@ -199,15 +207,18 @@ export class MenuScene extends Phaser.Scene {
     this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
     this.menuBgm.play();
 
-    // Start the game on SPACE
-    this.input.keyboard!.once('keydown-SPACE', () => {
+    // Start the game
+    const startGame = (): void => {
       if (this.menuBgm) {
         this.menuBgm.stop();
         this.menuBgm.destroy();
         this.menuBgm = null;
       }
       this.scene.start('GameScene');
-    });
+    };
+
+    this.input.keyboard!.once('keydown-SPACE', startGame);
+    this.input.once('pointerdown', startGame);
   }
 
   private spawnFloatingParticle(

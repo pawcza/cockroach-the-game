@@ -8,7 +8,6 @@ import {
   COCKROACH_START_X,
   COCKROACH_BASE_SPEED,
   COCKROACH_ACCELERATION,
-  COCKROACH_JUMP_VELOCITY,
   APPLE_SCORE,
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
@@ -29,6 +28,7 @@ type Floor = 'top' | 'bottom';
 export class GameScene extends Phaser.Scene {
   // Player
   private cockroach!: Phaser.Physics.Arcade.Sprite;
+  private cockroachOffset = 24;
   private currentFloor: Floor = 'bottom';
   private isDead = false;
 
@@ -104,6 +104,7 @@ export class GameScene extends Phaser.Scene {
   // Cockroach ambient noise
   private cockroachNoiseTimer = 0;
   private nextNoiseTime = 0;
+  private cockroachNoiseSound: Phaser.Sound.BaseSound | null = null;
 
   // Apple combo
   private appleCombo = 0;
@@ -116,6 +117,14 @@ export class GameScene extends Phaser.Scene {
 
   private distanceText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
+
+  // Touch UI
+  private isMobile = false;
+  private safeTop = 0;
+  private safeBottom = 0;
+  private touchDashBtn!: Phaser.GameObjects.Rectangle;
+  private touchDashLabel!: Phaser.GameObjects.Text;
+  private touchPauseBtn!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -147,6 +156,18 @@ export class GameScene extends Phaser.Scene {
     this.lastTimeMilestone = 0;
     this.dashStartTime = 0;
     this.isPaused = false;
+
+    // Calculate ENVELOP safe area — how much the top/bottom get cropped
+    const gameAspect = GAME_WIDTH / GAME_HEIGHT;
+    const screenAspect = window.innerWidth / window.innerHeight;
+    if (screenAspect < gameAspect) {
+      const visibleH = GAME_HEIGHT * screenAspect / gameAspect;
+      this.safeTop = (GAME_HEIGHT - visibleH) / 2;
+      this.safeBottom = this.safeTop;
+    } else {
+      this.safeTop = 0;
+      this.safeBottom = 0;
+    }
 
     // Parallax backgrounds
     this.skyBg = this.add
@@ -182,13 +203,14 @@ export class GameScene extends Phaser.Scene {
     // Cockroach
     this.cockroach = this.physics.add.sprite(
       COCKROACH_START_X,
-      FLOOR_BOTTOM_Y - 48,
+      FLOOR_BOTTOM_Y - 24,
       'cockroach',
     );
     this.cockroach.setCollideWorldBounds(false);
     this.cockroach.setFlipY(false);
     this.cockroach.setScale(0.15);
     this.cockroach.body!.setSize(400, 200);
+    this.cockroachOffset = this.cockroach.displayHeight / 2;
 
     // Groups
     this.obstacles = this.physics.add.group();
@@ -239,9 +261,10 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.cockroach, true, 1, 0);
     this.cameras.main.setFollowOffset(-200, 0);
 
-    // Score UI
+    // Score UI (offset by safeTop so ENVELOP doesn't crop it)
+    const st = this.safeTop;
     this.scoreText = this.add
-      .text(16, 16, 'Punktówy: 0', {
+      .text(16, 16 + st, 'Punktówy: 0', {
         fontSize: '20px',
         color: '#ffffff',
         fontFamily: 'monospace',
@@ -251,7 +274,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.speedText = this.add
-      .text(16, 44, 'Szybkóść: 1.0x', {
+      .text(16, 44 + st, 'Szybkóść: 1.0x', {
         fontSize: '14px',
         color: '#ff6600',
         fontFamily: 'monospace',
@@ -273,11 +296,11 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100);
 
     // Dash cooldown bar
-    this.dashBarBg = this.add.rectangle(16, 68, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.dashBarFill = this.add.rectangle(16, 68, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+    this.dashBarBg = this.add.rectangle(16, 68 + st, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.dashBarFill = this.add.rectangle(16, 68 + st, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
     this.distanceText = this.add
-      .text(16, 84, 'Dystansik: 0m', {
+      .text(16, 84 + st, 'Dystansik: 0m', {
         fontSize: '12px',
         color: '#aaaaaa',
         fontFamily: 'monospace',
@@ -287,7 +310,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.comboText = this.add
-      .text(GAME_WIDTH - 16, 16, '', {
+      .text(GAME_WIDTH - 16, 44 + st, '', {
         fontSize: '16px',
         color: '#ffff00',
         fontFamily: 'monospace',
@@ -312,7 +335,11 @@ export class GameScene extends Phaser.Scene {
 
     // Pause UI
     this.pauseOverlay = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
-      .setScrollFactor(0).setDepth(2000).setVisible(false);
+      .setScrollFactor(0).setDepth(2000).setVisible(false)
+      .setInteractive();
+    this.pauseOverlay.on('pointerdown', () => {
+      if (this.isPaused) this.togglePause();
+    });
     this.pauseText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'PAUZKA!', {
       fontSize: '48px',
       fontFamily: 'Georgia, serif',
@@ -320,6 +347,23 @@ export class GameScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(2001).setVisible(false);
+
+    // Mobile detection & touch UI
+    this.isMobile = !this.sys.game.device.os.desktop;
+    this.createTouchUI();
+
+    // Pointer handler for lane swap
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.isDead || this.isPaused || this.isCountingDown) return;
+
+      // Ignore taps on the dash button or pause button area
+      const dashBounds = this.touchDashBtn.getBounds();
+      const pauseBounds = this.touchPauseBtn.getBounds();
+      if (dashBounds.contains(pointer.x, pointer.y)) return;
+      if (pauseBounds.contains(pointer.x, pointer.y)) return;
+
+      this.swapLane();
+    });
 
     // Audio
     this.audio = new AudioManager(this);
@@ -381,7 +425,7 @@ export class GameScene extends Phaser.Scene {
     if (elapsed >= countdownTexts.length * 600) {
       this.isCountingDown = false;
       // Pin cockroach to floor and re-enable gravity
-      this.cockroach.y = FLOOR_BOTTOM_Y - 48;
+      this.cockroach.y = FLOOR_BOTTOM_Y - this.cockroachOffset;
       this.cockroach.setVelocity(0, 0);
       (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = true;
       this.startTime = this.time.now;
@@ -400,16 +444,7 @@ export class GameScene extends Phaser.Scene {
 
     // Pause toggle
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-      this.isPaused = !this.isPaused;
-      if (this.isPaused) {
-        this.physics.pause();
-        this.pauseOverlay.setVisible(true);
-        this.pauseText.setVisible(true);
-      } else {
-        this.physics.resume();
-        this.pauseOverlay.setVisible(false);
-        this.pauseText.setVisible(false);
-      }
+      this.togglePause();
     }
     if (this.isPaused) return;
 
@@ -497,32 +532,8 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.JustDown(this.ctrlKey) ||
       Phaser.Input.Keyboard.JustDown(this.cursors.down);
 
-    if (jumpPressed) {
-      if (this.currentFloor === 'bottom') {
-        // Instant teleport to top floor
-        this.cockroach.y = FLOOR_TOP_Y - 48;
-        this.cockroach.setVelocityY(0);
-        this.currentFloor = 'top';
-        this.audio.playJump();
-        this.cameras.main.shake(100, 0.008);
-        this.floorTopTile.setTint(0x88ccff);
-        this.time.delayedCall(150, () => this.floorTopTile.clearTint());
-      } else {
-        // Small hop on top floor
-        this.cockroach.setVelocityY(COCKROACH_JUMP_VELOCITY * 0.5);
-        this.audio.playJump();
-      }
-    }
-
-    if (dropPressed && this.currentFloor === 'top') {
-      // Instant teleport to bottom floor
-      this.cockroach.y = FLOOR_BOTTOM_Y - 48;
-      this.cockroach.setVelocityY(0);
-      this.currentFloor = 'bottom';
-      this.audio.playFloorSwitch();
-      this.cameras.main.shake(100, 0.008);
-      this.floorBottomTile.setTint(0xffcc88);
-      this.time.delayedCall(150, () => this.floorBottomTile.clearTint());
+    if (jumpPressed || dropPressed) {
+      this.swapLane();
     }
 
     // Floor indicator
@@ -629,20 +640,24 @@ export class GameScene extends Phaser.Scene {
       this.vfx.speedMilestoneEffect(this.speedMultiplier);
     }
 
-    // Dash cooldown bar
+    // Dash cooldown bar + touch button
     if (this.dashReady) {
       this.dashBarFill.width = 100;
       this.dashBarFill.setFillStyle(0x00ffff);
+      this.touchDashBtn.setFillStyle(0x00ffff, 0.4);
+      this.touchDashLabel.setColor('#00ffff');
     } else if (this.isDashing) {
-      // During dash: full bar, white
       this.dashBarFill.width = 100;
       this.dashBarFill.setFillStyle(0xffffff);
+      this.touchDashBtn.setFillStyle(0xffffff, 0.4);
+      this.touchDashLabel.setColor('#ffffff');
     } else {
-      // Cooldown: fills up from 0 to 100
       const elapsed = this.time.now - this.dashStartTime;
       const progress = Math.min(elapsed / DASH_COOLDOWN, 1);
       this.dashBarFill.width = 100 * progress;
       this.dashBarFill.setFillStyle(0xff6600);
+      this.touchDashBtn.setFillStyle(0xff6600, 0.4);
+      this.touchDashLabel.setColor('#ff6600');
     }
 
     // Spawning
@@ -666,12 +681,15 @@ export class GameScene extends Phaser.Scene {
       this.spawnBirdOverlook();
     }
 
-    // Cockroach ambient noise
+    // Cockroach ambient noise — only play if previous one finished
     this.cockroachNoiseTimer += this.game.loop.delta;
     if (this.cockroachNoiseTimer >= this.nextNoiseTime) {
       this.cockroachNoiseTimer = 0;
       this.nextNoiseTime = 20000 + Math.random() * 15000;
-      this.sound.play('cockroach-noise', { volume: 0.3 });
+      if (!this.cockroachNoiseSound || !this.cockroachNoiseSound.isPlaying) {
+        this.cockroachNoiseSound = this.sound.add('cockroach-noise', { volume: 0.3 });
+        this.cockroachNoiseSound.play();
+      }
     }
   }
 
@@ -742,6 +760,7 @@ export class GameScene extends Phaser.Scene {
       this.cockroach.texture.key,
       this.cockroach.frame.name,
     );
+    afterimage.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
     afterimage.setAlpha(0.4);
     // Trail color varies with speed
     const trailColors = [0xffff00, 0xff6600, 0xff00ff, 0x00ffff, 0x00ff00];
@@ -796,6 +815,96 @@ export class GameScene extends Phaser.Scene {
       duration: 800,
       ease: 'Power2',
       onComplete: () => dashText.destroy(),
+    });
+  }
+
+  private swapLane(): void {
+    if (this.currentFloor === 'bottom') {
+      this.cockroach.y = FLOOR_TOP_Y - this.cockroachOffset;
+      this.cockroach.setVelocityY(0);
+      this.currentFloor = 'top';
+      this.audio.playJump();
+      this.cameras.main.shake(100, 0.008);
+      this.floorTopTile.setTint(0x88ccff);
+      this.time.delayedCall(150, () => this.floorTopTile.clearTint());
+    } else {
+      this.cockroach.y = FLOOR_BOTTOM_Y - this.cockroachOffset;
+      this.cockroach.setVelocityY(0);
+      this.currentFloor = 'bottom';
+      this.audio.playFloorSwitch();
+      this.cameras.main.shake(100, 0.008);
+      this.floorBottomTile.setTint(0xffcc88);
+      this.time.delayedCall(150, () => this.floorBottomTile.clearTint());
+    }
+  }
+
+  private togglePause(): void {
+    this.isPaused = !this.isPaused;
+    if (this.isPaused) {
+      this.physics.pause();
+      this.pauseOverlay.setVisible(true);
+      this.pauseText.setVisible(true);
+    } else {
+      this.physics.resume();
+      this.pauseOverlay.setVisible(false);
+      this.pauseText.setVisible(false);
+    }
+  }
+
+  private createTouchUI(): void {
+    const btnAlpha = this.isMobile ? 0.7 : 0.3;
+    const sb = this.safeBottom;
+    const st = this.safeTop;
+
+    // Dash button — bottom-right
+    this.touchDashBtn = this.add.rectangle(
+      GAME_WIDTH - 44, GAME_HEIGHT - 44 - sb, 56, 56, 0x00ffff, 0.4,
+    )
+      .setScrollFactor(0)
+      .setDepth(3000)
+      .setAlpha(btnAlpha)
+      .setInteractive();
+
+    this.touchDashLabel = this.add.text(
+      GAME_WIDTH - 44, GAME_HEIGHT - 44 - sb, 'DASH', {
+        fontSize: '12px',
+        fontFamily: 'monospace',
+        color: '#00ffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      },
+    )
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(3001)
+      .setAlpha(btnAlpha);
+
+    this.touchDashBtn.on('pointerdown', () => {
+      if (this.isDead || this.isPaused || this.isCountingDown) return;
+      if (this.dashReady && !this.isDashing) {
+        this.startDash();
+      }
+    });
+
+    // Pause button — top-right
+    this.touchPauseBtn = this.add.text(
+      GAME_WIDTH - 20, 12 + st, '\u23f8', {
+        fontSize: '28px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      },
+    )
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(3000)
+      .setAlpha(btnAlpha)
+      .setInteractive();
+
+    this.touchPauseBtn.on('pointerdown', () => {
+      if (this.isDead || this.isCountingDown) return;
+      this.togglePause();
     });
   }
 
