@@ -6,26 +6,32 @@ type Floor = 'top' | 'bottom';
 export class ObstacleSpawner {
   private scene: Phaser.Scene;
   private obstacles: Phaser.Physics.Arcade.Group;
+  private forcedFloor: Floor | null = null;
 
   constructor(scene: Phaser.Scene, obstacles: Phaser.Physics.Arcade.Group) {
     this.scene = scene;
     this.obstacles = obstacles;
   }
 
-  spawn(x: number): void {
+  spawn(x: number, speedMultiplier: number = 1): void {
     const types = [
       this.spawnPestSpray,
       this.spawnNewspaper,
       this.spawnOnion,
-      this.spawnFlipper,
-      this.spawnBird,
-      this.spawnCatPaw,
     ];
+    if (speedMultiplier >= 1.5) {
+      types.push(this.spawnFlipper);
+    }
+    if (speedMultiplier >= 2.5) {
+      types.push(this.spawnBird);
+      types.push(this.spawnCatPaw);
+    }
     const pick = Phaser.Math.Between(0, types.length - 1);
     types[pick].call(this, x);
   }
 
   private randomFloor(): Floor {
+    if (this.forcedFloor !== null) return this.forcedFloor;
     return Math.random() < 0.5 ? 'top' : 'bottom';
   }
 
@@ -42,10 +48,13 @@ export class ObstacleSpawner {
 
     const spray = this.obstacles.create(x, floorY, 'pest-spray') as Phaser.Physics.Arcade.Sprite;
     spray.setOrigin(0.5, 1);
+    spray.setScale(0.2);
     spray.setImmovable(true);
     spray.setData('floor', floor);
+    spray.setData('type', 'spray');
     (spray.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    spray.body!.setSize(spray.width * 0.4, spray.height * 0.5);
+    spray.body!.setSize(spray.width * 0.6, spray.height * 0.7);
+    this.scene.sound.play('spray-sfx', { volume: 0.3 });
 
     // Can vibration — a nervous, industrial rattle
     this.scene.tweens.add({
@@ -71,8 +80,8 @@ export class ObstacleSpawner {
     // Gentle scale pulse — subtle breathing, not threatening
     this.scene.tweens.add({
       targets: spray,
-      scaleX: 1.08,
-      scaleY: 1.08,
+      scaleX: 0.216,
+      scaleY: 0.216,
       duration: 800,
       yoyo: true,
       repeat: -1,
@@ -122,14 +131,16 @@ export class ObstacleSpawner {
   private spawnNewspaper(x: number): void {
     const floor = this.randomFloor();
     const floorY = this.getFloorY(floor);
-    const startY = floorY - 80;
+    const startY = floorY - 40;
 
     const newspaper = this.obstacles.create(x, startY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
     newspaper.setOrigin(0.5, 1);
+    newspaper.setScale(0.2);
     newspaper.setImmovable(true);
     newspaper.setData('floor', floor);
+    newspaper.setData('type', 'newspaper');
     (newspaper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    newspaper.body!.setSize(newspaper.width * 0.5, newspaper.height * 0.4);
+    newspaper.body!.setSize(newspaper.width * 0.6, newspaper.height * 0.7);
 
     // THE SLAM — predictable rhythm: down 400ms, hold 800ms, up 400ms, wait 800ms
     this.scene.tweens.add({
@@ -154,11 +165,12 @@ export class ObstacleSpawner {
       startAt: slamCycle - 400, // first trigger after the first slam lands (400ms)
       loop: true,
       callback: () => {
+        this.scene.sound.play('newspaper-sfx', { volume: 0.4 });
         // Scale punch — newspaper briefly swells on impact
         this.scene.tweens.add({
           targets: newspaper,
-          scaleX: 1.3,
-          scaleY: 1.3,
+          scaleX: 0.26,
+          scaleY: 0.26,
           duration: 80,
           yoyo: true,
           ease: 'Cubic.easeOut',
@@ -200,10 +212,13 @@ export class ObstacleSpawner {
 
     const onion = this.obstacles.create(x, floorY, 'onion') as Phaser.Physics.Arcade.Sprite;
     onion.setOrigin(0.5, 1);
+    onion.setScale(0.2);
     onion.setImmovable(true);
     onion.setData('floor', floor);
+    onion.setData('type', 'onion');
     (onion.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    onion.body!.setSize(onion.width * 0.4, onion.height * 0.5);
+    onion.body!.setSize(onion.width * 0.6, onion.height * 0.7);
+    // No dedicated sound for onion
 
     // The wobble
     this.scene.tweens.add({
@@ -268,14 +283,17 @@ export class ObstacleSpawner {
   private spawnFlipper(x: number): void {
     const floor = this.randomFloor();
     const floorY = this.getFloorY(floor);
-    const pivotY = floorY - 40;
+    const pivotY = floorY - 20;
 
     const flipper = this.obstacles.create(x, pivotY, 'flipper') as Phaser.Physics.Arcade.Sprite;
     flipper.setOrigin(0.5, 1);
+    flipper.setScale(0.2);
     flipper.setImmovable(true);
     flipper.setData('floor', floor);
+    flipper.setData('type', 'flipper');
     (flipper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    flipper.body!.setSize(flipper.width * 0.4, flipper.height * 0.5);
+    flipper.body!.setSize(flipper.width * 0.6, flipper.height * 0.7);
+    this.scene.sound.play('flipper-sfx', { volume: 0.3 });
 
     // THE SWING — predictable pendulum, narrower arc
     this.scene.tweens.add({
@@ -323,16 +341,19 @@ export class ObstacleSpawner {
 
   private spawnBird(x: number): void {
     // Bird swoops between the two floors — stays in the playable area
-    const topY = FLOOR_TOP_Y - 40; // just above top floor
-    const bottomY = FLOOR_BOTTOM_Y - 10; // just above bottom floor
+    const topY = FLOOR_TOP_Y - 20; // just above top floor
+    const bottomY = FLOOR_BOTTOM_Y - 5; // just above bottom floor
 
     const bird = this.obstacles.create(x, topY, 'bird') as Phaser.Physics.Arcade.Sprite;
     bird.setOrigin(0.5, 1);
+    bird.setScale(0.2);
     bird.setImmovable(true);
     // Bird can hit on either floor since it travels between them
     bird.setData('floor', null);
+    bird.setData('type', 'bird');
     (bird.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    bird.body!.setSize(bird.width * 0.4, bird.height * 0.35);
+    bird.body!.setSize(bird.width * 0.6, bird.height * 0.5);
+    this.scene.sound.play('bird-sfx', { volume: 0.4 });
 
     // PREDICTABLE SWOOP — smooth sine wave between top and bottom floors
     this.scene.tweens.add({
@@ -370,12 +391,13 @@ export class ObstacleSpawner {
 
     const paw = this.obstacles.create(x, floorY, 'cat-paw') as Phaser.Physics.Arcade.Sprite;
     paw.setOrigin(0.5, 1);
+    paw.setScale(0.2);
     paw.setImmovable(true);
     paw.setData('floor', floor);
+    paw.setData('type', 'cat');
     (paw.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    paw.body!.setSize(paw.width * 0.35, paw.height * 0.35);
+    paw.body!.setSize(paw.width * 0.5, paw.height * 0.5);
     paw.setAlpha(0.3);
-    paw.setScale(1);
 
     const spawnClawMarks = (): void => {
       const scratchGfx = this.scene.add.graphics();
@@ -409,16 +431,19 @@ export class ObstacleSpawner {
           { alpha: 0.7, duration: 800, ease: 'Sine.easeIn' },
           // STRIKE — fast, violent, fully visible
           {
-            scale: 1.3,
+            scale: 0.26,
             alpha: 1.0,
             duration: 200,
             ease: 'Back.easeOut',
-            onComplete: () => spawnClawMarks(),
+            onComplete: () => {
+              this.scene.sound.play('cat-sfx', { volume: 0.5 });
+              spawnClawMarks();
+            },
           },
           // Hold the strike
-          { scale: 1.3, duration: 150 },
+          { scale: 0.26, duration: 150 },
           // Retract — slink back into the shadows
-          { scale: 1, alpha: 0.3, duration: 400, ease: 'Sine.easeIn' },
+          { scale: 0.2, alpha: 0.3, duration: 400, ease: 'Sine.easeIn' },
           // Pause in the shadows
           { alpha: 0.3, duration: 1500 },
         ],

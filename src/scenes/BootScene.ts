@@ -41,43 +41,53 @@ export class BootScene extends Phaser.Scene {
       percentText.destroy();
     });
 
-    // --- Sprites ---
-    this.load.spritesheet('cockroach-run', 'sprites/cockroach-run.png', {
-      frameWidth: 96,
-      frameHeight: 96,
+    // --- Sprites (new pixel art assets) ---
+    this.load.image('cockroach', 'assets/cockroach.png');
+    this.load.spritesheet('apple-spin', 'assets/apple.png', {
+      frameWidth: 128,
+      frameHeight: 128,
     });
-    this.load.image('cockroach-jump', 'sprites/cockroach-jump.png');
-    this.load.image('cockroach-dead', 'sprites/cockroach-dead.png');
-    this.load.image('apple', 'sprites/apple.png');
-    this.load.image('pest-spray', 'sprites/pest-spray.png');
-    this.load.image('newspaper', 'sprites/newspaper.png');
-    this.load.image('onion', 'sprites/onion.png');
-    this.load.image('flipper', 'sprites/flipper.png');
-    this.load.image('bird', 'sprites/bird.png');
-    this.load.image('cat-paw', 'sprites/cat-paw.png');
+    this.load.image('pest-spray', 'assets/spray.png');
+    this.load.image('newspaper', 'assets/newspaper.png');
+    this.load.image('onion', 'assets/onion.png');
+    this.load.image('flipper', 'assets/flipper.png');
+    this.load.image('bird', 'assets/bird.png');
+    this.load.image('cat-paw', 'assets/cat.png');
+    this.load.image('bird-overlook', 'assets/bird-overlook.png');
+    this.load.image('tyskie', 'assets/tyskie.png');
 
     // --- Backgrounds ---
     this.load.image('sky', 'backgrounds/sky.png');
     this.load.image('midground', 'backgrounds/midground.png');
     this.load.image('floor-top', 'backgrounds/floor-top.png');
     this.load.image('floor-bottom', 'backgrounds/floor-bottom.png');
+    this.load.image('foreground', 'backgrounds/foreground.png');
 
     // --- Audio ---
-    this.load.audio('bgm', 'audio/bgm.wav');
+    this.load.audio('bgm', 'audio/bgm.mp3');
     this.load.audio('jump', 'audio/jump.wav');
-    this.load.audio('apple', 'audio/apple.wav');
+    this.load.audio('apple', 'audio/apple.mp3');
     this.load.audio('death', 'audio/death.wav');
     this.load.audio('floor-switch', 'audio/floor-switch.wav');
     this.load.audio('dash', 'audio/dash.wav');
     this.load.audio('menu-bgm', 'audio/menu-bgm.wav');
     this.load.audio('gameover-bgm', 'audio/gameover-bgm.wav');
+    this.load.audio('spray-sfx', 'audio/spray.mp3');
+    this.load.audio('newspaper-sfx', 'audio/newspaper.mp3');
+    this.load.audio('bird-sfx', 'audio/bird.mp3');
+    this.load.audio('cat-sfx', 'audio/cat.mp3');
+    this.load.audio('flipper-sfx', 'audio/flipper.mp3');
+    this.load.audio('huh', 'audio/huh.mp3');
+    this.load.audio('cockroach-hiss', 'audio/cockroach-hiss.mp3');
+    this.load.audio('cockroach-noise', 'audio/cockroach-noise.mp3');
+    this.load.audio('burp', 'audio/burp.mp3');
   }
 
   create(): void {
-    // Create the cockroach run animation (6 frames, 12 fps, infinite loop)
+    // Create the apple spin animation
     this.anims.create({
-      key: 'cockroach-run',
-      frames: this.anims.generateFrameNumbers('cockroach-run', { start: 0, end: 5 }),
+      key: 'apple-spin',
+      frames: this.anims.generateFrameNumbers('apple-spin', { start: 0, end: 35 }),
       frameRate: 12,
       repeat: -1,
     });

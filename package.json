@@ -9,17 +9,26 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:dev": "tsx server/index.ts",
+    "server:build": "npx tsc -p server/tsconfig.json",
+    "start": "node dist-server/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "better-sqlite3": "^12.6.2",
     "canvas": "^3.2.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "phaser": "^3.90.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
   }

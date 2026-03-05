@@ -1,3 +1,7 @@
 node_modules/
 dist/
+dist-server/
+data/
 .DS_Store
+.playwright-mcp/
+.claude/
