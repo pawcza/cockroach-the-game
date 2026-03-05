@@ -20,7 +20,6 @@
   "type": "commonjs",
   "dependencies": {
     "better-sqlite3": "^12.6.2",
-    "canvas": "^3.2.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "phaser": "^3.90.0"
