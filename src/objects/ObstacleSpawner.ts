@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
+import { GAME_WIDTH, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
 
 type Floor = 'top' | 'bottom';
 
@@ -11,6 +11,22 @@ export class ObstacleSpawner {
   constructor(scene: Phaser.Scene, obstacles: Phaser.Physics.Arcade.Group) {
     this.scene = scene;
     this.obstacles = obstacles;
+  }
+
+  /** Play a sound only when the sprite scrolls into view. */
+  private playSoundOnVisible(sprite: Phaser.Physics.Arcade.Sprite, key: string, volume: number): void {
+    const check = this.scene.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (!sprite.active) { check.destroy(); return; }
+        const cameraRight = this.scene.cameras.main.scrollX + GAME_WIDTH;
+        if (sprite.x <= cameraRight) {
+          this.scene.sound.play(key, { volume });
+          check.destroy();
+        }
+      },
+    });
   }
 
   spawn(x: number, speedMultiplier: number = 1): void {
@@ -54,7 +70,7 @@ export class ObstacleSpawner {
     spray.setData('type', 'spray');
     (spray.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     spray.body!.setSize(spray.width * 0.6, spray.height * 0.7);
-    this.scene.sound.play('spray-sfx', { volume: 0.3 });
+    this.playSoundOnVisible(spray, 'spray-sfx', 0.3);
 
     // Can vibration — a nervous, industrial rattle
     this.scene.tweens.add({
@@ -165,7 +181,11 @@ export class ObstacleSpawner {
       startAt: slamCycle - 400, // first trigger after the first slam lands (400ms)
       loop: true,
       callback: () => {
-        this.scene.sound.play('newspaper-sfx', { volume: 0.4 });
+        const cameraLeft = this.scene.cameras.main.scrollX;
+        const cameraRight = cameraLeft + GAME_WIDTH;
+        if (newspaper.x >= cameraLeft && newspaper.x <= cameraRight) {
+          this.scene.sound.play('newspaper-sfx', { volume: 0.4 });
+        }
         // Scale punch — newspaper briefly swells on impact
         this.scene.tweens.add({
           targets: newspaper,
@@ -293,7 +313,7 @@ export class ObstacleSpawner {
     flipper.setData('type', 'flipper');
     (flipper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     flipper.body!.setSize(flipper.width * 0.6, flipper.height * 0.7);
-    this.scene.sound.play('flipper-sfx', { volume: 0.3 });
+    this.playSoundOnVisible(flipper, 'flipper-sfx', 0.3);
 
     // THE SWING — predictable pendulum, narrower arc
     this.scene.tweens.add({
@@ -353,7 +373,7 @@ export class ObstacleSpawner {
     bird.setData('type', 'bird');
     (bird.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     bird.body!.setSize(bird.width * 0.6, bird.height * 0.5);
-    this.scene.sound.play('bird-sfx', { volume: 0.4 });
+    this.playSoundOnVisible(bird, 'bird-sfx', 0.4);
 
     // PREDICTABLE SWOOP — smooth sine wave between top and bottom floors
     this.scene.tweens.add({
@@ -397,7 +417,7 @@ export class ObstacleSpawner {
     paw.setData('type', 'cat');
     (paw.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     paw.body!.setSize(paw.width * 0.5, paw.height * 0.5);
-    paw.setAlpha(0.3);
+    paw.setAlpha(0.7);
 
     const spawnClawMarks = (): void => {
       const scratchGfx = this.scene.add.graphics();
@@ -427,8 +447,8 @@ export class ObstacleSpawner {
       this.scene.tweens.chain({
         targets: paw,
         tweens: [
-          // Warning phase — the shadow darkens
-          { alpha: 0.7, duration: 800, ease: 'Sine.easeIn' },
+          // Warning phase — the paw tenses
+          { alpha: 0.85, duration: 800, ease: 'Sine.easeIn' },
           // STRIKE — fast, violent, fully visible
           {
             scale: 0.26,
@@ -436,16 +456,20 @@ export class ObstacleSpawner {
             duration: 200,
             ease: 'Back.easeOut',
             onComplete: () => {
-              this.scene.sound.play('cat-sfx', { volume: 0.5 });
+              const cameraLeft = this.scene.cameras.main.scrollX;
+              const cameraRight = cameraLeft + GAME_WIDTH;
+              if (paw.x >= cameraLeft && paw.x <= cameraRight) {
+                this.scene.sound.play('cat-sfx', { volume: 0.5 });
+              }
               spawnClawMarks();
             },
           },
           // Hold the strike
           { scale: 0.26, duration: 150 },
-          // Retract — slink back into the shadows
-          { scale: 0.2, alpha: 0.3, duration: 400, ease: 'Sine.easeIn' },
-          // Pause in the shadows
-          { alpha: 0.3, duration: 1500 },
+          // Retract — slink back
+          { scale: 0.2, alpha: 0.7, duration: 400, ease: 'Sine.easeIn' },
+          // Pause before next strike
+          { alpha: 0.7, duration: 1500 },
         ],
         onComplete: () => {
           playStrikeSequence();

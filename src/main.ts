@@ -11,6 +11,10 @@ const config: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#1a0a2e',
   pixelArt: true,
   antialias: false,
+  input: {
+    touch: true,
+    activePointers: 3,
+  },
   physics: {
     default: 'arcade',
     arcade: {
@@ -20,7 +24,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 };

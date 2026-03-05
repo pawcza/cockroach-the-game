@@ -100,12 +100,12 @@ export class GameOverScene extends Phaser.Scene {
       },
     });
 
-    // --- OBSTACLE IMAGE above death text ---
+    // --- OBSTACLE IMAGE below death text ---
     if (data?.obstacleType && GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) {
       const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
-      const obstacleImg = this.add.image(width / 2, titleText.y - 60, textureKey);
+      const obstacleImg = this.add.image(width / 2, titleText.y + 40, textureKey);
       obstacleImg.setScale(0.3);
-      obstacleImg.setOrigin(0.5, 1);
+      obstacleImg.setOrigin(0.5, 0);
 
       this.tweens.add({
         targets: obstacleImg,
@@ -216,6 +216,36 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private showNameInput(width: number, height: number, data: GameOverData): void {
+    const isMobile = !this.sys.game.device.os.desktop;
+
+    if (isMobile) {
+      // On mobile, use native prompt for soft keyboard support
+      this.time.delayedCall(300, () => {
+        const playerName = window.prompt('Wpisz swoje imię:') || '';
+        if (playerName.length > 0) {
+          const nameText = this.add
+            .text(width / 2, height - 80, playerName, {
+              fontSize: '24px',
+              color: '#00ff00',
+              fontFamily: 'monospace',
+              stroke: '#000000',
+              strokeThickness: 3,
+            })
+            .setOrigin(0.5);
+          nameText.setAlpha(1);
+
+          this.submitScore(playerName.slice(0, 20), data).then(() => {
+            showScoreboard(this, playerName.slice(0, 20));
+          });
+        } else {
+          this.showScoreboardButton(width, height);
+        }
+        this.showRestartPrompt(width, height);
+      });
+      return;
+    }
+
+    // Desktop: custom keyboard handler
     const promptText = this.add
       .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', {
         fontSize: '14px',
@@ -278,8 +308,13 @@ export class GameOverScene extends Phaser.Scene {
     if (this.restartBound) return;
     this.restartBound = true;
 
+    const isMobile = !this.sys.game.device.os.desktop;
+    const restartLabel = isMobile
+      ? 'Dotknij żeby zagrać jeszcze raz!'
+      : 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy';
+
     const restartText = this.add
-      .text(width / 2, height - 30, 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy', {
+      .text(width / 2, height - 30, restartLabel, {
         fontSize: '14px',
         color: '#ffffff',
         fontFamily: 'monospace',
@@ -298,6 +333,11 @@ export class GameOverScene extends Phaser.Scene {
     this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
     this.input.keyboard!.once('keydown-R', () => this.restartGame());
     this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
+
+    // Touch: tap to restart (with delay to prevent accidental tap)
+    this.time.delayedCall(500, () => {
+      this.input.once('pointerdown', () => this.restartGame());
+    });
   }
 
   private restartGame(): void {
