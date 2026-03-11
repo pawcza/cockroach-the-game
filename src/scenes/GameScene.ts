@@ -10,12 +10,13 @@ import {
   COCKROACH_ACCELERATION,
   APPLE_SCORE,
   PILL_SCORE,
+  TYSKIE_SCORE,
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
   APPLE_SPAWN_CHANCE,
   DASH_DURATION,
   DASH_COOLDOWN,
-  DASH_SPEED_MULTIPLIER,
+  DASH_SPEED_BOOST,
   PILL_SPAWN_CHANCE,
   PILL_SPEED_MULTIPLIER,
   PILL_DURATION,
@@ -24,7 +25,6 @@ import {
 } from '../config/constants';
 
 const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
-const TYSKIE_SCORE = APPLE_SCORE * 10; // 100 points
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
@@ -416,11 +416,18 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.isDead || this.isPaused || this.isCountingDown) return;
 
-      // Ignore taps on the dash button or pause button area
-      const dashBounds = this.touchDashBtn.getBounds();
-      const pauseBounds = this.touchPauseBtn.getBounds();
-      if (dashBounds.contains(pointer.x, pointer.y)) return;
-      if (pauseBounds.contains(pointer.x, pointer.y)) return;
+      // Ignore taps on the dash button or pause button area (use screen-space coords)
+      const cam = this.cameras.main;
+      const screenX = pointer.x;
+      const screenY = pointer.y;
+      const dashX = this.touchDashBtn.x - this.touchDashBtn.width / 2;
+      const dashY = this.touchDashBtn.y - this.touchDashBtn.height / 2;
+      if (screenX >= dashX && screenX <= dashX + this.touchDashBtn.width &&
+          screenY >= dashY && screenY <= dashY + this.touchDashBtn.height) return;
+      const pauseX = this.touchPauseBtn.x - this.touchPauseBtn.width / 2;
+      const pauseY = this.touchPauseBtn.y;
+      if (screenX >= pauseX && screenX <= pauseX + this.touchPauseBtn.width &&
+          screenY >= pauseY && screenY <= pauseY + this.touchPauseBtn.height) return;
 
       this.swapLane();
     });
@@ -523,9 +530,9 @@ export class GameScene extends Phaser.Scene {
     this.currentSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION + levelBonus;
     this.speedMultiplier = this.currentSpeed / COCKROACH_BASE_SPEED;
 
-    // Auto-run (dash multiplier applied if active, pill boost stacks)
-    const dashMultiplier = this.isDashing ? DASH_SPEED_MULTIPLIER : 1;
-    this.cockroach.setVelocityX(this.currentSpeed * dashMultiplier * this.pillSpeedBoost);
+    // Auto-run (flat dash boost + pill multiplier)
+    const dashBoost = this.isDashing ? DASH_SPEED_BOOST : 0;
+    this.cockroach.setVelocityX((this.currentSpeed + dashBoost) * this.pillSpeedBoost);
 
     // Dust trail particles
     this.dustTimer += this.game.loop.delta;
@@ -1104,20 +1111,27 @@ export class GameScene extends Phaser.Scene {
         const tFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
         const tY = (tFloor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y) - 30;
         const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
-        tyskie.setScale(0.15);
+        tyskie.setScale(0.25);
         tyskie.setDepth(10);
         (tyskie.body as Phaser.Physics.Arcade.Body).allowGravity = false;
         tyskie.setImmovable(true);
-        // Gentle bobbing
+        // Bobbing + pulsing glow
         this.tweens.add({
           targets: tyskie,
-          y: tY - 6,
-          duration: 500,
+          y: tY - 8,
+          duration: 400,
           yoyo: true,
           repeat: -1,
           ease: 'Sine.easeInOut',
         });
-        // Golden glow
+        this.tweens.add({
+          targets: tyskie,
+          scale: 0.3,
+          duration: 600,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
         tyskie.setTint(0xffdd00);
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
         // Apple slot
@@ -1660,7 +1674,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Combo multiplier: 10 combo = 1.5x, 20 combo = 2.0x, etc. */
   private getComboMultiplier(): number {
-    return 1 + this.pickupCombo * 0.05;
+    return 1 + this.pickupCombo * 0.025;
   }
 
   private updateScoreText(): void {

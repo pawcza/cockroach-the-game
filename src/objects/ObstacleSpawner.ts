@@ -288,8 +288,9 @@ export class ObstacleSpawner {
   private spawnNewspaper(x: number): void {
     const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
     const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const startTop = Math.random() > 0.5;
 
-    const newspaper = this.obstacles.create(x, topY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
+    const newspaper = this.obstacles.create(x, startTop ? topY : bottomY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
     newspaper.setOrigin(0.5, 0.5);
     newspaper.setScale(0.2);
     newspaper.setDepth(10);
@@ -303,7 +304,7 @@ export class ObstacleSpawner {
 
     this.scene.tweens.add({
       targets: newspaper,
-      y: bottomY,
+      y: startTop ? bottomY : topY,
       duration: 2000,
       ease: 'Sine.easeInOut',
       yoyo: true,
@@ -317,8 +318,9 @@ export class ObstacleSpawner {
   private spawnBird(x: number): void {
     const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
     const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const startTop = Math.random() > 0.5;
 
-    const bird = this.obstacles.create(x, topY, 'bird') as Phaser.Physics.Arcade.Sprite;
+    const bird = this.obstacles.create(x, startTop ? topY : bottomY, 'bird') as Phaser.Physics.Arcade.Sprite;
     bird.setOrigin(0.5, 0.5);
     bird.setScale(0.2);
     bird.setDepth(10);
@@ -331,7 +333,7 @@ export class ObstacleSpawner {
 
     this.scene.tweens.add({
       targets: bird,
-      y: bottomY,
+      y: startTop ? bottomY : topY,
       duration: 1200,
       ease: 'Sine.easeInOut',
       yoyo: true,
@@ -481,8 +483,9 @@ export class ObstacleSpawner {
   private spawnJellyfish(x: number): void {
     const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
     const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const startTop = Math.random() > 0.5;
 
-    const jelly = this.obstacles.create(x, topY, 'jellyfish') as Phaser.Physics.Arcade.Sprite;
+    const jelly = this.obstacles.create(x, startTop ? topY : bottomY, 'jellyfish') as Phaser.Physics.Arcade.Sprite;
     jelly.setOrigin(0.5, 0.5);
     jelly.setScale(0.2);
     jelly.setDepth(10);
@@ -497,7 +500,7 @@ export class ObstacleSpawner {
     // Slow drift between floors
     this.scene.tweens.add({
       targets: jelly,
-      y: bottomY,
+      y: startTop ? bottomY : topY,
       duration: 2500,
       ease: 'Sine.easeInOut',
       yoyo: true,
@@ -546,8 +549,9 @@ export class ObstacleSpawner {
   private spawnPope(x: number): void {
     const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
     const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const startTop = Math.random() > 0.5;
 
-    const pope = this.obstacles.create(x, topY, 'pope') as Phaser.Physics.Arcade.Sprite;
+    const pope = this.obstacles.create(x, startTop ? topY : bottomY, 'pope') as Phaser.Physics.Arcade.Sprite;
     pope.setOrigin(0.5, 0.5);
     pope.setScale(0.2);
     pope.setDepth(10);
@@ -561,7 +565,7 @@ export class ObstacleSpawner {
     // Pendulum swing between floors
     this.scene.tweens.add({
       targets: pope,
-      y: bottomY,
+      y: startTop ? bottomY : topY,
       duration: 1800,
       ease: 'Sine.easeInOut',
       yoyo: true,
