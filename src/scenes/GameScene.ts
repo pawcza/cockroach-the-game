@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
 import {
-  GAME_WIDTH,
-  GAME_HEIGHT,
   FLOOR_BOTTOM_Y,
   FLOOR_TOP_Y,
   FLOOR_HEIGHT,
@@ -193,14 +191,18 @@ export class GameScene extends Phaser.Scene {
     this.pillSpeedLines = [];
     this.isPillWarning = false;
 
+    // Screen dimensions (adapts to device with RESIZE mode)
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+
     // Parallax backgrounds
     this.skyBg = this.add
-      .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'lv1-sky')
+      .tileSprite(0, 0, w, h, 'lv1-sky')
       .setOrigin(0, 0)
       .setScrollFactor(0);
 
     this.midBg = this.add
-      .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'lv1-bg')
+      .tileSprite(0, 0, w, h, 'lv1-bg')
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(1)
@@ -208,14 +210,14 @@ export class GameScene extends Phaser.Scene {
     this.midBg.setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
 
     this.fgBg = this.add
-      .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'lv1-fg')
+      .tileSprite(0, 0, w, h, 'lv1-fg')
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(LEVELS[0].fgAboveFloors ? 5 : 2);
 
     // Floor platforms — use screen-width tiles that follow the camera
     // (avoids 50000px WebGL texture errors)
-    const FLOOR_WIDTH = GAME_WIDTH + 200; // slight overscan
+    const FLOOR_WIDTH = w + 200; // slight overscan
 
     this.floorTopTile = this.add
       .tileSprite(0, FLOOR_TOP_Y, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
@@ -337,7 +339,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100);
 
     this.floorIndicator = this.add
-      .text(GAME_WIDTH - 16, GAME_HEIGHT / 2, '▼', {
+      .text(w - 16, h / 2, '▼', {
         fontSize: '24px',
         color: '#ffffff',
         fontFamily: 'monospace',
@@ -364,7 +366,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100);
 
     this.comboText = this.add
-      .text(GAME_WIDTH - 16, 44, '', {
+      .text(w - 16, 44, '', {
         fontSize: '16px',
         color: '#ffff00',
         fontFamily: 'monospace',
@@ -388,19 +390,19 @@ export class GameScene extends Phaser.Scene {
     this.vfx.init();
 
     // Pill psychedelic overlay (hidden by default)
-    this.pillOverlay = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0xff00ff, 0)
+    this.pillOverlay = this.add.rectangle(w / 2, h / 2, w, h, 0xff00ff, 0)
       .setScrollFactor(0)
       .setDepth(989)
       .setBlendMode(Phaser.BlendModes.ADD);
 
     // Pause UI
-    this.pauseOverlay = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6)
+    this.pauseOverlay = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.6)
       .setScrollFactor(0).setDepth(2000).setVisible(false)
       .setInteractive();
     this.pauseOverlay.on('pointerdown', () => {
       if (this.isPaused) this.togglePause();
     });
-    this.pauseText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'PAUZKA!', {
+    this.pauseText = this.add.text(w / 2, h / 2, 'PAUZKA!', {
       fontSize: '48px',
       fontFamily: 'Georgia, serif',
       color: '#ffffff',
@@ -418,7 +420,7 @@ export class GameScene extends Phaser.Scene {
 
       // On mobile, right half = dash, left half = lane swap
       if (this.isMobile) {
-        if (pointer.x >= GAME_WIDTH / 2) return; // right half is dash zone
+        if (pointer.x >= this.cameras.main.width / 2) return; // right half is dash zone
       } else {
         // Desktop: ignore taps on dash button / pause button
         const dbX = this.touchDashBtn.x - this.touchDashBtn.width / 2;
@@ -470,7 +472,7 @@ export class GameScene extends Phaser.Scene {
     if (step < countdownTexts.length && step > this.countdownLastShown) {
       this.countdownLastShown = step;
       const text = countdownTexts[step];
-      const countText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, text, {
+      const countText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
         fontSize: text === 'JAZDA!' ? '48px' : '64px',
         fontFamily: 'Georgia, serif',
         color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
@@ -601,7 +603,7 @@ export class GameScene extends Phaser.Scene {
     (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
 
     // --- Off-screen death ---
-    if (this.cockroach.y > GAME_HEIGHT + 50 || this.cockroach.y < -100) {
+    if (this.cockroach.y > this.cameras.main.height + 50 || this.cockroach.y < -100) {
       this.die();
       return;
     }
@@ -669,7 +671,7 @@ export class GameScene extends Phaser.Scene {
     if (milestones[survivalSeconds] && survivalSeconds > this.lastTimeMilestone) {
       this.lastTimeMilestone = survivalSeconds;
       const milestone = this.add.text(
-        GAME_WIDTH / 2, GAME_HEIGHT - 40,
+        this.cameras.main.width / 2, this.cameras.main.height - 40,
         milestones[survivalSeconds],
         {
           fontSize: '20px',
@@ -999,10 +1001,12 @@ export class GameScene extends Phaser.Scene {
     const btnAlpha = this.isMobile ? 0.7 : 0.3;
 
     // Dash button — right half of screen on mobile, small button on desktop
-    const dashW = this.isMobile ? GAME_WIDTH / 2 : 56;
-    const dashH = this.isMobile ? GAME_HEIGHT : 56;
-    const dashX = this.isMobile ? GAME_WIDTH - dashW / 2 : GAME_WIDTH - 44;
-    const dashY = this.isMobile ? GAME_HEIGHT / 2 : GAME_HEIGHT - 44;
+    const sw = this.cameras.main.width;
+    const sh = this.cameras.main.height;
+    const dashW = this.isMobile ? sw / 2 : 56;
+    const dashH = this.isMobile ? sh : 56;
+    const dashX = this.isMobile ? sw - dashW / 2 : sw - 44;
+    const dashY = this.isMobile ? sh / 2 : sh - 44;
     const dashAlpha = this.isMobile ? 0 : 0.3;
 
     this.touchDashBtn = this.add.rectangle(
@@ -1014,8 +1018,8 @@ export class GameScene extends Phaser.Scene {
       .setInteractive();
 
     this.touchDashLabel = this.add.text(
-      this.isMobile ? GAME_WIDTH - GAME_WIDTH / 4 : GAME_WIDTH - 44,
-      this.isMobile ? GAME_HEIGHT / 2 : GAME_HEIGHT - 44,
+      this.isMobile ? sw - sw / 4 : sw - 44,
+      this.isMobile ? sh / 2 : sh - 44,
       'DASH ▶', {
         fontSize: this.isMobile ? '18px' : '12px',
         fontFamily: 'monospace',
@@ -1038,7 +1042,7 @@ export class GameScene extends Phaser.Scene {
 
     // Pause button — top-right
     this.touchPauseBtn = this.add.text(
-      GAME_WIDTH - 20, 12, '\u23f8', {
+      sw - 20, 12, '\u23f8', {
         fontSize: '28px',
         fontFamily: 'monospace',
         color: '#ffffff',
@@ -1063,7 +1067,7 @@ export class GameScene extends Phaser.Scene {
     // Each spawn advances nextSpawnX by the current slot width, avoiding
     // gaps caused by a changing slotWidth multiplied by a monotonic index.
     const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, this.speedMultiplier * 0.3);
-    const cameraRight = this.cameras.main.scrollX + GAME_WIDTH;
+    const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 
     // Fill slots up to the spawn horizon
@@ -1428,12 +1432,12 @@ export class GameScene extends Phaser.Scene {
     // Spawn speed lines periodically
     const spawnLine = () => {
       if (!this.isPillActive || this.isDead) return;
-      const lineY = Phaser.Math.Between(0, GAME_HEIGHT);
+      const lineY = Phaser.Math.Between(0, this.cameras.main.height);
       const lineWidth = Phaser.Math.Between(40, 120);
       const lineColors = [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88];
       const color = lineColors[Math.floor(Math.random() * lineColors.length)];
       const line = this.add.rectangle(
-        GAME_WIDTH + lineWidth, lineY,
+        this.cameras.main.width + lineWidth, lineY,
         lineWidth, 2, color, 0.6,
       );
       line.setScrollFactor(0);
@@ -1499,7 +1503,7 @@ export class GameScene extends Phaser.Scene {
 
     // "KONIEC JAZDY!" text popup
     const endText = this.add.text(
-      GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20,
+      this.cameras.main.width / 2, this.cameras.main.height / 2 - 20,
       'KONIEC JAZDY!', {
         fontSize: '36px',
         fontFamily: 'Georgia, serif',
@@ -1546,7 +1550,7 @@ export class GameScene extends Phaser.Scene {
     const levelLabel = `POZIOM ${config.level}`;
     const nameLabel = config.name.toUpperCase();
 
-    const levelText = this.add.text(GAME_WIDTH / 2, 60, levelLabel, {
+    const levelText = this.add.text(this.cameras.main.width / 2, 60, levelLabel, {
       fontSize: '24px',
       fontFamily: 'Georgia, serif',
       color: '#ffff00',
@@ -1559,7 +1563,7 @@ export class GameScene extends Phaser.Scene {
     levelText.setScale(0.5);
     levelText.setAlpha(0);
 
-    const nameText = this.add.text(GAME_WIDTH / 2, 95, nameLabel, {
+    const nameText = this.add.text(this.cameras.main.width / 2, 95, nameLabel, {
       fontSize: '36px',
       fontFamily: 'Georgia, serif',
       color: '#ffffff',
@@ -1693,10 +1697,10 @@ export class GameScene extends Phaser.Scene {
 
   private spawnBirdOverlook(): void {
     const corners = [
-      { x: 60, y: GAME_HEIGHT - 60, flipX: false, flipY: false },   // bottom-left (original)
-      { x: GAME_WIDTH - 60, y: GAME_HEIGHT - 60, flipX: true, flipY: false },  // bottom-right
+      { x: 60, y: this.cameras.main.height - 60, flipX: false, flipY: false },   // bottom-left (original)
+      { x: this.cameras.main.width - 60, y: this.cameras.main.height - 60, flipX: true, flipY: false },  // bottom-right
       { x: 60, y: 60, flipX: false, flipY: true },                   // top-left
-      { x: GAME_WIDTH - 60, y: 60, flipX: true, flipY: true },      // top-right
+      { x: this.cameras.main.width - 60, y: 60, flipX: true, flipY: true },      // top-right
     ];
     const corner = corners[Math.floor(Math.random() * corners.length)];
 
@@ -1722,7 +1726,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showObstacleWarnings(): void {
-    const cameraRight = this.cameras.main.scrollX + GAME_WIDTH;
+    const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
     const warningZoneStart = cameraRight - 50;
     const warningZoneEnd = cameraRight + 300;
 
@@ -1733,8 +1737,8 @@ export class GameScene extends Phaser.Scene {
         const obstacleFloor = sprite.getData('floor');
         if (obstacleFloor && obstacleFloor !== this.currentFloor) return;
 
-        const warningY = sprite.y < GAME_HEIGHT / 2 ? 30 : GAME_HEIGHT - 30;
-        const warning = this.add.text(GAME_WIDTH - 30, warningY, '!', {
+        const warningY = sprite.y < this.cameras.main.height / 2 ? 30 : this.cameras.main.height - 30;
+        const warning = this.add.text(this.cameras.main.width - 30, warningY, '!', {
           fontSize: '24px',
           fontFamily: 'monospace',
           color: '#ff0000',
