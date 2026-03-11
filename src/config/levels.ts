@@ -22,7 +22,7 @@ export const LEVELS: LevelConfig[] = [
   { level: 10, name: 'KARALUCH WIDZI WSZYSTKO', skyKey: 'lv10-sky', bgKey: 'lv10-bg', fgKey: 'lv10-fg', floorKey: 'lv10-floor', bgmKey: 'bgm-lv10', fgAboveFloors: true },
 ];
 
-export const POINTS_PER_LEVEL = 1000;
+export const POINTS_PER_LEVEL = 500;
 
 export function getLevelForScore(score: number): LevelConfig {
   const levelIndex = Math.min(Math.floor(score / POINTS_PER_LEVEL), LEVELS.length - 1);

@@ -9,7 +9,7 @@ export const FLOOR_HEIGHT = 16;
 // Cockroach
 export const COCKROACH_START_X = 150;
 export const COCKROACH_BASE_SPEED = 200;
-export const COCKROACH_ACCELERATION = 2; // px/s per second
+export const COCKROACH_ACCELERATION = 1.5; // px/s per second
 export const COCKROACH_JUMP_VELOCITY = -550;
 export const COCKROACH_GRAVITY = 800;
 
@@ -22,7 +22,7 @@ export const OBSTACLE_SPAWN_INTERVAL = 350;
 // Dash
 export const DASH_DURATION = 375;
 export const DASH_COOLDOWN = 1200;
-export const DASH_SPEED_MULTIPLIER = 3;
+export const DASH_SPEED_BOOST = 300; // flat px/s added during dash
 
 // Pill pickup
 export const PILL_SPAWN_CHANCE = 0.005; // 0.5% - 10x rarer than beer
@@ -35,5 +35,6 @@ export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed
 
 // Scoring
 export const APPLE_SCORE = 10;
-export const PILL_SCORE = 200;
+export const TYSKIE_SCORE = 25;
+export const PILL_SCORE = 100;
 export const SURVIVAL_SCORE_INTERVAL = 1000;
