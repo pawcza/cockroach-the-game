@@ -1014,20 +1014,20 @@ export class GameScene extends Phaser.Scene {
       .setInteractive();
 
     this.touchDashLabel = this.add.text(
-      this.isMobile ? GAME_WIDTH - 60 : GAME_WIDTH - 44,
-      this.isMobile ? GAME_HEIGHT - 30 : GAME_HEIGHT - 44,
-      'DASH', {
-        fontSize: '12px',
+      this.isMobile ? GAME_WIDTH - GAME_WIDTH / 4 : GAME_WIDTH - 44,
+      this.isMobile ? GAME_HEIGHT / 2 : GAME_HEIGHT - 44,
+      'DASH ▶', {
+        fontSize: this.isMobile ? '18px' : '12px',
         fontFamily: 'monospace',
         color: '#00ffff',
         stroke: '#000000',
-        strokeThickness: 2,
+        strokeThickness: 3,
       },
     )
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(3001)
-      .setAlpha(this.isMobile ? 0.5 : 0.3);
+      .setAlpha(this.isMobile ? 0.4 : 0.3);
 
     this.touchDashBtn.on('pointerdown', () => {
       if (this.isDead || this.isPaused || this.isCountingDown) return;
