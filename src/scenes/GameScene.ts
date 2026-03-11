@@ -416,18 +416,20 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.isDead || this.isPaused || this.isCountingDown) return;
 
-      // Ignore taps on the dash button or pause button area (use screen-space coords)
-      const cam = this.cameras.main;
-      const screenX = pointer.x;
-      const screenY = pointer.y;
-      const dashX = this.touchDashBtn.x - this.touchDashBtn.width / 2;
-      const dashY = this.touchDashBtn.y - this.touchDashBtn.height / 2;
-      if (screenX >= dashX && screenX <= dashX + this.touchDashBtn.width &&
-          screenY >= dashY && screenY <= dashY + this.touchDashBtn.height) return;
+      // On mobile, right half = dash, left half = lane swap
+      if (this.isMobile) {
+        if (pointer.x >= GAME_WIDTH / 2) return; // right half is dash zone
+      } else {
+        // Desktop: ignore taps on dash button / pause button
+        const dbX = this.touchDashBtn.x - this.touchDashBtn.width / 2;
+        const dbY = this.touchDashBtn.y - this.touchDashBtn.height / 2;
+        if (pointer.x >= dbX && pointer.x <= dbX + this.touchDashBtn.width &&
+            pointer.y >= dbY && pointer.y <= dbY + this.touchDashBtn.height) return;
+      }
       const pauseX = this.touchPauseBtn.x - this.touchPauseBtn.width / 2;
       const pauseY = this.touchPauseBtn.y;
-      if (screenX >= pauseX && screenX <= pauseX + this.touchPauseBtn.width &&
-          screenY >= pauseY && screenY <= pauseY + this.touchPauseBtn.height) return;
+      if (pointer.x >= pauseX && pointer.x <= pauseX + this.touchPauseBtn.width &&
+          pointer.y >= pauseY && pointer.y <= pauseY + this.touchPauseBtn.height) return;
 
       this.swapLane();
     });
@@ -996,17 +998,25 @@ export class GameScene extends Phaser.Scene {
   private createTouchUI(): void {
     const btnAlpha = this.isMobile ? 0.7 : 0.3;
 
-    // Dash button — bottom-right
+    // Dash button — right half of screen on mobile, small button on desktop
+    const dashW = this.isMobile ? GAME_WIDTH / 2 : 56;
+    const dashH = this.isMobile ? GAME_HEIGHT : 56;
+    const dashX = this.isMobile ? GAME_WIDTH - dashW / 2 : GAME_WIDTH - 44;
+    const dashY = this.isMobile ? GAME_HEIGHT / 2 : GAME_HEIGHT - 44;
+    const dashAlpha = this.isMobile ? 0 : 0.3;
+
     this.touchDashBtn = this.add.rectangle(
-      GAME_WIDTH - 44, GAME_HEIGHT - 44, 56, 56, 0x00ffff, 0.4,
+      dashX, dashY, dashW, dashH, 0x00ffff, 0.4,
     )
       .setScrollFactor(0)
       .setDepth(3000)
-      .setAlpha(btnAlpha)
+      .setAlpha(dashAlpha)
       .setInteractive();
 
     this.touchDashLabel = this.add.text(
-      GAME_WIDTH - 44, GAME_HEIGHT - 44, 'DASH', {
+      this.isMobile ? GAME_WIDTH - 60 : GAME_WIDTH - 44,
+      this.isMobile ? GAME_HEIGHT - 30 : GAME_HEIGHT - 44,
+      'DASH', {
         fontSize: '12px',
         fontFamily: 'monospace',
         color: '#00ffff',
@@ -1017,7 +1027,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(3001)
-      .setAlpha(btnAlpha);
+      .setAlpha(this.isMobile ? 0.5 : 0.3);
 
     this.touchDashBtn.on('pointerdown', () => {
       if (this.isDead || this.isPaused || this.isCountingDown) return;
