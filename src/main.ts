@@ -7,7 +7,7 @@ import { GameOverScene } from './scenes/GameOverScene';
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 800,
-  height: 400,
+  height: 512,
   backgroundColor: '#1a0a2e',
   pixelArt: true,
   antialias: false,
@@ -24,7 +24,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
   scale: {
-    mode: Phaser.Scale.ENVELOP,
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 };

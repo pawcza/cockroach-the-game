@@ -21,6 +21,12 @@ export class GameOverScene extends Phaser.Scene {
     newspaper: 'Naleszało Ci siem',
     onion: 'Smrót Cię zmiótł',
     spray: 'MUGA!',
+    pill: 'PRZEDAWKOWANIE!',
+    disco: 'DYSKOTEKA ZAMKNIĘTA!',
+    jellyfish: 'UŻĄDLONY NA BAŁTYKU!',
+    pope: 'OKADZONY PRZEZ PAPIEŻA!',
+    bison: 'ŻUBR CIĘ STRATOWAŁ!',
+    blackhole: 'WCIĄGNIĘTY W NICOŚĆ!',
   };
 
   private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
@@ -30,6 +36,11 @@ export class GameOverScene extends Phaser.Scene {
     newspaper: 'newspaper',
     onion: 'onion',
     spray: 'pest-spray',
+    disco: 'disco-ball',
+    jellyfish: 'jellyfish',
+    pope: 'pope',
+    bison: 'bison',
+    blackhole: 'black-hole',
   };
 
   constructor() {

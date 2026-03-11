@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
+import { POINTS_PER_LEVEL } from '../config/levels';
 
 type Floor = 'top' | 'bottom';
+type SpawnFn = (x: number) => void;
+
+// Vertical offset from floor Y to center obstacles on the running lane
+const OBSTACLE_OFFSET = 45;
 
 export class ObstacleSpawner {
   private scene: Phaser.Scene;
@@ -29,19 +34,49 @@ export class ObstacleSpawner {
     });
   }
 
-  spawn(x: number, speedMultiplier: number = 1): void {
-    const types = [
-      this.spawnPestSpray,
-      this.spawnNewspaper,
-      this.spawnOnion,
-    ];
-    if (speedMultiplier >= 1.5) {
-      types.push(this.spawnFlipper);
+  spawn(x: number, score: number = 0): void {
+    const lvl = Math.floor(score / POINTS_PER_LEVEL) + 1;
+
+    // Lv1: onion only
+    const types: SpawnFn[] = [this.spawnOnion];
+
+    // Lv2: +spray, +flipper
+    if (lvl >= 2) {
+      types.push(this.spawnPestSpray, this.spawnFlipper);
     }
-    if (speedMultiplier >= 2.5) {
+    // Lv3: +newspaper
+    if (lvl >= 3) {
+      types.push(this.spawnNewspaper);
+    }
+    // Lv4: +bird
+    if (lvl >= 4) {
       types.push(this.spawnBird);
+    }
+    // Lv5: +cat
+    if (lvl >= 5) {
       types.push(this.spawnCatPaw);
     }
+    // Lv6: +disco ball
+    if (lvl >= 6) {
+      types.push(this.spawnDiscoBall);
+    }
+    // Lv7: +jellyfish
+    if (lvl >= 7) {
+      types.push(this.spawnJellyfish);
+    }
+    // Lv8: +pope
+    if (lvl >= 8) {
+      types.push(this.spawnPope);
+    }
+    // Lv9: +bison
+    if (lvl >= 9) {
+      types.push(this.spawnBison);
+    }
+    // Lv10: +black hole
+    if (lvl >= 10) {
+      types.push(this.spawnBlackHole);
+    }
+
     const pick = Phaser.Math.Between(0, types.length - 1);
     types[pick].call(this, x);
   }
@@ -55,16 +90,101 @@ export class ObstacleSpawner {
     return floor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y;
   }
 
-  // ── 1. PEST SPRAY ──────────────────────────────────────────────────
-  // Menacing. Industrial. A can of death that BREATHES poison.
+  private getCenterY(floor: Floor): number {
+    return this.getFloorY(floor) - OBSTACLE_OFFSET;
+  }
+
+  // ── 1. ONION (Lv1) ────────────────────────────────────────────────
+  // Sits and stinks.
+
+  private spawnOnion(x: number): void {
+    const floor = this.randomFloor();
+    const centerY = this.getCenterY(floor);
+
+    const onion = this.obstacles.create(x, centerY, 'onion') as Phaser.Physics.Arcade.Sprite;
+    onion.setOrigin(0.5, 0.5);
+    onion.setScale(0.2);
+    onion.setDepth(10);
+    onion.setImmovable(true);
+    onion.setData('floor', floor);
+    onion.setData('type', 'onion');
+    (onion.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    onion.body!.setSize(onion.width * 0.6, onion.height * 0.7);
+
+    // Gentle wobble
+    this.scene.tweens.add({
+      targets: onion,
+      angle: { from: -3, to: 3 },
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Stink waves
+    const stinkStartY = centerY - onion.displayHeight * 0.3;
+    for (let i = 0; i < 3; i++) {
+      const offsetX = Phaser.Math.Between(-8, 8);
+      const stink = this.scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
+      stink.setScale(0.5 + i * 0.15);
+      stink.setDepth(10);
+
+      this.scene.tweens.add({
+        targets: stink,
+        y: stinkStartY - 50 - i * 15,
+        alpha: 0,
+        duration: 1500 + i * 300,
+        delay: i * 400,
+        repeat: -1,
+        ease: 'Sine.easeOut',
+        onRepeat: () => {
+          stink.y = stinkStartY;
+          stink.alpha = 0.6;
+        },
+      });
+    }
+
+    // Tears
+    const tearStartY = centerY - onion.displayHeight * 0.2;
+    const tearEndY = centerY + onion.displayHeight * 0.4;
+    this.scene.time.addEvent({
+      delay: 800,
+      loop: true,
+      callback: () => {
+        if (!onion.active) return;
+        const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+        const tear = this.scene.add.circle(
+          x + side * Phaser.Math.Between(4, 10),
+          tearStartY,
+          Phaser.Math.Between(1, 3),
+          0x4488ff,
+          0.7,
+        );
+        tear.setDepth(10);
+        this.scene.tweens.add({
+          targets: tear,
+          y: tearEndY,
+          alpha: 0,
+          scaleY: 1.8,
+          duration: Phaser.Math.Between(600, 1000),
+          ease: 'Quad.easeIn',
+          onComplete: () => tear.destroy(),
+        });
+      },
+    });
+  }
+
+  // ── 2. PEST SPRAY (Lv2) ───────────────────────────────────────────
+  // Sits on the floor and vibrates. Emits mist from the nozzle.
 
   private spawnPestSpray(x: number): void {
     const floor = this.randomFloor();
-    const floorY = this.getFloorY(floor);
+    const centerY = this.getCenterY(floor);
 
-    const spray = this.obstacles.create(x, floorY, 'pest-spray') as Phaser.Physics.Arcade.Sprite;
-    spray.setOrigin(0.5, 1);
+    const spray = this.obstacles.create(x, centerY, 'pest-spray') as Phaser.Physics.Arcade.Sprite;
+    spray.setOrigin(0.5, 0.5);
     spray.setScale(0.2);
+    spray.setDepth(10);
     spray.setImmovable(true);
     spray.setData('floor', floor);
     spray.setData('type', 'spray');
@@ -72,53 +192,30 @@ export class ObstacleSpawner {
     spray.body!.setSize(spray.width * 0.6, spray.height * 0.7);
     this.playSoundOnVisible(spray, 'spray-sfx', 0.3);
 
-    // Can vibration — a nervous, industrial rattle
+    // Vibration
     this.scene.tweens.add({
       targets: spray,
       x: spray.x + 1.5,
-      y: spray.y + 0.8,
       duration: 50,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
-    // Alpha pulse — the mist is ALIVE
-    this.scene.tweens.add({
-      targets: spray,
-      alpha: { from: 0.7, to: 1.0 },
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    // Gentle scale pulse — subtle breathing, not threatening
-    this.scene.tweens.add({
-      targets: spray,
-      scaleX: 0.216,
-      scaleY: 0.216,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    // SPRAY MIST — a cloud of drifting poison droplets, non-collidable
-    // The nozzle is near the top of the can
-    const nozzleY = floorY - spray.height * 0.85;
+    // Mist from nozzle
+    const nozzleY = centerY - spray.displayHeight * 0.45;
     const sprayMist = (): void => {
+      if (!spray.active) return;
       for (let i = 0; i < 4; i++) {
         const radius = Phaser.Math.Between(2, 5);
         const droplet = this.scene.add.circle(
-          x + Phaser.Math.Between(-3, 3),
+          spray.x + Phaser.Math.Between(-3, 3),
           nozzleY + Phaser.Math.Between(-2, 2),
           radius,
           0x88dd44,
           Phaser.Math.FloatBetween(0.15, 0.35),
         );
-        droplet.setDepth(spray.depth - 1);
-
+        droplet.setDepth(10);
         const driftX = Phaser.Math.Between(-30, 30);
         const driftY = Phaser.Math.Between(-35, -15);
         this.scene.tweens.add({
@@ -133,181 +230,20 @@ export class ObstacleSpawner {
         });
       }
     };
-    // Emit mist repeatedly
-    this.scene.time.addEvent({
-      delay: 300,
-      callback: sprayMist,
-      loop: true,
-    });
+    this.scene.time.addEvent({ delay: 300, callback: sprayMist, loop: true });
   }
 
-  // ── 2. NEWSPAPER ──────────────────────────────────────────────────
-  // The slam heard round the kitchen.
-
-  private spawnNewspaper(x: number): void {
-    const floor = this.randomFloor();
-    const floorY = this.getFloorY(floor);
-    const startY = floorY - 40;
-
-    const newspaper = this.obstacles.create(x, startY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
-    newspaper.setOrigin(0.5, 1);
-    newspaper.setScale(0.2);
-    newspaper.setImmovable(true);
-    newspaper.setData('floor', floor);
-    newspaper.setData('type', 'newspaper');
-    (newspaper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    newspaper.body!.setSize(newspaper.width * 0.6, newspaper.height * 0.7);
-
-    // THE SLAM — predictable rhythm: down 400ms, hold 800ms, up 400ms, wait 800ms
-    this.scene.tweens.add({
-      targets: newspaper,
-      y: floorY,
-      duration: 400,
-      ease: 'Cubic.easeIn',
-      hold: 800,
-      yoyo: true,
-      repeat: -1,
-      repeatDelay: 800,
-    });
-
-    // Slight tilt — stays tilted, no rotation animation
-    newspaper.setAngle(-8);
-
-    // IMPACT BURST — scale punch and debris on each slam
-    // The slam duration is 400ms, repeats every (400 + 800 hold + 400 yoyo + 800 delay)
-    const slamCycle = 400 + 800 + 400 + 800;
-    this.scene.time.addEvent({
-      delay: slamCycle,
-      startAt: slamCycle - 400, // first trigger after the first slam lands (400ms)
-      loop: true,
-      callback: () => {
-        const cameraLeft = this.scene.cameras.main.scrollX;
-        const cameraRight = cameraLeft + GAME_WIDTH;
-        if (newspaper.x >= cameraLeft && newspaper.x <= cameraRight) {
-          this.scene.sound.play('newspaper-sfx', { volume: 0.4 });
-        }
-        // Scale punch — newspaper briefly swells on impact
-        this.scene.tweens.add({
-          targets: newspaper,
-          scaleX: 0.26,
-          scaleY: 0.26,
-          duration: 80,
-          yoyo: true,
-          ease: 'Cubic.easeOut',
-        });
-
-        // Debris particles — tiny paper bits fly out
-        for (let i = 0; i < 6; i++) {
-          const debris = this.scene.add.rectangle(
-            x + Phaser.Math.Between(-15, 15),
-            floorY - Phaser.Math.Between(2, 8),
-            Phaser.Math.Between(2, 4),
-            Phaser.Math.Between(1, 3),
-            0xddccaa,
-            0.8,
-          );
-          const flyX = Phaser.Math.Between(-40, 40);
-          const flyY = Phaser.Math.Between(-30, -10);
-          this.scene.tweens.add({
-            targets: debris,
-            x: debris.x + flyX,
-            y: debris.y + flyY,
-            alpha: 0,
-            angle: Phaser.Math.Between(-180, 180),
-            duration: Phaser.Math.Between(400, 700),
-            ease: 'Cubic.easeOut',
-            onComplete: () => debris.destroy(),
-          });
-        }
-      },
-    });
-  }
-
-  // ── 3. ONION ──────────────────────────────────────────────────────
-  // Sits there. Innocent looking. But the STINK.
-
-  private spawnOnion(x: number): void {
-    const floor = this.randomFloor();
-    const floorY = this.getFloorY(floor);
-
-    const onion = this.obstacles.create(x, floorY, 'onion') as Phaser.Physics.Arcade.Sprite;
-    onion.setOrigin(0.5, 1);
-    onion.setScale(0.2);
-    onion.setImmovable(true);
-    onion.setData('floor', floor);
-    onion.setData('type', 'onion');
-    (onion.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    onion.body!.setSize(onion.width * 0.6, onion.height * 0.7);
-    // No dedicated sound for onion
-
-    // The wobble
-    this.scene.tweens.add({
-      targets: onion,
-      angle: { from: -3, to: 3 },
-      duration: 1200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    // Stink waves — non-collidable decoration using graphics circles
-    for (let i = 0; i < 3; i++) {
-      const offsetX = Phaser.Math.Between(-8, 8);
-      const stink = this.scene.add.circle(x + offsetX, floorY - 10, 4, 0x99cc33, 0.6);
-      stink.setScale(0.5 + i * 0.15);
-
-      this.scene.tweens.add({
-        targets: stink,
-        y: floorY - 60 - i * 15,
-        alpha: 0,
-        duration: 1500 + i * 300,
-        delay: i * 400,
-        repeat: -1,
-        ease: 'Sine.easeOut',
-        onRepeat: () => {
-          stink.y = floorY - 10;
-          stink.alpha = 0.6;
-        },
-      });
-    }
-
-    // TEARS — the onion is so stinky it makes ITSELF cry
-    this.scene.time.addEvent({
-      delay: 800,
-      loop: true,
-      callback: () => {
-        const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
-        const tear = this.scene.add.circle(
-          x + side * Phaser.Math.Between(4, 10),
-          floorY - onion.height * 0.55,
-          Phaser.Math.Between(1, 3),
-          0x4488ff,
-          0.7,
-        );
-        this.scene.tweens.add({
-          targets: tear,
-          y: floorY - 2,
-          alpha: 0,
-          scaleY: 1.8,
-          duration: Phaser.Math.Between(600, 1000),
-          ease: 'Quad.easeIn',
-          onComplete: () => tear.destroy(),
-        });
-      },
-    });
-  }
-
-  // ── 4. FLIPPER / SANDAL ──────────────────────────────────────────
-  // Wielded by an UNSEEN ANGRY PERSON.
+  // ── 3. FLIPPER (Lv2) ──────────────────────────────────────────────
+  // Swings pendulum on the floor.
 
   private spawnFlipper(x: number): void {
     const floor = this.randomFloor();
-    const floorY = this.getFloorY(floor);
-    const pivotY = floorY - 20;
+    const centerY = this.getCenterY(floor);
 
-    const flipper = this.obstacles.create(x, pivotY, 'flipper') as Phaser.Physics.Arcade.Sprite;
-    flipper.setOrigin(0.5, 1);
+    const flipper = this.obstacles.create(x, centerY, 'flipper') as Phaser.Physics.Arcade.Sprite;
+    flipper.setOrigin(0.5, 0.5);
     flipper.setScale(0.2);
+    flipper.setDepth(10);
     flipper.setImmovable(true);
     flipper.setData('floor', floor);
     flipper.setData('type', 'flipper');
@@ -315,7 +251,6 @@ export class ObstacleSpawner {
     flipper.body!.setSize(flipper.width * 0.6, flipper.height * 0.7);
     this.playSoundOnVisible(flipper, 'flipper-sfx', 0.3);
 
-    // THE SWING — predictable pendulum, narrower arc
     this.scene.tweens.add({
       targets: flipper,
       angle: { from: -40, to: 40 },
@@ -325,57 +260,75 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // WHOOSH ARC — a semi-transparent trailing arc that follows the swing
+    // Whoosh arc
     const whooshGfx = this.scene.add.graphics();
-    whooshGfx.setDepth(flipper.depth - 1);
-    const arcRadius = flipper.height * 0.7;
+    whooshGfx.setDepth(9);
+    const arcRadius = flipper.displayHeight * 0.8;
     this.scene.events.on('update', () => {
-      if (!flipper.active) {
-        whooshGfx.destroy();
-        return;
-      }
+      if (!flipper.active) { whooshGfx.destroy(); return; }
       whooshGfx.clear();
-      // Draw a fading arc behind the current angle
       const currentAngle = flipper.angle;
-      const arcSpan = 25; // degrees of trail
-      const startAngleDeg = currentAngle - 90 - arcSpan;
-      const endAngleDeg = currentAngle - 90;
-      const startRad = Phaser.Math.DegToRad(startAngleDeg);
-      const endRad = Phaser.Math.DegToRad(endAngleDeg);
-
+      const arcSpan = 25;
+      const startRad = Phaser.Math.DegToRad(currentAngle - 90 - arcSpan);
+      const endRad = Phaser.Math.DegToRad(currentAngle - 90);
       whooshGfx.lineStyle(3, 0xffffff, 0.25);
       whooshGfx.beginPath();
-      whooshGfx.arc(x, pivotY, arcRadius, startRad, endRad, false);
+      whooshGfx.arc(x, centerY, arcRadius, startRad, endRad, false);
       whooshGfx.strokePath();
-
-      // Inner thinner arc for depth
       whooshGfx.lineStyle(1.5, 0xffffff, 0.12);
       whooshGfx.beginPath();
-      whooshGfx.arc(x, pivotY, arcRadius * 0.7, startRad, endRad, false);
+      whooshGfx.arc(x, centerY, arcRadius * 0.7, startRad, endRad, false);
       whooshGfx.strokePath();
     });
   }
 
-  // ── 5. BIRD ──────────────────────────────────────────────────────
-  // Predatory. Sudden.
+  // ── 4. NEWSPAPER (Lv3) ────────────────────────────────────────────
+  // Travels between floors, slower than bird.
+
+  private spawnNewspaper(x: number): void {
+    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
+    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+
+    const newspaper = this.obstacles.create(x, topY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
+    newspaper.setOrigin(0.5, 0.5);
+    newspaper.setScale(0.2);
+    newspaper.setDepth(10);
+    newspaper.setImmovable(true);
+    newspaper.setData('floor', null);
+    newspaper.setData('type', 'newspaper');
+    (newspaper.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    newspaper.body!.setSize(newspaper.width * 0.6, newspaper.height * 0.7);
+    this.playSoundOnVisible(newspaper, 'newspaper-sfx', 0.4);
+    newspaper.setAngle(-8);
+
+    this.scene.tweens.add({
+      targets: newspaper,
+      y: bottomY,
+      duration: 2000,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  // ── 5. BIRD (Lv4) ─────────────────────────────────────────────────
+  // Swoops between floors, faster than newspaper.
 
   private spawnBird(x: number): void {
-    // Bird swoops between the two floors — stays in the playable area
-    const topY = FLOOR_TOP_Y - 20; // just above top floor
-    const bottomY = FLOOR_BOTTOM_Y - 5; // just above bottom floor
+    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
+    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
 
     const bird = this.obstacles.create(x, topY, 'bird') as Phaser.Physics.Arcade.Sprite;
-    bird.setOrigin(0.5, 1);
+    bird.setOrigin(0.5, 0.5);
     bird.setScale(0.2);
+    bird.setDepth(10);
     bird.setImmovable(true);
-    // Bird can hit on either floor since it travels between them
     bird.setData('floor', null);
     bird.setData('type', 'bird');
     (bird.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     bird.body!.setSize(bird.width * 0.6, bird.height * 0.5);
     this.playSoundOnVisible(bird, 'bird-sfx', 0.4);
 
-    // PREDICTABLE SWOOP — smooth sine wave between top and bottom floors
     this.scene.tweens.add({
       targets: bird,
       y: bottomY,
@@ -385,15 +338,11 @@ export class ObstacleSpawner {
       repeat: -1,
     });
 
-    // GROUND SHADOW — tracks bird on bottom floor
+    // Ground shadow
     const shadow = this.scene.add.ellipse(x, FLOOR_BOTTOM_Y - 2, 30, 8, 0x000000, 0.25);
     shadow.setDepth(0);
     this.scene.events.on('update', () => {
-      if (!bird.active) {
-        shadow.destroy();
-        return;
-      }
-      // Shadow scales based on bird height — closer to bottom = bigger shadow
+      if (!bird.active) { shadow.destroy(); return; }
       const totalDrop = bottomY - topY;
       const progress = (bird.y - topY) / totalDrop;
       const shadowScale = 0.5 + progress * 1.0;
@@ -402,81 +351,399 @@ export class ObstacleSpawner {
     });
   }
 
-  // ── 6. CAT PAW ──────────────────────────────────────────────────
-  // Jump scare territory. The most Courage-the-Cowardly-Dog obstacle.
+  // ── 6. CAT PAW (Lv5) ──────────────────────────────────────────────
+  // Patrols left-right ~200px on its floor.
 
   private spawnCatPaw(x: number): void {
     const floor = this.randomFloor();
-    const floorY = this.getFloorY(floor);
+    const centerY = this.getCenterY(floor);
 
-    const paw = this.obstacles.create(x, floorY, 'cat-paw') as Phaser.Physics.Arcade.Sprite;
-    paw.setOrigin(0.5, 1);
+    const paw = this.obstacles.create(x, centerY, 'cat-paw') as Phaser.Physics.Arcade.Sprite;
+    paw.setOrigin(0.5, 0.5);
     paw.setScale(0.2);
+    paw.setDepth(10);
     paw.setImmovable(true);
     paw.setData('floor', floor);
     paw.setData('type', 'cat');
     (paw.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     paw.body!.setSize(paw.width * 0.5, paw.height * 0.5);
-    paw.setAlpha(0.7);
+    this.playSoundOnVisible(paw, 'cat-sfx', 0.5);
 
-    const spawnClawMarks = (): void => {
-      const scratchGfx = this.scene.add.graphics();
-      scratchGfx.setDepth(paw.depth - 1);
-      // Draw 3 diagonal claw scratch lines
-      for (let i = 0; i < 3; i++) {
-        const startX = x - 12 + i * 10;
-        const startY = floorY - paw.height * 0.6;
-        scratchGfx.lineStyle(2, 0xff3333, 0.8);
-        scratchGfx.beginPath();
-        scratchGfx.moveTo(startX, startY);
-        scratchGfx.lineTo(startX + 8, startY + 20);
-        scratchGfx.strokePath();
+    // Patrol 200px
+    paw.x = x - 100;
+    this.scene.tweens.add({
+      targets: paw,
+      x: x + 100,
+      duration: 1500,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+
+    this.scene.events.on('update', () => {
+      if (!paw.active) return;
+      paw.setFlipX(paw.x > x);
+    });
+  }
+
+  // ── 7. DISCO BALL (Lv6) ───────────────────────────────────────────
+  // Sits on floor, spins. Strobe flash when cockroach is nearby.
+
+  private spawnDiscoBall(x: number): void {
+    const floor = this.randomFloor();
+    const centerY = this.getCenterY(floor);
+
+    const disco = this.obstacles.create(x, centerY, 'disco-ball') as Phaser.Physics.Arcade.Sprite;
+    disco.setOrigin(0.5, 0.5);
+    disco.setScale(0.2);
+    disco.setDepth(10);
+    disco.setImmovable(true);
+    disco.setData('floor', floor);
+    disco.setData('type', 'disco');
+    (disco.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    disco.body!.setSize(disco.width * 0.6, disco.height * 0.6);
+    this.playSoundOnVisible(disco, 'disco-sfx', 0.4);
+
+    // Constant spin
+    this.scene.tweens.add({
+      targets: disco,
+      angle: 360,
+      duration: 2000,
+      repeat: -1,
+      ease: 'Linear',
+    });
+
+    // Pulsing scale
+    this.scene.tweens.add({
+      targets: disco,
+      scaleX: 0.23,
+      scaleY: 0.23,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Rainbow light ray particles radiating outward
+    const rayColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff];
+    this.scene.time.addEvent({
+      delay: 150,
+      loop: true,
+      callback: () => {
+        if (!disco.active) return;
+        const angle = Math.random() * Math.PI * 2;
+        const color = Phaser.Utils.Array.GetRandom(rayColors);
+        const ray = this.scene.add.rectangle(
+          disco.x, disco.y,
+          Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20),
+          color, 0.6,
+        );
+        ray.setDepth(9);
+        ray.setRotation(angle);
+        const dist = 40 + Math.random() * 30;
+        this.scene.tweens.add({
+          targets: ray,
+          x: disco.x + Math.cos(angle) * dist,
+          y: disco.y + Math.sin(angle) * dist,
+          alpha: 0,
+          duration: 400,
+          ease: 'Sine.easeOut',
+          onComplete: () => ray.destroy(),
+        });
+      },
+    });
+
+    // Strobe flash when cockroach is within ~250px
+    const strobeOverlay = this.scene.add.rectangle(
+      GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT,
+      0xffffff, 0,
+    ).setScrollFactor(0).setDepth(90);
+
+    let strobePhase = 0;
+    this.scene.events.on('update', () => {
+      if (!disco.active) { strobeOverlay.destroy(); return; }
+      const cockroach = (this.scene as any).cockroach as Phaser.Physics.Arcade.Sprite;
+      if (!cockroach) return;
+      const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, disco.x, disco.y);
+      if (dist < 250) {
+        strobePhase += 0.25;
+        const intensity = Math.max(0, (1 - dist / 250)) * 0.6;
+        strobeOverlay.setAlpha(Math.abs(Math.sin(strobePhase)) * intensity);
+      } else {
+        strobeOverlay.setAlpha(0);
       }
-      // Fade out and destroy
-      this.scene.tweens.add({
-        targets: scratchGfx,
-        alpha: 0,
-        duration: 600,
-        delay: 150,
-        ease: 'Sine.easeIn',
-        onComplete: () => scratchGfx.destroy(),
-      });
-    };
+    });
+  }
 
-    const playStrikeSequence = (): void => {
-      this.scene.tweens.chain({
-        targets: paw,
-        tweens: [
-          // Warning phase — the paw tenses
-          { alpha: 0.85, duration: 800, ease: 'Sine.easeIn' },
-          // STRIKE — fast, violent, fully visible
-          {
-            scale: 0.26,
-            alpha: 1.0,
-            duration: 200,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-              const cameraLeft = this.scene.cameras.main.scrollX;
-              const cameraRight = cameraLeft + GAME_WIDTH;
-              if (paw.x >= cameraLeft && paw.x <= cameraRight) {
-                this.scene.sound.play('cat-sfx', { volume: 0.5 });
-              }
-              spawnClawMarks();
-            },
-          },
-          // Hold the strike
-          { scale: 0.26, duration: 150 },
-          // Retract — slink back
-          { scale: 0.2, alpha: 0.7, duration: 400, ease: 'Sine.easeIn' },
-          // Pause before next strike
-          { alpha: 0.7, duration: 1500 },
-        ],
-        onComplete: () => {
-          playStrikeSequence();
-        },
-      });
-    };
+  // ── 8. JELLYFISH (Lv7) ────────────────────────────────────────────
+  // Floats between floors with wider hitbox, slower than bird.
 
-    playStrikeSequence();
+  private spawnJellyfish(x: number): void {
+    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
+    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+
+    const jelly = this.obstacles.create(x, topY, 'jellyfish') as Phaser.Physics.Arcade.Sprite;
+    jelly.setOrigin(0.5, 0.5);
+    jelly.setScale(0.2);
+    jelly.setDepth(10);
+    jelly.setImmovable(true);
+    jelly.setData('floor', null);
+    jelly.setData('type', 'jellyfish');
+    (jelly.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    // Wider hitbox for tentacles
+    jelly.body!.setSize(jelly.width * 0.7, jelly.height * 0.85);
+    this.playSoundOnVisible(jelly, 'jellyfish-sfx', 0.4);
+
+    // Slow drift between floors
+    this.scene.tweens.add({
+      targets: jelly,
+      y: bottomY,
+      duration: 2500,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Pulsing transparency — jellyfish glow
+    this.scene.tweens.add({
+      targets: jelly,
+      alpha: { from: 0.6, to: 1.0 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Trailing tentacle particles
+    this.scene.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        if (!jelly.active) return;
+        const particle = this.scene.add.circle(
+          jelly.x + Phaser.Math.Between(-10, 10),
+          jelly.y + jelly.displayHeight * 0.3,
+          Phaser.Math.Between(1, 3),
+          0x8844ff,
+          0.5,
+        );
+        particle.setDepth(9);
+        this.scene.tweens.add({
+          targets: particle,
+          y: particle.y + 20,
+          alpha: 0,
+          duration: 600,
+          ease: 'Sine.easeOut',
+          onComplete: () => particle.destroy(),
+        });
+      },
+    });
+  }
+
+  // ── 9. POPE (Lv8) ─────────────────────────────────────────────────
+  // Swings between floors like a censer. Leaves lingering smoke trail.
+
+  private spawnPope(x: number): void {
+    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
+    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+
+    const pope = this.obstacles.create(x, topY, 'pope') as Phaser.Physics.Arcade.Sprite;
+    pope.setOrigin(0.5, 0.5);
+    pope.setScale(0.2);
+    pope.setDepth(10);
+    pope.setImmovable(true);
+    pope.setData('floor', null);
+    pope.setData('type', 'pope');
+    (pope.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    pope.body!.setSize(pope.width * 0.6, pope.height * 0.7);
+    this.playSoundOnVisible(pope, 'pope-sfx', 0.4);
+
+    // Pendulum swing between floors
+    this.scene.tweens.add({
+      targets: pope,
+      y: bottomY,
+      duration: 1800,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Slight rotation while swinging
+    this.scene.tweens.add({
+      targets: pope,
+      angle: { from: -15, to: 15 },
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Smoke trail — lingering hazard circles
+    this.scene.time.addEvent({
+      delay: 150,
+      loop: true,
+      callback: () => {
+        if (!pope.active) return;
+        const smoke = this.scene.add.circle(
+          pope.x + Phaser.Math.Between(-5, 5),
+          pope.y + Phaser.Math.Between(-5, 5),
+          Phaser.Math.Between(4, 8),
+          0x888888,
+          0.4,
+        );
+        smoke.setDepth(9);
+        // Smoke lingers then fades
+        this.scene.tweens.add({
+          targets: smoke,
+          alpha: 0,
+          scale: 2,
+          duration: 2000,
+          ease: 'Sine.easeOut',
+          onComplete: () => smoke.destroy(),
+        });
+      },
+    });
+  }
+
+  // ── 10. BISON (Lv9) ───────────────────────────────────────────────
+  // Fast charge patrol ~400px. The Żubrówka Dimension's mascot gone mad.
+
+  private spawnBison(x: number): void {
+    const floor = this.randomFloor();
+    const centerY = this.getCenterY(floor);
+
+    const bison = this.obstacles.create(x, centerY, 'bison') as Phaser.Physics.Arcade.Sprite;
+    bison.setOrigin(0.5, 0.5);
+    bison.setScale(0.2);
+    bison.setDepth(10);
+    bison.setImmovable(true);
+    bison.setData('floor', floor);
+    bison.setData('type', 'bison');
+    (bison.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    bison.body!.setSize(bison.width * 0.7, bison.height * 0.6);
+    this.playSoundOnVisible(bison, 'bison-sfx', 0.5);
+
+    // Fast charge patrol — 400px range (200 each way), faster than cat
+    bison.x = x - 200;
+    this.scene.tweens.add({
+      targets: bison,
+      x: x + 200,
+      duration: 1000,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Flip based on direction
+    this.scene.events.on('update', () => {
+      if (!bison.active) return;
+      bison.setFlipX(bison.x > x);
+    });
+
+    // Dust clouds behind the charge
+    this.scene.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (!bison.active) return;
+        const dust = this.scene.add.circle(
+          bison.x + (bison.flipX ? 15 : -15),
+          centerY + 10,
+          Phaser.Math.Between(2, 4),
+          0x997744,
+          0.4,
+        );
+        dust.setDepth(9);
+        this.scene.tweens.add({
+          targets: dust,
+          alpha: 0,
+          scale: 2,
+          y: dust.y - 10,
+          duration: 400,
+          ease: 'Sine.easeOut',
+          onComplete: () => dust.destroy(),
+        });
+      },
+    });
+  }
+
+  // ── 11. BLACK HOLE (Lv10) ──────────────────────────────────────────
+  // Sits between floors. Constantly pulls the cockroach toward it.
+
+  private spawnBlackHole(x: number): void {
+    const centerY = (FLOOR_TOP_Y + FLOOR_BOTTOM_Y) / 2 - OBSTACLE_OFFSET;
+
+    const hole = this.obstacles.create(x, centerY, 'black-hole') as Phaser.Physics.Arcade.Sprite;
+    hole.setOrigin(0.5, 0.5);
+    hole.setScale(0.25);
+    hole.setDepth(10);
+    hole.setImmovable(true);
+    hole.setData('floor', null);
+    hole.setData('type', 'blackhole');
+    (hole.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    hole.body!.setSize(hole.width * 0.5, hole.height * 0.5);
+    this.playSoundOnVisible(hole, 'blackhole-sfx', 0.5);
+
+    // Constant slow rotation
+    this.scene.tweens.add({
+      targets: hole,
+      angle: 360,
+      duration: 3000,
+      repeat: -1,
+      ease: 'Linear',
+    });
+
+    // Pulsing scale — the void breathes
+    this.scene.tweens.add({
+      targets: hole,
+      scaleX: 0.3,
+      scaleY: 0.3,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Gravitational pull on cockroach
+    const PULL_RADIUS = 250;
+    const PULL_STRENGTH = 80;
+    this.scene.events.on('update', () => {
+      if (!hole.active) return;
+      const cockroach = (this.scene as any).cockroach as Phaser.Physics.Arcade.Sprite;
+      if (!cockroach || (this.scene as any).isDead) return;
+      const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, hole.x, hole.y);
+      if (dist < PULL_RADIUS && dist > 0) {
+        const force = PULL_STRENGTH * (1 - dist / PULL_RADIUS);
+        const angle = Phaser.Math.Angle.Between(cockroach.x, cockroach.y, hole.x, hole.y);
+        const body = cockroach.body as Phaser.Physics.Arcade.Body;
+        body.velocity.x += Math.cos(angle) * force;
+        body.velocity.y += Math.sin(angle) * force;
+      }
+    });
+
+    // Particle swirl — matter being sucked in
+    this.scene.time.addEvent({
+      delay: 80,
+      loop: true,
+      callback: () => {
+        if (!hole.active) return;
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 40;
+        const px = hole.x + Math.cos(angle) * dist;
+        const py = hole.y + Math.sin(angle) * dist;
+        const particle = this.scene.add.circle(px, py, Phaser.Math.Between(1, 3), 0x6600cc, 0.7);
+        particle.setDepth(9);
+        this.scene.tweens.add({
+          targets: particle,
+          x: hole.x,
+          y: hole.y,
+          alpha: 0,
+          scale: 0.1,
+          duration: 500,
+          ease: 'Cubic.easeIn',
+          onComplete: () => particle.destroy(),
+        });
+      },
+    });
   }
 }
