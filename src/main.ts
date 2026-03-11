@@ -25,7 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, GameScene, GameOverScene],
   scale: {
     mode: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-      ? Phaser.Scale.ENVELOP
+      ? Phaser.Scale.EXPAND
       : Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
