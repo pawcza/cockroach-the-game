@@ -11,8 +11,9 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Sky background as a tileSprite
-    this.add.tileSprite(0, 0, width, height, 'sky').setOrigin(0, 0);
+    // Menu background with dark overlay
+    this.add.image(width / 2, height / 2, 'menu-bg').setDisplaySize(width, height);
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
 
     // --- TRIPPY COLOR-CYCLING OVERLAY ---
     const colorOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x8800aa, 0.15);

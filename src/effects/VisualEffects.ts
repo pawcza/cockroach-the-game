@@ -83,64 +83,64 @@ export class VisualEffects {
     this.colorCycleTime += delta * 0.001;
     this.breatheTime += delta * 0.001;
 
-    // 1.5x: Subtle camera tint shift
-    if (speedMultiplier >= 1.5) {
-      const intensity = Math.min((speedMultiplier - 1.5) / 2, 1.0);
-      const cycleSpeed = 0.5 + speedMultiplier * 0.1;
+    // ~Lv7 (3.5x): Subtle camera tint shift
+    if (speedMultiplier >= 3.5) {
+      const intensity = Math.min((speedMultiplier - 3.5) / 3, 1.0);
+      const cycleSpeed = 0.5 + speedMultiplier * 0.05;
       const t = (Math.sin(this.colorCycleTime * cycleSpeed) + 1) / 2;
       const r = Math.floor(Phaser.Math.Linear(80, 20, t));
       const g = Math.floor(Phaser.Math.Linear(20, 80, t));
       const b = Math.floor(Phaser.Math.Linear(120, 40, t));
       const color = Phaser.Display.Color.GetColor(r, g, b);
-      this.tintOverlay.setFillStyle(color, intensity * 0.25);
+      this.tintOverlay.setFillStyle(color, intensity * 0.2);
     } else {
       this.tintOverlay.setFillStyle(0x000000, 0);
     }
 
-    // 2.0x: Background "breathes"
-    if (speedMultiplier >= 2.0) {
-      const breatheIntensity = Math.min((speedMultiplier - 2.0) / 3, 1.0);
-      const breatheAmount = Math.sin(this.breatheTime * 2) * 0.1 * breatheIntensity;
+    // ~Lv7 (4.0x): Background "breathes"
+    if (speedMultiplier >= 4.0) {
+      const breatheIntensity = Math.min((speedMultiplier - 4.0) / 4, 1.0);
+      const breatheAmount = Math.sin(this.breatheTime * 2) * 0.08 * breatheIntensity;
       this.scene.data.set('breatheFactor', 1.0 + breatheAmount);
     } else {
       this.scene.data.set('breatheFactor', 1.0);
     }
 
-    // 3.0x: Vignette effect
-    if (speedMultiplier >= 3.0) {
-      const vignetteAlpha = Math.min((speedMultiplier - 3.0) / 5, 0.8);
-      const pulse = Math.sin(this.colorCycleTime * 1.5) * 0.1;
+    // ~Lv8 (5.0x): Vignette effect
+    if (speedMultiplier >= 5.0) {
+      const vignetteAlpha = Math.min((speedMultiplier - 5.0) / 6, 0.7);
+      const pulse = Math.sin(this.colorCycleTime * 1.5) * 0.08;
       this.vignetteGraphics.setAlpha(vignetteAlpha + pulse);
     } else {
       this.vignetteGraphics.setAlpha(0);
     }
 
-    // 4.0x: Pulsing edge glow
-    if (speedMultiplier >= 4.0) {
-      const edgeIntensity = Math.min((speedMultiplier - 4.0) / 4, 0.6);
+    // ~Lv9 (6.0x): Pulsing edge glow
+    if (speedMultiplier >= 6.0) {
+      const edgeIntensity = Math.min((speedMultiplier - 6.0) / 5, 0.6);
       const edgePulse = (Math.sin(this.colorCycleTime * 3) + 1) / 2;
       const edgeAlpha = edgeIntensity * edgePulse;
 
       this.borderOverlay.clear();
-      const edgeColor = speedMultiplier >= 10 ? 0xff0000 : speedMultiplier >= 7 ? 0xff6600 : 0xff00ff;
+      const edgeColor = speedMultiplier >= 12 ? 0xff0000 : speedMultiplier >= 9 ? 0xff6600 : 0xff00ff;
       this.borderOverlay.lineStyle(3, edgeColor, edgeAlpha);
       this.borderOverlay.strokeRect(1, 1, this.scene.cameras.main.width - 2, this.scene.cameras.main.height - 2);
       this.borderOverlay.setAlpha(1);
     }
 
-    // 5.0x: Color inversion flashes
-    if (speedMultiplier >= 5.0) {
+    // ~Lv9-10 (8.0x): Color inversion flashes
+    if (speedMultiplier >= 8.0) {
       this.invertTimer += delta;
-      const invertInterval = Math.max(3000 - speedMultiplier * 100, 800);
+      const invertInterval = Math.max(4000 - speedMultiplier * 100, 1000);
 
       if (!this.invertFlashActive && this.invertTimer >= invertInterval) {
         this.invertTimer = 0;
         this.invertFlashActive = true;
 
-        this.flashOverlay.setFillStyle(0xffffff, 0.6);
+        this.flashOverlay.setFillStyle(0xffffff, 0.5);
         this.flashOverlay.setBlendMode(Phaser.BlendModes.DIFFERENCE);
 
-        this.scene.time.delayedCall(100, () => {
+        this.scene.time.delayedCall(80, () => {
           this.invertFlashActive = false;
           this.flashOverlay.setFillStyle(0xffffff, 0);
           this.flashOverlay.setBlendMode(Phaser.BlendModes.NORMAL);
@@ -148,16 +148,16 @@ export class VisualEffects {
       }
     }
 
-    // 8.0x: Reality breaks
-    if (speedMultiplier >= 8.0) {
+    // ~Lv10+ (12.0x): Reality breaks
+    if (speedMultiplier >= 12.0) {
       this.glitchTimer += delta;
-      const glitchInterval = Math.max(2000 - speedMultiplier * 50, 500);
+      const glitchInterval = Math.max(2500 - speedMultiplier * 50, 600);
 
       if (this.glitchTimer >= glitchInterval) {
         this.glitchTimer = 0;
 
-        const jitterX = (Math.random() - 0.5) * 6;
-        const jitterY = (Math.random() - 0.5) * 4;
+        const jitterX = (Math.random() - 0.5) * 5;
+        const jitterY = (Math.random() - 0.5) * 3;
         const camera = this.scene.cameras.main;
 
         camera.setFollowOffset(
@@ -172,12 +172,12 @@ export class VisualEffects {
           );
         });
 
-        camera.shake(150, 0.005 * Math.min(speedMultiplier / 10, 1.5));
+        camera.shake(120, 0.004 * Math.min(speedMultiplier / 12, 1.5));
       }
     }
 
-    // 15.0x+: Full psychedelic mode
-    if (speedMultiplier >= 15.0) {
+    // 20.0x+: Full psychedelic mode
+    if (speedMultiplier >= 20.0) {
       const rapidCycle = this.colorCycleTime * 5;
       const r = Math.floor((Math.sin(rapidCycle) + 1) * 127);
       const g = Math.floor((Math.sin(rapidCycle + 2.094) + 1) * 127);
@@ -185,7 +185,7 @@ export class VisualEffects {
 
       this.tintOverlay.setFillStyle(
         Phaser.Display.Color.GetColor(r, g, b),
-        0.35,
+        0.3,
       );
       this.tintOverlay.setBlendMode(Phaser.BlendModes.ADD);
 

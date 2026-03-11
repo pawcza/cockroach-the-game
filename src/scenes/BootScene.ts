@@ -43,10 +43,8 @@ export class BootScene extends Phaser.Scene {
 
     // --- Sprites (new pixel art assets) ---
     this.load.image('cockroach', 'assets/cockroach.png');
-    this.load.spritesheet('apple-spin', 'assets/apple.png', {
-      frameWidth: 128,
-      frameHeight: 128,
-    });
+    this.load.image('apple', 'apple.png');
+    this.load.image('menu-bg', 'bg.png');
     this.load.image('pest-spray', 'assets/spray.png');
     this.load.image('newspaper', 'assets/newspaper.png');
     this.load.image('onion', 'assets/onion.png');
@@ -55,16 +53,23 @@ export class BootScene extends Phaser.Scene {
     this.load.image('cat-paw', 'assets/cat.png');
     this.load.image('bird-overlook', 'assets/bird-overlook.png');
     this.load.image('tyskie', 'assets/tyskie.png');
+    this.load.image('pill', 'assets/pill.png');
+    this.load.image('disco-ball', 'assets/disco.png');
+    this.load.image('jellyfish', 'assets/jellyfish.png');
+    this.load.image('pope', 'assets/pope.png');
+    this.load.image('bison', 'assets/bison.png');
+    this.load.image('black-hole', 'assets/blackhole.png');
 
-    // --- Backgrounds ---
-    this.load.image('sky', 'backgrounds/sky.png');
-    this.load.image('midground', 'backgrounds/midground.png');
-    this.load.image('floor-top', 'backgrounds/floor-top.png');
-    this.load.image('floor-bottom', 'backgrounds/floor-bottom.png');
-    this.load.image('foreground', 'backgrounds/foreground.png');
+    // --- Level backgrounds, floors, and BGM ---
+    for (let i = 1; i <= 10; i++) {
+      this.load.image(`lv${i}-sky`, `levels/sky/lv${i}.png`);
+      this.load.image(`lv${i}-bg`, `levels/mid/lv${i}.png`);
+      this.load.image(`lv${i}-fg`, `levels/fg/lv${i}.png`);
+      this.load.image(`lv${i}-floor`, `levels/floor/lv${i}.png`);
+      this.load.audio(`bgm-lv${i}`, `levels/soundtracks/lv${i}.mp3`);
+    }
 
     // --- Audio ---
-    this.load.audio('bgm', 'audio/bgm.mp3');
     this.load.audio('jump', 'audio/jump.wav');
     this.load.audio('apple', 'audio/apple.mp3');
     this.load.audio('death', 'audio/death.wav');
@@ -81,17 +86,15 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('cockroach-hiss', 'audio/cockroach-hiss.mp3');
     this.load.audio('cockroach-noise', 'audio/cockroach-noise.mp3');
     this.load.audio('burp', 'audio/burp.mp3');
+    this.load.audio('pill-sfx', 'audio/pill.wav');
+    this.load.audio('disco-sfx', 'audio/disco.mp3');
+    this.load.audio('jellyfish-sfx', 'audio/jellyfish.mp3');
+    this.load.audio('pope-sfx', 'audio/pope.mp3');
+    this.load.audio('bison-sfx', 'audio/bison.ogg');
+    this.load.audio('blackhole-sfx', 'audio/blackhole.mp3');
   }
 
   create(): void {
-    // Create the apple spin animation
-    this.anims.create({
-      key: 'apple-spin',
-      frames: this.anims.generateFrameNumbers('apple-spin', { start: 0, end: 35 }),
-      frameRate: 12,
-      repeat: -1,
-    });
-
     this.scene.start('MenuScene');
   }
 }
