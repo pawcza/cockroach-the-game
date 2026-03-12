@@ -12,6 +12,7 @@ export class LobbyScene extends Phaser.Scene {
   private readyBtnBg!: Phaser.GameObjects.Rectangle;
   private readyBtnTxt!: Phaser.GameObjects.Text;
   private playerCountText!: Phaser.GameObjects.Text;
+  private titleText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
   private gameStartHandler!: (data: { seed: number; players: MPPlayer[] }) => void;
   private visibilityHandler!: () => void;
@@ -38,8 +39,7 @@ export class LobbyScene extends Phaser.Scene {
     }
 
     // --- TITLE ---
-    const hostName = this.getHostName();
-    const title = this.add.text(width / 2, 40, `${hostName}'s Lobby`, {
+    this.titleText = this.add.text(width / 2, 40, `${this.getHostName()}'s Lobby`, {
       fontSize: '18px',
       color: '#00ccff',
       fontFamily: FONT_FAMILY,
@@ -50,8 +50,8 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.tweens.add({
-      targets: title,
-      y: title.y - 4,
+      targets: this.titleText,
+      y: this.titleText.y - 4,
       duration: 1200,
       yoyo: true,
       repeat: -1,
@@ -183,6 +183,7 @@ export class LobbyScene extends Phaser.Scene {
     // --- SOCKET EVENT LISTENERS ---
     this.lobbyUpdatedHandler = (data: MPLobbyData) => {
       this.lobbyData = data;
+      this.titleText.setText(`${this.getHostName()}'s Lobby`);
       this.renderPlayerList();
       this.updateStartButton();
       this.updateReadyButton();
