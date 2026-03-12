@@ -103,7 +103,15 @@ export class LobbyScene extends Phaser.Scene {
     });
     this.startBtnBg.on('pointerdown', () => {
       if (this.isStartEnabled()) {
-        mpClient.startGame().catch(() => {});
+        mpClient.startGame().then((res) => {
+          // Host also transitions to game scene (non-host gets game:start event)
+          this.scene.start('GameScene', {
+            multiplayer: true,
+            seed: res.seed,
+            players: res.players,
+            myId: mpClient.myId,
+          });
+        }).catch(() => {});
       }
     });
 

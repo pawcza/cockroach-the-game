@@ -476,9 +476,10 @@ export class GameScene extends Phaser.Scene {
       if (this.isMultiplayer && this.ghostManager?.isSpectating) {
         const target = this.ghostManager.spectateTargetPlayer;
         if (target && target.alive) {
-          // Smooth camera follow toward spectated player
+          // Frame-rate independent smooth camera follow toward spectated player
           const targetScrollX = target.sprite.x - 200;
-          this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * 0.08;
+          const camFactor = 1 - Math.pow(1 - 0.08, this.game.loop.delta / 16.667);
+          this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * camFactor;
         }
 
         // Allow cycling with left/right keys or taps
@@ -732,33 +733,46 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private _mpGameOverTriggered = false;
+
   private setupMultiplayerListeners(): void {
-    mpClient.on('game:player-swap', (data: any) => {
+    this._mpGameOverTriggered = false;
+
+    mpClient.on('game:swap', (data: any) => {
       this.ghostManager?.handleSwap(data.id, data.lane);
     });
-    mpClient.on('game:player-dash-start', (data: any) => {
+    mpClient.on('game:dash-start', (data: any) => {
       this.ghostManager?.handleDashStart(data.id);
     });
-    mpClient.on('game:player-dash-end', (data: any) => {
+    mpClient.on('game:dash-end', (data: any) => {
       this.ghostManager?.handleDashEnd(data.id);
     });
-    mpClient.on('game:player-pill-start', (data: any) => {
+    mpClient.on('game:pill-start', (data: any) => {
       this.ghostManager?.handlePillStart(data.id);
     });
-    mpClient.on('game:player-pill-end', (data: any) => {
+    mpClient.on('game:pill-end', (data: any) => {
       this.ghostManager?.handlePillEnd(data.id);
     });
-    mpClient.on('game:player-position', (data: any) => {
+    mpClient.on('game:position', (data: any) => {
       this.ghostManager?.handlePosition(data.id, data.x, data.lane);
     });
-    mpClient.on('game:player-death', (data: any) => {
+    mpClient.on('game:death', (data: any) => {
       this.ghostManager?.handleDeath(data.id, data.score, data.stats);
       // If I'm spectating and all ghosts are now dead, trigger game over
       if (this.isDead && this.ghostManager?.allDead()) {
         this.triggerMultiplayerGameOver();
       }
     });
+    // Handle player disconnect mid-game — kill their ghost
+    mpClient.on('game:player-left', (data: any) => {
+      this.ghostManager?.handleDeath(data.id, 0, {});
+      if (this.isDead && this.ghostManager?.allDead()) {
+        this.triggerMultiplayerGameOver();
+      }
+    });
     mpClient.on('game:over', (data: any) => {
+      if (this._mpGameOverTriggered) return;
+      this._mpGameOverTriggered = true;
       this.scene.start('MultiplayerGameOverScene', {
         rankings: data.rankings,
         myId: mpClient.myId,
@@ -769,13 +783,14 @@ export class GameScene extends Phaser.Scene {
     // Cleanup on scene shutdown
     this.events.on('shutdown', () => {
       if (this.isMultiplayer) {
-        mpClient.off('game:player-swap');
-        mpClient.off('game:player-dash-start');
-        mpClient.off('game:player-dash-end');
-        mpClient.off('game:player-pill-start');
-        mpClient.off('game:player-pill-end');
-        mpClient.off('game:player-position');
-        mpClient.off('game:player-death');
+        mpClient.off('game:swap');
+        mpClient.off('game:dash-start');
+        mpClient.off('game:dash-end');
+        mpClient.off('game:pill-start');
+        mpClient.off('game:pill-end');
+        mpClient.off('game:position');
+        mpClient.off('game:death');
+        mpClient.off('game:player-left');
         mpClient.off('game:over');
       }
       this.ghostManager?.destroy();
@@ -784,6 +799,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private triggerMultiplayerGameOver(): void {
+    if (this._mpGameOverTriggered) return;
+    this._mpGameOverTriggered = true;
+
     const stats = {
       timeSurvived: this.activePlayTime,
       distance: this.getDistance(),

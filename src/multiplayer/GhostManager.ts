@@ -12,7 +12,6 @@ interface MPPlayer {
 export class GhostManager {
   private scene: Phaser.Scene;
   private ghosts = new Map<string, GhostPlayer>();
-  private arrows: Phaser.GameObjects.Text[] = [];
   private floorTopY: number;
   private floorBottomY: number;
   private myId: string;
@@ -86,15 +85,31 @@ export class GhostManager {
     this.updateArrows(cameraScrollX, cameraWidth);
   }
 
-  private updateArrows(cameraScrollX: number, cameraWidth: number): void {
-    // Destroy old arrows
-    for (const arrow of this.arrows) {
-      arrow.destroy();
-    }
-    this.arrows = [];
+  private arrowPool: Phaser.GameObjects.Text[] = [];
+  private activeArrowCount = 0;
 
+  private getArrow(index: number): Phaser.GameObjects.Text {
+    if (index < this.arrowPool.length) {
+      return this.arrowPool[index];
+    }
+    // Create a new arrow and add to pool
+    const arrow = this.scene.add.text(0, 0, '', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '8px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    arrow.setScrollFactor(0);
+    arrow.setDepth(3500);
+    this.arrowPool.push(arrow);
+    return arrow;
+  }
+
+  private updateArrows(cameraScrollX: number, cameraWidth: number): void {
     const leftEdge = cameraScrollX;
     const rightEdge = cameraScrollX + cameraWidth;
+    let arrowIdx = 0;
     let leftCount = 0;
     let rightCount = 0;
 
@@ -104,39 +119,35 @@ export class GhostManager {
       const gx = ghost.sprite.x;
 
       if (gx < leftEdge) {
-        // Ghost is behind camera — left arrow
         const y = 60 + leftCount * 20;
         const colorStr = '#' + ghost.color.toString(16).padStart(6, '0');
-        const arrow = this.scene.add.text(8, y, `\u25C0 ${ghost.name}`, {
-          fontFamily: '"Press Start 2P"',
-          fontSize: '8px',
-          color: colorStr,
-          stroke: '#000000',
-          strokeThickness: 2,
-        });
-        arrow.setScrollFactor(0);
-        arrow.setDepth(3500);
-        this.arrows.push(arrow);
+        const arrow = this.getArrow(arrowIdx++);
+        arrow.setText(`\u25C0 ${ghost.name}`);
+        arrow.setColor(colorStr);
+        arrow.setPosition(8, y);
+        arrow.setOrigin(0, 0);
+        arrow.setVisible(true);
         leftCount++;
       } else if (gx > rightEdge) {
-        // Ghost is ahead of camera — right arrow
         const y = 60 + rightCount * 20;
         const colorStr = '#' + ghost.color.toString(16).padStart(6, '0');
-        const arrow = this.scene.add.text(0, y, `${ghost.name} \u25B6`, {
-          fontFamily: '"Press Start 2P"',
-          fontSize: '8px',
-          color: colorStr,
-          stroke: '#000000',
-          strokeThickness: 2,
-        });
-        arrow.setScrollFactor(0);
+        const arrow = this.getArrow(arrowIdx++);
+        arrow.setText(`${ghost.name} \u25B6`);
+        arrow.setColor(colorStr);
+        arrow.setPosition(cameraWidth - 8, y);
         arrow.setOrigin(1, 0);
-        arrow.setX(cameraWidth - 8);
-        arrow.setDepth(3500);
-        this.arrows.push(arrow);
+        arrow.setVisible(true);
         rightCount++;
       }
     }
+
+    // Hide unused arrows from pool
+    for (let i = arrowIdx; i < this.activeArrowCount; i++) {
+      if (i < this.arrowPool.length) {
+        this.arrowPool[i].setVisible(false);
+      }
+    }
+    this.activeArrowCount = arrowIdx;
   }
 
   startSpectating(): void {
@@ -241,11 +252,12 @@ export class GhostManager {
     }
     this.ghosts.clear();
 
-    // Clean up arrows
-    for (const arrow of this.arrows) {
+    // Clean up arrow pool
+    for (const arrow of this.arrowPool) {
       arrow.destroy();
     }
-    this.arrows = [];
+    this.arrowPool = [];
+    this.activeArrowCount = 0;
 
     // Clean up spectate overlay
     if (this.spectateOverlay) {

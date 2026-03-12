@@ -344,10 +344,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     }
 
     // --- Socket listeners ---
-    this.lobbyUpdatedHandler = (lobby: { status: string }) => {
-      if (lobby.status === 'waiting') {
+    this.lobbyUpdatedHandler = (lobbyData: { id: string; players: any[]; status: string }) => {
+      if (lobbyData.status === 'waiting') {
         this.cleanupListeners();
-        this.scene.start('LobbyScene');
+        this.scene.start('LobbyScene', { lobbyData });
       }
     };
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);

@@ -79,8 +79,11 @@ export class GhostPlayer {
   update(delta: number): void {
     if (!this._alive) return;
 
-    // Smooth interpolation toward target X
-    this.sprite.x = Phaser.Math.Linear(this.sprite.x, this.targetX, 0.15);
+    // Frame-rate independent interpolation toward target X
+    // lerpFactor = 1 - (1 - base)^(delta/16.67) where base=0.15 at 60fps
+    const base = 0.15;
+    const factor = 1 - Math.pow(1 - base, delta / 16.667);
+    this.sprite.x = Phaser.Math.Linear(this.sprite.x, this.targetX, factor);
 
     // Run animation
     this.animTimer += delta;

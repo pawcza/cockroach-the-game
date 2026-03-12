@@ -20,6 +20,9 @@ export interface MPLobbyListEntry {
   status: string;
 }
 
+/** Default timeout for socket acknowledgement callbacks (ms). */
+const ACK_TIMEOUT = 5000;
+
 class MultiplayerClient {
   private socket: Socket | null = null;
   private _myId = '';
@@ -44,59 +47,60 @@ class MultiplayerClient {
     this.socket?.emit('set-name', name);
   }
 
-  listLobbies(): Promise<MPLobbyListEntry[]> {
-    return new Promise((resolve) => {
-      this.socket?.emit('lobby:list', (list: MPLobbyListEntry[]) => resolve(list));
+  /**
+   * Helper: emit with ack callback wrapped in a Promise.
+   * Rejects if socket is disconnected or if the server doesn't respond within timeout.
+   */
+  private emitWithAck<T>(event: string, ...args: any[]): Promise<T> {
+    return new Promise((resolve, reject) => {
+      if (!this.socket?.connected) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        reject(new Error(`Timeout waiting for ${event}`));
+      }, ACK_TIMEOUT);
+
+      const callback = (res: any) => {
+        clearTimeout(timer);
+        if (res?.error) reject(new Error(res.error));
+        else resolve(res as T);
+      };
+
+      this.socket.emit(event, ...args, callback);
     });
   }
 
-  createLobby(): Promise<MPLobbyData> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit('lobby:create', (res: { lobby?: MPLobbyData; error?: string }) => {
-        if (res.error) reject(new Error(res.error));
-        else resolve(res.lobby!);
-      });
-    });
+  async listLobbies(): Promise<MPLobbyListEntry[]> {
+    return this.emitWithAck<MPLobbyListEntry[]>('lobby:list');
   }
 
-  joinLobby(lobbyId: string): Promise<MPLobbyData> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit('lobby:join', lobbyId, (res: { lobby?: MPLobbyData; error?: string }) => {
-        if (res.error) reject(new Error(res.error));
-        else resolve(res.lobby!);
-      });
-    });
+  async createLobby(): Promise<MPLobbyData> {
+    const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:create');
+    return res.lobby;
+  }
+
+  async joinLobby(lobbyId: string): Promise<MPLobbyData> {
+    const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:join', lobbyId);
+    return res.lobby;
   }
 
   leaveLobby(): void {
     this.socket?.emit('lobby:leave');
   }
 
-  changeColor(colorIndex: number): Promise<MPLobbyData> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit('lobby:color', colorIndex, (res: { lobby?: MPLobbyData; error?: string }) => {
-        if (res.error) reject(new Error(res.error));
-        else resolve(res.lobby!);
-      });
-    });
+  async changeColor(colorIndex: number): Promise<MPLobbyData> {
+    const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:color', colorIndex);
+    return res.lobby;
   }
 
-  startGame(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit('lobby:start', (res: { ok?: boolean; error?: string }) => {
-        if (res.error) reject(new Error(res.error));
-        else resolve();
-      });
-    });
+  async startGame(): Promise<{ seed: number; players: MPPlayer[] }> {
+    return this.emitWithAck<{ ok: boolean; seed: number; players: MPPlayer[] }>('lobby:start');
   }
 
-  restartLobby(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit('lobby:restart', (res: { ok?: boolean; error?: string }) => {
-        if (res.error) reject(new Error(res.error));
-        else resolve();
-      });
-    });
+  async restartLobby(): Promise<void> {
+    await this.emitWithAck<{ ok: boolean }>('lobby:restart');
   }
 
   // Game events — send
@@ -107,7 +111,7 @@ class MultiplayerClient {
   sendPillEnd(): void { this.socket?.emit('game:pill-end'); }
   sendPosition(x: number, lane: string): void { this.socket?.emit('game:position', { x, lane }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
-  sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', rankings); }
+  sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
 
   // Event listeners
   on(event: string, handler: (...args: any[]) => void): void {
