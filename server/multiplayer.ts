@@ -13,6 +13,8 @@ function serializeLobby(lobbies: LobbyManager, lobbyId: string) {
 
 export function setupMultiplayer(io: Server): void {
   const lobbies = new LobbyManager();
+  // Track death data server-side per lobby
+  const lobbyDeathData = new Map<string, Map<string, { score: number; stats: Record<string, unknown> }>>();
 
   io.on('connection', (socket: Socket) => {
     let playerName = '';
@@ -94,6 +96,8 @@ export function setupMultiplayer(io: Server): void {
       }
 
       const players = lobbies.serializePlayers(lobby);
+      // Clear any stale death data for this lobby
+      lobbyDeathData.set(lobby.id, new Map());
       callback({ ok: true, seed: lobby.seed, players });
       socket.to(lobby.id).emit('game:start', {
         seed: lobby.seed,
@@ -141,17 +145,41 @@ export function setupMultiplayer(io: Server): void {
     socket.on('game:death', (data: { score: number; stats: Record<string, unknown> }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
+
+      // Record score server-side
+      let deathData = lobbyDeathData.get(lobbyId);
+      if (!deathData) {
+        deathData = new Map();
+        lobbyDeathData.set(lobbyId, deathData);
+      }
+      deathData.set(socket.id, { score: data.score, stats: data.stats });
+
+      // Relay to others
       socket.to(lobbyId).emit('game:death', { id: socket.id, score: data.score, stats: data.stats });
+
+      // Check if all players in lobby are dead
+      const lobby = lobbies.getLobby(lobbyId);
+      if (lobby && lobby.status === 'ingame') {
+        const allDead = [...lobby.players.keys()].every(pid => deathData!.has(pid));
+        if (allDead) {
+          // Build rankings from server-recorded data
+          const rankings = [...lobby.players.values()].map(p => ({
+            id: p.id,
+            name: p.name,
+            score: deathData!.get(p.id)?.score ?? 0,
+            stats: deathData!.get(p.id)?.stats ?? {},
+          })).sort((a, b) => b.score - a.score);
+
+          lobbies.endGame(lobbyId);
+          io.to(lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
+          lobbyDeathData.delete(lobbyId);
+        }
+      }
     });
 
-    socket.on('game:all-dead', (data: any) => {
-      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
-      if (!lobbyId) return;
-
-      const lobby = lobbies.endGame(lobbyId);
-      if (!lobby) return; // Already ended (another client beat us)
-
-      io.to(lobbyId).emit('game:over', data);
+    // game:all-dead is now a no-op — server detects all-dead from game:death events
+    socket.on('game:all-dead', () => {
+      // Ignored: server handles all-dead detection automatically
     });
 
     socket.on('lobby:restart', (callback: Function) => {
@@ -167,15 +195,48 @@ export function setupMultiplayer(io: Server): void {
     });
 
     socket.on('disconnect', () => {
+      // Before leaving lobby, check if this disconnect triggers all-dead
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      const lobbyBeforeLeave = lobbyId ? lobbies.getLobby(lobbyId) : null;
+      const wasIngame = lobbyBeforeLeave?.status === 'ingame';
+
       const result = lobbies.leaveLobby(socket.id);
-      if (!result || result.disbanded) return;
+      if (!result || result.disbanded) {
+        // Clean up death data for disbanded lobbies
+        if (result?.disbanded && lobbyId) {
+          lobbyDeathData.delete(lobbyId);
+        }
+        return;
+      }
 
       const lobbyData = serializeLobby(lobbies, result.lobbyId);
       if (lobbyData) {
         io.to(result.lobbyId).emit('lobby:updated', lobbyData);
         // Also emit player-left during game so ghosts can be cleaned up
-        if (lobbyData.status === 'ingame') {
+        if (wasIngame) {
           io.to(result.lobbyId).emit('game:player-left', { id: socket.id });
+
+          // Remove disconnected player from death data and check if all remaining are dead
+          const deathData = lobbyDeathData.get(result.lobbyId);
+          if (deathData) {
+            deathData.delete(socket.id);
+            const lobby = lobbies.getLobby(result.lobbyId);
+            if (lobby && lobby.status === 'ingame') {
+              const allDead = [...lobby.players.keys()].every(pid => deathData.has(pid));
+              if (allDead) {
+                const rankings = [...lobby.players.values()].map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  score: deathData.get(p.id)?.score ?? 0,
+                  stats: deathData.get(p.id)?.stats ?? {},
+                })).sort((a, b) => b.score - a.score);
+
+                lobbies.endGame(result.lobbyId);
+                io.to(result.lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
+                lobbyDeathData.delete(result.lobbyId);
+              }
+            }
+          }
         }
       }
     });

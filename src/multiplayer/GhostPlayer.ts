@@ -21,6 +21,12 @@ export class GhostPlayer {
   private _score = 0;
   private _stats: Record<string, unknown> = {};
 
+  // Dead reckoning
+  private lastX: number;
+  private velocity = 0; // pixels per ms
+  private lastUpdateTime = 0;
+  private timeSinceUpdate = 0;
+
   // Animation
   private runFrames = ['cockroach-idle', 'cockroach-running'];
   private animFrame = 0;
@@ -37,6 +43,7 @@ export class GhostPlayer {
     this.name = name;
     this.color = MP_PLAYER_COLORS[colorIndex] ?? 0xffffff;
     this.targetX = startX;
+    this.lastX = startX;
 
     this.sprite = scene.add.sprite(startX, floorBottomY - 20, 'cockroach-idle');
     this.sprite.setAlpha(0.2);
@@ -46,11 +53,30 @@ export class GhostPlayer {
 
   setLane(lane: string, floorTopY: number, floorBottomY: number): void {
     this.targetLane = lane;
-    this.sprite.y = (lane === 'top' ? floorTopY : floorBottomY) - 20;
+    const targetY = (lane === 'top' ? floorTopY : floorBottomY) - 20;
+    // Smooth animated lane swap instead of instant snap
+    this.scene.tweens.add({
+      targets: this.sprite,
+      y: targetY,
+      duration: 120,
+      ease: 'Power2',
+    });
   }
 
   setPosition(x: number, lane: string, floorTopY: number, floorBottomY: number): void {
+    // Calculate velocity from position delta / time delta for dead reckoning
+    const now = Date.now();
+    if (this.lastUpdateTime > 0) {
+      const dt = now - this.lastUpdateTime;
+      if (dt > 0) {
+        this.velocity = (x - this.lastX) / dt;
+      }
+    }
+    this.lastX = x;
+    this.lastUpdateTime = now;
+    this.timeSinceUpdate = 0;
     this.targetX = x;
+
     if (lane !== this.targetLane) {
       this.setLane(lane, floorTopY, floorBottomY);
     }
@@ -79,11 +105,15 @@ export class GhostPlayer {
   update(delta: number): void {
     if (!this._alive) return;
 
-    // Frame-rate independent interpolation toward target X
-    // lerpFactor = 1 - (1 - base)^(delta/16.67) where base=0.15 at 60fps
-    const base = 0.15;
-    const factor = 1 - Math.pow(1 - base, delta / 16.667);
-    this.sprite.x = Phaser.Math.Linear(this.sprite.x, this.targetX, factor);
+    // Dead reckoning: extrapolate forward using velocity, then blend with interpolation
+    this.timeSinceUpdate += delta;
+    const extrapolatedX = this.targetX + this.velocity * this.timeSinceUpdate;
+    // Blend: mostly extrapolation when fresh, more interpolation as time passes
+    const blend = Math.min(this.timeSinceUpdate / 500, 1); // 0→1 over 500ms
+    const goalX = Phaser.Math.Linear(extrapolatedX, this.targetX, blend * 0.5);
+    // Frame-rate independent smoothing (exponential decay)
+    const factor = 1 - Math.pow(1 - 0.15, delta / 16.667);
+    this.sprite.x += (goalX - this.sprite.x) * factor;
 
     // Run animation
     this.animTimer += delta;
