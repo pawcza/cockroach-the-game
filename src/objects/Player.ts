@@ -99,7 +99,8 @@ export class Player {
     this.cockroach.setFlipY(false);
     this.cockroach.setScale(0.30);
     this.cockroach.setDepth(10);
-    this.cockroach.body!.setSize(400, 200);
+    this.cockroach.body!.setSize(200, 200);
+    this.cockroach.body!.setOffset(100, 0);
     this.cockroachOffset = this.cockroach.displayHeight / 2;
     this.cockroach.y = this.floorBottomY - this.cockroachOffset;
 
