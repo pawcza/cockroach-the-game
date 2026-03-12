@@ -4,7 +4,6 @@ import { showScoreboard, toggleScoreboard } from '../ui/Scoreboard';
 interface GameOverData {
   score: number;
   timeSurvived?: number;
-  applesCollected?: number;
   topSpeed?: number;
   distance?: number;
   obstacleType?: string | null;
@@ -234,7 +233,6 @@ export class GameOverScene extends Phaser.Scene {
   private setupStats(width: number, height: number, data: GameOverData): void {
     const parts: string[] = [];
     if (data?.timeSurvived !== undefined) parts.push(`Czas Przeżywalności: ${data.timeSurvived}s`);
-    if (data?.applesCollected !== undefined && data.applesCollected > 0) parts.push(`Jabłuszka: ${data.applesCollected}`);
     if (data?.distance !== undefined) parts.push(`Dystansik: ${data.distance}m`);
     if (data?.topSpeed !== undefined) parts.push(`Maks Szybkóść: ${data.topSpeed.toFixed(1)}x`);
 

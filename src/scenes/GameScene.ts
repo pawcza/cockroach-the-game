@@ -899,7 +899,6 @@ export class GameScene extends Phaser.Scene {
       this.scene.start('GameOverScene', {
         score: this.score,
         timeSurvived: Math.floor(this.activePlayTime / 1000),
-        applesCollected: Math.floor((this.score - Math.floor(this.activePlayTime / 1000)) / 10),
         topSpeed: this.player.speedMultiplier,
         distance: this.getDistance(),
         obstacleType: obstacleType || null,
