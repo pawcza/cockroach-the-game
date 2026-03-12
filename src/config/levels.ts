@@ -20,7 +20,7 @@ export const LEVELS: LevelConfig[] = [
   { level: 7, name: 'Morze Bałtyckie', skyKey: 'lv7-sky', bgKey: 'lv7-bg', fgKey: 'lv7-fg', floorKey: 'lv7-floor', bgmKey: 'bgm-lv7', fgAboveFloors: true, distanceThreshold: 1900 },
   { level: 8, name: 'Papież na Księżycu', skyKey: 'lv8-sky', bgKey: 'lv8-bg', fgKey: 'lv8-fg', floorKey: 'lv8-floor', bgmKey: 'bgm-lv8', fgAboveFloors: true, distanceThreshold: 2700 },
   { level: 9, name: 'Wymiar Żubrówki', skyKey: 'lv9-sky', bgKey: 'lv9-bg', fgKey: 'lv9-fg', floorKey: 'lv9-floor', bgmKey: 'bgm-lv9', fgAboveFloors: true, distanceThreshold: 3800 },
-  { level: 10, name: 'KARALUCH WIDZI WSZYSTKO', skyKey: 'lv10-sky', bgKey: 'lv10-bg', fgKey: 'lv10-fg', floorKey: 'lv10-floor', bgmKey: 'bgm-lv10', fgAboveFloors: true, distanceThreshold: 5200 },
+  { level: 10, name: 'KARALUCH WIDZI WSZYSTKO', skyKey: 'lv10-sky', bgKey: 'lv10-bg', fgKey: 'lv10-fg', floorKey: 'lv10-floor', bgmKey: 'bgm-lv10', fgAboveFloors: false, distanceThreshold: 5200 },
 ];
 
 export function getLevelForDistance(distance: number): LevelConfig {

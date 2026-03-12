@@ -156,7 +156,8 @@ export class GameScene extends Phaser.Scene {
     this.skyBg = this.add
       .tileSprite(0, 0, w, h, 'lv1-sky')
       .setOrigin(0, 0)
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setAlpha(0.8);
 
     this.midBg = this.add
       .tileSprite(0, 0, w, h, 'lv1-bg')
