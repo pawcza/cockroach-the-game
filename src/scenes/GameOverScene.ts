@@ -119,12 +119,13 @@ export class GameOverScene extends Phaser.Scene {
     this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
     this.gameoverBgm.play();
 
+    const isMobile = !this.sys.game.device.os.desktop;
+
     // Name input or restart
-    if (isNewRecord) {
+    if (isNewRecord && !isMobile) {
       this.showNameInput(width, height, data);
     } else {
-      this.showRestartPrompt(width, height);
-      this.showScoreboardButton(width, height);
+      this.showMobileDeathButtons(width, height, isNewRecord, data);
     }
   }
 
@@ -271,27 +272,6 @@ export class GameOverScene extends Phaser.Scene {
   // ── Name input ─────────────────────────────────────────────────────
 
   private showNameInput(width: number, height: number, data: GameOverData): void {
-    const isMobile = !this.sys.game.device.os.desktop;
-
-    if (isMobile) {
-      this.time.delayedCall(300, () => {
-        const playerName = window.prompt('Wpisz swoje imię:') || '';
-        if (playerName.length > 0) {
-          this.add
-            .text(width / 2, height - 80, playerName, TEXT_STYLES.nameConfirmed)
-            .setOrigin(0.5);
-
-          this.submitScore(playerName.slice(0, 20), data).then(() => {
-            showScoreboard(this, playerName.slice(0, 20));
-          });
-        } else {
-          this.showScoreboardButton(width, height);
-        }
-        this.showRestartPrompt(width, height);
-      });
-      return;
-    }
-
     // Desktop: custom keyboard handler
     const promptText = this.add
       .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', TEXT_STYLES.small('#ffff00'))
@@ -347,10 +327,7 @@ export class GameOverScene extends Phaser.Scene {
     if (this.restartBound) return;
     this.restartBound = true;
 
-    const isMobile = !this.sys.game.device.os.desktop;
-    const label = isMobile
-      ? 'Dotknij żeby zagrać jeszcze raz!'
-      : 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy';
+    const label = 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy';
 
     const restartText = this.add
       .text(width / 2, height - 30, label, TEXT_STYLES.small('#ffffff'))
@@ -368,10 +345,6 @@ export class GameOverScene extends Phaser.Scene {
     this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
     this.input.keyboard!.once('keydown-R', () => this.restartGame());
     this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
-
-    this.time.delayedCall(500, () => {
-      this.input.once('pointerdown', () => this.restartGame());
-    });
   }
 
   private showScoreboardButton(width: number, height: number): void {
@@ -384,6 +357,70 @@ export class GameOverScene extends Phaser.Scene {
     btnText.on('pointerout', () => btnText.setColor('#888888'));
     btnText.on('pointerdown', () => toggleScoreboard(this, null));
 
+    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
+  }
+
+  /** Mobile/universal death screen with 4 action buttons (no keyboard popup). */
+  private showMobileDeathButtons(width: number, height: number, isNewRecord: boolean, data: GameOverData): void {
+    if (this.restartBound) return;
+    this.restartBound = true;
+
+    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '10px',
+      fontFamily: FONT_FAMILY,
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+    };
+
+    const btnY = height - 80;
+    const spacing = 28;
+    const buttons: { label: string; action: () => void; color: number }[] = [
+      { label: 'Ekran G\u0142\u00f3wny', action: () => this.goToMenu(), color: 0x666666 },
+      { label: 'Bycze Karaluchy', action: () => toggleScoreboard(this, null), color: 0x886600 },
+    ];
+
+    if (isNewRecord) {
+      buttons.push({
+        label: 'Zapisz Wynik',
+        action: () => {
+          const playerName = window.prompt('Wpisz swoje imi\u0119:') || '';
+          if (playerName.length > 0) {
+            this.submitScore(playerName.slice(0, 20), data).then(() => {
+              showScoreboard(this, playerName.slice(0, 20));
+            });
+          }
+        },
+        color: 0x008800,
+      });
+    }
+
+    buttons.push({ label: 'Powt\u00f3rka', action: () => this.restartGame(), color: 0x880000 });
+
+    const totalBtns = buttons.length;
+    const btnW = Math.min(140, (width - 32) / totalBtns - 8);
+    const totalW = totalBtns * btnW + (totalBtns - 1) * 8;
+    const startX = (width - totalW) / 2 + btnW / 2;
+
+    buttons.forEach((btn, i) => {
+      const bx = startX + i * (btnW + 8);
+
+      const bg = this.add.rectangle(bx, btnY, btnW, 40, btn.color, 0.6)
+        .setInteractive();
+
+      const label = this.add.text(bx, btnY, btn.label, btnStyle)
+        .setOrigin(0.5);
+
+      bg.on('pointerover', () => bg.setAlpha(1));
+      bg.on('pointerout', () => bg.setAlpha(0.6));
+      bg.on('pointerdown', btn.action);
+    });
+
+    // Desktop keyboard shortcuts still work
+    this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
+    this.input.keyboard!.once('keydown-R', () => this.restartGame());
+    this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
     this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
   }
 
