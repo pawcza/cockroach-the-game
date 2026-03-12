@@ -97,9 +97,10 @@ export class Player {
     );
     this.cockroach.setCollideWorldBounds(false);
     this.cockroach.setFlipY(false);
-    this.cockroach.setScale(0.15);
+    this.cockroach.setScale(0.30);
     this.cockroach.setDepth(10);
-    this.cockroach.body!.setSize(400, 200);
+    this.cockroach.body!.setSize(200, 200);
+    this.cockroach.body!.setOffset(100, 0);
     this.cockroachOffset = this.cockroach.displayHeight / 2;
     this.cockroach.y = this.floorBottomY - this.cockroachOffset;
 
@@ -205,7 +206,7 @@ export class Player {
           this.cockroach.clearTint();
           this.cockroach.setAlpha(0.4);
         }
-        this.cockroach.setScale(0.15);
+        this.cockroach.setScale(0.30);
         this.pillOverlay.setFillStyle(0xff00ff, blinkOn ? 0.1 : 0);
       } else {
         const t = this.scene.time.now * 0.003;
@@ -214,7 +215,7 @@ export class Player {
         const b = Math.floor((Math.sin(t + 4.189) + 1) * 127);
         this.pillOverlay.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.15 + Math.sin(t * 1.5) * 0.05);
 
-        const throb = 0.15 + Math.sin(this.scene.time.now * 0.01) * 0.01;
+        const throb = 0.30 + Math.sin(this.scene.time.now * 0.01) * 0.02;
         this.cockroach.setScale(throb);
       }
     } else if (this._speedMultiplier >= 3 && !this._isDashing && !this._isInvulnerable) {
@@ -527,7 +528,7 @@ export class Player {
 
     this.cockroach.clearTint();
     this.cockroach.setAlpha(1);
-    this.cockroach.setScale(0.15);
+    this.cockroach.setScale(0.30);
 
     this.pillOverlay.setFillStyle(0x000000, 0);
 

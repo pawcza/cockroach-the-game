@@ -57,13 +57,7 @@ document.fonts.ready.then(() => {
     window.addEventListener('orientationchange', handleResize);
     screen.orientation?.addEventListener('change', handleResize);
 
-    // Request fullscreen on first tap (browsers require user gesture)
-    const requestFS = (): void => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen?.().catch(() => {});
-      }
-      document.removeEventListener('pointerdown', requestFS);
-    };
-    document.addEventListener('pointerdown', requestFS);
+    // Fullscreen is requested by the portrait overlay tap (index.html)
+    // and by the GRAJ button in MenuScene as backup.
   }
 });
