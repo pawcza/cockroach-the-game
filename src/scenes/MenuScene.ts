@@ -119,9 +119,14 @@ export class MenuScene extends Phaser.Scene {
     });
     subtitle.setAngle(-3);
 
-    // --- MENU MUSIC ---
-    this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
-    this.menuBgm.play();
+    // --- MENU MUSIC (skip if already playing from a previous visit) ---
+    const existingBgm = this.sound.getAll('menu-bgm').find(s => s.isPlaying);
+    if (existingBgm) {
+      this.menuBgm = existingBgm;
+    } else {
+      this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
+      this.menuBgm.play();
+    }
 
     let startingGame = false;
     const startGame = (): void => {

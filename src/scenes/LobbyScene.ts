@@ -91,9 +91,12 @@ export class LobbyScene extends Phaser.Scene {
       align: 'center',
     };
 
-    // "Gotowy" ready toggle button (everyone)
-    this.readyBtnBg = this.add.rectangle(width / 2, height - 105, 260, 36, 0x886600, 0.9);
-    this.readyBtnTxt = this.add.text(width / 2, height - 105, 'Gotowy', btnStyle).setOrigin(0.5);
+    // Main action button position — shared between ready (non-host) and start (host)
+    const actionBtnY = height - 63;
+
+    // "Gotowy" ready toggle button (non-host only)
+    this.readyBtnBg = this.add.rectangle(width / 2, actionBtnY, 260, 36, 0x886600, 0.9);
+    this.readyBtnTxt = this.add.text(width / 2, actionBtnY, 'Gotowy?', btnStyle).setOrigin(0.5);
     this.readyBtnBg.setInteractive({ useHandCursor: true });
     this.readyBtnBg.on('pointerover', () => {
       this.readyBtnBg.setAlpha(1);
@@ -110,12 +113,12 @@ export class LobbyScene extends Phaser.Scene {
         this.renderPlayerList();
         this.updateStartButton();
         this.updateReadyButton();
-      }).catch(() => {});
+      }).catch((err) => { console.error('setReady failed:', err); });
     });
 
-    // "Rozpocznij Gre" button (host only)
-    this.startBtnBg = this.add.rectangle(width / 2, height - 63, 260, 36, 0x008800, 0.9);
-    this.startBtnTxt = this.add.text(width / 2, height - 63, 'Rozpocznij Gr\u0119', btnStyle).setOrigin(0.5);
+    // "Rozpocznij Gre" button (host only, same position)
+    this.startBtnBg = this.add.rectangle(width / 2, actionBtnY, 260, 36, 0x008800, 0.9);
+    this.startBtnTxt = this.add.text(width / 2, actionBtnY, 'Rozpocznij Gr\u0119', btnStyle).setOrigin(0.5);
     this.startBtnBg.setInteractive({ useHandCursor: true });
     this.startBtnBg.on('pointerover', () => {
       if (this.isStartEnabled()) {
@@ -135,7 +138,7 @@ export class LobbyScene extends Phaser.Scene {
             players: res.players,
             myId: mpClient.myId,
           });
-        }).catch(() => {});
+        }).catch((err) => { console.error('startGame failed:', err); });
       }
     });
 
@@ -166,7 +169,7 @@ export class LobbyScene extends Phaser.Scene {
             this.renderPlayerList();
             this.updateStartButton();
             this.updateReadyButton();
-          }).catch(() => {});
+          }).catch((err) => { console.error('unready failed:', err); });
         }
       }
     };
