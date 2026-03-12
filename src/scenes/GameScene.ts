@@ -52,7 +52,6 @@ export class GameScene extends Phaser.Scene {
   // Multiplayer
   private isMultiplayer = false;
   private ghostManager: GhostManager | null = null;
-  private mpPositionTimer = 0;
   private mpMyName = '';
   private _wasDashing = false;
   private _wasPillActive = false;
@@ -170,7 +169,6 @@ export class GameScene extends Phaser.Scene {
 
     // Reset multiplayer state
     this.ghostManager = null;
-    this.mpPositionTimer = 0;
     this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
     this._wasDashing = false;
     this._wasPillActive = false;
@@ -733,15 +731,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Multiplayer position sync (every 500ms)
-    if (this.isMultiplayer && !this.isDead) {
-      this.mpPositionTimer += this.game.loop.delta;
-      if (this.mpPositionTimer >= 500) {
-        this.mpPositionTimer = 0;
-        mpClient.sendPosition(this.player.x, this.player.currentFloor);
-      }
-    }
-
     // Ghost manager update
     if (this.ghostManager) {
       this.ghostManager.update(
@@ -771,9 +760,6 @@ export class GameScene extends Phaser.Scene {
     });
     mpClient.on('game:pill-end', (data: any) => {
       this.ghostManager?.handlePillEnd(data.id);
-    });
-    mpClient.on('game:position', (data: any) => {
-      this.ghostManager?.handlePosition(data.id, data.x, data.lane);
     });
     mpClient.on('game:death', (data: any) => {
       this.ghostManager?.handleDeath(data.id, data.score, data.stats);
@@ -818,7 +804,6 @@ export class GameScene extends Phaser.Scene {
         mpClient.off('game:dash-end');
         mpClient.off('game:pill-start');
         mpClient.off('game:pill-end');
-        mpClient.off('game:position');
         mpClient.off('game:pickup');
         mpClient.off('game:death');
         mpClient.off('game:player-left');

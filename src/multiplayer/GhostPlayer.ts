@@ -1,7 +1,17 @@
 import Phaser from 'phaser';
-import { COCKROACH_BASE_SPEED } from '../config/constants';
+import {
+  COCKROACH_BASE_SPEED,
+  COCKROACH_ACCELERATION,
+  DASH_SPEED_BOOST,
+  DASH_DURATION,
+  DASH_COOLDOWN,
+  PILL_SPEED_MULTIPLIER,
+  PILL_DURATION,
+  SPEED_BOOST_PER_LEVEL,
+} from '../config/constants';
+import { getLevelForDistance } from '../config/levels';
 
-// Client-side player colors — must match server/lobby.ts PLAYER_COLORS exactly
+// Re-export for convenience — must match server/lobby.ts PLAYER_COLORS exactly
 export const MP_PLAYER_COLORS = [
   0xff0000, // red
   0x0000ff, // blue
@@ -28,20 +38,22 @@ export class GhostPlayer {
   readonly sprite: Phaser.GameObjects.Sprite;
 
   private scene: Phaser.Scene;
-  private targetX: number;
-  private targetLane: string = 'bottom';
+  private startX: number;
   private _alive = true;
   private _score = 0;
   private _stats: Record<string, unknown> = {};
   private _isSpectated = false;
-  private _isDashing = false;
-  private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
-  // Dead reckoning
-  private lastX: number;
-  private velocity = COCKROACH_BASE_SPEED / 1000; // px/ms — start at base speed so ghost moves immediately
-  private lastUpdateTime = 0;
-  private timeSinceUpdate = 0;
+  // Simulated physics — mirrors Player.ts logic exactly
+  private activePlayTime = 0; // ms
+  private currentFloor: string = 'bottom';
+  private _isDashing = false;
+  private dashStartTime = 0;
+  private dashReady = true;
+  private _isPillActive = false;
+  private pillStartTime = 0;
+  private pillSpeedBoost = 1;
+  private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
   // Animation
   private runFrames = ['cockroach-idle', 'cockroach-running'];
@@ -51,7 +63,7 @@ export class GhostPlayer {
   get alive(): boolean { return this._alive; }
   get score(): number { return this._score; }
   get stats(): Record<string, unknown> { return this._stats; }
-  get lane(): string { return this.targetLane; }
+  get lane(): string { return this.currentFloor; }
   get isDashing(): boolean { return this._isDashing; }
 
   setSpectated(spectated: boolean): void {
@@ -65,8 +77,7 @@ export class GhostPlayer {
     this.id = id;
     this.name = name;
     this.color = MP_PLAYER_COLORS[colorIndex] ?? 0xffffff;
-    this.targetX = startX;
-    this.lastX = startX;
+    this.startX = startX;
 
     this.sprite = scene.add.sprite(startX, floorBottomY - 20, 'cockroach-idle');
     this.sprite.setScale(0.30);
@@ -75,35 +86,26 @@ export class GhostPlayer {
     this.sprite.setDepth(500);
   }
 
+  /** Compute current speed using the same formula as Player.updateSpeed */
+  private getCurrentSpeed(): number {
+    const elapsedSeconds = this.activePlayTime / 1000;
+    const distance = Math.floor((this.sprite.x - this.startX) / 50);
+    const level = getLevelForDistance(distance).level;
+    const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
+    const baseSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION + levelBonus;
+    const dashBoost = this._isDashing ? DASH_SPEED_BOOST : 0;
+    return (baseSpeed + dashBoost) * this.pillSpeedBoost;
+  }
+
   setLane(lane: string, floorTopY: number, floorBottomY: number): void {
-    this.targetLane = lane;
+    this.currentFloor = lane;
     const targetY = (lane === 'top' ? floorTopY : floorBottomY) - 20;
-    // Smooth animated lane swap instead of instant snap
     this.scene.tweens.add({
       targets: this.sprite,
       y: targetY,
       duration: 120,
       ease: 'Power2',
     });
-  }
-
-  setPosition(x: number, lane: string, floorTopY: number, floorBottomY: number): void {
-    // Calculate velocity from position delta / time delta for dead reckoning
-    const now = Date.now();
-    if (this.lastUpdateTime > 0) {
-      const dt = now - this.lastUpdateTime;
-      if (dt > 0) {
-        this.velocity = (x - this.lastX) / dt;
-      }
-    }
-    this.lastX = x;
-    this.lastUpdateTime = now;
-    this.timeSinceUpdate = 0;
-    this.targetX = x;
-
-    if (lane !== this.targetLane) {
-      this.setLane(lane, floorTopY, floorBottomY);
-    }
   }
 
   private updateAlpha(): void {
@@ -119,17 +121,14 @@ export class GhostPlayer {
     this.updateAlpha();
 
     if (active) {
+      this.dashReady = false;
+      this.dashStartTime = this.activePlayTime;
       this.sprite.setTint(0xffffaa);
-      // Afterimage trail like the real player
       this.dashTrailTimer = this.scene.time.addEvent({
         delay: 80,
-        repeat: -1,
+        repeat: Math.floor(DASH_DURATION / 80) - 1,
         callback: () => {
-          if (!this._isDashing || !this._alive) {
-            this.dashTrailTimer?.destroy();
-            this.dashTrailTimer = null;
-            return;
-          }
+          if (!this._alive) return;
           const afterimage = this.scene.add.sprite(this.sprite.x, this.sprite.y, this.sprite.texture.key);
           afterimage.setScale(this.sprite.scaleX, this.sprite.scaleY);
           afterimage.setAlpha(this._isSpectated ? 0.3 : 0.15);
@@ -144,7 +143,7 @@ export class GhostPlayer {
         },
       });
     } else {
-      this.sprite.setTint(this.color);
+      this.sprite.setTint(this._isPillActive ? 0xff00ff : this.color);
       if (this.dashTrailTimer) {
         this.dashTrailTimer.destroy();
         this.dashTrailTimer = null;
@@ -153,10 +152,16 @@ export class GhostPlayer {
   }
 
   setPill(active: boolean): void {
+    this._isPillActive = active;
     if (active) {
+      this.pillSpeedBoost = PILL_SPEED_MULTIPLIER;
+      this.pillStartTime = this.activePlayTime;
       this.sprite.setTint(0xff00ff);
     } else {
-      this.sprite.setTint(this.color);
+      this.pillSpeedBoost = 1;
+      if (!this._isDashing) {
+        this.sprite.setTint(this.color);
+      }
     }
   }
 
@@ -165,12 +170,13 @@ export class GhostPlayer {
     this._score = score;
     this._stats = stats;
     this._isDashing = false;
+    this._isPillActive = false;
+    this.pillSpeedBoost = 1;
     if (this.dashTrailTimer) {
       this.dashTrailTimer.destroy();
       this.dashTrailTimer = null;
     }
 
-    // Death animation — tint gray, fling upward with spin, then fade out
     this.sprite.setTint(0x444444);
     this.scene.tweens.add({
       targets: this.sprite,
@@ -185,16 +191,17 @@ export class GhostPlayer {
   update(delta: number): void {
     if (!this._alive) return;
 
-    // Dead reckoning: extrapolate forward at last known velocity
-    this.timeSinceUpdate += delta;
-    const extrapolatedX = this.targetX + this.velocity * this.timeSinceUpdate;
-    // Set directly — extrapolation provides smooth continuity,
-    // interpolation just adds visible lag
-    this.sprite.x = extrapolatedX;
+    this.activePlayTime += delta;
 
-    // Run animation
+    // Move at computed speed — same formula as the real player
+    const speed = this.getCurrentSpeed(); // px/s
+    this.sprite.x += speed * (delta / 1000);
+
+    // Run animation — faster at higher speeds
+    const speedMult = speed / COCKROACH_BASE_SPEED;
+    const frameInterval = Math.max(60, 200 / speedMult);
     this.animTimer += delta;
-    if (this.animTimer >= 200) {
+    if (this.animTimer >= frameInterval) {
       this.animTimer = 0;
       this.animFrame = (this.animFrame + 1) % this.runFrames.length;
       this.sprite.setTexture(this.runFrames[this.animFrame]);
