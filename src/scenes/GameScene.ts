@@ -363,6 +363,9 @@ export class GameScene extends Phaser.Scene {
     if (this.isCountingDown) {
       this.player.freezeForCountdown();
       this.updateCountdown();
+      this.updateFloors();
+      this.handleSpawning();
+      this.updateParallax();
       return;
     }
 
@@ -425,41 +428,8 @@ export class GameScene extends Phaser.Scene {
       this.dustTimer = 0;
     }
 
-    // Parallax scrolling (with breathe factor from VFX)
-    const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
-    this.skyBg.tilePositionX = this.cameras.main.scrollX * 0.1 * breatheFactor;
-    this.midBg.tilePositionX = this.cameras.main.scrollX * 0.4 * breatheFactor;
-    this.fgBg.tilePositionX = this.cameras.main.scrollX * 0.7 * breatheFactor;
-
-    // Slight zoom out at higher speeds
-    const targetZoom = Math.max(0.88, 1 - Math.max(this.player.speedMultiplier - 5, 0) * 0.02);
-    this.cameras.main.zoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.02);
-
-    // Progressive sky darkening with speed
-    const darkening = Math.min(Math.max(this.player.speedMultiplier - 3.5, 0) * 0.08, 0.5);
-    if (darkening > 0) {
-      this.skyBg.setTint(
-        Phaser.Display.Color.GetColor(
-          Math.floor(255 * (1 - darkening)),
-          Math.floor(255 * (1 - darkening * 0.8)),
-          Math.floor(255 * (1 - darkening * 0.3)),
-        ),
-      );
-    }
-
-    // Lock camera vertical position
-    this.cameras.main.scrollY = 0;
-
-    // Move floor tiles to follow camera
-    const floorX = this.cameras.main.scrollX - 100;
-    this.floorTopTile.x = floorX;
-    this.floorTopTile.tilePositionX = this.cameras.main.scrollX;
-    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
-    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
-    this.floorBottomTile.x = floorX;
-    this.floorBottomTile.tilePositionX = this.cameras.main.scrollX;
-    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
-    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+    this.updateParallax();
+    this.updateFloors();
 
     // --- Off-screen death ---
     if (this.player.y > this.cameras.main.height + 50 || this.player.y < -100) {
@@ -938,6 +908,41 @@ export class GameScene extends Phaser.Scene {
 
   private getDistance(): number {
     return Math.floor((this.player.x - COCKROACH_START_X) / 50);
+  }
+
+  private updateParallax(): void {
+    const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
+    this.skyBg.tilePositionX = this.cameras.main.scrollX * 0.1 * breatheFactor;
+    this.midBg.tilePositionX = this.cameras.main.scrollX * 0.4 * breatheFactor;
+    this.fgBg.tilePositionX = this.cameras.main.scrollX * 0.7 * breatheFactor;
+
+    const targetZoom = Math.max(0.88, 1 - Math.max(this.player.speedMultiplier - 5, 0) * 0.02);
+    this.cameras.main.zoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.02);
+
+    const darkening = Math.min(Math.max(this.player.speedMultiplier - 3.5, 0) * 0.08, 0.5);
+    if (darkening > 0) {
+      this.skyBg.setTint(
+        Phaser.Display.Color.GetColor(
+          Math.floor(255 * (1 - darkening)),
+          Math.floor(255 * (1 - darkening * 0.8)),
+          Math.floor(255 * (1 - darkening * 0.3)),
+        ),
+      );
+    }
+
+    this.cameras.main.scrollY = 0;
+  }
+
+  private updateFloors(): void {
+    const floorX = this.cameras.main.scrollX - 100;
+    this.floorTopTile.x = floorX;
+    this.floorTopTile.tilePositionX = this.cameras.main.scrollX;
+    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
+    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+    this.floorBottomTile.x = floorX;
+    this.floorBottomTile.tilePositionX = this.cameras.main.scrollX;
+    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
+    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
   }
 
   private spawnBirdOverlook(): void {
