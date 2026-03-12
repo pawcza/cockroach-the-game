@@ -31,6 +31,36 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 };
 
+const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 document.fonts.ready.then(() => {
-  new Phaser.Game(config);
+  const game = new Phaser.Game(config);
+
+  if (isMobile) {
+    // Force Phaser to recalculate on orientation change
+    const handleResize = (): void => {
+      // Small delay to let the browser settle the new dimensions
+      setTimeout(() => {
+        game.scale.resize(window.innerWidth, window.innerHeight);
+        game.scale.refresh();
+        // Restart the active scene so it rebuilds with new dimensions
+        const activeScene = game.scene.getScenes(true)[0];
+        if (activeScene) {
+          activeScene.scene.restart();
+        }
+      }, 200);
+    };
+
+    window.addEventListener('orientationchange', handleResize);
+    screen.orientation?.addEventListener('change', handleResize);
+
+    // Request fullscreen on first tap (browsers require user gesture)
+    const requestFS = (): void => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+      document.removeEventListener('pointerdown', requestFS);
+    };
+    document.addEventListener('pointerdown', requestFS);
+  }
 });
