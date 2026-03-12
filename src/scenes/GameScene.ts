@@ -1201,6 +1201,7 @@ export class GameScene extends Phaser.Scene {
         timeSurvived: Math.floor(this.activePlayTime / 1000),
         distance: Math.floor(this.getDistance()),
         maxSpeed: this.player.speedMultiplier,
+        obstacleType: obstacleType || 'fall',
       };
       mpClient.sendDeath(this.score, stats);
 
