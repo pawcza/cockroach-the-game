@@ -121,9 +121,9 @@ export class GhostPlayer {
     // Dead reckoning: extrapolate forward at last known velocity
     this.timeSinceUpdate += delta;
     const extrapolatedX = this.targetX + this.velocity * this.timeSinceUpdate;
-    // Snap quickly to extrapolated position (0.3 base factor at 60fps)
-    const factor = 1 - Math.pow(1 - 0.3, delta / 16.667);
-    this.sprite.x += (extrapolatedX - this.sprite.x) * factor;
+    // Set directly — extrapolation provides smooth continuity,
+    // interpolation just adds visible lag
+    this.sprite.x = extrapolatedX;
 
     // Run animation
     this.animTimer += delta;
