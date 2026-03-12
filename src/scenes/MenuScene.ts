@@ -219,6 +219,10 @@ export class MenuScene extends Phaser.Scene {
         this.menuBgm.destroy();
         this.menuBgm = null;
       }
+      // Request fullscreen on mobile (requires user gesture)
+      if (isMobile && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
       this.scene.start('GameScene');
     };
 
