@@ -5,7 +5,7 @@ type Floor = 'top' | 'bottom';
 type SpawnFn = (x: number) => void;
 
 /** Vertical offset from floor Y to center obstacles on the running lane. */
-const OBSTACLE_OFFSET = 45;
+const OBSTACLE_OFFSET = 25;
 
 /**
  * Properties we need from GameScene without importing it directly.
@@ -63,6 +63,25 @@ export class ObstacleSpawner {
     return this.scene.floorBottomY;
   }
 
+  // ── Lifecycle helpers ────────────────────────────────────────────────
+
+  /**
+   * Register tweens, timers, and update listeners on a sprite so they are
+   * automatically cleaned up when the sprite is destroyed.
+   */
+  private trackOnSprite(
+    sprite: Phaser.Physics.Arcade.Sprite,
+    tweens: Phaser.Tweens.Tween[],
+    timers: Phaser.Time.TimerEvent[],
+    updateFns: (() => void)[],
+  ): void {
+    sprite.on('destroy', () => {
+      tweens.forEach(t => t.destroy());
+      timers.forEach(t => t.destroy());
+      updateFns.forEach(fn => this.scene.events.off('update', fn));
+    });
+  }
+
   // ── Shared helpers ─────────────────────────────────────────────────
 
   /** Play a sound only when the sprite scrolls into the camera view. */
@@ -111,7 +130,7 @@ export class ObstacleSpawner {
 
   /**
    * Common pattern for obstacles that float between the two floors.
-   * Returns the created sprite so callers can add extra effects.
+   * Returns [sprite, floatTween] so callers can track the tween for cleanup.
    */
   private createFloater(
     x: number,
@@ -121,7 +140,7 @@ export class ObstacleSpawner {
     soundKey: string,
     soundVolume: number,
     opts?: { hitbox?: { w: number; h: number } },
-  ): Phaser.Physics.Arcade.Sprite {
+  ): [Phaser.Physics.Arcade.Sprite, Phaser.Tweens.Tween] {
     const topY = this.floorTopY - OBSTACLE_OFFSET;
     const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
     const startTop = Math.random() > 0.5;
@@ -136,7 +155,7 @@ export class ObstacleSpawner {
     );
     this.playSoundOnVisible(sprite, soundKey, soundVolume);
 
-    this.scene.tweens.add({
+    const floatTween = this.scene.tweens.add({
       targets: sprite,
       y: startTop ? bottomY : topY,
       duration,
@@ -145,7 +164,7 @@ export class ObstacleSpawner {
       repeat: -1,
     });
 
-    return sprite;
+    return [sprite, floatTween];
   }
 
   private randomFloor(): Floor {
@@ -178,15 +197,17 @@ export class ObstacleSpawner {
 
     const onion = this.createSprite(x, centerY, 'onion', 'onion', floor);
 
+    const tweens: Phaser.Tweens.Tween[] = [];
+
     // Gentle wobble
-    this.scene.tweens.add({
+    tweens.push(this.scene.tweens.add({
       targets: onion,
       angle: { from: -3, to: 3 },
       duration: 1200,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
-    });
+    }));
 
     // Stink waves
     const stinkStartY = centerY - onion.displayHeight * 0.3;
@@ -196,7 +217,7 @@ export class ObstacleSpawner {
       stink.setScale(0.5 + i * 0.15);
       stink.setDepth(10);
 
-      this.scene.tweens.add({
+      tweens.push(this.scene.tweens.add({
         targets: stink,
         y: stinkStartY - 50 - i * 15,
         alpha: 0,
@@ -208,13 +229,13 @@ export class ObstacleSpawner {
           stink.y = stinkStartY;
           stink.alpha = 0.6;
         },
-      });
+      }));
     }
 
     // Tears
     const tearStartY = centerY - onion.displayHeight * 0.2;
     const tearEndY = centerY + onion.displayHeight * 0.4;
-    this.scene.time.addEvent({
+    const tearTimer = this.scene.time.addEvent({
       delay: 800,
       loop: true,
       callback: () => {
@@ -239,6 +260,8 @@ export class ObstacleSpawner {
         });
       },
     });
+
+    this.trackOnSprite(onion, tweens, [tearTimer], []);
   }
 
   // ── 2. PEST SPRAY (Lv2) ───────────────────────────────────────────
@@ -251,7 +274,7 @@ export class ObstacleSpawner {
     this.playSoundOnVisible(spray, 'spray-sfx', 0.3);
 
     // Vibration
-    this.scene.tweens.add({
+    const vibrationTween = this.scene.tweens.add({
       targets: spray,
       x: spray.x + 1.5,
       duration: 50,
@@ -288,7 +311,9 @@ export class ObstacleSpawner {
         });
       }
     };
-    this.scene.time.addEvent({ delay: 300, callback: sprayMist, loop: true });
+    const mistTimer = this.scene.time.addEvent({ delay: 300, callback: sprayMist, loop: true });
+
+    this.trackOnSprite(spray, [vibrationTween], [mistTimer], []);
   }
 
   // ── 3. FLIPPER (Lv2) ──────────────────────────────────────────────
@@ -300,7 +325,7 @@ export class ObstacleSpawner {
     const flipper = this.createSprite(x, centerY, 'flipper', 'flipper', floor);
     this.playSoundOnVisible(flipper, 'flipper-sfx', 0.3);
 
-    this.scene.tweens.add({
+    const rotationTween = this.scene.tweens.add({
       targets: flipper,
       angle: { from: -40, to: 40 },
       duration: 1000,
@@ -313,7 +338,7 @@ export class ObstacleSpawner {
     const whooshGfx = this.scene.add.graphics();
     whooshGfx.setDepth(9);
     const arcRadius = flipper.displayHeight * 0.8;
-    this.scene.events.on('update', () => {
+    const whooshUpdate = (): void => {
       if (!flipper.active) { whooshGfx.destroy(); return; }
       whooshGfx.clear();
       const currentAngle = flipper.angle;
@@ -328,14 +353,19 @@ export class ObstacleSpawner {
       whooshGfx.beginPath();
       whooshGfx.arc(x, centerY, arcRadius * 0.7, startRad, endRad, false);
       whooshGfx.strokePath();
-    });
+    };
+    this.scene.events.on('update', whooshUpdate);
+
+    this.trackOnSprite(flipper, [rotationTween], [], [whooshUpdate]);
   }
 
   // ── 4. NEWSPAPER (Lv3) ────────────────────────────────────────────
 
   private spawnNewspaper(x: number): void {
-    const newspaper = this.createFloater(x, 'newspaper', 'newspaper', 2000, 'newspaper-sfx', 0.4);
+    const [newspaper, floatTween] = this.createFloater(x, 'newspaper', 'newspaper', 2000, 'newspaper-sfx', 0.4);
     newspaper.setAngle(-8);
+
+    this.trackOnSprite(newspaper, [floatTween], [], []);
   }
 
   // ── 5. BIRD (Lv4) ─────────────────────────────────────────────────
@@ -344,21 +374,24 @@ export class ObstacleSpawner {
     const topY = this.floorTopY - OBSTACLE_OFFSET;
     const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
 
-    const bird = this.createFloater(x, 'bird', 'bird', 1200, 'bird-sfx', 0.4, {
+    const [bird, floatTween] = this.createFloater(x, 'bird', 'bird', 1200, 'bird-sfx', 0.4, {
       hitbox: { w: 0.6, h: 0.5 },
     });
 
     // Ground shadow
     const shadow = this.scene.add.ellipse(x, this.floorBottomY - 2, 30, 8, 0x000000, 0.25);
     shadow.setDepth(0);
-    this.scene.events.on('update', () => {
+    const shadowUpdate = (): void => {
       if (!bird.active) { shadow.destroy(); return; }
       const totalDrop = bottomY - topY;
       const progress = (bird.y - topY) / totalDrop;
       const shadowScale = 0.5 + progress * 1.0;
       shadow.setScale(shadowScale, shadowScale * 0.5);
       shadow.setAlpha(0.1 + progress * 0.3);
-    });
+    };
+    this.scene.events.on('update', shadowUpdate);
+
+    this.trackOnSprite(bird, [floatTween], [], [shadowUpdate]);
   }
 
   // ── 6. CAT PAW (Lv5) ──────────────────────────────────────────────
@@ -374,7 +407,7 @@ export class ObstacleSpawner {
 
     // Patrol 200px
     paw.x = x - 100;
-    this.scene.tweens.add({
+    const patrolTween = this.scene.tweens.add({
       targets: paw,
       x: x + 100,
       duration: 1500,
@@ -383,10 +416,13 @@ export class ObstacleSpawner {
       repeat: -1,
     });
 
-    this.scene.events.on('update', () => {
+    const flipUpdate = (): void => {
       if (!paw.active) return;
       paw.setFlipX(paw.x > x);
-    });
+    };
+    this.scene.events.on('update', flipUpdate);
+
+    this.trackOnSprite(paw, [patrolTween], [], [flipUpdate]);
   }
 
   // ── 7. DISCO BALL (Lv6) ───────────────────────────────────────────
@@ -401,7 +437,7 @@ export class ObstacleSpawner {
     this.playSoundOnVisible(disco, 'disco-sfx', 0.4);
 
     // Constant spin
-    this.scene.tweens.add({
+    const spinTween = this.scene.tweens.add({
       targets: disco,
       angle: 360,
       duration: 2000,
@@ -410,7 +446,7 @@ export class ObstacleSpawner {
     });
 
     // Pulsing scale
-    this.scene.tweens.add({
+    const pulseTween = this.scene.tweens.add({
       targets: disco,
       scaleX: 0.23,
       scaleY: 0.23,
@@ -422,7 +458,7 @@ export class ObstacleSpawner {
 
     // Rainbow light ray particles
     const rayColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff];
-    this.scene.time.addEvent({
+    const raysTimer = this.scene.time.addEvent({
       delay: 150,
       loop: true,
       callback: () => {
@@ -456,7 +492,7 @@ export class ObstacleSpawner {
       .setDepth(90);
 
     let strobePhase = 0;
-    this.scene.events.on('update', () => {
+    const strobeUpdate = (): void => {
       if (!disco.active) { strobeOverlay.destroy(); return; }
       const cockroach = this.scene.cockroach;
       if (!cockroach) return;
@@ -468,18 +504,21 @@ export class ObstacleSpawner {
       } else {
         strobeOverlay.setAlpha(0);
       }
-    });
+    };
+    this.scene.events.on('update', strobeUpdate);
+
+    this.trackOnSprite(disco, [spinTween, pulseTween], [raysTimer], [strobeUpdate]);
   }
 
   // ── 8. JELLYFISH (Lv7) ────────────────────────────────────────────
 
   private spawnJellyfish(x: number): void {
-    const jelly = this.createFloater(x, 'jellyfish', 'jellyfish', 2500, 'jellyfish-sfx', 0.4, {
+    const [jelly, floatTween] = this.createFloater(x, 'jellyfish', 'jellyfish', 2500, 'jellyfish-sfx', 0.4, {
       hitbox: { w: 0.7, h: 0.85 },
     });
 
     // Pulsing transparency
-    this.scene.tweens.add({
+    const pulseTween = this.scene.tweens.add({
       targets: jelly,
       alpha: { from: 0.6, to: 1.0 },
       duration: 800,
@@ -489,7 +528,7 @@ export class ObstacleSpawner {
     });
 
     // Trailing tentacle particles
-    this.scene.time.addEvent({
+    const particlesTimer = this.scene.time.addEvent({
       delay: 200,
       loop: true,
       callback: () => {
@@ -512,15 +551,17 @@ export class ObstacleSpawner {
         });
       },
     });
+
+    this.trackOnSprite(jelly, [floatTween, pulseTween], [particlesTimer], []);
   }
 
   // ── 9. POPE (Lv8) ─────────────────────────────────────────────────
 
   private spawnPope(x: number): void {
-    const pope = this.createFloater(x, 'pope', 'pope', 1800, 'pope-sfx', 0.4);
+    const [pope, floatTween] = this.createFloater(x, 'pope', 'pope', 1800, 'pope-sfx', 0.4);
 
     // Slight rotation while swinging
-    this.scene.tweens.add({
+    const angleTween = this.scene.tweens.add({
       targets: pope,
       angle: { from: -15, to: 15 },
       duration: 900,
@@ -530,7 +571,7 @@ export class ObstacleSpawner {
     });
 
     // Smoke trail
-    this.scene.time.addEvent({
+    const smokeTimer = this.scene.time.addEvent({
       delay: 150,
       loop: true,
       callback: () => {
@@ -553,6 +594,8 @@ export class ObstacleSpawner {
         });
       },
     });
+
+    this.trackOnSprite(pope, [floatTween, angleTween], [smokeTimer], []);
   }
 
   // ── 10. BISON (Lv9) ───────────────────────────────────────────────
@@ -568,7 +611,7 @@ export class ObstacleSpawner {
 
     // Fast charge patrol — 400px range
     bison.x = x - 200;
-    this.scene.tweens.add({
+    const chargeTween = this.scene.tweens.add({
       targets: bison,
       x: x + 200,
       duration: 1000,
@@ -578,13 +621,14 @@ export class ObstacleSpawner {
     });
 
     // Flip based on direction
-    this.scene.events.on('update', () => {
+    const flipUpdate = (): void => {
       if (!bison.active) return;
       bison.setFlipX(bison.x > x);
-    });
+    };
+    this.scene.events.on('update', flipUpdate);
 
     // Dust clouds
-    this.scene.time.addEvent({
+    const dustTimer = this.scene.time.addEvent({
       delay: 100,
       loop: true,
       callback: () => {
@@ -608,6 +652,8 @@ export class ObstacleSpawner {
         });
       },
     });
+
+    this.trackOnSprite(bison, [chargeTween], [dustTimer], [flipUpdate]);
   }
 
   // ── 11. BLACK HOLE (Lv10) ──────────────────────────────────────────
@@ -622,7 +668,7 @@ export class ObstacleSpawner {
     this.playSoundOnVisible(hole, 'blackhole-sfx', 0.5);
 
     // Constant slow rotation
-    this.scene.tweens.add({
+    const spinTween = this.scene.tweens.add({
       targets: hole,
       angle: 360,
       duration: 3000,
@@ -631,7 +677,7 @@ export class ObstacleSpawner {
     });
 
     // Pulsing scale
-    this.scene.tweens.add({
+    const pulseTween = this.scene.tweens.add({
       targets: hole,
       scaleX: 0.3,
       scaleY: 0.3,
@@ -644,7 +690,7 @@ export class ObstacleSpawner {
     // Gravitational pull on cockroach
     const PULL_RADIUS = 250;
     const PULL_STRENGTH = 80;
-    this.scene.events.on('update', () => {
+    const gravityUpdate = (): void => {
       if (!hole.active) return;
       const cockroach = this.scene.cockroach;
       if (!cockroach || this.scene.isDead) return;
@@ -656,10 +702,11 @@ export class ObstacleSpawner {
         body.velocity.x += Math.cos(angle) * force;
         body.velocity.y += Math.sin(angle) * force;
       }
-    });
+    };
+    this.scene.events.on('update', gravityUpdate);
 
     // Particle swirl
-    this.scene.time.addEvent({
+    const particlesTimer = this.scene.time.addEvent({
       delay: 80,
       loop: true,
       callback: () => {
@@ -682,5 +729,7 @@ export class ObstacleSpawner {
         });
       },
     });
+
+    this.trackOnSprite(hole, [spinTween, pulseTween], [particlesTimer], [gravityUpdate]);
   }
 }

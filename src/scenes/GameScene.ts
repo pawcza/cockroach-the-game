@@ -45,19 +45,28 @@ export class GameScene extends Phaser.Scene {
   // Level progression
   private currentLevel = 0;
 
-  // Backgrounds
+  // Backgrounds (current + next for crossfade)
   private skyBg!: Phaser.GameObjects.TileSprite;
   private midBg!: Phaser.GameObjects.TileSprite;
   private fgBg!: Phaser.GameObjects.TileSprite;
+  private nextSkyBg!: Phaser.GameObjects.TileSprite;
+  private nextMidBg!: Phaser.GameObjects.TileSprite;
+  private nextFgBg!: Phaser.GameObjects.TileSprite;
+  private bgTransitioning = false;
 
   // Floors
   private floorTopBody!: Phaser.GameObjects.Rectangle;
   private floorBottomBody!: Phaser.GameObjects.Rectangle;
   private floorTopSprites: Phaser.GameObjects.Image[] = [];
   private floorBottomSprites: Phaser.GameObjects.Image[] = [];
-  private currentFloorTextureKey = 'floor-rounded-lv1';
   private floorHighlightTop!: Phaser.GameObjects.Rectangle;
   private floorHighlightBottom!: Phaser.GameObjects.Rectangle;
+
+  // Floor crumble — tiles behind cockroach fall away
+  // Each range is {from, to, lastFallX} — the cockroach walked from `from` to `to` on that floor
+  private steppedTopRanges: { from: number; to: number; lastFallX: number }[] = [];
+  private steppedBottomRanges: { from: number; to: number; lastFallX: number }[] = [];
+  private lastTrackedFloor: 'top' | 'bottom' = 'bottom';
 
   // Groups
   private obstacles!: Phaser.Physics.Arcade.Group;
@@ -137,6 +146,10 @@ export class GameScene extends Phaser.Scene {
     this.lastScoreTime = this.time.now;
     this.lastMilestone = 0;
     this.isCountingDown = true;
+    this.steppedTopRanges = [];
+    const startSnap = Math.floor(COCKROACH_START_X / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    this.steppedBottomRanges = [{ from: startSnap, to: COCKROACH_START_X, lastFallX: startSnap - FLOOR_TILE_STEP }];
+    this.lastTrackedFloor = 'bottom';
     this.dustTimer = 0;
     this.birdOverlookTimer = 0;
     this.nextBirdOverlookTime = 15000 + Math.random() * 10000;
@@ -179,40 +192,48 @@ export class GameScene extends Phaser.Scene {
       .tileSprite(0, 0, w, h, 'lv1-fg')
       .setOrigin(0, 0)
       .setScrollFactor(0)
-      .setDepth(LEVELS[0].fgAboveFloors ? 5 : 2);
+      .setDepth(2);
+
+    // Next-level background layers (for crossfade transitions)
+    this.nextSkyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky')
+      .setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
+    this.nextMidBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg')
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(1).setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
+    this.nextFgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg')
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(2).setAlpha(0);
+    this.bgTransitioning = false;
 
     // Generate rounded floor textures for all levels
     this.generateRoundedFloorTextures();
 
+    // Reset floor sprite arrays (old sprites are destroyed by scene restart)
+    this.floorTopSprites = [];
+    this.floorBottomSprites = [];
+
     // Floor platforms — invisible physics bodies + visual tile sprites
     const FLOOR_WIDTH = w + 200;
 
-    this.floorTopBody = this.add.rectangle(0, this.floorTopY, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
+    const COLLIDER_DROP = 8; // shift colliders down so cockroach sits on the tile visually
+    this.floorTopBody = this.add.rectangle(0, this.floorTopY + COLLIDER_DROP, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
     this.physics.add.existing(this.floorTopBody, true);
 
-    this.floorBottomBody = this.add.rectangle(0, this.floorBottomY, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
+    this.floorBottomBody = this.add.rectangle(0, this.floorBottomY + COLLIDER_DROP, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
     this.physics.add.existing(this.floorBottomBody, true);
 
     // Create visual floor tile sprites
     const tilesNeeded = Math.ceil(FLOOR_WIDTH / FLOOR_TILE_STEP) + 2;
     for (let i = 0; i < tilesNeeded; i++) {
-      const topTile = this.add.image(i * FLOOR_TILE_STEP, this.floorTopY, this.currentFloorTextureKey)
+      const topTile = this.add.image(i * FLOOR_TILE_STEP, this.floorTopY, 'floor-rounded-lv1')
         .setOrigin(0, 0).setDepth(3);
       this.floorTopSprites.push(topTile);
 
-      const bottomTile = this.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, this.currentFloorTextureKey)
+      const bottomTile = this.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, 'floor-rounded-lv1')
         .setOrigin(0, 0).setDepth(3);
       this.floorBottomSprites.push(bottomTile);
     }
-
-    // Cupboard foreground — cockroach emerges from behind it
-    const cupboardH = h * 1.4;
-    const cupboard = this.add.image(COCKROACH_START_X - 60, h, 'cupboard')
-      .setOrigin(0.5, 1)
-      .setDisplaySize(cupboardH * (512 / 1024), cupboardH)
-      .setDepth(50);
 
     // Active floor highlight — subtle glow strip behind the current floor
     const highlightW = w + 200;
@@ -225,7 +246,7 @@ export class GameScene extends Phaser.Scene {
     this.audio = new AudioManager(this);
 
     // Player
-    this.player = new Player(this, this.audio, this.floorTopY, this.floorBottomY);
+    this.player = new Player(this, this.audio, this.floorTopY + COLLIDER_DROP, this.floorBottomY + COLLIDER_DROP);
     this.player.create();
     this.player.resetState();
 
@@ -436,7 +457,7 @@ export class GameScene extends Phaser.Scene {
 
     // Dust trail particles
     this.dustTimer += this.game.loop.delta;
-    const dustInterval = Math.max(50, 150 / this.player.speedMultiplier);
+    const dustInterval = Math.max(100, 300 / this.player.speedMultiplier);
     const onGroundForDust = this.player.sprite.body!.touching.down || this.player.sprite.body!.blocked.down;
     if (this.dustTimer >= dustInterval && onGroundForDust) {
       this.dustTimer = 0;
@@ -522,7 +543,7 @@ export class GameScene extends Phaser.Scene {
     for (const m of scoreMilestones) {
       if (this.score >= m.threshold && this.lastMilestone < m.threshold) {
         this.lastMilestone = m.threshold;
-        this.hud.showScoreMilestone(m.text, m.tier);
+        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
         this.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
         break;
       }
@@ -682,7 +703,7 @@ export class GameScene extends Phaser.Scene {
         // Pulsing pink glow
         const pGlow = this.add.circle(slotX, pY, 20, 0xff00ff, 0.3).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
         this.tweens.add({ targets: pGlow, alpha: 0.1, scale: 1.3, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        pill.on('destroy', () => pGlow.destroy());
+        pill.on('destroy', () => { this.tweens.killTweensOf(pill); this.tweens.killTweensOf(pGlow); pGlow.destroy(); });
         this.tweens.add({
           targets: pill,
           scaleX: 0.18,
@@ -720,7 +741,7 @@ export class GameScene extends Phaser.Scene {
         // Golden glow
         const tGlow = this.add.circle(slotX, tY, 18, 0xffdd00, 0.25).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
         this.tweens.add({ targets: tGlow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        tyskie.on('destroy', () => tGlow.destroy());
+        tyskie.on('destroy', () => { this.tweens.killTweensOf(tyskie); this.tweens.killTweensOf(tGlow); tGlow.destroy(); });
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
         const appleFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
         const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
@@ -740,7 +761,7 @@ export class GameScene extends Phaser.Scene {
         // Green glow
         const aGlow = this.add.circle(slotX, appleY, 16, 0x00ff44, 0.2).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
         this.tweens.add({ targets: aGlow, alpha: 0.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        apple.on('destroy', () => aGlow.destroy());
+        apple.on('destroy', () => { this.tweens.killTweensOf(apple); this.tweens.killTweensOf(aGlow); aGlow.destroy(); });
       } else {
         this.obstacleSpawner.spawn(slotX, this.currentLevel);
       }
@@ -934,13 +955,40 @@ export class GameScene extends Phaser.Scene {
   }
 
   private switchLevel(config: LevelConfig): void {
-    this.skyBg.setTexture(config.skyKey);
-    this.midBg.setTexture(config.bgKey);
-    this.fgBg.setTexture(config.fgKey);
-    this.fgBg.setDepth(config.fgAboveFloors ? 5 : 2);
-    this.currentFloorTextureKey = `floor-rounded-lv${config.level}`;
-    for (const s of this.floorTopSprites) s.setTexture(this.currentFloorTextureKey);
-    for (const s of this.floorBottomSprites) s.setTexture(this.currentFloorTextureKey);
+    // Floor tiles transition spatially in updateFloors() — no bulk swap needed
+
+    // Crossfade backgrounds over 3 seconds
+    this.nextSkyBg.setTexture(config.skyKey);
+    this.nextMidBg.setTexture(config.bgKey);
+    this.nextFgBg.setTexture(config.fgKey);
+    this.nextFgBg.setDepth(2);
+    this.bgTransitioning = true;
+
+    const fadeDuration = 3000;
+
+    // Fade in next backgrounds to their target alphas
+    this.tweens.add({ targets: this.nextSkyBg, alpha: 0.8, duration: fadeDuration, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: this.nextMidBg, alpha: 0.15, duration: fadeDuration, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: this.nextFgBg, alpha: 1, duration: fadeDuration, ease: 'Sine.easeInOut' });
+
+    // Fade out current backgrounds, then swap
+    this.tweens.add({ targets: this.skyBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: this.midBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut' });
+    this.tweens.add({
+      targets: this.fgBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut',
+      onComplete: () => {
+        // Swap: current takes next's textures, reset alphas
+        this.skyBg.setTexture(config.skyKey).setAlpha(0.8);
+        this.midBg.setTexture(config.bgKey).setAlpha(0.15);
+        this.fgBg.setTexture(config.fgKey).setAlpha(1);
+        this.fgBg.setDepth(2);
+        this.nextSkyBg.setAlpha(0);
+        this.nextMidBg.setAlpha(0);
+        this.nextFgBg.setAlpha(0);
+        this.bgTransitioning = false;
+      },
+    });
+
     this.audio.switchBGM(config.bgmKey);
     this.hud.showLevelAnnouncement(config);
   }
@@ -957,35 +1005,49 @@ export class GameScene extends Phaser.Scene {
   private generateRoundedFloorTextures(): void {
     for (let i = 1; i <= 10; i++) {
       const key = `floor-rounded-lv${i}`;
-      if (this.textures.exists(key)) {
-        this.textures.remove(key);
-      }
-
       const sourceKey = `lv${i}-floor`;
       const sourceImage = this.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = FLOOR_TILE_W;
-      canvas.height = FLOOR_TILE_H;
-      const ctx = canvas.getContext('2d')!;
-
-      // Draw rounded rect clip path
-      ctx.beginPath();
-      ctx.roundRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H, FLOOR_TILE_RADIUS);
-      ctx.clip();
-
-      // Draw the source tile texture
-      ctx.drawImage(sourceImage, 0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
-
-      this.textures.addCanvas(key, canvas);
+      if (this.textures.exists(key)) {
+        // Redraw existing canvas in place and refresh the texture source
+        const tex = this.textures.get(key);
+        const existingCanvas = tex.getSourceImage() as HTMLCanvasElement;
+        const ctx = existingCanvas.getContext('2d')!;
+        ctx.clearRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H, FLOOR_TILE_RADIUS);
+        ctx.clip();
+        ctx.drawImage(sourceImage, 0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
+        ctx.restore();
+        (tex.source[0] as Phaser.Textures.TextureSource).update();
+      } else {
+        const canvas = document.createElement('canvas');
+        canvas.width = FLOOR_TILE_W;
+        canvas.height = FLOOR_TILE_H;
+        const ctx = canvas.getContext('2d')!;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H, FLOOR_TILE_RADIUS);
+        ctx.clip();
+        ctx.drawImage(sourceImage, 0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
+        this.textures.addCanvas(key, canvas);
+      }
     }
   }
 
   private updateParallax(): void {
     const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
-    this.skyBg.tilePositionX = this.cameras.main.scrollX * 0.1 * breatheFactor;
-    this.midBg.tilePositionX = this.cameras.main.scrollX * 0.4 * breatheFactor;
-    this.fgBg.tilePositionX = this.cameras.main.scrollX * 0.7 * breatheFactor;
+    const scrollX = this.cameras.main.scrollX;
+    this.skyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
+    this.midBg.tilePositionX = scrollX * 0.4 * breatheFactor;
+    this.fgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
+
+    // Keep next-level backgrounds in sync during crossfade
+    if (this.bgTransitioning) {
+      this.nextSkyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
+      this.nextMidBg.tilePositionX = scrollX * 0.4 * breatheFactor;
+      this.nextFgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
+    }
 
     const targetZoom = Math.max(0.88, 1 - Math.max(this.player.speedMultiplier - 5, 0) * 0.02);
     this.cameras.main.zoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.02);
@@ -1016,12 +1078,59 @@ export class GameScene extends Phaser.Scene {
     (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).x = bodyX;
     (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
 
-    // Position visual tile sprites — snap to tile grid relative to camera
+    // Advance stepped-on ranges for the cockroach's current floor
+    const cockroachX = this.player.x;
+    if (!this.isCountingDown && !this.isDead) {
+      const currentFloor = this.player.currentFloor;
+      const ranges = currentFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
+
+      // On floor swap, start a new range at the landing position
+      if (currentFloor !== this.lastTrackedFloor) {
+        const snapX = Math.floor(cockroachX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+        ranges.push({ from: snapX, to: cockroachX, lastFallX: snapX - FLOOR_TILE_STEP });
+        this.lastTrackedFloor = currentFloor;
+      }
+
+      // Extend the current range
+      if (ranges.length > 0) {
+        const current = ranges[ranges.length - 1];
+        current.to = Math.max(current.to, cockroachX);
+      }
+    }
+
+    // Position visual tile sprites — snap to tile grid, pick texture per tile based on world position
     const firstTileX = Math.floor((camX - 100) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
     for (let i = 0; i < this.floorTopSprites.length; i++) {
       const tx = firstTileX + i * FLOOR_TILE_STEP;
       this.floorTopSprites[i].x = tx;
       this.floorBottomSprites[i].x = tx;
+
+      // Pick texture based on world position (spatial level transition)
+      const tileDistance = (tx - COCKROACH_START_X) / 50;
+      const tileLevelConfig = getLevelForDistance(tileDistance);
+      const tileTextureKey = `floor-rounded-lv${tileLevelConfig.level}`;
+
+      // Top floor tile: hide if inside any stepped range
+      const topStepped = this.isTileStepped(tx, this.steppedTopRanges);
+      this.floorTopSprites[i].setVisible(!topStepped);
+      if (!topStepped && this.floorTopSprites[i].texture.key !== tileTextureKey) {
+        this.floorTopSprites[i].setTexture(tileTextureKey);
+      }
+
+      // Bottom floor tile: hide if inside any stepped range
+      const bottomStepped = this.isTileStepped(tx, this.steppedBottomRanges);
+      this.floorBottomSprites[i].setVisible(!bottomStepped);
+      if (!bottomStepped && this.floorBottomSprites[i].texture.key !== tileTextureKey) {
+        this.floorBottomSprites[i].setTexture(tileTextureKey);
+      }
+    }
+
+    // Spawn falling tile copies for all ranges
+    for (const range of this.steppedTopRanges) {
+      this.spawnFallingTilesForRange(range, this.floorTopY);
+    }
+    for (const range of this.steppedBottomRanges) {
+      this.spawnFallingTilesForRange(range, this.floorBottomY);
     }
 
     // Active floor highlight — pulse the glow on the current floor
@@ -1031,6 +1140,47 @@ export class GameScene extends Phaser.Scene {
     const pulse = 0.08 + Math.sin(this.time.now * 0.004) * 0.04;
     this.floorHighlightTop.setAlpha(currentFloor === 'top' ? pulse : 0);
     this.floorHighlightBottom.setAlpha(currentFloor === 'bottom' ? pulse : 0);
+  }
+
+  private isTileStepped(tx: number, ranges: { from: number; to: number }[]): boolean {
+    const tileEnd = tx + FLOOR_TILE_W;
+    for (const range of ranges) {
+      if (tileEnd > range.from && tileEnd < range.to) return true;
+    }
+    return false;
+  }
+
+  private spawnFallingTilesForRange(range: { from: number; to: number; lastFallX: number }, floorY: number): void {
+    // Snap to tile grid from the last spawned position
+    let startX = Math.floor((range.lastFallX + 1) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    if (startX <= range.lastFallX) startX += FLOOR_TILE_STEP;
+
+    const MAX_TILES_PER_FRAME = 3;
+    let tilesSpawned = 0;
+
+    while (startX + FLOOR_TILE_W < range.to && tilesSpawned < MAX_TILES_PER_FRAME) {
+      const tileDistance = (startX - COCKROACH_START_X) / 50;
+      const tileLevelConfig = getLevelForDistance(tileDistance);
+      const textureKey = `floor-rounded-lv${tileLevelConfig.level}`;
+
+      const fallingTile = this.add.image(startX, floorY, textureKey)
+        .setOrigin(0, 0).setDepth(3);
+
+      const spinDir = Math.random() > 0.5 ? 1 : -1;
+      this.tweens.add({
+        targets: fallingTile,
+        y: floorY + 200 + Math.random() * 100,
+        angle: spinDir * (30 + Math.random() * 60),
+        alpha: 0,
+        duration: 600 + Math.random() * 400,
+        ease: 'Quad.easeIn',
+        onComplete: () => fallingTile.destroy(),
+      });
+
+      range.lastFallX = startX;
+      startX += FLOOR_TILE_STEP;
+      tilesSpawned++;
+    }
   }
 
   private spawnBirdOverlook(): void {
