@@ -708,26 +708,8 @@ export class GameScene extends Phaser.Scene {
     const points = Math.round(APPLE_SCORE * multiplier);
     this.score += points;
 
-    const comboText = this.pickupCombo > 1 ? ` x${multiplier.toFixed(1)} KOMB\u00d3\u015a!` : '';
     const comboColor = this.pickupCombo >= 10 ? '#ff00ff' : this.pickupCombo >= 5 ? '#ffff00' : '#00ff00';
-    const comboSize = Math.min(18 + this.pickupCombo * 2, 32);
-    const popup = this.add.text(sprite.x, sprite.y - 20, `+${points}${comboText}`, {
-      fontSize: `${comboSize}px`,
-      fontFamily: '"Press Start 2P", monospace',
-      color: comboColor,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
-    popup.setOrigin(0.5);
-    popup.setDepth(999);
-    this.tweens.add({
-      targets: popup,
-      y: popup.y - 40,
-      alpha: 0,
-      duration: 600,
-      ease: 'Power2',
-      onComplete: () => popup.destroy(),
-    });
+    this.showPickupPopup(sprite.x, sprite.y, `+${points}`, comboColor);
     this.hud.updateScore(this.score);
   }
 
@@ -745,25 +727,7 @@ export class GameScene extends Phaser.Scene {
     const points = Math.round(TYSKIE_SCORE * multiplier);
     this.score += points;
 
-    const comboLabel = this.pickupCombo > 1 ? ` x${multiplier.toFixed(1)}` : '';
-    const popup = this.add.text(sprite.x, sprite.y - 20, `+${points}${comboLabel} TYSKIE!`, {
-      fontSize: '14px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffdd00',
-      stroke: '#000000',
-      strokeThickness: 4,
-    });
-    popup.setOrigin(0.5);
-    popup.setDepth(999);
-    this.tweens.add({
-      targets: popup,
-      y: popup.y - 50,
-      alpha: 0,
-      scale: 1.5,
-      duration: 1000,
-      ease: 'Power2',
-      onComplete: () => popup.destroy(),
-    });
+    this.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
     this.hud.updateScore(this.score);
   }
 
@@ -799,6 +763,50 @@ export class GameScene extends Phaser.Scene {
   ): void {
     const obstacleType = (obstacle as Phaser.Physics.Arcade.Sprite).getData('type') || null;
     this.die(obstacleType);
+  }
+
+  private showPickupPopup(x: number, y: number, text: string, color: string): void {
+    const popup = this.add.text(x, y - 20, text, {
+      fontSize: '12px',
+      fontFamily: '"Press Start 2P", monospace',
+      color,
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    popup.setOrigin(0.5);
+    popup.setDepth(999);
+    popup.setAlpha(0);
+
+    // Phase 1: Slide up + fade in (150ms)
+    this.tweens.add({
+      targets: popup,
+      y: popup.y - 15,
+      alpha: 1,
+      duration: 150,
+      ease: 'Power2',
+      onComplete: () => {
+        // Phase 2: Wobble in place (300ms)
+        this.tweens.add({
+          targets: popup,
+          angle: { from: -3, to: 3 },
+          duration: 75,
+          yoyo: true,
+          repeat: 1,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            // Phase 3: Slide up + fade out (150ms)
+            this.tweens.add({
+              targets: popup,
+              y: popup.y - 20,
+              alpha: 0,
+              duration: 150,
+              ease: 'Power2',
+              onComplete: () => popup.destroy(),
+            });
+          },
+        });
+      },
+    });
   }
 
   private die(obstacleType?: string | null): void {
