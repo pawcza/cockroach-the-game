@@ -36,6 +36,7 @@ export class GhostPlayer {
   readonly name: string;
   readonly color: number;
   readonly sprite: Phaser.GameObjects.Sprite;
+  private nameLabel: Phaser.GameObjects.Text;
 
   private scene: Phaser.Scene;
   private startX: number;
@@ -84,6 +85,18 @@ export class GhostPlayer {
     this.sprite.setAlpha(0.2);
     this.sprite.setTint(this.color);
     this.sprite.setDepth(500);
+
+    const colorStr = '#' + this.color.toString(16).padStart(6, '0');
+    this.nameLabel = scene.add.text(startX, floorBottomY - 45, name, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '5px',
+      color: colorStr,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    this.nameLabel.setOrigin(0.5, 1);
+    this.nameLabel.setAlpha(0.4);
+    this.nameLabel.setDepth(501);
   }
 
   /** Compute current speed using the same formula as Player.updateSpeed */
@@ -178,6 +191,7 @@ export class GhostPlayer {
     }
 
     this.sprite.setTint(0x444444);
+    this.nameLabel.setVisible(false);
     this.scene.tweens.add({
       targets: this.sprite,
       y: this.sprite.y - 80,
@@ -197,6 +211,9 @@ export class GhostPlayer {
     const speed = this.getCurrentSpeed(); // px/s
     this.sprite.x += speed * (delta / 1000);
 
+    // Keep name label above sprite
+    this.nameLabel.setPosition(this.sprite.x, this.sprite.y - 25);
+
     // Run animation — faster at higher speeds
     const speedMult = speed / COCKROACH_BASE_SPEED;
     const frameInterval = Math.max(60, 200 / speedMult);
@@ -214,5 +231,6 @@ export class GhostPlayer {
       this.dashTrailTimer = null;
     }
     this.sprite.destroy();
+    this.nameLabel.destroy();
   }
 }
