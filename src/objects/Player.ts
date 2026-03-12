@@ -252,8 +252,8 @@ export class Player {
     this.audio.playDash();
 
     this.dashTrailTimer = this.scene.time.addEvent({
-      delay: 50,
-      repeat: Math.floor(DASH_DURATION / 50) - 1,
+      delay: 80,
+      repeat: Math.floor(DASH_DURATION / 80) - 1,
       callback: () => {
         this.spawnAfterimage();
       },
@@ -425,7 +425,7 @@ export class Player {
     // --- Rainbow afterimage trail ---
     if (this.pillTrailTimer) this.pillTrailTimer.destroy();
     this.pillTrailTimer = this.scene.time.addEvent({
-      delay: 40,
+      delay: 80,
       repeat: -1,
       callback: () => {
         if (!this._isPillActive || this._isDead) return;
@@ -503,8 +503,8 @@ export class Player {
     };
 
     this.scene.time.addEvent({
-      delay: 30,
-      repeat: Math.floor(PILL_DURATION / 30),
+      delay: 60,
+      repeat: Math.floor(PILL_DURATION / 60),
       callback: spawnLine,
     });
   }
