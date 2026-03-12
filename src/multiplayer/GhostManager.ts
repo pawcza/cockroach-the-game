@@ -66,12 +66,6 @@ export class GhostManager {
     if (ghost) ghost.setPill(false);
   }
 
-  handlePosition(id: string, x: number, lane: string): void {
-    const ghost = this.ghosts.get(id);
-    if (ghost) {
-      ghost.setPosition(x, lane, this.floorTopY, this.floorBottomY);
-    }
-  }
 
   handleDeath(id: string, score: number, stats: Record<string, unknown>): void {
     const ghost = this.ghosts.get(id);
