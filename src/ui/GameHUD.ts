@@ -64,7 +64,7 @@ export class GameHUD {
 
     // Score UI
     this.scoreText = this.scene.add
-      .text(16, 16, 'Punkt\u00f3wy: 0', {
+      .text(16, 16, 'Punkciory: 0', {
         fontSize: '11px',
         color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
@@ -181,7 +181,7 @@ export class GameHUD {
   }
 
   updateScore(score: number): void {
-    this.scoreText.setText(`Punkt\u00f3wy: ${score}`);
+    this.scoreText.setText(`Punkciory: ${score}`);
   }
 
   update(data: HUDUpdateData): void {
@@ -220,14 +220,14 @@ export class GameHUD {
 
     // Combo display
     if (data.pickupCombo > 1) {
-      this.comboText.setText(`KOMB\u00d3\u015a x${data.comboMultiplier.toFixed(1)}`);
+      this.comboText.setText(`KOMBO (${data.pickupCombo}) x${data.comboMultiplier.toFixed(1)}`);
       this.comboText.setVisible(true);
     } else {
       this.comboText.setVisible(false);
     }
 
     // Score text
-    this.scoreText.setText(`Punkt\u00f3wy: ${data.score}`);
+    this.scoreText.setText(`Punkciory: ${data.score}`);
 
     // Dash cooldown bar
     if (data.dashReady) {
@@ -407,32 +407,64 @@ export class GameHUD {
     this.scene.cameras.main.shake(200, 0.01);
   }
 
-  showSurvivalMilestone(text: string): void {
+  showScoreMilestone(text: string, tier: number): void {
     const w = this.scene.cameras.main.width;
-    const h = this.scene.cameras.main.height;
 
-    const milestone = this.scene.add.text(
-      w / 2, h - 40,
-      text,
-      {
-        fontSize: '11px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ffff00',
-        stroke: '#000000',
-        strokeThickness: 4,
-      },
-    );
+    // Tier determines epicness: size, color, shake, duration
+    const tierConfig = [
+      { fontSize: '10px', color: '#ffff00', stroke: 3, shake: 0.005, duration: 2000, scale: 1.3 },
+      { fontSize: '12px', color: '#ff8800', stroke: 4, shake: 0.008, duration: 2500, scale: 1.5 },
+      { fontSize: '14px', color: '#ff4400', stroke: 4, shake: 0.012, duration: 3000, scale: 1.6 },
+      { fontSize: '16px', color: '#ff00ff', stroke: 5, shake: 0.018, duration: 3500, scale: 1.8 },
+      { fontSize: '20px', color: '#ffffff', stroke: 6, shake: 0.025, duration: 4000, scale: 2.0 },
+    ];
+    const cfg = tierConfig[Math.min(tier - 1, tierConfig.length - 1)];
+
+    const milestone = this.scene.add.text(w / 2, 50, text, {
+      fontSize: cfg.fontSize,
+      fontFamily: '"Press Start 2P", monospace',
+      color: cfg.color,
+      stroke: '#000000',
+      strokeThickness: cfg.stroke,
+    });
     milestone.setOrigin(0.5);
     milestone.setScrollFactor(0);
     milestone.setDepth(999);
+    milestone.setAlpha(0);
+    milestone.setScale(0.3);
+
+    // Slam in
     this.scene.tweens.add({
       targets: milestone,
-      y: milestone.y - 60,
-      alpha: 0,
-      scale: 1.5,
-      duration: 2000,
-      ease: 'Power2',
-      onComplete: () => milestone.destroy(),
+      alpha: 1,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Wobble hold
+        this.scene.tweens.add({
+          targets: milestone,
+          angle: { from: -2 * tier, to: 2 * tier },
+          duration: 100,
+          yoyo: true,
+          repeat: Math.floor(cfg.duration / 200) - 1,
+          ease: 'Sine.easeInOut',
+        });
+
+        // Fade out
+        this.scene.tweens.add({
+          targets: milestone,
+          alpha: 0,
+          scale: cfg.scale,
+          y: milestone.y - 30,
+          duration: 800,
+          delay: cfg.duration - 800,
+          ease: 'Power2',
+          onComplete: () => milestone.destroy(),
+        });
+      },
     });
+
+    this.scene.cameras.main.shake(300, cfg.shake);
   }
 }
