@@ -11,8 +11,22 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Serve static files from Vite build
-app.use(express.static(path.join(__dirname, '..', 'dist')));
+// Hashed assets (Vite adds content hash) — cache forever
+app.use('/assets', express.static(path.join(__dirname, '..', 'dist', 'assets'), {
+  maxAge: '1y',
+  immutable: true,
+}));
+
+// All other static files — no cache (forces revalidation on every visit)
+app.use(express.static(path.join(__dirname, '..', 'dist'), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  },
+}));
 
 // Rate limit score submissions: 1 per 5 seconds per IP
 const submitLimiter = rateLimit({
@@ -61,6 +75,7 @@ app.post('/api/scores', submitLimiter, (req, res) => {
 
 // SPA fallback — serve index.html for non-API, non-static routes
 app.use((_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
