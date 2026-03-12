@@ -80,11 +80,11 @@ export class GhostManager {
     if (ghost) ghost.die(score, stats);
   }
 
-  update(delta: number, cameraScrollX: number, cameraWidth: number): void {
+  update(delta: number, cameraScrollX: number, cameraWidth: number, cameraHeight: number): void {
     for (const ghost of this.ghosts.values()) {
       ghost.update(delta);
     }
-    this.updateArrows(cameraScrollX, cameraWidth);
+    this.updateArrows(cameraScrollX, cameraWidth, cameraHeight);
   }
 
   private arrowPool: Phaser.GameObjects.Text[] = [];
@@ -108,9 +108,10 @@ export class GhostManager {
     return arrow;
   }
 
-  private updateArrows(cameraScrollX: number, cameraWidth: number): void {
+  private updateArrows(cameraScrollX: number, cameraWidth: number, cameraHeight: number): void {
     const leftEdge = cameraScrollX;
     const rightEdge = cameraScrollX + cameraWidth;
+    const midY = Math.round(cameraHeight / 2);
     let arrowIdx = 0;
     let leftCount = 0;
     let rightCount = 0;
@@ -121,23 +122,23 @@ export class GhostManager {
       const gx = ghost.sprite.x;
 
       if (gx < leftEdge) {
-        const y = 60 + leftCount * 20;
+        const y = midY + leftCount * 22;
         const colorStr = '#' + ghost.color.toString(16).padStart(6, '0');
         const arrow = this.getArrow(arrowIdx++);
         arrow.setText(`\u25C0 ${ghost.name}`);
         arrow.setColor(colorStr);
         arrow.setPosition(8, y);
-        arrow.setOrigin(0, 0);
+        arrow.setOrigin(0, 0.5);
         arrow.setVisible(true);
         leftCount++;
       } else if (gx > rightEdge) {
-        const y = 60 + rightCount * 20;
+        const y = midY + rightCount * 22;
         const colorStr = '#' + ghost.color.toString(16).padStart(6, '0');
         const arrow = this.getArrow(arrowIdx++);
         arrow.setText(`${ghost.name} \u25B6`);
         arrow.setColor(colorStr);
         arrow.setPosition(cameraWidth - 8, y);
-        arrow.setOrigin(1, 0);
+        arrow.setOrigin(1, 0.5);
         arrow.setVisible(true);
         rightCount++;
       }
