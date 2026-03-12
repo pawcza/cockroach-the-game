@@ -22,9 +22,115 @@
       user-select: none;
       -webkit-user-select: none;
     }
+    /* Portrait orientation overlay - mobile only */
+    #portrait-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      font-family: 'Press Start 2P', monospace;
+    }
+
+    @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+      #portrait-overlay { display: flex; }
+    }
+
+    #portrait-overlay .cockroach-anim {
+      width: 160px;
+      height: 80px;
+      image-rendering: pixelated;
+      position: absolute;
+      top: 20%;
+      animation: roach-run-across 3s linear infinite;
+    }
+
+    @keyframes roach-run-across {
+      0% { left: -160px; }
+      100% { left: 100%; }
+    }
+
+
+    #portrait-overlay .message {
+      color: #ffffff;
+      font-size: 12px;
+      text-align: center;
+      line-height: 1.8;
+      padding: 0 30px;
+    }
+
+    #portrait-overlay .phone-hint {
+      position: relative;
+      width: 60px;
+      height: 100px;
+      animation: phone-cycle 3.5s ease-in-out infinite;
+    }
+
+    #portrait-overlay .phone-rect {
+      position: absolute;
+      inset: 0;
+      border: 3px solid #fff;
+      border-radius: 8px;
+      transform-origin: center center;
+      animation: phone-flip 3.5s ease-in-out infinite;
+    }
+
+    #portrait-overlay .phone-arrow {
+      position: absolute;
+      top: -28px;
+      right: -20px;
+      font-size: 28px;
+      color: #fff;
+      animation: arrow-fade 3.5s ease-in-out infinite;
+    }
+
+    @keyframes phone-flip {
+      0% { transform: rotate(0deg); opacity: 1; }
+      15% { transform: rotate(0deg); opacity: 1; }
+      45% { transform: rotate(90deg); opacity: 1; }
+      65% { transform: rotate(90deg); opacity: 1; }
+      80% { transform: rotate(90deg); opacity: 0; }
+      81% { transform: rotate(0deg); opacity: 0; }
+      100% { transform: rotate(0deg); opacity: 1; }
+    }
+
+    @keyframes arrow-fade {
+      0% { opacity: 0; }
+      15% { opacity: 1; }
+      40% { opacity: 1; }
+      50% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes phone-cycle {
+      0% { opacity: 1; }
+      80% { opacity: 1; }
+      81% { opacity: 0; }
+      100% { opacity: 1; }
+    }
   </style>
 </head>
 <body>
+  <div id="portrait-overlay">
+    <img class="cockroach-anim" src="/assets/cockroach-idle.png" alt="">
+    <div class="message">Karaluch zaleca<br>trzymać telefon<br>poziomo</div>
+    <div class="phone-hint">
+      <div class="phone-rect"></div>
+      <div class="phone-arrow">↷</div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var img = document.querySelector('#portrait-overlay .cockroach-anim');
+      var frames = ['/assets/cockroach-idle.png', '/assets/cockroach-running.png'];
+      var f = 0;
+      setInterval(function() { f = 1 - f; img.src = frames[f]; }, 200);
+    })();
+  </script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
