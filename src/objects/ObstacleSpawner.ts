@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config/constants';
 import { POINTS_PER_LEVEL } from '../config/levels';
 
 type Floor = 'top' | 'bottom';
@@ -16,6 +16,14 @@ export class ObstacleSpawner {
   constructor(scene: Phaser.Scene, obstacles: Phaser.Physics.Arcade.Group) {
     this.scene = scene;
     this.obstacles = obstacles;
+  }
+
+  private get floorTopY(): number {
+    return (this.scene as any).floorTopY;
+  }
+
+  private get floorBottomY(): number {
+    return (this.scene as any).floorBottomY;
   }
 
   /** Play a sound only when the sprite scrolls into view. */
@@ -87,7 +95,7 @@ export class ObstacleSpawner {
   }
 
   private getFloorY(floor: Floor): number {
-    return floor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y;
+    return floor === 'top' ? this.floorTopY : this.floorBottomY;
   }
 
   private getCenterY(floor: Floor): number {
@@ -286,8 +294,8 @@ export class ObstacleSpawner {
   // Travels between floors, slower than bird.
 
   private spawnNewspaper(x: number): void {
-    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
-    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const topY = this.floorTopY - OBSTACLE_OFFSET;
+    const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
     const startTop = Math.random() > 0.5;
 
     const newspaper = this.obstacles.create(x, startTop ? topY : bottomY, 'newspaper') as Phaser.Physics.Arcade.Sprite;
@@ -316,8 +324,8 @@ export class ObstacleSpawner {
   // Swoops between floors, faster than newspaper.
 
   private spawnBird(x: number): void {
-    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
-    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const topY = this.floorTopY - OBSTACLE_OFFSET;
+    const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
     const startTop = Math.random() > 0.5;
 
     const bird = this.obstacles.create(x, startTop ? topY : bottomY, 'bird') as Phaser.Physics.Arcade.Sprite;
@@ -341,7 +349,7 @@ export class ObstacleSpawner {
     });
 
     // Ground shadow
-    const shadow = this.scene.add.ellipse(x, FLOOR_BOTTOM_Y - 2, 30, 8, 0x000000, 0.25);
+    const shadow = this.scene.add.ellipse(x, this.floorBottomY - 2, 30, 8, 0x000000, 0.25);
     shadow.setDepth(0);
     this.scene.events.on('update', () => {
       if (!bird.active) { shadow.destroy(); return; }
@@ -481,8 +489,8 @@ export class ObstacleSpawner {
   // Floats between floors with wider hitbox, slower than bird.
 
   private spawnJellyfish(x: number): void {
-    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
-    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const topY = this.floorTopY - OBSTACLE_OFFSET;
+    const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
     const startTop = Math.random() > 0.5;
 
     const jelly = this.obstacles.create(x, startTop ? topY : bottomY, 'jellyfish') as Phaser.Physics.Arcade.Sprite;
@@ -547,8 +555,8 @@ export class ObstacleSpawner {
   // Swings between floors like a censer. Leaves lingering smoke trail.
 
   private spawnPope(x: number): void {
-    const topY = FLOOR_TOP_Y - OBSTACLE_OFFSET;
-    const bottomY = FLOOR_BOTTOM_Y - OBSTACLE_OFFSET;
+    const topY = this.floorTopY - OBSTACLE_OFFSET;
+    const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
     const startTop = Math.random() > 0.5;
 
     const pope = this.obstacles.create(x, startTop ? topY : bottomY, 'pope') as Phaser.Physics.Arcade.Sprite;
@@ -675,7 +683,7 @@ export class ObstacleSpawner {
   // Sits between floors. Constantly pulls the cockroach toward it.
 
   private spawnBlackHole(x: number): void {
-    const centerY = (FLOOR_TOP_Y + FLOOR_BOTTOM_Y) / 2 - OBSTACLE_OFFSET;
+    const centerY = (this.floorTopY + this.floorBottomY) / 2 - OBSTACLE_OFFSET;
 
     const hole = this.obstacles.create(x, centerY, 'black-hole') as Phaser.Physics.Arcade.Sprite;
     hole.setOrigin(0.5, 0.5);
