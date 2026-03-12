@@ -171,7 +171,17 @@ export class GhostManager {
       this.spectateIndex = 0;
     }
 
+    // Restore previous target's ghost alpha
+    if (this.spectateTarget) {
+      this.spectateTarget.setSpectated(false);
+    }
+
     this.spectateTarget = aliveGhosts[this.spectateIndex];
+
+    // Make new target fully opaque
+    if (this.spectateTarget) {
+      this.spectateTarget.setSpectated(true);
+    }
 
     // Create/recreate overlay text
     if (this.spectateOverlay) {

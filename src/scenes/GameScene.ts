@@ -56,6 +56,7 @@ export class GameScene extends Phaser.Scene {
   private mpMyName = '';
   private _wasDashing = false;
   private _wasPillActive = false;
+  private pendingPickupDestructions: number[] = [];
 
   // Level progression
   private currentLevel = 0;
@@ -791,7 +792,10 @@ export class GameScene extends Phaser.Scene {
     mpClient.on('game:pickup', (data: any) => {
       // Only destroy pickups on spectator's screen — don't steal from alive players
       if (this.isDead) {
-        this.destroyPickupNear(data.x);
+        if (!this.destroyPickupNear(data.x)) {
+          // Pickup not spawned yet on our screen — queue for later
+          this.pendingPickupDestructions.push(data.x);
+        }
       }
     });
     mpClient.on('game:over', (data: any) => {
@@ -998,9 +1002,16 @@ export class GameScene extends Phaser.Scene {
         this.obstacleSpawner.spawn(slotX, spawnLevel);
       }
     }
+
+    // Flush queued pickup destructions (from events that arrived before we spawned them)
+    if (this.pendingPickupDestructions.length > 0) {
+      this.pendingPickupDestructions = this.pendingPickupDestructions.filter(
+        x => !this.destroyPickupNear(x),
+      );
+    }
   }
 
-  private destroyPickupNear(x: number): void {
+  private destroyPickupNear(x: number): boolean {
     const tolerance = 30;
     const groups = [this.apples, this.tyskies, this.pills];
     for (const group of groups) {
@@ -1008,10 +1019,11 @@ export class GameScene extends Phaser.Scene {
         const sprite = obj as Phaser.Physics.Arcade.Sprite;
         if (Math.abs(sprite.x - x) < tolerance) {
           sprite.destroy();
-          return;
+          return true;
         }
       }
     }
+    return false;
   }
 
   private cleanupOffscreen(): void {
