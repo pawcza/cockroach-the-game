@@ -321,9 +321,9 @@ export class GameScene extends Phaser.Scene {
     // Score UI
     this.scoreText = this.add
       .text(16, 16, 'Punktówy: 0', {
-        fontSize: '20px',
+        fontSize: '11px',
         color: '#ffffff',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 3,
       })
@@ -335,9 +335,9 @@ export class GameScene extends Phaser.Scene {
     this.levelBarFill = this.add.rectangle(16, 44, 0, 12, 0xff6600, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.levelNameText = this.add
       .text(16, 58, 'Lv1 Zwykła Kuchnia', {
-        fontSize: '10px',
+        fontSize: '7px',
         color: '#cccccc',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 2,
       })
@@ -345,9 +345,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100);
     this.speedText = this.add
       .text(170, 44, '1.0x', {
-        fontSize: '12px',
+        fontSize: '8px',
         color: '#ff6600',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 2,
       })
@@ -356,9 +356,9 @@ export class GameScene extends Phaser.Scene {
 
     this.floorIndicator = this.add
       .text(w - 16, h / 2, '▼', {
-        fontSize: '24px',
+        fontSize: '12px',
         color: '#ffffff',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 2,
       })
@@ -372,9 +372,9 @@ export class GameScene extends Phaser.Scene {
 
     this.distanceText = this.add
       .text(16, 94, 'Dystansik: 0m', {
-        fontSize: '12px',
+        fontSize: '8px',
         color: '#aaaaaa',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 2,
       })
@@ -383,9 +383,9 @@ export class GameScene extends Phaser.Scene {
 
     this.comboText = this.add
       .text(w - 16, 44, '', {
-        fontSize: '16px',
+        fontSize: '10px',
         color: '#ffff00',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 2,
       })
@@ -419,8 +419,8 @@ export class GameScene extends Phaser.Scene {
       if (this.isPaused) this.togglePause();
     });
     this.pauseText = this.add.text(w / 2, h / 2, 'PAUZKA!', {
-      fontSize: '48px',
-      fontFamily: 'Georgia, serif',
+      fontSize: '24px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 4,
@@ -485,8 +485,8 @@ export class GameScene extends Phaser.Scene {
       this.countdownLastShown = step;
       const text = countdownTexts[step];
       const countText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
-        fontSize: text === 'JAZDA!' ? '48px' : '64px',
-        fontFamily: 'Georgia, serif',
+        fontSize: text === 'JAZDA!' ? '24px' : '32px',
+        fontFamily: '"Press Start 2P", monospace',
         color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
         stroke: '#000000',
         strokeThickness: 6,
@@ -686,8 +686,8 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.width / 2, this.cameras.main.height - 40,
         milestones[survivalSeconds],
         {
-          fontSize: '20px',
-          fontFamily: 'monospace',
+          fontSize: '11px',
+          fontFamily: '"Press Start 2P", monospace',
           color: '#ffff00',
           stroke: '#000000',
           strokeThickness: 4,
@@ -967,8 +967,8 @@ export class GameScene extends Phaser.Scene {
     const dashText = this.add.text(
       this.cockroach.x, this.cockroach.y - 50,
       'DASHERÓWKA!', {
-        fontSize: '14px',
-        fontFamily: 'monospace',
+        fontSize: '9px',
+        fontFamily: '"Press Start 2P", monospace',
         color: '#00ffff',
         stroke: '#000000',
         strokeThickness: 3,
@@ -1033,8 +1033,8 @@ export class GameScene extends Phaser.Scene {
 
       this.touchSwapLabel = this.add.text(
         btnMargin + btnRadius, btnCenterY, '⇅', {
-          fontSize: '22px',
-          fontFamily: 'monospace',
+          fontSize: '14px',
+          fontFamily: '"Press Start 2P", monospace',
           color: '#ff6600',
           stroke: '#000000',
           strokeThickness: 3,
@@ -1063,8 +1063,8 @@ export class GameScene extends Phaser.Scene {
 
       this.touchDashLabel = this.add.text(
         sw - btnMargin - btnRadius, btnCenterY, '▶', {
-          fontSize: '22px',
-          fontFamily: 'monospace',
+          fontSize: '14px',
+          fontFamily: '"Press Start 2P", monospace',
           color: '#00ffff',
           stroke: '#000000',
           strokeThickness: 3,
@@ -1098,8 +1098,8 @@ export class GameScene extends Phaser.Scene {
 
       this.touchDashLabel = this.add.text(
         sw - 44, sh - 44, 'DASH', {
-          fontSize: '12px',
-          fontFamily: 'monospace',
+          fontSize: '8px',
+          fontFamily: '"Press Start 2P", monospace',
           color: '#00ffff',
           stroke: '#000000',
           strokeThickness: 2,
@@ -1121,8 +1121,8 @@ export class GameScene extends Phaser.Scene {
     // Pause button — top-right (both platforms)
     this.touchPauseBtn = this.add.text(
       sw - 20, 12, '\u23f8', {
-        fontSize: '28px',
-        fontFamily: 'monospace',
+        fontSize: '14px',
+        fontFamily: '"Press Start 2P", monospace',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 2,
@@ -1303,7 +1303,7 @@ export class GameScene extends Phaser.Scene {
     const comboSize = Math.min(18 + this.pickupCombo * 2, 32);
     const popup = this.add.text(sprite.x, sprite.y - 20, `+${points}${comboText}`, {
       fontSize: `${comboSize}px`,
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
       color: comboColor,
       stroke: '#000000',
       strokeThickness: 3,
@@ -1338,8 +1338,8 @@ export class GameScene extends Phaser.Scene {
     // Big golden popup
     const comboLabel = this.pickupCombo > 1 ? ` x${multiplier.toFixed(1)}` : '';
     const popup = this.add.text(sprite.x, sprite.y - 20, `+${points}${comboLabel} TYSKIE!`, {
-      fontSize: '28px',
-      fontFamily: 'monospace',
+      fontSize: '14px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ffdd00',
       stroke: '#000000',
       strokeThickness: 4,
@@ -1390,8 +1390,8 @@ export class GameScene extends Phaser.Scene {
 
     // --- "PIGULKA!" floating text ---
     const pillText = this.add.text(px, py - 30, 'PIGULKA!', {
-      fontSize: '32px',
-      fontFamily: 'Georgia, serif',
+      fontSize: '16px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ff00ff',
       stroke: '#000000',
       strokeThickness: 5,
@@ -1418,8 +1418,8 @@ export class GameScene extends Phaser.Scene {
 
     // --- Score popup ---
     const scorePopup = this.add.text(px, py, `+${PILL_SCORE}`, {
-      fontSize: '24px',
-      fontFamily: 'monospace',
+      fontSize: '12px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#00ffff',
       stroke: '#000000',
       strokeThickness: 3,
@@ -1583,8 +1583,8 @@ export class GameScene extends Phaser.Scene {
     const endText = this.add.text(
       this.cameras.main.width / 2, this.cameras.main.height / 2 - 20,
       'KONIEC JAZDY!', {
-        fontSize: '36px',
-        fontFamily: 'Georgia, serif',
+        fontSize: '18px',
+        fontFamily: '"Press Start 2P", monospace',
         color: '#ffff00',
         stroke: '#000000',
         strokeThickness: 5,
@@ -1629,8 +1629,8 @@ export class GameScene extends Phaser.Scene {
     const nameLabel = config.name.toUpperCase();
 
     const levelText = this.add.text(this.cameras.main.width / 2, 60, levelLabel, {
-      fontSize: '24px',
-      fontFamily: 'Georgia, serif',
+      fontSize: '12px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ffff00',
       stroke: '#000000',
       strokeThickness: 4,
@@ -1642,8 +1642,8 @@ export class GameScene extends Phaser.Scene {
     levelText.setAlpha(0);
 
     const nameText = this.add.text(this.cameras.main.width / 2, 95, nameLabel, {
-      fontSize: '36px',
-      fontFamily: 'Georgia, serif',
+      fontSize: '18px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 6,
@@ -1817,8 +1817,8 @@ export class GameScene extends Phaser.Scene {
 
         const warningY = sprite.y < this.cameras.main.height / 2 ? 30 : this.cameras.main.height - 30;
         const warning = this.add.text(this.cameras.main.width - 30, warningY, '!', {
-          fontSize: '24px',
-          fontFamily: 'monospace',
+          fontSize: '12px',
+          fontFamily: '"Press Start 2P", monospace',
           color: '#ff0000',
           stroke: '#000000',
           strokeThickness: 3,

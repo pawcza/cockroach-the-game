@@ -90,9 +90,9 @@ export class GameOverScene extends Phaser.Scene {
 
     const titleText = this.add
       .text(width / 2, height / 3 - 20, deathMessage, {
-        fontSize: deathMessage.length > 15 ? '36px' : '56px',
+        fontSize: deathMessage.length > 15 ? '18px' : '28px',
         color: '#8b0000',
-        fontFamily: 'Georgia, serif',
+        fontFamily: '"Press Start 2P", monospace',
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 6,
@@ -134,9 +134,9 @@ export class GameOverScene extends Phaser.Scene {
 
     const scoreText = this.add
       .text(width / 2, height / 2, 'Punktówy: 0', {
-        fontSize: '32px',
+        fontSize: '16px',
         color: '#ffffff',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       })
       .setOrigin(0.5);
 
@@ -160,9 +160,9 @@ export class GameOverScene extends Phaser.Scene {
         height / 2 + 50,
         `Najlepszy Wyńczyk: ${highScore}${isNewRecord ? '  NÓWKA SZTUKA!' : ''}`,
         {
-          fontSize: '20px',
+          fontSize: '11px',
           color: isNewRecord ? '#ffff00' : '#999999',
-          fontFamily: 'monospace',
+          fontFamily: '"Press Start 2P", monospace',
         },
       )
       .setOrigin(0.5);
@@ -206,9 +206,9 @@ export class GameOverScene extends Phaser.Scene {
     if (stats.length > 0) {
       this.add
         .text(width / 2, height / 2 + 90, stats.join('  |  '), {
-          fontSize: '14px',
+          fontSize: '9px',
           color: '#888888',
-          fontFamily: 'monospace',
+          fontFamily: '"Press Start 2P", monospace',
         })
         .setOrigin(0.5);
     }
@@ -236,9 +236,9 @@ export class GameOverScene extends Phaser.Scene {
         if (playerName.length > 0) {
           const nameText = this.add
             .text(width / 2, height - 80, playerName, {
-              fontSize: '24px',
+              fontSize: '12px',
               color: '#00ff00',
-              fontFamily: 'monospace',
+              fontFamily: '"Press Start 2P", monospace',
               stroke: '#000000',
               strokeThickness: 3,
             })
@@ -259,18 +259,18 @@ export class GameOverScene extends Phaser.Scene {
     // Desktop: custom keyboard handler
     const promptText = this.add
       .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', {
-        fontSize: '14px',
+        fontSize: '9px',
         color: '#ffff00',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       })
       .setOrigin(0.5);
 
     let playerName = '';
     const nameText = this.add
       .text(width / 2, height - 75, '_', {
-        fontSize: '24px',
+        fontSize: '12px',
         color: '#ffffff',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
         strokeThickness: 3,
       })
@@ -326,9 +326,9 @@ export class GameOverScene extends Phaser.Scene {
 
     const restartText = this.add
       .text(width / 2, height - 30, restartLabel, {
-        fontSize: '14px',
+        fontSize: '9px',
         color: '#ffffff',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       })
       .setOrigin(0.5);
 
@@ -372,9 +372,9 @@ export class GameOverScene extends Phaser.Scene {
   private showScoreboardButton(width: number, height: number): void {
     const btnText = this.add
       .text(width / 2, height - 55, '[ T — Tablica Wyników ]', {
-        fontSize: '14px',
+        fontSize: '9px',
         color: '#888888',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });

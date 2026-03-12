@@ -31,4 +31,6 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 };
 
-new Phaser.Game(config);
+document.fonts.ready.then(() => {
+  new Phaser.Game(config);
+});

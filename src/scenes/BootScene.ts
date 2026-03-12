@@ -16,15 +16,15 @@ export class BootScene extends Phaser.Scene {
     const progressBar = this.add.graphics();
 
     const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading...', {
-      fontSize: '20px',
+      fontSize: '11px',
       color: '#8b0000',
-      fontFamily: 'Georgia, serif',
+      fontFamily: '"Press Start 2P", monospace',
     }).setOrigin(0.5);
 
     const percentText = this.add.text(width / 2, height / 2, '0%', {
-      fontSize: '16px',
+      fontSize: '10px',
       color: '#cccccc',
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
     }).setOrigin(0.5);
 
     this.load.on('progress', (value: number) => {
