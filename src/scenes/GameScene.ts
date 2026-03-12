@@ -85,6 +85,7 @@ export class GameScene extends Phaser.Scene {
 
   // Pause
   private isPaused = false;
+  private unpausedThisFrame = false;
 
   // Countdown
   private isCountingDown = true;
@@ -363,6 +364,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Pause toggle
+    if (this.unpausedThisFrame) {
+      this.unpausedThisFrame = false;
+      this.lastFrameTime = this.time.now;
+      return;
+    }
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
       this.togglePause();
     }
@@ -568,6 +574,7 @@ export class GameScene extends Phaser.Scene {
       this.physics.pause();
       this.hud.showPauseOverlay();
     } else {
+      this.unpausedThisFrame = true;
       this.physics.resume();
       this.hud.hidePauseOverlay();
     }
