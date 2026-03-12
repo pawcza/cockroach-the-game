@@ -201,6 +201,9 @@ export class GhostPlayer {
       alpha: 0,
       duration: 800,
       ease: 'Quad.easeOut',
+      onComplete: () => {
+        this.sprite.setVisible(false);
+      },
     });
   }
 
@@ -213,8 +216,8 @@ export class GhostPlayer {
     const speed = this.getCurrentSpeed(); // px/s
     this.sprite.x += speed * (delta / 1000);
 
-    // Keep name label above sprite
-    this.nameLabel.setPosition(this.sprite.x, this.sprite.y - 25);
+    // Keep name label above sprite (round to avoid sub-pixel flicker)
+    this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
 
     // Run animation — faster at higher speeds
     const speedMult = speed / COCKROACH_BASE_SPEED;
