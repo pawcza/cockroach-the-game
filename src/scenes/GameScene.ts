@@ -21,6 +21,7 @@ import {
 
 const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
+import { SeededRNG } from '../multiplayer/SeededRNG';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
@@ -41,6 +42,9 @@ export class GameScene extends Phaser.Scene {
   public get cockroach(): Phaser.Physics.Arcade.Sprite { return this.player.sprite; }
   public get isDead(): boolean { return this._isDead; }
   private set isDead(val: boolean) { this._isDead = val; }
+
+  // Multiplayer RNG (null in solo mode)
+  private rng: SeededRNG | null = null;
 
   // Level progression
   private currentLevel = 0;
@@ -658,9 +662,9 @@ export class GameScene extends Phaser.Scene {
       const slotX = this.nextSpawnX;
       this.nextSpawnX += slotWidth;
 
-      const roll = Math.random();
+      const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {
-        const pFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
+        const pFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const pY = (pFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const pill = this.pills.create(slotX, pY, 'pill') as Phaser.Physics.Arcade.Sprite;
         pill.setScale(0.15);
@@ -703,7 +707,7 @@ export class GameScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
         });
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE) {
-        const tFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
+        const tFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
         tyskie.setScale(0.18);
@@ -732,7 +736,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: tGlow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         tyskie.on('destroy', () => { this.tweens.killTweensOf(tyskie); this.tweens.killTweensOf(tGlow); tGlow.destroy(); });
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
-        const appleFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
+        const appleFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const apple = this.apples.create(slotX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
         apple.setScale(0.15);
