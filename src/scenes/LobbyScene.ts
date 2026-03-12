@@ -230,7 +230,11 @@ export class LobbyScene extends Phaser.Scene {
         swatch.setStrokeStyle(2, 0xffffff);
         swatch.on('pointerdown', () => {
           const nextIndex = (player.color + 1) % MP_PLAYER_COLORS.length;
-          mpClient.changeColor(nextIndex).catch(() => {});
+          mpClient.changeColor(nextIndex).then((updatedLobby) => {
+            this.lobbyData = updatedLobby;
+            this.renderPlayerList();
+            this.updateStartButton();
+          }).catch(() => {});
         });
       }
 

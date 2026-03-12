@@ -116,17 +116,17 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       this.lobbyContainer.y = -this.scrollY;
     });
 
-    // Touch drag scrolling
+    // Touch drag scrolling (scene-level so it doesn't steal clicks from lobby entries)
     let dragStartY = 0;
     let dragScrollStart = 0;
-    const hitZone = this.add.rectangle(width / 2, listTop + listHeight / 2, width - 40, listHeight, 0x000000, 0)
-      .setInteractive();
-    hitZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      dragStartY = pointer.y;
-      dragScrollStart = this.scrollY;
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.y >= listTop && pointer.y <= listBottom) {
+        dragStartY = pointer.y;
+        dragScrollStart = this.scrollY;
+      }
     });
-    hitZone.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!pointer.isDown) return;
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.isDown || pointer.y < listTop || pointer.y > listBottom) return;
       const delta = dragStartY - pointer.y;
       this.scrollY = Phaser.Math.Clamp(dragScrollStart + delta, 0, this.maxScroll);
       this.lobbyContainer.y = -this.scrollY;
