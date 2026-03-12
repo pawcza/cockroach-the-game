@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
+import { MultiplayerMenuScene } from './scenes/MultiplayerMenuScene';
+import { LobbyScene } from './scenes/LobbyScene';
 import { GameScene } from './scenes/GameScene';
+import { MultiplayerGameOverScene } from './scenes/MultiplayerGameOverScene';
 import { GameOverScene } from './scenes/GameOverScene';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -22,7 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, MenuScene, GameScene, GameOverScene],
+  scene: [BootScene, MenuScene, MultiplayerMenuScene, LobbyScene, GameScene, MultiplayerGameOverScene, GameOverScene],
   scale: {
     mode: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
       ? Phaser.Scale.EXPAND

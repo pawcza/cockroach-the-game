@@ -17,10 +17,14 @@ import {
   MIN_OBSTACLE_SPACING,
   APPLE_SPAWN_CHANCE,
   PILL_SPAWN_CHANCE,
+  SPEED_BOOST_PER_LEVEL,
 } from '../config/constants';
 
 const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
+import { SeededRNG } from '../multiplayer/SeededRNG';
+import { mpClient, MPPlayer } from '../multiplayer/MultiplayerClient';
+import { GhostManager } from '../multiplayer/GhostManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
@@ -41,6 +45,17 @@ export class GameScene extends Phaser.Scene {
   public get cockroach(): Phaser.Physics.Arcade.Sprite { return this.player.sprite; }
   public get isDead(): boolean { return this._isDead; }
   private set isDead(val: boolean) { this._isDead = val; }
+
+  // Multiplayer RNG (null in solo mode)
+  private rng: SeededRNG | null = null;
+
+  // Multiplayer
+  private isMultiplayer = false;
+  private ghostManager: GhostManager | null = null;
+  private mpMyName = '';
+  private _wasDashing = false;
+  private _wasPillActive = false;
+  private pendingPickupDestructions: number[] = [];
 
   // Level progression
   private currentLevel = 0;
@@ -136,6 +151,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Read multiplayer config from scene data
+    const data = this.scene.settings.data as {
+      multiplayer?: boolean;
+      seed?: number;
+      players?: MPPlayer[];
+      myId?: string;
+    } | undefined;
+
+    this.isMultiplayer = data?.multiplayer ?? false;
+
+    if (this.isMultiplayer && data?.seed != null) {
+      this.rng = new SeededRNG(data.seed);
+    } else {
+      this.rng = null;
+    }
+
+    // Reset multiplayer state
+    this.ghostManager = null;
+    this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
+    this._wasDashing = false;
+    this._wasPillActive = false;
+
     // Reset ALL state
     this.score = 0;
     this.isDead = false;
@@ -253,6 +290,9 @@ export class GameScene extends Phaser.Scene {
 
     // Obstacle spawner
     this.obstacleSpawner = new ObstacleSpawner(this, this.obstacles);
+    if (this.rng) {
+      this.obstacleSpawner.setRNG(this.rng);
+    }
 
     // Floor colliders with process callbacks
     this.physics.add.collider(this.player.sprite, this.floorTopBody, undefined, () => {
@@ -261,6 +301,20 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player.sprite, this.floorBottomBody, undefined, () => {
       return this.player.currentFloor === 'bottom';
     }, this);
+
+    // Create ghost manager for multiplayer
+    if (this.isMultiplayer && data?.players && data?.myId) {
+      const COLLIDER_DROP = 8;
+      this.ghostManager = new GhostManager(
+        this,
+        data.players,
+        data.myId,
+        this.floorTopY + COLLIDER_DROP,
+        this.floorBottomY + COLLIDER_DROP,
+        COCKROACH_START_X,
+      );
+      this.setupMultiplayerListeners();
+    }
 
     // Overlap detectors
     this.physics.add.overlap(
@@ -322,8 +376,18 @@ export class GameScene extends Phaser.Scene {
 
     // Touch controls
     this.touchControls = new TouchControls(this, this.isMobile, {
-      onSwap: () => this.player.swapLane(),
-      onDash: () => this.player.startDash(),
+      onSwap: () => {
+        this.player.swapLane();
+        if (this.isMultiplayer) {
+          mpClient.sendSwap(this.player.currentFloor);
+        }
+      },
+      onDash: () => {
+        this.player.startDash();
+        if (this.isMultiplayer) {
+          mpClient.sendDashStart();
+        }
+      },
       isDisabled: () => this.isDead || this.isPaused || this.isCountingDown || this.isUnpauseCountdown,
       isDashAllowed: () => this.player.dashReady && !this.player.isDashing,
     });
@@ -345,6 +409,9 @@ export class GameScene extends Phaser.Scene {
         if (pauseDist <= pauseBtn.radius) return;
 
         this.player.swapLane();
+        if (this.isMultiplayer) {
+          mpClient.sendSwap(this.player.currentFloor);
+        }
       });
     }
 
@@ -405,7 +472,60 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.isDead) return;
+    if (this.isDead) {
+      if (this.isMultiplayer && this.ghostManager?.isSpectating) {
+        const target = this.ghostManager.spectateTargetPlayer;
+        if (target && target.alive) {
+          // Frame-rate independent smooth camera follow toward spectated player
+          const targetScrollX = target.sprite.x - 200;
+          const camFactor = 1 - Math.pow(1 - 0.25, this.game.loop.delta / 16.667);
+          this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * camFactor;
+        }
+
+        // Allow cycling with left/right keys or taps
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.left) ||
+            Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
+          this.ghostManager.cycleSpectate(-1);
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.right) ||
+            Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
+          this.ghostManager.cycleSpectate(1);
+        }
+
+        // Update level based on spectated player's position
+        if (target && target.alive) {
+          const ghostDistance = Math.floor((target.sprite.x - COCKROACH_START_X) / 50);
+          const newLevelConfig = getLevelForDistance(ghostDistance);
+          if (newLevelConfig.level !== this.currentLevel) {
+            this.currentLevel = newLevelConfig.level;
+            this.switchLevel(newLevelConfig);
+          }
+        }
+
+        // Keep the world alive — parallax, floors, obstacles, cleanup
+        // so spectating feels like watching through the other player's eyes
+        this.updateParallax();
+        this.updateFloors();
+        this.handleSpawning();
+        this.cleanupOffscreen();
+
+        // Update ghost manager
+        this.ghostManager.update(
+          this.game.loop.delta,
+          this.cameras.main.scrollX,
+          this.cameras.main.width,
+        );
+
+        // Check if spectate target died
+        if (target && !target.alive) {
+          const next = this.ghostManager.cycleSpectate(1);
+          if (!next && this.ghostManager.allDead()) {
+            this.triggerMultiplayerGameOver();
+          }
+        }
+      }
+      return;
+    }
 
     if (this.isCountingDown) {
       this.player.freezeForCountdown();
@@ -488,6 +608,9 @@ export class GameScene extends Phaser.Scene {
 
     if (jumpPressed || dropPressed) {
       this.player.swapLane();
+      if (this.isMultiplayer) {
+        mpClient.sendSwap(this.player.currentFloor);
+      }
     }
 
     // Dash
@@ -497,11 +620,26 @@ export class GameScene extends Phaser.Scene {
 
     if (dashPressed && this.player.dashReady && !this.player.isDashing) {
       this.player.startDash();
+      if (this.isMultiplayer) {
+        mpClient.sendDashStart();
+      }
     }
 
     // Update dash and pill state machines
     this.player.updateDash();
     this.player.updatePill();
+
+    // Detect dash end for multiplayer sync
+    if (this.isMultiplayer && this._wasDashing && !this.player.isDashing) {
+      mpClient.sendDashEnd();
+    }
+    this._wasDashing = this.player.isDashing;
+
+    // Detect pill end for multiplayer sync
+    if (this.isMultiplayer && this._wasPillActive && !this.player.isPillActive) {
+      mpClient.sendPillEnd();
+    }
+    this._wasPillActive = this.player.isPillActive;
     this.player.updateVisuals();
 
     // Survival score (+1 per second)
@@ -592,9 +730,98 @@ export class GameScene extends Phaser.Scene {
         this.cockroachNoiseSound.play();
       }
     }
+
+    // Ghost manager update
+    if (this.ghostManager) {
+      this.ghostManager.update(
+        this.game.loop.delta,
+        this.cameras.main.scrollX,
+        this.cameras.main.width,
+      );
+    }
+  }
+
+  private _mpGameOverTriggered = false;
+
+  private setupMultiplayerListeners(): void {
+    this._mpGameOverTriggered = false;
+
+    mpClient.on('game:swap', (data: any) => {
+      this.ghostManager?.handleSwap(data.id, data.lane);
+    });
+    mpClient.on('game:dash-start', (data: any) => {
+      this.ghostManager?.handleDashStart(data.id);
+    });
+    mpClient.on('game:dash-end', (data: any) => {
+      this.ghostManager?.handleDashEnd(data.id);
+    });
+    mpClient.on('game:pill-start', (data: any) => {
+      this.ghostManager?.handlePillStart(data.id);
+    });
+    mpClient.on('game:pill-end', (data: any) => {
+      this.ghostManager?.handlePillEnd(data.id);
+    });
+    mpClient.on('game:death', (data: any) => {
+      this.ghostManager?.handleDeath(data.id, data.score, data.stats);
+      // If I'm spectating and all ghosts are now dead, trigger game over
+      if (this.isDead && this.ghostManager?.allDead()) {
+        this.triggerMultiplayerGameOver();
+      }
+    });
+    // Handle player disconnect mid-game — kill their ghost
+    mpClient.on('game:player-left', (data: any) => {
+      this.ghostManager?.handleDeath(data.id, 0, {});
+      if (this.isDead && this.ghostManager?.allDead()) {
+        this.triggerMultiplayerGameOver();
+      }
+    });
+    mpClient.on('game:pickup', (data: any) => {
+      // Only destroy pickups on spectator's screen — don't steal from alive players
+      if (this.isDead) {
+        if (!this.destroyPickupNear(data.x)) {
+          // Pickup not spawned yet on our screen — queue for later
+          this.pendingPickupDestructions.push(data.x);
+        }
+      }
+    });
+    mpClient.on('game:over', (data: any) => {
+      if (this._mpGameOverTriggered) return;
+      this._mpGameOverTriggered = true;
+      this.ghostManager?.destroy();
+      this.ghostManager = null;
+      this.scene.start('MultiplayerGameOverScene', {
+        rankings: data.rankings,
+        myId: mpClient.myId,
+        isHost: data.hostId === mpClient.myId,
+      });
+    });
+
+    // Cleanup on scene shutdown
+    this.events.on('shutdown', () => {
+      if (this.isMultiplayer) {
+        mpClient.off('game:swap');
+        mpClient.off('game:dash-start');
+        mpClient.off('game:dash-end');
+        mpClient.off('game:pill-start');
+        mpClient.off('game:pill-end');
+        mpClient.off('game:pickup');
+        mpClient.off('game:death');
+        mpClient.off('game:player-left');
+        mpClient.off('game:over');
+      }
+      this.ghostManager?.destroy();
+      this.ghostManager = null;
+    });
+  }
+
+  private triggerMultiplayerGameOver(): void {
+    // Server detects all-dead automatically from game:death events
+    // and emits game:over with server-validated rankings.
+    // Nothing to do here — the game:over listener handles the transition.
   }
 
   private togglePause(): void {
+    if (this.isMultiplayer) return;
     if (this.isUnpauseCountdown) return;
 
     if (!this.isPaused) {
@@ -650,17 +877,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleSpawning(): void {
-    const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, this.player.speedMultiplier * 0.3);
     const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 
     while (this.nextSpawnX <= spawnHorizon) {
       const slotX = this.nextSpawnX;
+
+      // Derive level and speed from slot position — deterministic across all clients
+      const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
+      const spawnLevel = getLevelForDistance(slotDistance).level;
+      const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
+      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.3);
       this.nextSpawnX += slotWidth;
 
-      const roll = Math.random();
+      const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {
-        const pFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
+        const pFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const pY = (pFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const pill = this.pills.create(slotX, pY, 'pill') as Phaser.Physics.Arcade.Sprite;
         pill.setScale(0.15);
@@ -703,7 +935,7 @@ export class GameScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
         });
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE) {
-        const tFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
+        const tFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
         tyskie.setScale(0.18);
@@ -732,7 +964,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: tGlow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         tyskie.on('destroy', () => { this.tweens.killTweensOf(tyskie); this.tweens.killTweensOf(tGlow); tGlow.destroy(); });
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
-        const appleFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
+        const appleFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const apple = this.apples.create(slotX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
         apple.setScale(0.15);
@@ -752,9 +984,31 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: aGlow, alpha: 0.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         apple.on('destroy', () => { this.tweens.killTweensOf(apple); this.tweens.killTweensOf(aGlow); aGlow.destroy(); });
       } else {
-        this.obstacleSpawner.spawn(slotX, this.currentLevel);
+        this.obstacleSpawner.spawn(slotX, spawnLevel);
       }
     }
+
+    // Flush queued pickup destructions (from events that arrived before we spawned them)
+    if (this.pendingPickupDestructions.length > 0) {
+      this.pendingPickupDestructions = this.pendingPickupDestructions.filter(
+        x => !this.destroyPickupNear(x),
+      );
+    }
+  }
+
+  private destroyPickupNear(x: number): boolean {
+    const tolerance = 30;
+    const groups = [this.apples, this.tyskies, this.pills];
+    for (const group of groups) {
+      for (const obj of group.getChildren()) {
+        const sprite = obj as Phaser.Physics.Arcade.Sprite;
+        if (Math.abs(sprite.x - x) < tolerance) {
+          sprite.destroy();
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private cleanupOffscreen(): void {
@@ -795,6 +1049,7 @@ export class GameScene extends Phaser.Scene {
     apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = apple as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.audio.playApple();
     sprite.destroy();
@@ -814,6 +1069,7 @@ export class GameScene extends Phaser.Scene {
     tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.sound.play('burp', { volume: 0.8 });
     sprite.destroy();
@@ -832,6 +1088,7 @@ export class GameScene extends Phaser.Scene {
     pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = pill as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     const px = sprite.x;
     const py = sprite.y;
 
@@ -851,6 +1108,10 @@ export class GameScene extends Phaser.Scene {
 
     // Activate pill on player
     this.player.activatePill(px, py);
+
+    if (this.isMultiplayer) {
+      mpClient.sendPillStart();
+    }
   }
 
   private hitObstacle(
@@ -918,6 +1179,26 @@ export class GameScene extends Phaser.Scene {
 
     this.vfx.deathEffect();
     this.audio.playDeath();
+
+    // In multiplayer, start spectating instead of transitioning to GameOverScene
+    if (this.isMultiplayer) {
+      const stats = {
+        timeSurvived: Math.floor(this.activePlayTime / 1000),
+        distance: Math.floor(this.getDistance()),
+        maxSpeed: this.player.speedMultiplier,
+        obstacleType: obstacleType || 'fall',
+      };
+      mpClient.sendDeath(this.score, stats);
+
+      // Start spectating if there are alive ghosts
+      if (this.ghostManager && !this.ghostManager.allDead()) {
+        this.cameras.main.stopFollow();
+        this.ghostManager.startSpectating();
+      } else {
+        this.triggerMultiplayerGameOver();
+      }
+      return; // Don't transition to solo GameOverScene
+    }
 
     // Increment games played
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
@@ -1068,22 +1349,42 @@ export class GameScene extends Phaser.Scene {
     (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
 
     // Advance stepped-on ranges for the cockroach's current floor
-    const cockroachX = this.player.x;
-    if (!this.isCountingDown && !this.isDead) {
-      const currentFloor = this.player.currentFloor;
-      const ranges = currentFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
+    // During spectate, use the spectated ghost's position/lane instead
+    let trackX: number;
+    let trackFloor: 'top' | 'bottom';
+    let shouldTrack: boolean;
+
+    if (this.isDead && this.isMultiplayer && this.ghostManager?.isSpectating) {
+      const target = this.ghostManager.spectateTargetPlayer;
+      if (target && target.alive) {
+        trackX = target.sprite.x;
+        trackFloor = target.lane as 'top' | 'bottom';
+        shouldTrack = true;
+      } else {
+        shouldTrack = false;
+        trackX = 0;
+        trackFloor = 'bottom';
+      }
+    } else {
+      trackX = this.player.x;
+      trackFloor = this.player.currentFloor;
+      shouldTrack = !this.isCountingDown && !this.isDead;
+    }
+
+    if (shouldTrack) {
+      const ranges = trackFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
 
       // On floor swap, start a new range at the landing position
-      if (currentFloor !== this.lastTrackedFloor) {
-        const snapX = Math.floor(cockroachX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
-        ranges.push({ from: snapX, to: cockroachX, lastFallX: snapX - FLOOR_TILE_STEP });
-        this.lastTrackedFloor = currentFloor;
+      if (trackFloor !== this.lastTrackedFloor) {
+        const snapX = Math.floor(trackX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+        ranges.push({ from: snapX, to: trackX, lastFallX: snapX - FLOOR_TILE_STEP });
+        this.lastTrackedFloor = trackFloor;
       }
 
       // Extend the current range
       if (ranges.length > 0) {
         const current = ranges[ranges.length - 1];
-        current.to = Math.max(current.to, cockroachX);
+        current.to = Math.max(current.to, trackX);
       }
     }
 

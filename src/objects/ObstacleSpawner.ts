@@ -1,8 +1,17 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config/constants';
+import { SeededRNG } from '../multiplayer/SeededRNG';
 
 type Floor = 'top' | 'bottom';
 type SpawnFn = (x: number) => void;
+type RNGSource = SeededRNG | null;
+
+function rngBetween(rng: RNGSource, min: number, max: number): number {
+  return rng ? rng.between(min, max) : Phaser.Math.Between(min, max);
+}
+function rngRandom(rng: RNGSource): number {
+  return rng ? rng.next() : Math.random();
+}
 
 /** Vertical offset from floor Y to center obstacles on the running lane. */
 const OBSTACLE_OFFSET = 25;
@@ -31,6 +40,9 @@ export class ObstacleSpawner {
   private scene: GameSceneAccessor;
   private obstacles: Phaser.Physics.Arcade.Group;
   private forcedFloor: Floor | null = null;
+  private rng: RNGSource = null;
+
+  setRNG(rng: RNGSource): void { this.rng = rng; }
 
   /** Sorted list of obstacle types and when they unlock. */
   private readonly registry: ObstacleEntry[];
@@ -143,7 +155,7 @@ export class ObstacleSpawner {
   ): [Phaser.Physics.Arcade.Sprite, Phaser.Tweens.Tween] {
     const topY = this.floorTopY - OBSTACLE_OFFSET;
     const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
-    const startTop = Math.random() > 0.5;
+    const startTop = rngRandom(this.rng) > 0.5;
 
     const sprite = this.createSprite(
       x,
@@ -169,7 +181,7 @@ export class ObstacleSpawner {
 
   private randomFloor(): Floor {
     if (this.forcedFloor !== null) return this.forcedFloor;
-    return Math.random() < 0.5 ? 'top' : 'bottom';
+    return rngRandom(this.rng) < 0.5 ? 'top' : 'bottom';
   }
 
   private getFloorY(floor: Floor): number {
@@ -185,7 +197,7 @@ export class ObstacleSpawner {
   spawn(x: number, level: number = 1): void {
     const lvl = level;
     const available = this.registry.filter((e) => e.minLevel <= lvl);
-    const pick = Phaser.Math.Between(0, available.length - 1);
+    const pick = rngBetween(this.rng, 0, available.length - 1);
     available[pick].fn.call(this, x);
   }
 
@@ -212,7 +224,7 @@ export class ObstacleSpawner {
     // Stink waves
     const stinkStartY = centerY - onion.displayHeight * 0.3;
     for (let i = 0; i < 3; i++) {
-      const offsetX = Phaser.Math.Between(-8, 8);
+      const offsetX = rngBetween(this.rng, -8, 8);
       const stink = this.scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
       stink.setScale(0.5 + i * 0.15);
       stink.setDepth(10);
@@ -232,7 +244,7 @@ export class ObstacleSpawner {
       }));
     }
 
-    // Tears
+    // Tears (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const tearStartY = centerY - onion.displayHeight * 0.2;
     const tearEndY = centerY + onion.displayHeight * 0.4;
     const tearTimer = this.scene.time.addEvent({
@@ -283,7 +295,7 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Mist from nozzle
+    // Mist from nozzle (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const nozzleY = centerY - spray.displayHeight * 0.45;
     const sprayMist = (): void => {
       if (!spray.active) return;
@@ -294,7 +306,7 @@ export class ObstacleSpawner {
           nozzleY + Phaser.Math.Between(-2, 2),
           radius,
           0x88dd44,
-          Phaser.Math.FloatBetween(0.15, 0.35),
+          Math.random() * (0.35 - 0.15) + 0.15,
         );
         droplet.setDepth(10);
         const driftX = Phaser.Math.Between(-30, 30);
@@ -304,7 +316,7 @@ export class ObstacleSpawner {
           x: droplet.x + driftX,
           y: droplet.y + driftY,
           alpha: 0,
-          scale: Phaser.Math.FloatBetween(1.5, 2.5),
+          scale: Math.random() * (2.5 - 1.5) + 1.5,
           duration: Phaser.Math.Between(800, 1400),
           ease: 'Sine.easeOut',
           onComplete: () => droplet.destroy(),
@@ -456,7 +468,7 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Rainbow light ray particles
+    // Rainbow light ray particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const rayColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff];
     const raysTimer = this.scene.time.addEvent({
       delay: 150,
@@ -464,7 +476,7 @@ export class ObstacleSpawner {
       callback: () => {
         if (!disco.active) return;
         const angle = Math.random() * Math.PI * 2;
-        const color = Phaser.Utils.Array.GetRandom(rayColors);
+        const color = rayColors[Phaser.Math.Between(0, rayColors.length - 1)];
         const ray = this.scene.add.rectangle(
           disco.x, disco.y,
           Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20),
@@ -527,7 +539,7 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Trailing tentacle particles
+    // Trailing tentacle particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const particlesTimer = this.scene.time.addEvent({
       delay: 200,
       loop: true,
@@ -570,7 +582,7 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Smoke trail
+    // Smoke trail (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const smokeTimer = this.scene.time.addEvent({
       delay: 150,
       loop: true,
@@ -627,7 +639,7 @@ export class ObstacleSpawner {
     };
     this.scene.events.on('update', flipUpdate);
 
-    // Dust clouds
+    // Dust clouds (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const dustTimer = this.scene.time.addEvent({
       delay: 100,
       loop: true,
@@ -705,7 +717,7 @@ export class ObstacleSpawner {
     };
     this.scene.events.on('update', gravityUpdate);
 
-    // Particle swirl
+    // Particle swirl (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const particlesTimer = this.scene.time.addEvent({
       delay: 80,
       loop: true,
