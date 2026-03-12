@@ -800,14 +800,17 @@ export class GameScene extends Phaser.Scene {
     mpClient.on('game:over', (data: any) => {
       if (this._mpGameOverTriggered) return;
       this._mpGameOverTriggered = true;
-      this.audio.destroy();
-      this.sound.stopAll();
-      this.ghostManager?.destroy();
-      this.ghostManager = null;
-      this.scene.start('MultiplayerGameOverScene', {
-        rankings: data.rankings,
-        myId: mpClient.myId,
-        isHost: data.hostId === mpClient.myId,
+      // Wait for the last death animation to finish before transitioning
+      this.time.delayedCall(1200, () => {
+        this.audio.destroy();
+        this.sound.stopAll();
+        this.ghostManager?.destroy();
+        this.ghostManager = null;
+        this.scene.start('MultiplayerGameOverScene', {
+          rankings: data.rankings,
+          myId: mpClient.myId,
+          isHost: data.hostId === mpClient.myId,
+        });
       });
     });
 

@@ -263,11 +263,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           repeat: -1,
           ease: 'Sine.easeInOut',
         });
+        const originalXs = animElements.map(el => el.x);
         this.time.addEvent({
           delay: 80,
           loop: true,
           callback: () => {
-            animElements.forEach(el => { el.x += Phaser.Math.Between(-1, 1); });
+            animElements.forEach((el, idx) => { el.x = originalXs[idx] + Phaser.Math.Between(-1, 1); });
           },
         });
       } else if (rank === 2) {
