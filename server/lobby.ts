@@ -83,6 +83,15 @@ export class LobbyManager {
     if (lobby.status === 'ingame') return null;
     if (lobby.players.size >= lobby.maxPlayers) return null;
 
+    // Joining a postgame lobby transitions it to waiting
+    if (lobby.status === 'postgame') {
+      lobby.status = 'waiting';
+      lobby.seed = null;
+      for (const player of lobby.players.values()) {
+        player.ready = false;
+      }
+    }
+
     const usedColors = new Set([...lobby.players.values()].map((p) => p.color));
     let colorIndex = 0;
     while (usedColors.has(colorIndex) && colorIndex < PLAYER_COLORS.length) {
@@ -122,6 +131,15 @@ export class LobbyManager {
       const newHost = lobby.players.values().next().value!;
       newHost.isHost = true;
       lobby.hostId = newHost.id;
+    }
+
+    // Transition postgame → waiting when a player leaves
+    if (lobby.status === 'postgame') {
+      lobby.status = 'waiting';
+      lobby.seed = null;
+      for (const player of lobby.players.values()) {
+        player.ready = false;
+      }
     }
 
     return { lobbyId, disbanded: false };

@@ -876,9 +876,32 @@ export class GameScene extends Phaser.Scene {
   }
 
   private triggerMultiplayerGameOver(): void {
-    // Server detects all-dead automatically from game:death events
-    // and emits game:over with server-validated rankings.
-    // Nothing to do here — the game:over listener handles the transition.
+    // Server detects all-dead and emits game:over with rankings.
+    // As a safety net, if game:over doesn't arrive within 3s,
+    // build local rankings and transition anyway.
+    if (this._mpGameOverTriggered) return;
+    this.time.delayedCall(3000, () => {
+      if (this._mpGameOverTriggered) return;
+      this._mpGameOverTriggered = true;
+      const rankings = this.ghostManager?.getRankings(
+        this.score,
+        this.mpMyName,
+        {
+          timeSurvived: Math.floor(this.activePlayTime / 1000),
+          distance: Math.floor(this.getDistance()),
+          maxSpeed: this.player.speedMultiplier,
+        },
+      ) ?? [];
+      this.audio.destroy();
+      this.sound.stopAll();
+      this.ghostManager?.destroy();
+      this.ghostManager = null;
+      this.scene.start('MultiplayerGameOverScene', {
+        rankings,
+        myId: mpClient.myId,
+        isHost: false,
+      });
+    });
   }
 
   private togglePause(): void {
