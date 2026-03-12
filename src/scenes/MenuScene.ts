@@ -235,8 +235,8 @@ export class MenuScene extends Phaser.Scene {
           [['\u23f8'], 'Pauzka'],
         ]
       : [
-          [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
-          [['SHIFT', '\u2192'], 'Dash'],
+          [['SPACJA', 'G\u00d3RA', 'D\u00d3\u0141'], 'Zmiana toru'],
+          [['SHIFT', 'PRAWO'], 'Dash'],
           [['ESC'], 'Pauzka'],
         ];
 
