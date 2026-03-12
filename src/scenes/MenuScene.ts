@@ -190,18 +190,18 @@ export class MenuScene extends Phaser.Scene {
     };
 
     // GRAJ button
-    const playBg = this.add.rectangle(width / 2 - 100, btnY, 140, 36, 0x880000, 0.6)
+    const playBg = this.add.rectangle(width / 2 - 76, btnY, 140, 36, 0x880000, 0.9)
       .setDepth(10).setInteractive({ useHandCursor: true });
-    const playLabel = this.add.text(width / 2 - 100, btnY, 'GRAJ', btnStyle)
+    const playLabel = this.add.text(width / 2 - 76, btnY, 'GRAJ', btnStyle)
       .setOrigin(0.5).setDepth(11);
-    playBg.on('pointerover', () => { playBg.setFillStyle(0xbb0000, 0.8); playLabel.setColor('#ffff00'); });
-    playBg.on('pointerout', () => { playBg.setFillStyle(0x880000, 0.6); playLabel.setColor('#ffffff'); });
+    playBg.on('pointerover', () => { playBg.setFillStyle(0xbb0000, 1); playLabel.setColor('#ffff00'); });
+    playBg.on('pointerout', () => { playBg.setFillStyle(0x880000, 0.9); playLabel.setColor('#ffffff'); });
     playBg.on('pointerdown', startGame);
 
     // Pulsing glow on GRAJ
     this.tweens.add({
       targets: playBg,
-      alpha: { from: 0.6, to: 1 },
+      alpha: { from: 0.85, to: 1 },
       duration: 800,
       yoyo: true,
       repeat: -1,
@@ -209,12 +209,12 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // Scoreboard button
-    const scoreBg = this.add.rectangle(width / 2 + 100, btnY, 140, 36, 0x664400, 0.6)
+    const scoreBg = this.add.rectangle(width / 2 + 76, btnY, 140, 36, 0x664400, 0.9)
       .setDepth(10).setInteractive({ useHandCursor: true });
-    const scoreLabel = this.add.text(width / 2 + 100, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: '7px' })
+    const scoreLabel = this.add.text(width / 2 + 76, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: '7px' })
       .setOrigin(0.5).setDepth(11);
-    scoreBg.on('pointerover', () => { scoreBg.setFillStyle(0x886600, 0.8); scoreLabel.setColor('#ffff00'); });
-    scoreBg.on('pointerout', () => { scoreBg.setFillStyle(0x664400, 0.6); scoreLabel.setColor('#ffffff'); });
+    scoreBg.on('pointerover', () => { scoreBg.setFillStyle(0x886600, 1); scoreLabel.setColor('#ffff00'); });
+    scoreBg.on('pointerout', () => { scoreBg.setFillStyle(0x664400, 0.9); scoreLabel.setColor('#ffffff'); });
     scoreBg.on('pointerdown', () => toggleScoreboard(this, null));
 
     // Keyboard shortcuts

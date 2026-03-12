@@ -361,21 +361,22 @@ export class GameOverScene extends Phaser.Scene {
     buttons.push({ label: 'Powt\u00f3rka', action: () => this.restartGame(), color: 0x880000 });
 
     const totalBtns = buttons.length;
-    const btnW = Math.min(140, (width - 32) / totalBtns - 8);
-    const totalW = totalBtns * btnW + (totalBtns - 1) * 8;
+    const btnW = Math.min(140, (width - 32) / totalBtns - 4);
+    const gap = 4;
+    const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
     const startX = (width - totalW) / 2 + btnW / 2;
 
     buttons.forEach((btn, i) => {
-      const bx = startX + i * (btnW + 8);
+      const bx = startX + i * (btnW + gap);
 
-      const bg = this.add.rectangle(bx, btnY, btnW, 40, btn.color, 0.6)
-        .setInteractive();
+      const bg = this.add.rectangle(bx, btnY, btnW, 40, btn.color, 0.9)
+        .setInteractive({ useHandCursor: true });
 
       const label = this.add.text(bx, btnY, btn.label, btnStyle)
         .setOrigin(0.5);
 
       bg.on('pointerover', () => { bg.setAlpha(1); label.setColor('#ffff00'); });
-      bg.on('pointerout', () => { bg.setAlpha(0.6); label.setColor('#ffffff'); });
+      bg.on('pointerout', () => { bg.setAlpha(0.9); label.setColor('#ffffff'); });
       bg.on('pointerdown', btn.action);
     });
 
