@@ -53,6 +53,11 @@ export class Player {
   private floorTopY: number;
   private floorBottomY: number;
 
+  // Run animation
+  private runAnimTimer = 0;
+  private runAnimFrame = 0;
+  private readonly runFrames = ['cockroach-idle', 'cockroach-running'];
+
   constructor(
     scene: Phaser.Scene,
     audio: AudioManager,
@@ -88,7 +93,7 @@ export class Player {
     this.cockroach = this.scene.physics.add.sprite(
       COCKROACH_START_X,
       this.floorBottomY - 24,
-      'cockroach',
+      'cockroach-idle',
     );
     this.cockroach.setCollideWorldBounds(false);
     this.cockroach.setFlipY(false);
@@ -178,6 +183,17 @@ export class Player {
   }
 
   updateVisuals(): void {
+    // Run animation — swap frames faster at higher speeds
+    if (!this._isDead) {
+      const frameInterval = Math.max(60, 200 / this._speedMultiplier);
+      this.runAnimTimer += this.scene.game.loop.delta;
+      if (this.runAnimTimer >= frameInterval) {
+        this.runAnimTimer = 0;
+        this.runAnimFrame = (this.runAnimFrame + 1) % this.runFrames.length;
+        this.cockroach.setTexture(this.runFrames[this.runAnimFrame]);
+      }
+    }
+
     if (this._isPillActive) {
       if (this._isPillWarning) {
         const blinkOn = Math.floor(this.scene.time.now / 100) % 2 === 0;
