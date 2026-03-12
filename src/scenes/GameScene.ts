@@ -341,10 +341,8 @@ export class GameScene extends Phaser.Scene {
         if (pointer.x >= dbX && pointer.x <= dbX + dashBtn.width &&
             pointer.y >= dbY && pointer.y <= dbY + dashBtn.height) return;
         const pauseBtn = this.hud.pauseButton;
-        const pauseX = pauseBtn.x - pauseBtn.width / 2;
-        const pauseY = pauseBtn.y;
-        if (pointer.x >= pauseX && pointer.x <= pauseX + pauseBtn.width &&
-            pointer.y >= pauseY && pointer.y <= pauseY + pauseBtn.height) return;
+        const pauseDist = Phaser.Math.Distance.Between(pointer.x, pointer.y, pauseBtn.x, pauseBtn.y);
+        if (pauseDist <= pauseBtn.radius) return;
 
         this.player.swapLane();
       });

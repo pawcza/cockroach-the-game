@@ -42,7 +42,8 @@ export class GameHUD {
   private pauseOverlay!: Phaser.GameObjects.Rectangle;
   private pauseText!: Phaser.GameObjects.Text;
   private pauseSubtext!: Phaser.GameObjects.Text;
-  private touchPauseBtn!: Phaser.GameObjects.Text;
+  private touchPauseBtn!: Phaser.GameObjects.Arc;
+  private touchPauseBtnLabel!: Phaser.GameObjects.Text;
   private cricketSound: Phaser.Sound.BaseSound | null = null;
 
   private isMobile: boolean;
@@ -56,18 +57,19 @@ export class GameHUD {
     this.onTogglePause = onTogglePause;
   }
 
-  get pauseButton(): Phaser.GameObjects.Text {
+  get pauseButton(): Phaser.GameObjects.Arc {
     return this.touchPauseBtn;
   }
 
   create(): void {
     const w = this.scene.cameras.main.width;
     const h = this.scene.cameras.main.height;
+    const m = this.isMobile;
 
     // Score UI
     this.scoreText = this.scene.add
       .text(16, 16, 'Punkciory: 0', {
-        fontSize: '11px',
+        fontSize: m ? '14px' : '11px',
         color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
@@ -77,11 +79,12 @@ export class GameHUD {
       .setDepth(100);
 
     // Level progress bar
-    this.levelBarBg = this.scene.add.rectangle(16, 44, 150, 12, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.levelBarFill = this.scene.add.rectangle(16, 44, 0, 12, 0xff6600, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+    const barY = m ? 48 : 44;
+    this.levelBarBg = this.scene.add.rectangle(16, barY, 150, 12, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.levelBarFill = this.scene.add.rectangle(16, barY, 0, 12, 0xff6600, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.levelNameText = this.scene.add
-      .text(16, 58, 'Lv1 Zwyk\u0142a Kuchnia', {
-        fontSize: '7px',
+      .text(16, barY + 14, 'Lv1 Zwyk\u0142a Kuchnia', {
+        fontSize: m ? '9px' : '7px',
         color: '#cccccc',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
@@ -90,8 +93,8 @@ export class GameHUD {
       .setScrollFactor(0)
       .setDepth(100);
     this.speedText = this.scene.add
-      .text(170, 44, '1.0x', {
-        fontSize: '8px',
+      .text(170, barY, '1.0x', {
+        fontSize: m ? '10px' : '8px',
         color: '#ff6600',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
@@ -102,23 +105,24 @@ export class GameHUD {
 
     this.floorIndicator = this.scene.add
       .text(w - 16, h / 2, '\u25bc', {
-        fontSize: '12px',
+        fontSize: m ? '18px' : '12px',
         color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
-        strokeThickness: 2,
+        strokeThickness: m ? 3 : 2,
       })
       .setOrigin(1, 0.5)
       .setScrollFactor(0)
       .setDepth(100);
 
     // Dash cooldown bar
-    this.dashBarBg = this.scene.add.rectangle(16, 78, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.dashBarFill = this.scene.add.rectangle(16, 78, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+    const dashBarY = barY + 34;
+    this.dashBarBg = this.scene.add.rectangle(16, dashBarY, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.dashBarFill = this.scene.add.rectangle(16, dashBarY, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
 
     this.distanceText = this.scene.add
-      .text(16, 94, 'Dystansik: 0m', {
-        fontSize: '8px',
+      .text(16, dashBarY + 16, 'Dystansik: 0m', {
+        fontSize: m ? '10px' : '8px',
         color: '#aaaaaa',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
@@ -128,8 +132,8 @@ export class GameHUD {
       .setDepth(100);
 
     this.comboText = this.scene.add
-      .text(w - 16, 44, '', {
-        fontSize: '10px',
+      .text(w - 16, m ? 48 : 44, '', {
+        fontSize: m ? '12px' : '10px',
         color: '#ffff00',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
@@ -147,35 +151,40 @@ export class GameHUD {
       this.onTogglePause();
     });
     this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', {
-      fontSize: '24px',
+      fontSize: m ? '28px' : '24px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
     this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wci\u015bnij cokolwiek, po to by gra\u0107 dalej', {
-      fontSize: '7px',
+      fontSize: m ? '9px' : '7px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#aaaaaa',
       stroke: '#000000',
       strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
 
-    // Pause button -- top-right (both platforms)
-    this.touchPauseBtn = this.scene.add.text(
-      w - 20, 12, '\u23f8', {
-        fontSize: '14px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2,
-      },
-    )
-      .setOrigin(1, 0)
+    // Pause button -- circular, top-right
+    const pauseR = m ? 30 : 18;
+    const pauseX = w - pauseR - 12;
+    const pauseY = pauseR + 12;
+    this.touchPauseBtn = this.scene.add.circle(pauseX, pauseY, pauseR, 0x888888, m ? 0.35 : 0.2)
       .setScrollFactor(0)
       .setDepth(5000)
-      .setAlpha(this.isMobile ? 0.7 : 0.3)
       .setInteractive();
+
+    this.touchPauseBtnLabel = this.scene.add.text(pauseX, pauseY, '\u23f8', {
+      fontSize: m ? '18px' : '12px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(5001)
+      .setAlpha(m ? 0.7 : 0.4);
 
     this.touchPauseBtn.on('pointerdown', () => {
       this.onTogglePause();
