@@ -101,7 +101,8 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       fontSize: '12px',
       color: '#00ccff',
       fontFamily: FONT_FAMILY,
-    }).setOrigin(0, 0).setDepth(100).setVisible(false);
+    }).setOrigin(0, 0).setDepth(100);
+    this.showSpinner();
 
     // Scrollable container for lobby entries
     this.lobbyContainer = this.add.container(0, 0);
