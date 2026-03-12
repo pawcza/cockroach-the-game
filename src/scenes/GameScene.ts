@@ -275,7 +275,7 @@ export class GameScene extends Phaser.Scene {
     this.touchControls = new TouchControls(this, this.isMobile, {
       onSwap: () => this.player.swapLane(),
       onDash: () => this.player.startDash(),
-      isDisabled: () => this.isDead || this.isPaused || this.isCountingDown,
+      isDisabled: () => this.isDead || this.isPaused || this.isCountingDown || this.isUnpauseCountdown,
       isDashAllowed: () => this.player.dashReady && !this.player.isDashing,
     });
     this.touchControls.create();
@@ -283,7 +283,7 @@ export class GameScene extends Phaser.Scene {
     // Pointer handler for lane swap (desktop only -- mobile uses button)
     if (!this.isMobile) {
       this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        if (this.isDead || this.isPaused || this.isCountingDown) return;
+        if (this.isDead || this.isPaused || this.isCountingDown || this.isUnpauseCountdown) return;
 
         // Ignore taps on dash button / pause button
         const dashBtn = this.touchControls.dashButton;
