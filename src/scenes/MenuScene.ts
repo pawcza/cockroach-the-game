@@ -176,8 +176,8 @@ export class MenuScene extends Phaser.Scene {
 
     const btnW = 280;
     const btnH = 40;
-    const btnStartY = 260;
-    const btnSpacing = 52;
+    const btnStartY = 240;
+    const btnSpacing = 46;
 
     const createBtn = (y: number, label: string, color: number, action: () => void): void => {
       const bg = this.add.rectangle(width / 2, y, btnW, btnH, color, 0.9)
@@ -190,17 +190,21 @@ export class MenuScene extends Phaser.Scene {
       return;
     };
 
-    createBtn(btnStartY, 'GRAJ', 0x880000, startGame);
+    createBtn(btnStartY, 'Jeden Karaluch', 0x880000, startGame);
 
-    // Pulsing on GRAJ button
-    const grajBg = mainPage.list[mainPage.list.length - 2] as Phaser.GameObjects.Rectangle;
+    // Pulsing on "Jeden Karaluch" button
+    const soloBtn = mainPage.list[mainPage.list.length - 2] as Phaser.GameObjects.Rectangle;
     this.tweens.add({
-      targets: grajBg,
+      targets: soloBtn,
       alpha: { from: 0.85, to: 1 },
       duration: 800,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
+    });
+
+    createBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
+      this.scene.start('MultiplayerMenuScene');
     });
 
     // --- Scoreboard page container (off-screen to the left) ---
@@ -243,7 +247,7 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    createBtn(btnStartY + btnSpacing, 'Bycze Karaluchy', 0x664400, showScores);
+    createBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
 
     // --- Info page container (off-screen to the right) ---
     const infoPage = this.add.container(width, 0).setDepth(10);
@@ -287,7 +291,7 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    createBtn(btnStartY + btnSpacing * 2, 'O co chodzi?', 0x335555, showInfo);
+    createBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
 
     // Version
     const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', {
