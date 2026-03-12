@@ -73,9 +73,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- TITLE: "KARALUCH" with floating bob ---
-    const title = this.add.text(width / 2, height / 3, 'KARALUCH', {
+    const title = this.add.text(width / 2, height / 4, 'KARALUCH', {
       fontSize: '32px',
-      color: '#8b0000',
+      color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
       fontStyle: 'bold',
       stroke: '#000000',
@@ -92,9 +92,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- SUBTITLE with rotation oscillation ---
-    const subtitle = this.add.text(width / 2, height / 3 + 60, 'GRA PRZEGRAŃCÓW', {
-      fontSize: '16px',
-      color: '#ff6600',
+    const subtitle = this.add.text(width / 2, height / 4 + 45, 'Gra Przegrancow', {
+      fontSize: '14px',
+      color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
       strokeThickness: 4,
@@ -111,29 +111,36 @@ export class MenuScene extends Phaser.Scene {
     subtitle.setAngle(-3);
 
     // --- GAME DESCRIPTION ---
-    this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabłuszka i piwka, uciekaj przed zagładą!', {
-      fontSize: '8px',
-      color: '#cc8844',
+    this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabluszka i piwka,\nuciekaj przed zaglada!', {
+      fontSize: '10px',
+      color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
-      fontStyle: 'italic',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+      lineSpacing: 4,
     }).setOrigin(0.5).setDepth(10);
 
     // High score from localStorage
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-    this.add.text(width / 2, height / 2 + 35, `Najlepszy Wyńczyk: ${highScore}  |  Gierki: ${gamesPlayed}`, {
-      fontSize: '9px',
-      color: '#999999',
+    this.add.text(width / 2, height / 2 + 45, `Najlepszy Wynczyk: ${highScore}  |  Gierki: ${gamesPlayed}`, {
+      fontSize: '8px',
+      color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(10);
 
     // --- Pulsing start text ---
     const isMobile = !this.sys.game.device.os.desktop;
-    const startLabel = isMobile ? 'Dotknij ekran żeby Zacząść' : 'Walnij SPACJĘ żeby Zacząść';
+    const startLabel = isMobile ? 'Dotknij ekran zeby Rozpoczac' : 'Walnij SPACJE zeby Rozpoczac';
     const startText = this.add.text(width / 2, height - 110, startLabel, {
-      fontSize: '14px',
+      fontSize: '12px',
       color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -159,21 +166,23 @@ export class MenuScene extends Phaser.Scene {
     // --- CONTROLS DISPLAY ---
     const controlsLines = isMobile
       ? [
-          'Dotknij ekran — Zmień tor',
-          'Przycisk DASH — Dasherówka!',
-          'Przycisk ⏸ — Pauzka!',
+          'SWAP — Zmien tor',
+          'DASH — Dasherowka!',
+          'Pauzka — Przycisk ⏸',
         ]
       : [
-          'SPACJA / GÓRA — Skocz na górę',
-          'CTRL / DÓŁ — Spadaj na dół',
-          'SHIFT / PRAWO — Dasherówka!',
+          'SPACJA / GORA — Skocz na gore',
+          'CTRL / DOL — Spadaj na dol',
+          'SHIFT / PRAWO — Dasherowka!',
           'ESC — Pauzka!',
         ];
     const controlsText = controlsLines.join('\n');
     this.add.text(width / 2, height - 45, controlsText, {
-      fontSize: '8px',
-      color: '#aaaaaa',
+      fontSize: '7px',
+      color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 2,
       align: 'center',
       lineSpacing: 4,
     }).setOrigin(0.5);
@@ -181,18 +190,22 @@ export class MenuScene extends Phaser.Scene {
     this.add
       .text(width - 10, height - 10, 'v0.3.0 KARALUCH', {
         fontSize: '7px',
-        color: '#444444',
+        color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
       })
       .setOrigin(1, 1)
       .setDepth(10);
 
     // --- SCOREBOARD BUTTON ---
     const scoreboardBtn = this.add
-      .text(width / 2, height / 2 + 65, '[ T — Tablica Wyników ]', {
-        fontSize: '9px',
-        color: '#888888',
+      .text(width / 2, height / 2 + 75, '[ T — Tablica Wynikow ]', {
+        fontSize: '8px',
+        color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
       })
       .setOrigin(0.5)
       .setDepth(10)
