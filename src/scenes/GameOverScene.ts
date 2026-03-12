@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { showScoreboard, toggleScoreboard } from '../ui/Scoreboard';
 
 interface GameOverData {
   score: number;
@@ -12,44 +11,42 @@ interface GameOverData {
 /** Shared font family used for all text in the scene. */
 const FONT_FAMILY = '"Press Start 2P", monospace';
 
+/** Returns a mobile-aware scale factor. */
+function getScale(): number {
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
+}
+
 /** Reusable text style presets. */
 const TEXT_STYLES = {
-  title: (message: string): Phaser.Types.GameObjects.Text.TextStyle => ({
-    fontSize: message.length > 15 ? '18px' : '28px',
-    color: '#8b0000',
-    fontFamily: FONT_FAMILY,
-    fontStyle: 'bold',
-    stroke: '#000000',
-    strokeThickness: 6,
-  }),
-  score: {
-    fontSize: '16px',
+  title: (message: string): Phaser.Types.GameObjects.Text.TextStyle => {
+    const s = getScale();
+    return {
+      fontSize: `${Math.round((message.length > 15 ? 18 : 28) * s)}px`,
+      color: '#8b0000',
+      fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 6 * s,
+    };
+  },
+  score: (): Phaser.Types.GameObjects.Text.TextStyle => ({
+    fontSize: `${Math.round(16 * getScale())}px`,
     color: '#ffffff',
     fontFamily: FONT_FAMILY,
-  } as Phaser.Types.GameObjects.Text.TextStyle,
+    stroke: '#000000',
+    strokeThickness: 4 * getScale(),
+  }),
   small: (color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
-    fontSize: '9px',
+    fontSize: `${Math.round(9 * getScale())}px`,
     color,
     fontFamily: FONT_FAMILY,
   }),
-  nameInput: {
-    fontSize: '12px',
-    color: '#ffffff',
-    fontFamily: FONT_FAMILY,
-    stroke: '#000000',
-    strokeThickness: 3,
-  } as Phaser.Types.GameObjects.Text.TextStyle,
-  nameConfirmed: {
-    fontSize: '12px',
-    color: '#00ff00',
-    fontFamily: FONT_FAMILY,
-    stroke: '#000000',
-    strokeThickness: 3,
-  } as Phaser.Types.GameObjects.Text.TextStyle,
   highScore: (isRecord: boolean): Phaser.Types.GameObjects.Text.TextStyle => ({
-    fontSize: '11px',
-    color: isRecord ? '#ffff00' : '#999999',
+    fontSize: `${Math.round(11 * getScale())}px`,
+    color: isRecord ? '#ffff00' : '#ff8800',
     fontFamily: FONT_FAMILY,
+    stroke: '#000000',
+    strokeThickness: 3 * getScale(),
   }),
 } as const;
 
@@ -119,14 +116,7 @@ export class GameOverScene extends Phaser.Scene {
     this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
     this.gameoverBgm.play();
 
-    const isMobile = !this.sys.game.device.os.desktop;
-
-    // Name input or restart
-    if (isNewRecord && !isMobile) {
-      this.showNameInput(width, height, data);
-    } else {
-      this.showMobileDeathButtons(width, height, isNewRecord, data);
-    }
+    this.showDeathButtons(width, height, isNewRecord, data);
   }
 
   // ── Background & atmosphere ────────────────────────────────────────
@@ -160,7 +150,7 @@ export class GameOverScene extends Phaser.Scene {
 
   private setupDeathTitle(width: number, height: number, message: string): number {
     const titleText = this.add
-      .text(width / 2, height / 3 - 20, message, TEXT_STYLES.title(message))
+      .text(width / 2, height * 0.12, message, TEXT_STYLES.title(message))
       .setOrigin(0.5);
 
     const baseX = titleText.x;
@@ -181,8 +171,8 @@ export class GameOverScene extends Phaser.Scene {
     if (!data?.obstacleType || !GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) return;
 
     const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
-    const img = this.add.image(width / 2, titleY + 40, textureKey);
-    img.setScale(0.3).setOrigin(0.5, 0);
+    const img = this.add.image(width / 2, titleY + 30, textureKey);
+    img.setScale(0.25).setOrigin(0.5, 0);
 
     this.tweens.add({
       targets: img,
@@ -208,10 +198,13 @@ export class GameOverScene extends Phaser.Scene {
     width: number, height: number,
     finalScore: number, highScore: number, isNewRecord: boolean,
   ): void {
+    const s = getScale();
+    const scoreY = height * 0.42;
+
     // Animated count-up
     const counter = { value: 0 };
     const scoreText = this.add
-      .text(width / 2, height / 2, 'Punkciory: 0', TEXT_STYLES.score)
+      .text(width / 2, scoreY, 'Punkciory: 0', TEXT_STYLES.score())
       .setOrigin(0.5);
 
     this.tweens.add({
@@ -224,24 +217,39 @@ export class GameOverScene extends Phaser.Scene {
       },
     });
 
-    // High score line
+    // High score line — close to score
     const suffix = isNewRecord ? '  NÓWKA SZTUKA!' : '';
     this.add
-      .text(width / 2, height / 2 + 50, `Najlepsiejszy wynik: ${highScore}${suffix}`, TEXT_STYLES.highScore(isNewRecord))
+      .text(width / 2, scoreY + Math.round(28 * s), `Najlepsiejszy wynik: ${highScore}${suffix}`, TEXT_STYLES.highScore(isNewRecord))
       .setOrigin(0.5);
   }
 
   private setupStats(width: number, height: number, data: GameOverData): void {
-    const parts: string[] = [];
-    if (data?.timeSurvived !== undefined) parts.push(`Czas Przeżywalności: ${data.timeSurvived}s`);
-    if (data?.distance !== undefined) parts.push(`Dystansik: ${data.distance}m`);
-    if (data?.topSpeed !== undefined) parts.push(`Maks Szybkóść: ${data.topSpeed.toFixed(1)}x`);
+    const s = getScale();
+    const fontSize = `${Math.round(10 * s)}px`;
+    const lineHeight = Math.round(20 * s);
+    let startY = height * 0.58;
 
-    if (parts.length > 0) {
-      this.add
-        .text(width / 2, height / 2 + 90, parts.join('  |  '), TEXT_STYLES.small('#888888'))
-        .setOrigin(0.5);
-    }
+    const stats: { label: string; value: string; color: string }[] = [];
+    if (data?.timeSurvived !== undefined) stats.push({ label: 'Czas Przeżywalności', value: `${data.timeSurvived}s`, color: '#00ccff' });
+    if (data?.distance !== undefined) stats.push({ label: 'Dystansik', value: `${data.distance}m`, color: '#ff6600' });
+    if (data?.topSpeed !== undefined) stats.push({ label: 'Maks Szybkóść', value: `${data.topSpeed.toFixed(1)}x`, color: '#cc66ff' });
+
+    stats.forEach((stat, i) => {
+      const y = startY + i * lineHeight;
+      this.add.text(width / 2 - 8, y, stat.label, {
+        fontSize,
+        color: '#aaaaaa',
+        fontFamily: FONT_FAMILY,
+      }).setOrigin(1, 0.5);
+      this.add.text(width / 2 + 8, y, stat.value, {
+        fontSize,
+        color: stat.color,
+        fontFamily: FONT_FAMILY,
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0, 0.5);
+    });
   }
 
   // ── Confetti ───────────────────────────────────────────────────────
@@ -269,122 +277,131 @@ export class GameOverScene extends Phaser.Scene {
     }
   }
 
-  // ── Name input ─────────────────────────────────────────────────────
-
-  private showNameInput(width: number, height: number, data: GameOverData): void {
-    // Desktop: custom keyboard handler
-    const promptText = this.add
-      .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', TEXT_STYLES.small('#ffff00'))
-      .setOrigin(0.5);
-
-    let playerName = '';
-    const nameText = this.add
-      .text(width / 2, height - 75, '_', TEXT_STYLES.nameInput)
-      .setOrigin(0.5);
-
-    this.tweens.add({
-      targets: nameText,
-      alpha: { from: 1, to: 0.5 },
-      duration: 500,
-      yoyo: true,
-      repeat: -1,
-    });
-
-    const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Enter' && playerName.length > 0) {
-        this.input.keyboard!.off('keydown', handleKey);
-        promptText.destroy();
-        nameText.setText(playerName);
-        nameText.setColor('#00ff00');
-        this.tweens.killTweensOf(nameText);
-        nameText.setAlpha(1);
-
-        this.submitScore(playerName, data).then(() => {
-          showScoreboard(this, playerName);
-        });
-        this.showMobileDeathButtons(width, height, false, data);
-      } else if (event.key === 'Backspace') {
-        playerName = playerName.slice(0, -1);
-        nameText.setText(playerName.length > 0 ? playerName : '_');
-      } else if (event.key === 'Escape') {
-        this.input.keyboard!.off('keydown', handleKey);
-        promptText.destroy();
-        nameText.destroy();
-        this.showMobileDeathButtons(width, height, false, data);
-      } else if (event.key.length === 1 && playerName.length < 20) {
-        playerName += event.key;
-        nameText.setText(playerName);
-      }
-    };
-
-    this.input.keyboard!.on('keydown', handleKey);
-  }
-
   // ── Restart / navigation ───────────────────────────────────────────
 
-  /** Universal death screen with action buttons + keyboard shortcuts. */
-  private showMobileDeathButtons(width: number, height: number, isNewRecord: boolean, data: GameOverData): void {
+  private showDeathButtons(width: number, height: number, isNewRecord: boolean, data: GameOverData): void {
     if (this.restartBound) return;
     this.restartBound = true;
 
+    const s = getScale();
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '10px',
+      fontSize: `${Math.round(12 * s)}px`,
       fontFamily: FONT_FAMILY,
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: Math.round(3 * s),
       align: 'center',
     };
 
-    const btnY = height - 80;
-    const spacing = 28;
-    const buttons: { label: string; action: () => void; color: number }[] = [
-      { label: 'Ekran G\u0142\u00f3wny', action: () => this.goToMenu(), color: 0x666666 },
-      { label: 'Bycze Karaluchy', action: () => toggleScoreboard(this, null), color: 0x886600 },
-    ];
+    const btnY = height - Math.round(60 * s);
+    const btnW = Math.round(160 * s);
+    const btnH = Math.round(44 * s);
+    const gap = Math.round(16 * s);
 
+    const createBtn = (x: number, label: string, color: number, action: () => void): void => {
+      const bg = this.add.rectangle(x, btnY, btnW, btnH, color, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const txt = this.add.text(x, btnY, label, btnStyle).setOrigin(0.5);
+      bg.on('pointerover', () => { bg.setAlpha(1); txt.setColor('#ffff00'); });
+      bg.on('pointerout', () => { bg.setAlpha(0.9); txt.setColor('#ffffff'); });
+      bg.on('pointerdown', action);
+    };
+
+    createBtn(width / 2 - btnW / 2 - gap / 2, 'Ekran Główny', 0x666666, () => this.goToMenu());
+    createBtn(width / 2 + btnW / 2 + gap / 2, 'Powtórka', 0x880000, () => this.restartGame());
+
+    // "Zapisz" button near the highscore text when it's a new record
     if (isNewRecord) {
-      buttons.push({
-        label: 'Zapisz Wynik',
-        action: () => {
-          const playerName = window.prompt('Wpisz swoje imi\u0119:') || '';
-          if (playerName.length > 0) {
-            this.submitScore(playerName.slice(0, 20), data).then(() => {
-              showScoreboard(this, playerName.slice(0, 20));
-            });
-          }
-        },
-        color: 0x008800,
+      const saveY = height * 0.42 + Math.round(28 * s);
+      const saveBtnW = Math.round(100 * s);
+      const saveBtnH = Math.round(28 * s);
+      const saveBtnX = width / 2 + Math.round(160 * s);
+
+      const saveBg = this.add.rectangle(saveBtnX, saveY, saveBtnW, saveBtnH, 0x008800, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const saveTxt = this.add.text(saveBtnX, saveY, 'Zapisz', {
+        fontSize: `${Math.round(10 * s)}px`,
+        fontFamily: FONT_FAMILY,
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0.5);
+
+      this.tweens.add({
+        targets: [saveBg, saveTxt],
+        alpha: { from: 0.7, to: 1 },
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
       });
+
+      saveBg.on('pointerover', () => { saveBg.setAlpha(1); saveTxt.setColor('#ffff00'); });
+      saveBg.on('pointerout', () => { saveBg.setAlpha(0.9); saveTxt.setColor('#ffffff'); });
+      saveBg.on('pointerdown', () => this.showNameInputOverlay(width, height, data));
     }
 
-    buttons.push({ label: 'Powt\u00f3rka', action: () => this.restartGame(), color: 0x880000 });
-
-    const totalBtns = buttons.length;
-    const btnW = Math.min(140, (width - 32) / totalBtns - 4);
-    const gap = 4;
-    const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
-    const startX = (width - totalW) / 2 + btnW / 2;
-
-    buttons.forEach((btn, i) => {
-      const bx = startX + i * (btnW + gap);
-
-      const bg = this.add.rectangle(bx, btnY, btnW, 40, btn.color, 0.9)
-        .setInteractive({ useHandCursor: true });
-
-      const label = this.add.text(bx, btnY, btn.label, btnStyle)
-        .setOrigin(0.5);
-
-      bg.on('pointerover', () => { bg.setAlpha(1); label.setColor('#ffff00'); });
-      bg.on('pointerout', () => { bg.setAlpha(0.9); label.setColor('#ffffff'); });
-      bg.on('pointerdown', btn.action);
-    });
-
-    // Desktop keyboard shortcuts still work
+    // Keyboard shortcuts
     this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
     this.input.keyboard!.once('keydown-R', () => this.restartGame());
     this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
-    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
+  }
+
+  private showNameInputOverlay(width: number, height: number, data: GameOverData): void {
+    // Create an HTML input overlay for name entry
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:"Press Start 2P",monospace;';
+
+    const label = document.createElement('div');
+    label.textContent = 'Wpisz swoje imię:';
+    label.style.cssText = 'color:#ffff00;font-size:14px;';
+    overlay.appendChild(label);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 20;
+    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:18px;padding:8px 12px;background:#111;color:#fff;border:2px solid #8b0000;outline:none;text-align:center;width:240px;';
+    overlay.appendChild(input);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:12px;';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.textContent = 'Zapisz';
+    submitBtn.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:12px;padding:8px 16px;background:#008800;color:#fff;border:none;cursor:pointer;';
+    btnRow.appendChild(submitBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Anuluj';
+    cancelBtn.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:12px;padding:8px 16px;background:#666;color:#fff;border:none;cursor:pointer;';
+    btnRow.appendChild(cancelBtn);
+
+    overlay.appendChild(btnRow);
+    document.body.appendChild(overlay);
+
+    input.focus();
+
+    const cleanup = (): void => {
+      overlay.remove();
+    };
+
+    const submit = (): void => {
+      const name = input.value.trim().slice(0, 20);
+      if (name.length > 0) {
+        cleanup();
+        this.submitScore(name, data).then(() => {
+          // Restart the death scene to show it cleanly
+          this.scene.restart(data);
+        });
+      }
+    };
+
+    submitBtn.addEventListener('click', submit);
+    cancelBtn.addEventListener('click', cleanup);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape') cleanup();
+    });
   }
 
   private restartGame(): void {

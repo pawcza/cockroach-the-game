@@ -8,37 +8,50 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     const { width, height } = this.cameras.main;
 
-    // --- Loading progress bar (dark crimson on dark background) ---
-    const progressBox = this.add.graphics();
-    progressBox.fillStyle(0x111111, 0.9);
-    progressBox.fillRect(width / 2 - 165, height / 2 - 17, 330, 34);
+    // Black background
+    this.cameras.main.setBackgroundColor('#000000');
 
-    const progressBar = this.add.graphics();
+    // --- HTML cockroach running across screen during load ---
+    const loadOverlay = document.createElement('div');
+    loadOverlay.id = 'load-overlay';
+    loadOverlay.innerHTML = `
+      <img class="load-roach" src="/assets/cockroach-idle.png" alt="">
+      <div class="load-text">ładowanko...</div>
+      <div class="load-bar-box"><div class="load-bar-fill"></div></div>
+    `;
+    loadOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;font-family:"Press Start 2P",monospace;';
 
-    const loadingText = this.add.text(width / 2, height / 2 - 50, 'ładowanko...', {
-      fontSize: '11px',
-      color: '#8b0000',
-      fontFamily: '"Press Start 2P", monospace',
-    }).setOrigin(0.5);
+    const style = document.createElement('style');
+    style.textContent = `
+      #load-overlay .load-roach {
+        width: 160px; height: 80px; image-rendering: pixelated;
+        position: absolute; top: 25%;
+        animation: load-roach-run 3s linear infinite;
+      }
+      @keyframes load-roach-run { 0% { left: -160px; } 100% { left: 100%; } }
+      #load-overlay .load-text { font-size: 28px; color: #8b0000; text-shadow: 0 0 12px #8b0000; }
+      #load-overlay .load-bar-box { width: 320px; height: 24px; background: #111; border-radius: 4px; overflow: hidden; }
+      #load-overlay .load-bar-fill { width: 0%; height: 100%; background: #8b0000; transition: width 0.1s; }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(loadOverlay);
 
-    const percentText = this.add.text(width / 2, height / 2, '0%', {
-      fontSize: '10px',
-      color: '#cccccc',
-      fontFamily: '"Press Start 2P", monospace',
-    }).setOrigin(0.5);
+    // Cockroach frame swap
+    const roachImg = loadOverlay.querySelector('.load-roach') as HTMLImageElement;
+    const roachFrames = ['/assets/cockroach-idle.png', '/assets/cockroach-running.png'];
+    let rf = 0;
+    const roachInterval = setInterval(() => { rf = 1 - rf; roachImg.src = roachFrames[rf]; }, 200);
+
+    const barFill = loadOverlay.querySelector('.load-bar-fill') as HTMLElement;
 
     this.load.on('progress', (value: number) => {
-      progressBar.clear();
-      progressBar.fillStyle(0x8b0000, 1);
-      progressBar.fillRect(width / 2 - 160, height / 2 - 12, 320 * value, 24);
-      percentText.setText(`${Math.round(value * 100)}%`);
+      barFill.style.width = `${Math.round(value * 100)}%`;
     });
 
     this.load.on('complete', () => {
-      progressBar.destroy();
-      progressBox.destroy();
-      loadingText.destroy();
-      percentText.destroy();
+      clearInterval(roachInterval);
+      loadOverlay.remove();
+      style.remove();
     });
 
     // --- Sprites (new pixel art assets) ---

@@ -6,6 +6,10 @@ interface ScoreEntry {
   death_cause: string | null;
 }
 
+export async function fetchScores(): Promise<ScoreEntry[]> {
+  return fetchScoreboard();
+}
+
 async function fetchScoreboard(): Promise<ScoreEntry[]> {
   try {
     const res = await fetch('/api/scores?limit=100');
