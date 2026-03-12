@@ -1050,18 +1050,16 @@ export class GameScene extends Phaser.Scene {
       });
 
       // DASH button — bottom-right circle
-      this.touchDashBtn = this.add.rectangle(
-        sw - btnMargin - btnRadius, btnCenterY, btnRadius * 2, btnRadius * 2, 0x00ffff, 0.5,
+      const dashCircle = this.add.circle(
+        sw - btnMargin - btnRadius, btnCenterY, btnRadius, 0x00ffff, 0.5,
       )
         .setScrollFactor(0)
         .setDepth(3000)
         .setInteractive();
-      // Make it look circular by using a circle overlay
-      const dashCircle = this.add.circle(
-        sw - btnMargin - btnRadius, btnCenterY, btnRadius, 0x00ffff, 0.5,
-      ).setScrollFactor(0).setDepth(3000);
-      this.touchDashBtn.setAlpha(0); // hide the rectangle, circle is visual
-      this.touchDashBtn.setSize(btnRadius * 2, btnRadius * 2);
+
+      // Invisible rectangle just to satisfy type for touchDashBtn (used in update loop)
+      this.touchDashBtn = this.add.rectangle(0, 0, 1, 1, 0x000000, 0)
+        .setVisible(false);
 
       this.touchDashLabel = this.add.text(
         sw - btnMargin - btnRadius, btnCenterY, '▶', {
@@ -1079,7 +1077,7 @@ export class GameScene extends Phaser.Scene {
       // Store circle ref for color updates
       this.touchDashBtn.setData('circle', dashCircle);
 
-      this.touchDashBtn.on('pointerdown', () => {
+      dashCircle.on('pointerdown', () => {
         if (this.isDead || this.isPaused || this.isCountingDown) return;
         if (this.dashReady && !this.isDashing) {
           this.startDash();
