@@ -666,6 +666,10 @@ export class GameScene extends Phaser.Scene {
           },
         });
         pill.setData('glowTween', pillGlowTween);
+        // Pulsing pink glow
+        const pGlow = this.add.circle(slotX, pY, 20, 0xff00ff, 0.3).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
+        this.tweens.add({ targets: pGlow, alpha: 0.1, scale: 1.3, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        pill.on('destroy', () => pGlow.destroy());
         this.tweens.add({
           targets: pill,
           scaleX: 0.18,
@@ -679,7 +683,7 @@ export class GameScene extends Phaser.Scene {
         const tFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
         const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
-        tyskie.setScale(0.25);
+        tyskie.setScale(0.18);
         tyskie.setDepth(10);
         (tyskie.body as Phaser.Physics.Arcade.Body).allowGravity = false;
         tyskie.setImmovable(true);
@@ -693,13 +697,17 @@ export class GameScene extends Phaser.Scene {
         });
         this.tweens.add({
           targets: tyskie,
-          scale: 0.3,
+          scale: 0.22,
           duration: 600,
           yoyo: true,
           repeat: -1,
           ease: 'Sine.easeInOut',
         });
         tyskie.setTint(0xffdd00);
+        // Golden glow
+        const tGlow = this.add.circle(slotX, tY, 18, 0xffdd00, 0.25).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
+        this.tweens.add({ targets: tGlow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        tyskie.on('destroy', () => tGlow.destroy());
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
         const appleFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
         const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
@@ -716,6 +724,10 @@ export class GameScene extends Phaser.Scene {
           repeat: -1,
           ease: 'Sine.easeInOut',
         });
+        // Green glow
+        const aGlow = this.add.circle(slotX, appleY, 16, 0x00ff44, 0.2).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
+        this.tweens.add({ targets: aGlow, alpha: 0.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        apple.on('destroy', () => aGlow.destroy());
       } else {
         this.obstacleSpawner.spawn(slotX, this.currentLevel);
       }
