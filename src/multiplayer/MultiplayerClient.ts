@@ -5,6 +5,7 @@ export interface MPPlayer {
   name: string;
   color: number;
   isHost: boolean;
+  ready: boolean;
 }
 
 export interface MPLobbyData {
@@ -92,6 +93,11 @@ class MultiplayerClient {
 
   async changeColor(colorIndex: number): Promise<MPLobbyData> {
     const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:color', colorIndex);
+    return res.lobby;
+  }
+
+  async setReady(ready: boolean): Promise<MPLobbyData> {
+    const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:ready', ready);
     return res.lobby;
   }
 
