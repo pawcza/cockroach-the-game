@@ -41,6 +41,7 @@ export class GameHUD {
   // Pause
   private pauseOverlay!: Phaser.GameObjects.Rectangle;
   private pauseText!: Phaser.GameObjects.Text;
+  private pauseSubtext!: Phaser.GameObjects.Text;
   private touchPauseBtn!: Phaser.GameObjects.Text;
   private cricketSound: Phaser.Sound.BaseSound | null = null;
   private blurOverlay!: Phaser.GameObjects.Rectangle;
@@ -146,12 +147,19 @@ export class GameHUD {
     this.pauseOverlay.on('pointerdown', () => {
       this.onTogglePause();
     });
-    this.pauseText = this.scene.add.text(w / 2, h / 2, 'PAUZKA!', {
+    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', {
       fontSize: '24px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
+    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wci\u015bnij cokolwiek, po to by gra\u0107 dalej', {
+      fontSize: '7px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#aaaaaa',
+      stroke: '#000000',
+      strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
 
     // Pause button -- top-right (both platforms)
@@ -247,33 +255,23 @@ export class GameHUD {
     this.blurOverlay.setVisible(true);
     this.pauseOverlay.setVisible(true);
     this.pauseText.setVisible(true);
+    this.pauseSubtext.setVisible(true);
 
     // Cricket ambient sound
     if (!this.cricketSound) {
       this.cricketSound = this.scene.sound.add('cricket', { volume: 0.4, loop: true });
     }
     this.cricketSound.play();
-
-    // Blur effect via camera postFX if supported
-    const cam = this.scene.cameras.main;
-    if (cam.postFX) {
-      cam.postFX.addBlur(0, 2, 2, 1);
-    }
   }
 
   hidePauseOverlay(): void {
     this.blurOverlay.setVisible(false);
     this.pauseOverlay.setVisible(false);
     this.pauseText.setVisible(false);
+    this.pauseSubtext.setVisible(false);
 
     if (this.cricketSound) {
       this.cricketSound.stop();
-    }
-
-    // Remove blur
-    const cam = this.scene.cameras.main;
-    if (cam.postFX) {
-      cam.postFX.clear();
     }
   }
 

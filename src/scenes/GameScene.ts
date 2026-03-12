@@ -367,6 +367,14 @@ export class GameScene extends Phaser.Scene {
       this.togglePause();
     }
     if (this.isPaused) {
+      // Any key unpauses
+      const keys = this.input.keyboard!.keys;
+      for (const key of keys) {
+        if (key && Phaser.Input.Keyboard.JustDown(key) && key.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) {
+          this.togglePause();
+          break;
+        }
+      }
       this.lastFrameTime = this.time.now;
       return;
     }
