@@ -67,6 +67,14 @@ export class GhostManager {
   }
 
 
+  getGhostName(id: string): string | null {
+    return this.ghosts.get(id)?.name ?? null;
+  }
+
+  getGhostColor(id: string): number | null {
+    return this.ghosts.get(id)?.color ?? null;
+  }
+
   handleDeath(id: string, score: number, stats: Record<string, unknown>): void {
     const ghost = this.ghosts.get(id);
     if (ghost) ghost.die(score, stats);
