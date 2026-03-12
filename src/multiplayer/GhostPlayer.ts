@@ -89,13 +89,13 @@ export class GhostPlayer {
     const colorStr = '#' + this.color.toString(16).padStart(6, '0');
     this.nameLabel = scene.add.text(startX, floorBottomY - 45, name, {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '5px',
+      fontSize: '10px',
       color: colorStr,
       stroke: '#000000',
-      strokeThickness: 2,
+      strokeThickness: 3,
     });
     this.nameLabel.setOrigin(0.5, 1);
-    this.nameLabel.setAlpha(0.4);
+    this.nameLabel.setAlpha(0.5);
     this.nameLabel.setDepth(501);
   }
 
@@ -124,8 +124,10 @@ export class GhostPlayer {
   private updateAlpha(): void {
     if (this._isSpectated) {
       this.sprite.setAlpha(this._isDashing ? 0.5 : 1);
+      this.nameLabel.setAlpha(1);
     } else {
       this.sprite.setAlpha(this._isDashing ? 0.35 : 0.2);
+      this.nameLabel.setAlpha(0.5);
     }
   }
 
@@ -136,7 +138,7 @@ export class GhostPlayer {
     if (active) {
       this.dashReady = false;
       this.dashStartTime = this.activePlayTime;
-      this.sprite.setTint(0xffffaa);
+      this.sprite.setTint(this.color);
       this.dashTrailTimer = this.scene.time.addEvent({
         delay: 80,
         repeat: Math.floor(DASH_DURATION / 80) - 1,
