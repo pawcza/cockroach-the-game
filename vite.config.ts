@@ -11,6 +11,10 @@ export default defineConfig({
         target: 'https://cockroach.wszystko.app',
         changeOrigin: true,
       },
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        ws: true,
+      },
     },
   },
 });
