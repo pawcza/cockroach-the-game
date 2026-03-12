@@ -4,7 +4,14 @@ export const GAME_HEIGHT = 512;
 // Floor positions (Y coordinates)
 export const FLOOR_BOTTOM_Y = 396;
 export const FLOOR_TOP_Y = 296;
-export const FLOOR_HEIGHT = 16;
+export const FLOOR_HEIGHT = 32;
+
+// Floor tile rendering
+export const FLOOR_TILE_W = 64;
+export const FLOOR_TILE_H = 32;
+export const FLOOR_TILE_GAP = 4;
+export const FLOOR_TILE_STEP = FLOOR_TILE_W + FLOOR_TILE_GAP; // 68
+export const FLOOR_TILE_RADIUS = 6;
 
 // Cockroach
 export const COCKROACH_START_X = 150;

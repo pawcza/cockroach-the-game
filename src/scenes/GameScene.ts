@@ -3,6 +3,11 @@ import {
   FLOOR_BOTTOM_Y,
   FLOOR_TOP_Y,
   FLOOR_HEIGHT,
+  FLOOR_TILE_W,
+  FLOOR_TILE_H,
+  FLOOR_TILE_GAP,
+  FLOOR_TILE_STEP,
+  FLOOR_TILE_RADIUS,
   COCKROACH_START_X,
   COCKROACH_BASE_SPEED,
   APPLE_SCORE,
@@ -46,8 +51,11 @@ export class GameScene extends Phaser.Scene {
   private fgBg!: Phaser.GameObjects.TileSprite;
 
   // Floors
-  private floorTopTile!: Phaser.GameObjects.TileSprite;
-  private floorBottomTile!: Phaser.GameObjects.TileSprite;
+  private floorTopBody!: Phaser.GameObjects.Rectangle;
+  private floorBottomBody!: Phaser.GameObjects.Rectangle;
+  private floorTopSprites: Phaser.GameObjects.Image[] = [];
+  private floorBottomSprites: Phaser.GameObjects.Image[] = [];
+  private currentFloorTextureKey = 'floor-rounded-lv1';
 
   // Groups
   private obstacles!: Phaser.Physics.Arcade.Group;
@@ -173,20 +181,31 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(LEVELS[0].fgAboveFloors ? 5 : 2);
 
-    // Floor platforms
+    // Generate rounded floor textures for all levels
+    this.generateRoundedFloorTextures();
+
+    // Floor platforms — invisible physics bodies + visual tile sprites
     const FLOOR_WIDTH = w + 200;
 
-    this.floorTopTile = this.add
-      .tileSprite(0, this.floorTopY, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
+    this.floorTopBody = this.add.rectangle(0, this.floorTopY, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
-    this.floorTopTile.setDepth(3);
-    this.physics.add.existing(this.floorTopTile, true);
+    this.physics.add.existing(this.floorTopBody, true);
 
-    this.floorBottomTile = this.add
-      .tileSprite(0, this.floorBottomY, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
+    this.floorBottomBody = this.add.rectangle(0, this.floorBottomY, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
-    this.floorBottomTile.setDepth(3);
-    this.physics.add.existing(this.floorBottomTile, true);
+    this.physics.add.existing(this.floorBottomBody, true);
+
+    // Create visual floor tile sprites
+    const tilesNeeded = Math.ceil(FLOOR_WIDTH / FLOOR_TILE_STEP) + 2;
+    for (let i = 0; i < tilesNeeded; i++) {
+      const topTile = this.add.image(i * FLOOR_TILE_STEP, this.floorTopY, this.currentFloorTextureKey)
+        .setOrigin(0, 0).setDepth(3);
+      this.floorTopSprites.push(topTile);
+
+      const bottomTile = this.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, this.currentFloorTextureKey)
+        .setOrigin(0, 0).setDepth(3);
+      this.floorBottomSprites.push(bottomTile);
+    }
 
     // Audio (created before Player since Player needs it)
     this.audio = new AudioManager(this);
@@ -207,10 +226,10 @@ export class GameScene extends Phaser.Scene {
     this.obstacleSpawner = new ObstacleSpawner(this, this.obstacles);
 
     // Floor colliders with process callbacks
-    this.physics.add.collider(this.player.sprite, this.floorTopTile, undefined, () => {
+    this.physics.add.collider(this.player.sprite, this.floorTopBody, undefined, () => {
       return this.player.currentFloor === 'top';
     }, this);
-    this.physics.add.collider(this.player.sprite, this.floorBottomTile, undefined, () => {
+    this.physics.add.collider(this.player.sprite, this.floorBottomBody, undefined, () => {
       return this.player.currentFloor === 'bottom';
     }, this);
 
@@ -895,8 +914,9 @@ export class GameScene extends Phaser.Scene {
     this.midBg.setTexture(config.bgKey);
     this.fgBg.setTexture(config.fgKey);
     this.fgBg.setDepth(config.fgAboveFloors ? 5 : 2);
-    this.floorTopTile.setTexture(config.floorKey);
-    this.floorBottomTile.setTexture(config.floorKey);
+    this.currentFloorTextureKey = `floor-rounded-lv${config.level}`;
+    for (const s of this.floorTopSprites) s.setTexture(this.currentFloorTextureKey);
+    for (const s of this.floorBottomSprites) s.setTexture(this.currentFloorTextureKey);
     this.audio.switchBGM(config.bgmKey);
     this.hud.showLevelAnnouncement(config);
   }
@@ -908,6 +928,31 @@ export class GameScene extends Phaser.Scene {
 
   private getDistance(): number {
     return Math.floor((this.player.x - COCKROACH_START_X) / 50);
+  }
+
+  private generateRoundedFloorTextures(): void {
+    for (let i = 1; i <= 10; i++) {
+      const key = `floor-rounded-lv${i}`;
+      if (this.textures.exists(key)) continue;
+
+      const sourceKey = `lv${i}-floor`;
+      const sourceImage = this.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = FLOOR_TILE_W;
+      canvas.height = FLOOR_TILE_H;
+      const ctx = canvas.getContext('2d')!;
+
+      // Draw rounded rect clip path
+      ctx.beginPath();
+      ctx.roundRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H, FLOOR_TILE_RADIUS);
+      ctx.clip();
+
+      // Draw the source tile texture
+      ctx.drawImage(sourceImage, 0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
+
+      this.textures.addCanvas(key, canvas);
+    }
   }
 
   private updateParallax(): void {
@@ -934,15 +979,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateFloors(): void {
-    const floorX = this.cameras.main.scrollX - 100;
-    this.floorTopTile.x = floorX;
-    this.floorTopTile.tilePositionX = this.cameras.main.scrollX;
-    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
-    (this.floorTopTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
-    this.floorBottomTile.x = floorX;
-    this.floorBottomTile.tilePositionX = this.cameras.main.scrollX;
-    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).x = floorX;
-    (this.floorBottomTile.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+    const camX = this.cameras.main.scrollX;
+    const bodyX = camX - 100;
+
+    // Move invisible physics bodies
+    this.floorTopBody.x = bodyX;
+    (this.floorTopBody.body as Phaser.Physics.Arcade.StaticBody).x = bodyX;
+    (this.floorTopBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+    this.floorBottomBody.x = bodyX;
+    (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).x = bodyX;
+    (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+
+    // Position visual tile sprites — snap to tile grid relative to camera
+    const firstTileX = Math.floor((camX - 100) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    for (let i = 0; i < this.floorTopSprites.length; i++) {
+      const tx = firstTileX + i * FLOOR_TILE_STEP;
+      this.floorTopSprites[i].x = tx;
+      this.floorBottomSprites[i].x = tx;
+    }
   }
 
   private spawnBirdOverlook(): void {
