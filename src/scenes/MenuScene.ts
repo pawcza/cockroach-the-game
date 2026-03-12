@@ -294,12 +294,12 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Obstacle icons (show a subset)
-    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper', 'bird'];
+    // Obstacle icons
+    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper', 'bird', 'cat-paw', 'disco-ball', 'jellyfish', 'pope', 'bison', 'black-hole'];
     const obstSpacing = zoneW / (obstacles.length + 1);
     obstacles.forEach((key, i) => {
       const ix = rightX - zoneW / 2 + obstSpacing * (i + 1);
-      const icon = this.add.image(ix, iconY, key).setScale(0.1).setDepth(11);
+      const icon = this.add.image(ix, iconY, key).setScale(0.08).setDepth(11);
       this.tweens.add({
         targets: icon,
         y: iconY - 3,
