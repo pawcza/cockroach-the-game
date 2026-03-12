@@ -44,7 +44,6 @@ export class GameHUD {
   private pauseSubtext!: Phaser.GameObjects.Text;
   private touchPauseBtn!: Phaser.GameObjects.Text;
   private cricketSound: Phaser.Sound.BaseSound | null = null;
-  private blurOverlay!: Phaser.GameObjects.Rectangle;
 
   private isMobile: boolean;
   private onTogglePause: () => void;
@@ -139,9 +138,7 @@ export class GameHUD {
       .setDepth(100);
 
     // Pause UI — depth above touch controls (3000) so overlay covers buttons
-    this.blurOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x1a0a2e, 0.35)
-      .setScrollFactor(0).setDepth(4000).setVisible(false);
-    this.pauseOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.5)
+    this.pauseOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.6)
       .setScrollFactor(0).setDepth(4001).setVisible(false)
       .setInteractive();
     this.pauseOverlay.on('pointerdown', () => {
@@ -256,7 +253,6 @@ export class GameHUD {
   showPauseOverlay(): void {
     const h = this.scene.cameras.main.height;
 
-    this.blurOverlay.setVisible(true);
     this.pauseOverlay.setVisible(true);
     this.pauseText.setVisible(true);
     this.pauseSubtext.setVisible(true);
@@ -339,7 +335,6 @@ export class GameHUD {
     }
     this.pauseTweens = [];
 
-    this.blurOverlay.setVisible(false);
     this.pauseOverlay.setVisible(false);
     this.pauseText.setVisible(false).setY(h / 2 - 15).setScale(1).setAlpha(1);
     this.pauseSubtext.setVisible(false).setAngle(0).setAlpha(1);

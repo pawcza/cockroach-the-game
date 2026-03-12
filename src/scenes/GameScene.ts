@@ -85,7 +85,9 @@ export class GameScene extends Phaser.Scene {
 
   // Pause
   private isPaused = false;
-  private unpausedThisFrame = false;
+  private isUnpauseCountdown = false;
+  private unpauseCountdownStart = 0;
+  private unpauseCountdownLastShown = -1;
 
   // Countdown
   private isCountingDown = true;
@@ -363,17 +365,19 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Pause toggle
-    if (this.unpausedThisFrame) {
-      this.unpausedThisFrame = false;
+    // Unpause countdown (3-2-1 after resuming from pause)
+    if (this.isUnpauseCountdown) {
+      this.updateUnpauseCountdown();
       this.lastFrameTime = this.time.now;
       return;
     }
+
+    // Pause toggle
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
       this.togglePause();
     }
     if (this.isPaused) {
-      // Any key unpauses
+      // Any key or tap unpauses
       const keys = this.input.keyboard!.keys;
       for (const key of keys) {
         if (key && Phaser.Input.Keyboard.JustDown(key) && key.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) {
@@ -569,14 +573,54 @@ export class GameScene extends Phaser.Scene {
   }
 
   private togglePause(): void {
-    this.isPaused = !this.isPaused;
-    if (this.isPaused) {
+    if (this.isUnpauseCountdown) return;
+
+    if (!this.isPaused) {
+      this.isPaused = true;
       this.physics.pause();
       this.hud.showPauseOverlay();
     } else {
-      this.unpausedThisFrame = true;
-      this.physics.resume();
+      // Start unpause countdown
+      this.isPaused = false;
       this.hud.hidePauseOverlay();
+      this.isUnpauseCountdown = true;
+      this.unpauseCountdownStart = performance.now();
+      this.unpauseCountdownLastShown = -1;
+    }
+  }
+
+  private updateUnpauseCountdown(): void {
+    const elapsed = performance.now() - this.unpauseCountdownStart;
+    const steps = ['3', '2', '1', 'JAZDA!'];
+    const step = Math.floor(elapsed / 600);
+
+    if (step < steps.length && step > this.unpauseCountdownLastShown) {
+      this.unpauseCountdownLastShown = step;
+      const text = steps[step];
+      const countText = this.add.text(
+        this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
+          fontSize: text === 'JAZDA!' ? '24px' : '32px',
+          fontFamily: '"Press Start 2P", monospace',
+          color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 6,
+        },
+      );
+      countText.setOrigin(0.5).setScrollFactor(0).setDepth(4003);
+      this.tweens.add({
+        targets: countText,
+        scale: { from: 2, to: 0.5 },
+        alpha: { from: 1, to: 0 },
+        duration: 500,
+        ease: 'Power2',
+        onComplete: () => countText.destroy(),
+      });
+    }
+
+    if (elapsed >= steps.length * 600) {
+      this.isUnpauseCountdown = false;
+      this.physics.resume();
+      this.lastFrameTime = this.time.now;
     }
   }
 
