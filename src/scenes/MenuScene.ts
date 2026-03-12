@@ -89,7 +89,7 @@ export class MenuScene extends Phaser.Scene {
     const spacer = (sec3Bottom - sec1Top - totalContent) / 2;
 
     const sec1Y = sec1Top;
-    const sec2Y = sec1Top + sec1H + spacer;
+    const sec2Y = sec1Top + sec1H + spacer - 50;
     const sec3Y = sec2Y + sec2H + spacer;
 
     // --- SECTION 1: KARALUCH title + subtitle ---
