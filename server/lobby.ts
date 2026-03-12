@@ -3,6 +3,7 @@ export interface LobbyPlayer {
   name: string;
   color: number;
   isHost: boolean;
+  ready: boolean;
 }
 
 export type LobbyStatus = 'waiting' | 'ingame' | 'postgame';
@@ -59,6 +60,7 @@ export class LobbyManager {
       name: hostName,
       color: 0,
       isHost: true,
+      ready: false,
     };
 
     const lobby: Lobby = {
@@ -92,6 +94,7 @@ export class LobbyManager {
       name: playerName,
       color: colorIndex,
       isHost: false,
+      ready: false,
     };
 
     lobby.players.set(playerId, player);
@@ -147,6 +150,27 @@ export class LobbyManager {
     return lobby;
   }
 
+  setReady(playerId: string, ready: boolean): Lobby | null {
+    const lobbyId = this.playerLobbyMap.get(playerId);
+    if (!lobbyId) return null;
+
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby || lobby.status !== 'waiting') return null;
+
+    const player = lobby.players.get(playerId);
+    if (!player) return null;
+
+    player.ready = ready;
+    return lobby;
+  }
+
+  allReady(lobby: Lobby): boolean {
+    for (const player of lobby.players.values()) {
+      if (!player.ready) return false;
+    }
+    return true;
+  }
+
   startGame(hostId: string): Lobby | null {
     const lobbyId = this.playerLobbyMap.get(hostId);
     if (!lobbyId) return null;
@@ -155,6 +179,7 @@ export class LobbyManager {
     if (!lobby) return null;
     if (lobby.hostId !== hostId) return null;
     if (lobby.players.size < 2) return null;
+    if (!this.allReady(lobby)) return null;
 
     lobby.seed = Date.now();
     lobby.status = 'ingame';
@@ -179,6 +204,10 @@ export class LobbyManager {
 
     lobby.status = 'waiting';
     lobby.seed = null;
+    // Reset all players' ready state
+    for (const player of lobby.players.values()) {
+      player.ready = false;
+    }
     return lobby;
   }
 

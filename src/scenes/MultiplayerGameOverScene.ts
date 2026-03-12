@@ -321,15 +321,15 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     // Host: Rematch with countdown; Non-host: waiting text
     if (isHost) {
       const rematchBg = this.add.rectangle(width / 2, topBtnY, btnW, btnH, 0x880000, 0.4);
-      const countdownText = this.add.text(width / 2, topBtnY, 'Rewanzyk (10)', {
+      const countdownText = this.add.text(width / 2, topBtnY, 'Rewanzyk (5)', {
         ...btnStyle,
         color: '#888888',
       }).setOrigin(0.5);
 
-      let countdown = 10;
+      let countdown = 5;
       this.time.addEvent({
         delay: 1000,
-        repeat: 9,
+        repeat: 4,
         callback: () => {
           countdown--;
           if (countdown > 0) {
