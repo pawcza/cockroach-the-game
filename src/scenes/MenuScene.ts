@@ -128,27 +128,7 @@ export class MenuScene extends Phaser.Scene {
     const isMobile = !this.sys.game.device.os.desktop;
 
     // --- CONTROLS DISPLAY ---
-    const controlsLines = isMobile
-      ? [
-          'Lewy ekran — Zmień tor',
-          'Prawy ekran — Prędkozapierdalacz',
-          'Pauzka — Przycisk \u23f8',
-        ]
-      : [
-          'Spacja / G\u00f3ra / D\u00f3\u0142 - Zmiana toru karalucha',
-          'Shift / Prawo - Pr\u0119dkozapierdalacz karaluszany',
-          'ESC \u2014 Pauzka!',
-        ];
-    const controlsText = controlsLines.join('\n');
-    this.add.text(width / 2, height - 55, controlsText, {
-      fontSize: '7px',
-      color: '#ffffff',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 2,
-      align: 'center',
-      lineSpacing: 4,
-    }).setOrigin(0.5);
+    this.setupControlsDisplay(width, height, isMobile);
 
     this.add
       .text(width - 10, height - 10, 'v0.4.2 THE KARALUCH PROJECT', {
@@ -224,6 +204,91 @@ export class MenuScene extends Phaser.Scene {
 
   update(): void {
     this.menuBg.tilePositionX += 0.05;
+  }
+
+  private setupControlsDisplay(width: number, height: number, isMobile: boolean): void {
+    const baseY = height - 65;
+
+    // Title with floating bob
+    const title = this.add.text(width / 2, baseY - 18, 'Sterowanie', {
+      fontSize: '9px',
+      color: '#00ccff',
+      fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(11);
+
+    this.tweens.add({
+      targets: title,
+      y: title.y - 3,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Key bindings: [keys[], description]
+    const bindings: [string[], string][] = isMobile
+      ? [
+          [['Lewy ekran'], 'Zmie\u0144 tor'],
+          [['Prawy ekran'], 'Dash'],
+          [['\u23f8'], 'Pauzka'],
+        ]
+      : [
+          [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
+          [['SHIFT', '\u2192'], 'Dash'],
+          [['ESC'], 'Pauzka'],
+        ];
+
+    const totalW = isMobile ? 420 : 520;
+    const segW = totalW / bindings.length;
+    const startX = width / 2 - totalW / 2 + segW / 2;
+
+    const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '7px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#111111',
+      backgroundColor: '#e8e8e8',
+      padding: { x: 4, y: 3 },
+    };
+
+    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '6px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#aaaaaa',
+      stroke: '#000000',
+      strokeThickness: 1,
+    };
+
+    bindings.forEach(([keys, desc], i) => {
+      const cx = startX + i * segW;
+
+      // Render key caps side by side
+      const keyTexts: Phaser.GameObjects.Text[] = [];
+      keys.forEach((k) => {
+        keyTexts.push(this.add.text(0, 0, k, keyStyle).setDepth(11));
+      });
+
+      // Measure total width of key caps with gaps
+      const keyGap = 4;
+      let keysW = 0;
+      keyTexts.forEach((kt, ki) => {
+        keysW += kt.width;
+        if (ki < keyTexts.length - 1) keysW += keyGap;
+      });
+
+      // Position key caps centered on cx
+      let kx = cx - keysW / 2;
+      keyTexts.forEach((kt, ki) => {
+        kt.setPosition(kx, baseY - 2);
+        kt.setOrigin(0, 0.5);
+        kx += kt.width + keyGap;
+      });
+
+      // Description below
+      this.add.text(cx, baseY + 12, desc, descStyle)
+        .setOrigin(0.5, 0).setDepth(11);
+    });
   }
 
   private setupTutorialZones(width: number, height: number): void {
