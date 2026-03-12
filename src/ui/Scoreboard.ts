@@ -66,9 +66,9 @@ export async function showScoreboard(
   scoreboardContainer.add(overlay);
 
   const title = scene.add.text(width / 2, 30, 'TABLICA WYNIKÓW', {
-    fontSize: '20px',
+    fontSize: '11px',
     color: '#ffff00',
-    fontFamily: 'monospace',
+    fontFamily: '"Press Start 2P", monospace',
     stroke: '#000000',
     strokeThickness: 3,
   }).setOrigin(0.5);
@@ -76,9 +76,9 @@ export async function showScoreboard(
 
   if (scores.length === 0) {
     const emptyText = scene.add.text(width / 2, height / 2, 'Jeszcze pusto... Bądź pierwszy!', {
-      fontSize: '16px',
+      fontSize: '10px',
       color: '#888888',
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
     }).setOrigin(0.5);
     scoreboardContainer.add(emptyText);
     return;
@@ -96,9 +96,9 @@ export async function showScoreboard(
 
     const line = `${String(rank).padStart(3, ' ')}. ${entry.name.padEnd(20, ' ')} ${String(entry.score).padStart(6, ' ')}`;
     const lineText = scene.add.text(width / 2, startY + i * lineHeight, line, {
-      fontSize: '12px',
+      fontSize: '8px',
       color,
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
     }).setOrigin(0.5, 0);
     scoreboardContainer.add(lineText);
   }
@@ -107,9 +107,9 @@ export async function showScoreboard(
     const rank = await fetchPlayerRank(highlightName);
     if (rank && rank > maxVisible) {
       const rankText = scene.add.text(width / 2, height - 35, `Twoja pozycja: #${rank}`, {
-        fontSize: '14px',
+        fontSize: '9px',
         color: '#00ff00',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       }).setOrigin(0.5);
       scoreboardContainer.add(rankText);
     }

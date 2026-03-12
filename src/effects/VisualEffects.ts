@@ -298,8 +298,8 @@ export class VisualEffects {
     }
 
     const text = this.scene.add.text(w / 2, h / 2, label, {
-      fontSize: '48px',
-      fontFamily: 'Georgia, serif',
+      fontSize: '24px',
+      fontFamily: '"Press Start 2P", monospace',
       color: '#ff00ff',
       stroke: '#000000',
       strokeThickness: 6,

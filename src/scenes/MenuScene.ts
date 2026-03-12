@@ -74,9 +74,9 @@ export class MenuScene extends Phaser.Scene {
 
     // --- TITLE: "KARALUCH" with floating bob ---
     const title = this.add.text(width / 2, height / 3, 'KARALUCH', {
-      fontSize: '64px',
+      fontSize: '32px',
       color: '#8b0000',
-      fontFamily: 'Georgia, serif',
+      fontFamily: '"Press Start 2P", monospace',
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 6,
@@ -93,9 +93,9 @@ export class MenuScene extends Phaser.Scene {
 
     // --- SUBTITLE with rotation oscillation ---
     const subtitle = this.add.text(width / 2, height / 3 + 60, 'GRA PRZEGRAŃCÓW', {
-      fontSize: '32px',
+      fontSize: '16px',
       color: '#ff6600',
-      fontFamily: 'Georgia, serif',
+      fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
       strokeThickness: 4,
     }).setOrigin(0.5);
@@ -112,9 +112,9 @@ export class MenuScene extends Phaser.Scene {
 
     // --- GAME DESCRIPTION ---
     this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabłuszka i piwka, uciekaj przed zagładą!', {
-      fontSize: '13px',
+      fontSize: '8px',
       color: '#cc8844',
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
       fontStyle: 'italic',
     }).setOrigin(0.5).setDepth(10);
 
@@ -122,18 +122,18 @@ export class MenuScene extends Phaser.Scene {
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
     this.add.text(width / 2, height / 2 + 35, `Najlepszy Wyńczyk: ${highScore}  |  Gierki: ${gamesPlayed}`, {
-      fontSize: '14px',
+      fontSize: '9px',
       color: '#999999',
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
     }).setOrigin(0.5).setDepth(10);
 
     // --- Pulsing start text ---
     const isMobile = !this.sys.game.device.os.desktop;
     const startLabel = isMobile ? 'Dotknij ekran żeby Zacząść' : 'Walnij SPACJĘ żeby Zacząść';
     const startText = this.add.text(width / 2, height - 110, startLabel, {
-      fontSize: '24px',
+      fontSize: '14px',
       color: '#ffffff',
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -171,18 +171,18 @@ export class MenuScene extends Phaser.Scene {
         ];
     const controlsText = controlsLines.join('\n');
     this.add.text(width / 2, height - 45, controlsText, {
-      fontSize: '12px',
+      fontSize: '8px',
       color: '#aaaaaa',
-      fontFamily: 'monospace',
+      fontFamily: '"Press Start 2P", monospace',
       align: 'center',
       lineSpacing: 4,
     }).setOrigin(0.5);
 
     this.add
       .text(width - 10, height - 10, 'v0.3.0 KARALUCH', {
-        fontSize: '10px',
+        fontSize: '7px',
         color: '#444444',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       })
       .setOrigin(1, 1)
       .setDepth(10);
@@ -190,9 +190,9 @@ export class MenuScene extends Phaser.Scene {
     // --- SCOREBOARD BUTTON ---
     const scoreboardBtn = this.add
       .text(width / 2, height / 2 + 65, '[ T — Tablica Wyników ]', {
-        fontSize: '14px',
+        fontSize: '9px',
         color: '#888888',
-        fontFamily: 'monospace',
+        fontFamily: '"Press Start 2P", monospace',
       })
       .setOrigin(0.5)
       .setDepth(10)
