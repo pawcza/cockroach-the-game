@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config/constants';
-import { POINTS_PER_LEVEL } from '../config/levels';
 
 type Floor = 'top' | 'bottom';
 type SpawnFn = (x: number) => void;
@@ -164,8 +163,8 @@ export class ObstacleSpawner {
 
   // ── Public API ─────────────────────────────────────────────────────
 
-  spawn(x: number, score: number = 0): void {
-    const lvl = Math.floor(score / POINTS_PER_LEVEL) + 1;
+  spawn(x: number, level: number = 1): void {
+    const lvl = level;
     const available = this.registry.filter((e) => e.minLevel <= lvl);
     const pick = Phaser.Math.Between(0, available.length - 1);
     available[pick].fn.call(this, x);
