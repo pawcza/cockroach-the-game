@@ -798,6 +798,8 @@ export class GameScene extends Phaser.Scene {
     mpClient.on('game:over', (data: any) => {
       if (this._mpGameOverTriggered) return;
       this._mpGameOverTriggered = true;
+      this.audio.destroy();
+      this.sound.stopAll();
       this.ghostManager?.destroy();
       this.ghostManager = null;
       this.scene.start('MultiplayerGameOverScene', {
@@ -1313,7 +1315,9 @@ export class GameScene extends Phaser.Scene {
       },
     });
 
-    this.audio.switchBGM(config.bgmKey);
+    if (!this.isDead) {
+      this.audio.switchBGM(config.bgmKey);
+    }
     this.hud.showLevelAnnouncement(config);
   }
 
