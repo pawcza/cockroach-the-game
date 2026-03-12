@@ -154,7 +154,7 @@
       setInterval(function() { f = 1 - f; img.src = frames[f]; }, 200);
 
       var overlay = document.getElementById('portrait-overlay');
-      overlay.addEventListener('pointerdown', function() {
+      overlay.addEventListener('click', function() {
         overlay.classList.add('dismissed');
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(function() {});
