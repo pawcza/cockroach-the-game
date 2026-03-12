@@ -3,6 +3,7 @@ import { toggleScoreboard } from '../ui/Scoreboard';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
+  private menuBg!: Phaser.GameObjects.TileSprite;
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -11,8 +12,8 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Menu background with dark overlay
-    this.add.image(width / 2, height / 2, 'menu-bg').setDisplaySize(width, height);
+    // Menu background with dark overlay (scrolling)
+    this.menuBg = this.add.tileSprite(0, 0, width, height, 'menu-bg').setOrigin(0, 0);
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
 
     // --- TRIPPY COLOR-CYCLING OVERLAY ---
@@ -233,6 +234,10 @@ export class MenuScene extends Phaser.Scene {
 
     this.input.keyboard!.once('keydown-SPACE', startGame);
     this.input.once('pointerdown', startGame);
+  }
+
+  update(): void {
+    this.menuBg.tilePositionX += 0.3;
   }
 
   private spawnFloatingParticle(
