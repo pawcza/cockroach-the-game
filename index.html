@@ -22,7 +22,7 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    /* Portrait orientation overlay - mobile only */
+    /* Portrait orientation overlay - mobile only, dismissed by tap */
     #portrait-overlay {
       display: none;
       position: fixed;
@@ -34,10 +34,12 @@
       justify-content: center;
       gap: 24px;
       font-family: 'Press Start 2P', monospace;
+      cursor: pointer;
     }
 
-    @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-      #portrait-overlay { display: flex; }
+    /* Show on mobile until dismissed by JS */
+    @media (hover: none) and (pointer: coarse) {
+      #portrait-overlay:not(.dismissed) { display: flex; }
     }
 
     #portrait-overlay .cockroach-anim {
@@ -61,6 +63,26 @@
       text-align: center;
       line-height: 1.8;
       padding: 0 30px;
+    }
+
+    #portrait-overlay .tap-message {
+      display: none;
+      color: #ffff00;
+      font-size: 14px;
+      text-align: center;
+      animation: tap-pulse 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes tap-pulse {
+      from { opacity: 0.5; transform: scale(1); }
+      to { opacity: 1; transform: scale(1.05); }
+    }
+
+    /* In landscape: hide rotate hint, show tap prompt */
+    @media (orientation: landscape) and (hover: none) and (pointer: coarse) {
+      #portrait-overlay .message { display: none; }
+      #portrait-overlay .phone-hint { display: none; }
+      #portrait-overlay .tap-message { display: block; }
     }
 
     #portrait-overlay .phone-hint {
@@ -122,6 +144,7 @@
       <div class="phone-rect"></div>
       <div class="phone-arrow">↷</div>
     </div>
+    <div class="tap-message">Dotknij aby grać</div>
   </div>
   <script>
     (function() {
@@ -129,6 +152,14 @@
       var frames = ['/assets/cockroach-idle.png', '/assets/cockroach-running.png'];
       var f = 0;
       setInterval(function() { f = 1 - f; img.src = frames[f]; }, 200);
+
+      var overlay = document.getElementById('portrait-overlay');
+      overlay.addEventListener('pointerdown', function() {
+        overlay.classList.add('dismissed');
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(function() {});
+        }
+      });
     })();
   </script>
   <script type="module" src="/src/main.ts"></script>
