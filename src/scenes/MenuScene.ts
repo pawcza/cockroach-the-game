@@ -111,21 +111,13 @@ export class MenuScene extends Phaser.Scene {
     });
     subtitle.setAngle(-3);
 
-    // --- GAME DESCRIPTION ---
-    this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabłuszka, piwka i piguły,\nunikaj zagłagy robaczanej.', {
-      fontSize: '10px',
-      color: '#cc8844',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-      lineSpacing: 4,
-    }).setOrigin(0.5).setDepth(10);
+    // --- TUTORIAL ZONES: Pyszniutkie (pickups) & Fujka (obstacles) ---
+    this.setupTutorialZones(width, height);
 
     // High score from localStorage
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-    this.add.text(width / 2, height / 2 + 45, `Najlepsiejszy wynik: ${highScore} | Giereczki: ${gamesPlayed}`, {
+    this.add.text(width / 2, height / 2 + 55, `Najlepsiejszy wynik: ${highScore} | Giereczki: ${gamesPlayed}`, {
       fontSize: '8px',
       color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
@@ -232,6 +224,92 @@ export class MenuScene extends Phaser.Scene {
 
   update(): void {
     this.menuBg.tilePositionX += 0.05;
+  }
+
+  private setupTutorialZones(width: number, height: number): void {
+    const zoneY = height / 2 - 5;
+    const zoneW = width * 0.38;
+    const zoneH = 70;
+    const gap = 16;
+
+    // --- PYSZNIUTKIE (green, left) ---
+    const leftX = width / 2 - gap / 2 - zoneW / 2;
+    this.add.rectangle(leftX, zoneY, zoneW, zoneH, 0x005500, 0.3)
+      .setDepth(10);
+
+    const pyszTitle = this.add.text(leftX, zoneY - 22, 'Pyszniutkie', {
+      fontSize: '10px',
+      color: '#00ff44',
+      fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(11);
+
+    this.tweens.add({
+      targets: pyszTitle,
+      y: pyszTitle.y - 4,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Pickup icons
+    const pickups = ['apple', 'tyskie', 'pill'];
+    const pickupSpacing = zoneW / (pickups.length + 1);
+    const iconY = zoneY + 8;
+    pickups.forEach((key, i) => {
+      const ix = leftX - zoneW / 2 + pickupSpacing * (i + 1);
+      const icon = this.add.image(ix, iconY, key).setScale(0.12).setDepth(11);
+      this.tweens.add({
+        targets: icon,
+        y: iconY - 3,
+        angle: { from: -5, to: 5 },
+        duration: 800 + i * 200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
+
+    // --- FUJKA (red, right) ---
+    const rightX = width / 2 + gap / 2 + zoneW / 2;
+    this.add.rectangle(rightX, zoneY, zoneW, zoneH, 0x550000, 0.3)
+      .setDepth(10);
+
+    const fujTitle = this.add.text(rightX, zoneY - 22, 'Fujka', {
+      fontSize: '10px',
+      color: '#ff3333',
+      fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(11);
+
+    this.tweens.add({
+      targets: fujTitle,
+      y: fujTitle.y - 4,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Obstacle icons (show a subset)
+    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper', 'bird'];
+    const obstSpacing = zoneW / (obstacles.length + 1);
+    obstacles.forEach((key, i) => {
+      const ix = rightX - zoneW / 2 + obstSpacing * (i + 1);
+      const icon = this.add.image(ix, iconY, key).setScale(0.1).setDepth(11);
+      this.tweens.add({
+        targets: icon,
+        y: iconY - 3,
+        angle: { from: -5, to: 5 },
+        duration: 800 + i * 150,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
   }
 
   private spawnFloatingParticle(
