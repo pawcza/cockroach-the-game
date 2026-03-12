@@ -229,8 +229,16 @@ export class LobbyScene extends Phaser.Scene {
         swatch.setInteractive({ useHandCursor: true });
         swatch.setStrokeStyle(2, 0xffffff);
         swatch.on('pointerdown', () => {
-          const nextIndex = (player.color + 1) % MP_PLAYER_COLORS.length;
-          mpClient.changeColor(nextIndex).then((updatedLobby) => {
+          const usedColors = new Set(
+            this.lobbyData.players.filter(p => p.id !== player.id).map(p => p.color),
+          );
+          let next = (player.color + 1) % MP_PLAYER_COLORS.length;
+          const start = next;
+          while (usedColors.has(next)) {
+            next = (next + 1) % MP_PLAYER_COLORS.length;
+            if (next === start) return; // all taken
+          }
+          mpClient.changeColor(next).then((updatedLobby) => {
             this.lobbyData = updatedLobby;
             this.renderPlayerList();
             this.updateStartButton();
