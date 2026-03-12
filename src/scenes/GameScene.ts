@@ -933,7 +933,9 @@ export class GameScene extends Phaser.Scene {
   private generateRoundedFloorTextures(): void {
     for (let i = 1; i <= 10; i++) {
       const key = `floor-rounded-lv${i}`;
-      if (this.textures.exists(key)) continue;
+      if (this.textures.exists(key)) {
+        this.textures.remove(key);
+      }
 
       const sourceKey = `lv${i}-floor`;
       const sourceImage = this.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
