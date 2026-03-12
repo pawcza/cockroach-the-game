@@ -18,7 +18,7 @@ const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
-import { LEVELS, getLevelForScore, LevelConfig, POINTS_PER_LEVEL } from '../config/levels';
+import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
 import { GameHUD, HUDUpdateData } from '../ui/GameHUD';
 import { TouchControls } from '../ui/TouchControls';
 import { Player, Floor } from '../objects/Player';
@@ -514,8 +514,9 @@ export class GameScene extends Phaser.Scene {
       this.hud.showSurvivalMilestone(milestones[survivalSeconds]);
     }
 
-    // Level progression check
-    const newLevelConfig = getLevelForScore(this.score);
+    // Level progression check (distance-based)
+    const distance = this.getDistance();
+    const newLevelConfig = getLevelForDistance(distance);
     if (newLevelConfig.level !== this.currentLevel) {
       this.currentLevel = newLevelConfig.level;
       this.switchLevel(newLevelConfig);
@@ -524,8 +525,8 @@ export class GameScene extends Phaser.Scene {
     // Update HUD
     const hudData: HUDUpdateData = {
       score: this.score,
+      distance,
       speedMultiplier: this.player.speedMultiplier,
-      cockroachX: this.player.x,
       currentFloor: this.player.currentFloor,
       pickupCombo: this.pickupCombo,
       comboMultiplier: this.getComboMultiplier(),
@@ -715,7 +716,7 @@ export class GameScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
         });
       } else {
-        this.obstacleSpawner.spawn(slotX, this.score);
+        this.obstacleSpawner.spawn(slotX, this.currentLevel);
       }
     }
   }
@@ -900,7 +901,7 @@ export class GameScene extends Phaser.Scene {
         timeSurvived: Math.floor(this.activePlayTime / 1000),
         applesCollected: Math.floor((this.score - Math.floor(this.activePlayTime / 1000)) / 10),
         topSpeed: this.player.speedMultiplier,
-        distance: Math.floor((this.player.x - COCKROACH_START_X) / 50),
+        distance: this.getDistance(),
         obstacleType: obstacleType || null,
         level: this.currentLevel,
       });
@@ -921,6 +922,10 @@ export class GameScene extends Phaser.Scene {
   /** Combo multiplier: 10 combo = 1.5x, 20 combo = 2.0x, etc. */
   private getComboMultiplier(): number {
     return 1 + this.pickupCombo * 0.025;
+  }
+
+  private getDistance(): number {
+    return Math.floor((this.player.x - COCKROACH_START_X) / 50);
   }
 
   private spawnBirdOverlook(): void {

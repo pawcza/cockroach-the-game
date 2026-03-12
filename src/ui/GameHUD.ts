@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { COCKROACH_START_X, DASH_DURATION, DASH_COOLDOWN } from '../config/constants';
-import { getLevelForScore, LevelConfig, LEVELS, POINTS_PER_LEVEL } from '../config/levels';
+import { DASH_DURATION, DASH_COOLDOWN } from '../config/constants';
+import { getLevelForDistance, getLevelProgress, LevelConfig, LEVELS } from '../config/levels';
 
 export interface HUDUpdateData {
   score: number;
+  distance: number;
   speedMultiplier: number;
-  cockroachX: number;
   currentFloor: 'top' | 'bottom';
   pickupCombo: number;
   comboMultiplier: number;
@@ -194,10 +194,9 @@ export class GameHUD {
       this.floorIndicator.setColor('#ffcc88');
     }
 
-    // Level bar + speed UI
-    const levelConfig = getLevelForScore(data.score);
-    const scoreInLevel = data.score - (levelConfig.level - 1) * POINTS_PER_LEVEL;
-    const levelProgress = levelConfig.level >= LEVELS.length ? 1 : Math.min(scoreInLevel / POINTS_PER_LEVEL, 1);
+    // Level bar + speed UI (distance-based progression)
+    const levelConfig = getLevelForDistance(data.distance);
+    const levelProgress = getLevelProgress(data.distance);
     this.levelBarFill.width = 150 * levelProgress;
     this.levelNameText.setText(`Lv${levelConfig.level} ${levelConfig.name}`);
 
@@ -217,8 +216,7 @@ export class GameHUD {
     // Dynamic page title
     document.title = `KARALUCH | ${data.score} pkt | ${data.speedMultiplier.toFixed(1)}x`;
 
-    const distance = Math.floor((data.cockroachX - COCKROACH_START_X) / 50);
-    this.distanceText.setText(`Dystansik: ${distance}m`);
+    this.distanceText.setText(`Dystansik: ${Math.floor(data.distance)}m`);
 
     // Combo display
     if (data.pickupCombo > 1) {
