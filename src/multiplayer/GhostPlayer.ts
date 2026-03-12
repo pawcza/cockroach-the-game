@@ -118,15 +118,12 @@ export class GhostPlayer {
   update(delta: number): void {
     if (!this._alive) return;
 
-    // Dead reckoning: extrapolate forward using velocity, then blend with interpolation
+    // Dead reckoning: extrapolate forward at last known velocity
     this.timeSinceUpdate += delta;
     const extrapolatedX = this.targetX + this.velocity * this.timeSinceUpdate;
-    // Blend: mostly extrapolation when fresh, more interpolation as time passes
-    const blend = Math.min(this.timeSinceUpdate / 500, 1); // 0→1 over 500ms
-    const goalX = Phaser.Math.Linear(extrapolatedX, this.targetX, blend * 0.5);
-    // Frame-rate independent smoothing (exponential decay)
-    const factor = 1 - Math.pow(1 - 0.15, delta / 16.667);
-    this.sprite.x += (goalX - this.sprite.x) * factor;
+    // Snap quickly to extrapolated position (0.3 base factor at 60fps)
+    const factor = 1 - Math.pow(1 - 0.3, delta / 16.667);
+    this.sprite.x += (extrapolatedX - this.sprite.x) * factor;
 
     // Run animation
     this.animTimer += delta;

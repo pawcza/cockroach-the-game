@@ -478,7 +478,7 @@ export class GameScene extends Phaser.Scene {
         if (target && target.alive) {
           // Frame-rate independent smooth camera follow toward spectated player
           const targetScrollX = target.sprite.x - 200;
-          const camFactor = 1 - Math.pow(1 - 0.08, this.game.loop.delta / 16.667);
+          const camFactor = 1 - Math.pow(1 - 0.25, this.game.loop.delta / 16.667);
           this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * camFactor;
         }
 
@@ -1146,6 +1146,7 @@ export class GameScene extends Phaser.Scene {
 
       // Start spectating if there are alive ghosts
       if (this.ghostManager && !this.ghostManager.allDead()) {
+        this.cameras.main.stopFollow();
         this.ghostManager.startSpectating();
       } else {
         this.triggerMultiplayerGameOver();
