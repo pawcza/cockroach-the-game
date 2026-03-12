@@ -158,7 +158,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // --- VISIBILITY CHANGE — unready when tab loses focus ---
     this.visibilityHandler = () => {
-      if (document.hidden) {
+      if (document.hidden && !this.isHost()) {
         const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
         if (me?.ready) {
           mpClient.setReady(false).then((updatedLobby) => {
@@ -218,7 +218,7 @@ export class LobbyScene extends Phaser.Scene {
   private isStartEnabled(): boolean {
     return this.isHost()
       && this.lobbyData.players.length >= 2
-      && this.lobbyData.players.every(p => p.ready);
+      && this.lobbyData.players.every(p => p.isHost || p.ready);
   }
 
   private updateStartButton(): void {
@@ -242,6 +242,13 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private updateReadyButton(): void {
+    if (this.isHost()) {
+      this.readyBtnBg.setVisible(false);
+      this.readyBtnTxt.setVisible(false);
+      return;
+    }
+    this.readyBtnBg.setVisible(true);
+    this.readyBtnTxt.setVisible(true);
     const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
     const isReady = me?.ready ?? false;
     if (isReady) {
@@ -307,14 +314,17 @@ export class LobbyScene extends Phaser.Scene {
         strokeThickness: 2,
       }).setOrigin(0, 0.5);
 
-      // Ready indicator on the right
-      const readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', {
-        fontSize: player.ready ? '14px' : '10px',
-        color: player.ready ? '#00ff00' : '#666666',
-        fontFamily: FONT_FAMILY,
-        stroke: '#000000',
-        strokeThickness: 2,
-      }).setOrigin(0.5, 0.5);
+      // Ready indicator on the right (skip for host)
+      let readyText: Phaser.GameObjects.Text | null = null;
+      if (!player.isHost) {
+        readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', {
+          fontSize: player.ready ? '14px' : '10px',
+          color: player.ready ? '#00ff00' : '#666666',
+          fontFamily: FONT_FAMILY,
+          stroke: '#000000',
+          strokeThickness: 2,
+        }).setOrigin(0.5, 0.5);
+      }
 
       // Row background highlight for self
       if (isMe) {
@@ -322,7 +332,9 @@ export class LobbyScene extends Phaser.Scene {
         this.playerListContainer.add(rowBg);
       }
 
-      this.playerListContainer.add([swatch, nameText, readyText]);
+      const items: Phaser.GameObjects.GameObject[] = [swatch, nameText];
+      if (readyText) items.push(readyText);
+      this.playerListContainer.add(items);
     }
   }
 

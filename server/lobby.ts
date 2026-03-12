@@ -166,6 +166,7 @@ export class LobbyManager {
 
   allReady(lobby: Lobby): boolean {
     for (const player of lobby.players.values()) {
+      if (player.isHost) continue; // host doesn't need to ready up
       if (!player.ready) return false;
     }
     return true;
