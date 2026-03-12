@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { COCKROACH_BASE_SPEED } from '../config/constants';
 
 // Client-side player colors — must match server/lobby.ts PLAYER_COLORS exactly
 export const MP_PLAYER_COLORS = [
@@ -35,7 +36,7 @@ export class GhostPlayer {
 
   // Dead reckoning
   private lastX: number;
-  private velocity = 0; // pixels per ms
+  private velocity = COCKROACH_BASE_SPEED / 1000; // px/ms — start at base speed so ghost moves immediately
   private lastUpdateTime = 0;
   private timeSinceUpdate = 0;
 
