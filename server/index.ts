@@ -1,7 +1,10 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
+import { Server } from 'socket.io';
 import { getTopScores, getPlayerBest, insertScore } from './db';
+import { setupMultiplayer } from './multiplayer';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -61,6 +64,12 @@ app.use((_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' },
+});
+setupMultiplayer(io);
+
+server.listen(PORT, () => {
   console.log(`Cockroach server running on port ${PORT}`);
 });
