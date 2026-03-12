@@ -886,13 +886,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleSpawning(): void {
-    const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, this.player.speedMultiplier * 0.3);
+    // In multiplayer, use fixed slot width so all clients produce identical spawn sequences
+    // (speed-based spacing would desync the seeded RNG between players)
+    const slotWidth = this.isMultiplayer
+      ? MIN_OBSTACLE_SPACING
+      : MIN_OBSTACLE_SPACING * Math.max(1, this.player.speedMultiplier * 0.3);
     const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 
     while (this.nextSpawnX <= spawnHorizon) {
       const slotX = this.nextSpawnX;
       this.nextSpawnX += slotWidth;
+
+      // In multiplayer, derive level from slot position so all clients agree
+      const spawnLevel = this.isMultiplayer
+        ? getLevelForDistance(Math.floor((slotX - COCKROACH_START_X) / 50)).level
+        : this.currentLevel;
 
       const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {
@@ -988,7 +997,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: aGlow, alpha: 0.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         apple.on('destroy', () => { this.tweens.killTweensOf(apple); this.tweens.killTweensOf(aGlow); aGlow.destroy(); });
       } else {
-        this.obstacleSpawner.spawn(slotX, this.currentLevel);
+        this.obstacleSpawner.spawn(slotX, spawnLevel);
       }
     }
   }
