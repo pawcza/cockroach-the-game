@@ -17,6 +17,7 @@ import {
   MIN_OBSTACLE_SPACING,
   APPLE_SPAWN_CHANCE,
   PILL_SPAWN_CHANCE,
+  SPEED_BOOST_PER_LEVEL,
 } from '../config/constants';
 
 const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
@@ -886,22 +887,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleSpawning(): void {
-    // In multiplayer, use fixed slot width so all clients produce identical spawn sequences
-    // (speed-based spacing would desync the seeded RNG between players)
-    const slotWidth = this.isMultiplayer
-      ? MIN_OBSTACLE_SPACING
-      : MIN_OBSTACLE_SPACING * Math.max(1, this.player.speedMultiplier * 0.3);
     const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 
     while (this.nextSpawnX <= spawnHorizon) {
       const slotX = this.nextSpawnX;
-      this.nextSpawnX += slotWidth;
 
-      // In multiplayer, derive level from slot position so all clients agree
-      const spawnLevel = this.isMultiplayer
-        ? getLevelForDistance(Math.floor((slotX - COCKROACH_START_X) / 50)).level
-        : this.currentLevel;
+      // Derive level and speed from slot position — deterministic across all clients
+      const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
+      const spawnLevel = getLevelForDistance(slotDistance).level;
+      const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
+      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.3);
+      this.nextSpawnX += slotWidth;
 
       const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {
