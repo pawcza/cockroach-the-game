@@ -92,7 +92,7 @@ export class Player {
   create(): void {
     this.cockroach = this.scene.physics.add.sprite(
       COCKROACH_START_X,
-      this.floorBottomY - 24,
+      0, // positioned correctly below after offset is calculated
       'cockroach-idle',
     );
     this.cockroach.setCollideWorldBounds(false);
@@ -101,6 +101,7 @@ export class Player {
     this.cockroach.setDepth(10);
     this.cockroach.body!.setSize(400, 200);
     this.cockroachOffset = this.cockroach.displayHeight / 2;
+    this.cockroach.y = this.floorBottomY - this.cockroachOffset;
 
     // Pill psychedelic overlay (hidden by default)
     const w = this.scene.cameras.main.width;
@@ -329,7 +330,7 @@ export class Player {
 
     const dashText = this.scene.add.text(
       this.cockroach.x, this.cockroach.y - 50,
-      'DASHER\u00d3WKA!', {
+      'Prędkozapierdalacz', {
         fontSize: '9px',
         fontFamily: '"Press Start 2P", monospace',
         color: '#00ffff',

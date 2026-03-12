@@ -93,7 +93,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- SUBTITLE with rotation oscillation ---
-    const subtitle = this.add.text(width / 2, height / 4 + 45, 'Gra Przegrancow', {
+    const subtitle = this.add.text(width / 2, height / 4 + 45, 'Gra przegrańców', {
       fontSize: '14px',
       color: '#ff6600',
       fontFamily: '"Press Start 2P", monospace',
@@ -112,7 +112,7 @@ export class MenuScene extends Phaser.Scene {
     subtitle.setAngle(-3);
 
     // --- GAME DESCRIPTION ---
-    this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabluszka i piwka,\nuciekaj przed zaglada!', {
+    this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabłuszka, piwka i piguły,\nunikaj zagłagy robaczanej.', {
       fontSize: '10px',
       color: '#cc8844',
       fontFamily: '"Press Start 2P", monospace',
@@ -125,7 +125,7 @@ export class MenuScene extends Phaser.Scene {
     // High score from localStorage
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-    this.add.text(width / 2, height / 2 + 45, `Najlepszy Wynczyk: ${highScore}  |  Gierki: ${gamesPlayed}`, {
+    this.add.text(width / 2, height / 2 + 45, `Najlepsiejszy wynik: ${highScore} | Giereczki: ${gamesPlayed}`, {
       fontSize: '8px',
       color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
@@ -135,7 +135,7 @@ export class MenuScene extends Phaser.Scene {
 
     // --- Pulsing start text ---
     const isMobile = !this.sys.game.device.os.desktop;
-    const startLabel = isMobile ? 'Dotknij ekran zeby Rozpoczac' : 'Walnij SPACJE zeby Rozpoczac';
+    const startLabel = isMobile ? 'Stuknij w ekran w celach naukowych' : 'Walnij klawisz SPACJA, aby rozpocząć wynaturzenie';
     const startText = this.add.text(width / 2, height - 110, startLabel, {
       fontSize: '12px',
       color: '#ffffff',
@@ -146,35 +146,25 @@ export class MenuScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: startText,
-      alpha: 0,
-      duration: 500,
-      ease: 'Power2',
-      yoyo: true,
-      repeat: -1,
-    });
-
-    this.tweens.add({
-      targets: startText,
-      scaleX: 1.05,
-      scaleY: 1.05,
+      scaleX: 1.08,
+      scaleY: 1.08,
       duration: 800,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
-    startText.setScale(0.95);
+    startText.setScale(0.92);
 
     // --- CONTROLS DISPLAY ---
     const controlsLines = isMobile
       ? [
-          'SWAP — Zmien tor',
-          'DASH — Dasherowka!',
+          '(SWAP) <- Zmień tor',
+          '(DASH) <- Prędkozapierdalacz karaluszany',
           'Pauzka — Przycisk ⏸',
         ]
       : [
-          'SPACJA / GORA — Skocz na gore',
-          'CTRL / DOL — Spadaj na dol',
-          'SHIFT / PRAWO — Dasherowka!',
+          'Spacja / Góra / Dół - Zmiana toru karalucha',
+          'Shift / Prawo - Prędkozapierdalacz karaluszany',
           'ESC — Pauzka!',
         ];
     const controlsText = controlsLines.join('\n');
@@ -189,7 +179,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add
-      .text(width - 10, height - 10, 'v0.3.0 KARALUCH', {
+      .text(width - 10, height - 10, 'v0.4.2 THE KARALUCH PROJECT', {
         fontSize: '7px',
         color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
@@ -201,7 +191,7 @@ export class MenuScene extends Phaser.Scene {
 
     // --- SCOREBOARD BUTTON ---
     const scoreboardBtn = this.add
-      .text(width / 2, height / 2 + 75, '[ T — Tablica Wynikow ]', {
+      .text(width / 2, height / 2 + 75, '[ T - Najbardziej bycze karaluchy świata]', {
         fontSize: '8px',
         color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',

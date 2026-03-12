@@ -15,7 +15,7 @@ export class BootScene extends Phaser.Scene {
 
     const progressBar = this.add.graphics();
 
-    const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading...', {
+    const loadingText = this.add.text(width / 2, height / 2 - 50, 'ładowanko...', {
       fontSize: '11px',
       color: '#8b0000',
       fontFamily: '"Press Start 2P", monospace',
@@ -61,6 +61,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('pope', 'assets/pope.png');
     this.load.image('bison', 'assets/bison.png');
     this.load.image('black-hole', 'assets/blackhole.png');
+    this.load.image('cupboard', 'assets/cupboard.png');
 
     // --- Level backgrounds, floors, and BGM ---
     for (let i = 1; i <= 10; i++) {
@@ -95,6 +96,21 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('bison-sfx', 'audio/bison.ogg');
     this.load.audio('blackhole-sfx', 'audio/blackhole.mp3');
     this.load.audio('cricket', 'audio/cricket.mp3');
+
+    // Score milestone sounds
+    this.load.audio('milestone-100', 'audio/100.ogg');
+    this.load.audio('milestone-250', 'audio/250.ogg');
+    this.load.audio('milestone-420', 'audio/420.mp3');
+    this.load.audio('milestone-500', 'audio/500.ogg');
+    this.load.audio('milestone-1000', 'audio/1000.ogg');
+    this.load.audio('milestone-1500', 'audio/1500.ogg');
+    this.load.audio('milestone-2000', 'audio/2000.ogg');
+    this.load.audio('milestone-2137', 'audio/2137.wav');
+    this.load.audio('milestone-3000', 'audio/3000.ogg');
+    this.load.audio('milestone-4000', 'audio/4000.ogg');
+    this.load.audio('milestone-4200', 'audio/4200.mp3');
+    this.load.audio('milestone-5000', 'audio/5000.ogg');
+    this.load.audio('milestone-10000', 'audio/10000.mp3');
   }
 
   create(): void {

@@ -13,7 +13,7 @@ export interface LevelConfig {
 export const LEVELS: LevelConfig[] = [
   { level: 1, name: 'Zwykła Kuchnia', skyKey: 'lv1-sky', bgKey: 'lv1-bg', fgKey: 'lv1-fg', floorKey: 'lv1-floor', bgmKey: 'bgm-lv1', fgAboveFloors: false, distanceThreshold: 0 },
   { level: 2, name: 'Klatka Schodowa', skyKey: 'lv2-sky', bgKey: 'lv2-bg', fgKey: 'lv2-fg', floorKey: 'lv2-floor', bgmKey: 'bgm-lv2', fgAboveFloors: false, distanceThreshold: 100 },
-  { level: 3, name: 'Bazar na Stadionie', skyKey: 'lv3-sky', bgKey: 'lv3-bg', fgKey: 'lv3-fg', floorKey: 'lv3-floor', bgmKey: 'bgm-lv3', fgAboveFloors: false, distanceThreshold: 250 },
+  { level: 3, name: 'Hala Targowa', skyKey: 'lv3-sky', bgKey: 'lv3-bg', fgKey: 'lv3-fg', floorKey: 'lv3-floor', bgmKey: 'bgm-lv3', fgAboveFloors: false, distanceThreshold: 250 },
   { level: 4, name: 'Las Grochodrzew', skyKey: 'lv4-sky', bgKey: 'lv4-bg', fgKey: 'lv4-fg', floorKey: 'lv4-floor', bgmKey: 'bgm-lv4', fgAboveFloors: true, distanceThreshold: 450 },
   { level: 5, name: 'Wigilia u Babci', skyKey: 'lv5-sky', bgKey: 'lv5-bg', fgKey: 'lv5-fg', floorKey: 'lv5-floor', bgmKey: 'bgm-lv5', fgAboveFloors: false, distanceThreshold: 700 },
   { level: 6, name: 'Dyskoteka w Remizie', skyKey: 'lv6-sky', bgKey: 'lv6-bg', fgKey: 'lv6-fg', floorKey: 'lv6-floor', bgmKey: 'bgm-lv6', fgAboveFloors: false, distanceThreshold: 950 },

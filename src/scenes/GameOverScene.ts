@@ -61,7 +61,7 @@ export class GameOverScene extends Phaser.Scene {
     bird: 'SRAK CIĘ OPTAKAŁ',
     cat: 'Rozkotowany',
     flipper: 'Kubota Ci w ryj!',
-    newspaper: 'Naleszało Ci siem',
+    newspaper: 'Złe wybory kolego',
     onion: 'Smrót Cię zmiótł',
     spray: 'MUGA!',
     pill: 'PRZEDAWKOWANIE!',
@@ -210,7 +210,7 @@ export class GameOverScene extends Phaser.Scene {
     // Animated count-up
     const counter = { value: 0 };
     const scoreText = this.add
-      .text(width / 2, height / 2, 'Punktówy: 0', TEXT_STYLES.score)
+      .text(width / 2, height / 2, 'Punkciory: 0', TEXT_STYLES.score)
       .setOrigin(0.5);
 
     this.tweens.add({
@@ -219,14 +219,14 @@ export class GameOverScene extends Phaser.Scene {
       duration: Math.min(2000, finalScore * 50 + 500),
       ease: 'Power2',
       onUpdate: () => {
-        scoreText.setText(`Punktówy: ${Math.floor(counter.value)}`);
+        scoreText.setText(`Punkciory: ${Math.floor(counter.value)}`);
       },
     });
 
     // High score line
     const suffix = isNewRecord ? '  NÓWKA SZTUKA!' : '';
     this.add
-      .text(width / 2, height / 2 + 50, `Najlepszy Wyńczyk: ${highScore}${suffix}`, TEXT_STYLES.highScore(isNewRecord))
+      .text(width / 2, height / 2 + 50, `Najlepsiejszy wynik: ${highScore}${suffix}`, TEXT_STYLES.highScore(isNewRecord))
       .setOrigin(0.5);
   }
 

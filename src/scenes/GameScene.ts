@@ -56,6 +56,8 @@ export class GameScene extends Phaser.Scene {
   private floorTopSprites: Phaser.GameObjects.Image[] = [];
   private floorBottomSprites: Phaser.GameObjects.Image[] = [];
   private currentFloorTextureKey = 'floor-rounded-lv1';
+  private floorHighlightTop!: Phaser.GameObjects.Rectangle;
+  private floorHighlightBottom!: Phaser.GameObjects.Rectangle;
 
   // Groups
   private obstacles!: Phaser.Physics.Arcade.Group;
@@ -116,7 +118,6 @@ export class GameScene extends Phaser.Scene {
 
   // Pickup combo
   private pickupCombo = 0;
-  private lastTimeMilestone = 0;
 
   // Mobile detection
   private isMobile = false;
@@ -134,7 +135,7 @@ export class GameScene extends Phaser.Scene {
     this.activePlayTime = 0;
     this.lastFrameTime = this.time.now;
     this.lastScoreTime = this.time.now;
-    this.lastMilestone = 1;
+    this.lastMilestone = 0;
     this.isCountingDown = true;
     this.dustTimer = 0;
     this.birdOverlookTimer = 0;
@@ -142,7 +143,6 @@ export class GameScene extends Phaser.Scene {
     this.cockroachNoiseTimer = 0;
     this.nextNoiseTime = 20000 + Math.random() * 15000;
     this.pickupCombo = 0;
-    this.lastTimeMilestone = 0;
     this.isPaused = false;
     this.currentLevel = 1;
 
@@ -206,6 +206,20 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0, 0).setDepth(3);
       this.floorBottomSprites.push(bottomTile);
     }
+
+    // Cupboard foreground — cockroach emerges from behind it
+    const cupboardH = h * 1.4;
+    const cupboard = this.add.image(COCKROACH_START_X - 60, h, 'cupboard')
+      .setOrigin(0.5, 1)
+      .setDisplaySize(cupboardH * (512 / 1024), cupboardH)
+      .setDepth(50);
+
+    // Active floor highlight — subtle glow strip behind the current floor
+    const highlightW = w + 200;
+    this.floorHighlightTop = this.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
+      .setOrigin(0, 0.5).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+    this.floorHighlightBottom = this.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
+      .setOrigin(0, 0.5).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
 
     // Audio (created before Player since Player needs it)
     this.audio = new AudioManager(this);
@@ -373,6 +387,7 @@ export class GameScene extends Phaser.Scene {
       this.lastFrameTime = this.time.now;
       this.activePlayTime = 0;
       this.lastScoreTime = this.time.now;
+
     }
   }
 
@@ -488,20 +503,29 @@ export class GameScene extends Phaser.Scene {
       this.lastScoreTime = this.time.now;
     }
 
-    // Survival time milestones
-    const elapsedSeconds = this.activePlayTime / 1000;
-    const survivalSeconds = Math.floor(elapsedSeconds);
-    const milestones: Record<number, string> = {
-      10: 'JESZCZE \u017bYJESZ?!',
-      30: 'PRZETRWA\u0141E\u015a P\u00d3\u0141 MINUTKI!',
-      60: 'MINUTOWY MISTRZ KARALUCHA!',
-      120: 'DWA MINUTY? SZACUNECZEK!',
-      180: 'LEGENDA KUCHENNA!',
-      300: 'NIE\u015aMIERTELNY ROBACZEK!',
-    };
-    if (milestones[survivalSeconds] && survivalSeconds > this.lastTimeMilestone) {
-      this.lastTimeMilestone = survivalSeconds;
-      this.hud.showSurvivalMilestone(milestones[survivalSeconds]);
+    // Score milestones
+    const scoreMilestones: { threshold: number; text: string; tier: number }[] = [
+      { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
+      { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1 },
+      { threshold: 420, text: 'BLAZE IT!', tier: 2 },
+      { threshold: 500, text: 'PI\u0118\u0106 DYCH NA BROWARA!', tier: 2 },
+      { threshold: 1000, text: 'GRAJ ZE MNOM W TYSIĄCA', tier: 3 },
+      { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
+      { threshold: 2000, text: 'DWA KAFLE WYPŁATY', tier: 4 },
+      { threshold: 2137, text: 'KREM\u00d3WKI DLA WSZYSTKICH!', tier: 5 },
+      { threshold: 3000, text: 'TRZY WIELKIE KLOCE', tier: 4 },
+      { threshold: 4000, text: 'BANIA U CYGANA', tier: 4 },
+      { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
+      { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 5 },
+      { threshold: 10000, text: 'KARALUCH JEST BOGIEM!', tier: 5 },
+    ];
+    for (const m of scoreMilestones) {
+      if (this.score >= m.threshold && this.lastMilestone < m.threshold) {
+        this.lastMilestone = m.threshold;
+        this.hud.showScoreMilestone(m.text, m.tier);
+        this.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
+        break;
+      }
     }
 
     // Level progression check (distance-based)
@@ -999,6 +1023,14 @@ export class GameScene extends Phaser.Scene {
       this.floorTopSprites[i].x = tx;
       this.floorBottomSprites[i].x = tx;
     }
+
+    // Active floor highlight — pulse the glow on the current floor
+    this.floorHighlightTop.x = bodyX;
+    this.floorHighlightBottom.x = bodyX;
+    const currentFloor = this.player.currentFloor;
+    const pulse = 0.08 + Math.sin(this.time.now * 0.004) * 0.04;
+    this.floorHighlightTop.setAlpha(currentFloor === 'top' ? pulse : 0);
+    this.floorHighlightBottom.setAlpha(currentFloor === 'bottom' ? pulse : 0);
   }
 
   private spawnBirdOverlook(): void {
