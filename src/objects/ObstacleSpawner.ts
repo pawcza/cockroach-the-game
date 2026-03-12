@@ -244,7 +244,7 @@ export class ObstacleSpawner {
       }));
     }
 
-    // Tears
+    // Tears (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const tearStartY = centerY - onion.displayHeight * 0.2;
     const tearEndY = centerY + onion.displayHeight * 0.4;
     const tearTimer = this.scene.time.addEvent({
@@ -252,11 +252,11 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!onion.active) return;
-        const side = rngBetween(this.rng, 0, 1) === 0 ? -1 : 1;
+        const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
         const tear = this.scene.add.circle(
-          x + side * rngBetween(this.rng, 4, 10),
+          x + side * Phaser.Math.Between(4, 10),
           tearStartY,
-          rngBetween(this.rng, 1, 3),
+          Phaser.Math.Between(1, 3),
           0x4488ff,
           0.7,
         );
@@ -266,7 +266,7 @@ export class ObstacleSpawner {
           y: tearEndY,
           alpha: 0,
           scaleY: 1.8,
-          duration: rngBetween(this.rng, 600, 1000),
+          duration: Phaser.Math.Between(600, 1000),
           ease: 'Quad.easeIn',
           onComplete: () => tear.destroy(),
         });
@@ -295,29 +295,29 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Mist from nozzle
+    // Mist from nozzle (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const nozzleY = centerY - spray.displayHeight * 0.45;
     const sprayMist = (): void => {
       if (!spray.active) return;
       for (let i = 0; i < 4; i++) {
-        const radius = rngBetween(this.rng, 2, 5);
+        const radius = Phaser.Math.Between(2, 5);
         const droplet = this.scene.add.circle(
-          spray.x + rngBetween(this.rng, -3, 3),
-          nozzleY + rngBetween(this.rng, -2, 2),
+          spray.x + Phaser.Math.Between(-3, 3),
+          nozzleY + Phaser.Math.Between(-2, 2),
           radius,
           0x88dd44,
-          rngRandom(this.rng) * (0.35 - 0.15) + 0.15,
+          Math.random() * (0.35 - 0.15) + 0.15,
         );
         droplet.setDepth(10);
-        const driftX = rngBetween(this.rng, -30, 30);
-        const driftY = rngBetween(this.rng, -35, -15);
+        const driftX = Phaser.Math.Between(-30, 30);
+        const driftY = Phaser.Math.Between(-35, -15);
         this.scene.tweens.add({
           targets: droplet,
           x: droplet.x + driftX,
           y: droplet.y + driftY,
           alpha: 0,
-          scale: rngRandom(this.rng) * (2.5 - 1.5) + 1.5,
-          duration: rngBetween(this.rng, 800, 1400),
+          scale: Math.random() * (2.5 - 1.5) + 1.5,
+          duration: Phaser.Math.Between(800, 1400),
           ease: 'Sine.easeOut',
           onComplete: () => droplet.destroy(),
         });
@@ -468,23 +468,23 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Rainbow light ray particles
+    // Rainbow light ray particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const rayColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff];
     const raysTimer = this.scene.time.addEvent({
       delay: 150,
       loop: true,
       callback: () => {
         if (!disco.active) return;
-        const angle = rngRandom(this.rng) * Math.PI * 2;
-        const color = rayColors[rngBetween(this.rng, 0, rayColors.length - 1)];
+        const angle = Math.random() * Math.PI * 2;
+        const color = rayColors[Phaser.Math.Between(0, rayColors.length - 1)];
         const ray = this.scene.add.rectangle(
           disco.x, disco.y,
-          rngBetween(this.rng, 2, 4), rngBetween(this.rng, 8, 20),
+          Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20),
           color, 0.6,
         );
         ray.setDepth(9);
         ray.setRotation(angle);
-        const dist = 40 + rngRandom(this.rng) * 30;
+        const dist = 40 + Math.random() * 30;
         this.scene.tweens.add({
           targets: ray,
           x: disco.x + Math.cos(angle) * dist,
@@ -539,16 +539,16 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Trailing tentacle particles
+    // Trailing tentacle particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const particlesTimer = this.scene.time.addEvent({
       delay: 200,
       loop: true,
       callback: () => {
         if (!jelly.active) return;
         const particle = this.scene.add.circle(
-          jelly.x + rngBetween(this.rng, -10, 10),
+          jelly.x + Phaser.Math.Between(-10, 10),
           jelly.y + jelly.displayHeight * 0.3,
-          rngBetween(this.rng, 1, 3),
+          Phaser.Math.Between(1, 3),
           0x8844ff,
           0.5,
         );
@@ -582,16 +582,16 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     });
 
-    // Smoke trail
+    // Smoke trail (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const smokeTimer = this.scene.time.addEvent({
       delay: 150,
       loop: true,
       callback: () => {
         if (!pope.active) return;
         const smoke = this.scene.add.circle(
-          pope.x + rngBetween(this.rng, -5, 5),
-          pope.y + rngBetween(this.rng, -5, 5),
-          rngBetween(this.rng, 4, 8),
+          pope.x + Phaser.Math.Between(-5, 5),
+          pope.y + Phaser.Math.Between(-5, 5),
+          Phaser.Math.Between(4, 8),
           0x888888,
           0.4,
         );
@@ -639,7 +639,7 @@ export class ObstacleSpawner {
     };
     this.scene.events.on('update', flipUpdate);
 
-    // Dust clouds
+    // Dust clouds (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const dustTimer = this.scene.time.addEvent({
       delay: 100,
       loop: true,
@@ -648,7 +648,7 @@ export class ObstacleSpawner {
         const dust = this.scene.add.circle(
           bison.x + (bison.flipX ? 15 : -15),
           centerY + 10,
-          rngBetween(this.rng, 2, 4),
+          Phaser.Math.Between(2, 4),
           0x997744,
           0.4,
         );
@@ -717,17 +717,17 @@ export class ObstacleSpawner {
     };
     this.scene.events.on('update', gravityUpdate);
 
-    // Particle swirl
+    // Particle swirl (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const particlesTimer = this.scene.time.addEvent({
       delay: 80,
       loop: true,
       callback: () => {
         if (!hole.active) return;
-        const angle = rngRandom(this.rng) * Math.PI * 2;
-        const dist = 30 + rngRandom(this.rng) * 40;
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 30 + Math.random() * 40;
         const px = hole.x + Math.cos(angle) * dist;
         const py = hole.y + Math.sin(angle) * dist;
-        const particle = this.scene.add.circle(px, py, rngBetween(this.rng, 1, 3), 0x6600cc, 0.7);
+        const particle = this.scene.add.circle(px, py, Phaser.Math.Between(1, 3), 0x6600cc, 0.7);
         particle.setDepth(9);
         this.scene.tweens.add({
           targets: particle,
