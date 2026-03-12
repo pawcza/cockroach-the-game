@@ -88,13 +88,6 @@ export class AudioManager {
     this.scene.sound.play('pill-sfx', { volume: 0.8 });
   }
 
-  setBGMRate(rate: number): void {
-    if (!this.bgm) return;
-    if ('setRate' in this.bgm) {
-      (this.bgm as Phaser.Sound.WebAudioSound).setRate(rate);
-    }
-  }
-
   updatePitch(speedMultiplier: number): void {
     if (!this.bgm) return;
     const rate = Phaser.Math.Clamp(1 + (speedMultiplier - 1) * 0.3, 0.5, 3.0);

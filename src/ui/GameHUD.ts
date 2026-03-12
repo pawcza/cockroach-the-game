@@ -1,0 +1,373 @@
+import Phaser from 'phaser';
+import { COCKROACH_START_X, DASH_DURATION, DASH_COOLDOWN } from '../config/constants';
+import { getLevelForScore, LevelConfig, LEVELS, POINTS_PER_LEVEL } from '../config/levels';
+
+export interface HUDUpdateData {
+  score: number;
+  speedMultiplier: number;
+  cockroachX: number;
+  currentFloor: 'top' | 'bottom';
+  pickupCombo: number;
+  comboMultiplier: number;
+  dashReady: boolean;
+  isDashing: boolean;
+  dashStartTime: number;
+  timeNow: number;
+}
+
+export class GameHUD {
+  private scene: Phaser.Scene;
+
+  // Score
+  private scoreText!: Phaser.GameObjects.Text;
+
+  // Level bar
+  private levelBarBg!: Phaser.GameObjects.Rectangle;
+  private levelBarFill!: Phaser.GameObjects.Rectangle;
+  private levelNameText!: Phaser.GameObjects.Text;
+  private speedText!: Phaser.GameObjects.Text;
+
+  // Floor indicator
+  private floorIndicator!: Phaser.GameObjects.Text;
+
+  // Dash cooldown bar
+  private dashBarBg!: Phaser.GameObjects.Rectangle;
+  private dashBarFill!: Phaser.GameObjects.Rectangle;
+
+  // Distance + combo
+  private distanceText!: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
+
+  // Pause
+  private pauseOverlay!: Phaser.GameObjects.Rectangle;
+  private pauseText!: Phaser.GameObjects.Text;
+  private touchPauseBtn!: Phaser.GameObjects.Text;
+  private cricketSound: Phaser.Sound.BaseSound | null = null;
+  private blurOverlay!: Phaser.GameObjects.Rectangle;
+
+  private isMobile: boolean;
+  private onTogglePause: () => void;
+
+  constructor(scene: Phaser.Scene, isMobile: boolean, onTogglePause: () => void) {
+    this.scene = scene;
+    this.isMobile = isMobile;
+    this.onTogglePause = onTogglePause;
+  }
+
+  get pauseButton(): Phaser.GameObjects.Text {
+    return this.touchPauseBtn;
+  }
+
+  create(): void {
+    const w = this.scene.cameras.main.width;
+    const h = this.scene.cameras.main.height;
+
+    // Score UI
+    this.scoreText = this.scene.add
+      .text(16, 16, 'Punkt\u00f3wy: 0', {
+        fontSize: '11px',
+        color: '#ffffff',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    // Level progress bar
+    this.levelBarBg = this.scene.add.rectangle(16, 44, 150, 12, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.levelBarFill = this.scene.add.rectangle(16, 44, 0, 12, 0xff6600, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+    this.levelNameText = this.scene.add
+      .text(16, 58, 'Lv1 Zwyk\u0142a Kuchnia', {
+        fontSize: '7px',
+        color: '#cccccc',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+    this.speedText = this.scene.add
+      .text(170, 44, '1.0x', {
+        fontSize: '8px',
+        color: '#ff6600',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    this.floorIndicator = this.scene.add
+      .text(w - 16, h / 2, '\u25bc', {
+        fontSize: '12px',
+        color: '#ffffff',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(1, 0.5)
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    // Dash cooldown bar
+    this.dashBarBg = this.scene.add.rectangle(16, 78, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.dashBarFill = this.scene.add.rectangle(16, 78, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+
+    this.distanceText = this.scene.add
+      .text(16, 94, 'Dystansik: 0m', {
+        fontSize: '8px',
+        color: '#aaaaaa',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    this.comboText = this.scene.add
+      .text(w - 16, 44, '', {
+        fontSize: '10px',
+        color: '#ffff00',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    // Pause UI — depth above touch controls (3000) so overlay covers buttons
+    this.blurOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x1a0a2e, 0.35)
+      .setScrollFactor(0).setDepth(4000).setVisible(false);
+    this.pauseOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.5)
+      .setScrollFactor(0).setDepth(4001).setVisible(false)
+      .setInteractive();
+    this.pauseOverlay.on('pointerdown', () => {
+      this.onTogglePause();
+    });
+    this.pauseText = this.scene.add.text(w / 2, h / 2, 'PAUZKA!', {
+      fontSize: '24px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
+
+    // Pause button -- top-right (both platforms)
+    this.touchPauseBtn = this.scene.add.text(
+      w - 20, 12, '\u23f8', {
+        fontSize: '14px',
+        fontFamily: '"Press Start 2P", monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      },
+    )
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(5000)
+      .setAlpha(this.isMobile ? 0.7 : 0.3)
+      .setInteractive();
+
+    this.touchPauseBtn.on('pointerdown', () => {
+      this.onTogglePause();
+    });
+  }
+
+  updateScore(score: number): void {
+    this.scoreText.setText(`Punkt\u00f3wy: ${score}`);
+  }
+
+  update(data: HUDUpdateData): void {
+    // Floor indicator
+    if (data.currentFloor === 'top') {
+      this.floorIndicator.setText('\u25b2 G\u00d3RA');
+      this.floorIndicator.setColor('#88ccff');
+    } else {
+      this.floorIndicator.setText('\u25bc D\u00d3\u0141');
+      this.floorIndicator.setColor('#ffcc88');
+    }
+
+    // Level bar + speed UI
+    const levelConfig = getLevelForScore(data.score);
+    const scoreInLevel = data.score - (levelConfig.level - 1) * POINTS_PER_LEVEL;
+    const levelProgress = levelConfig.level >= LEVELS.length ? 1 : Math.min(scoreInLevel / POINTS_PER_LEVEL, 1);
+    this.levelBarFill.width = 150 * levelProgress;
+    this.levelNameText.setText(`Lv${levelConfig.level} ${levelConfig.name}`);
+
+    // Bar color: orange -> red -> magenta based on speed
+    if (data.speedMultiplier >= 5) {
+      this.levelBarFill.setFillStyle(0xff00ff);
+      this.speedText.setColor('#ff00ff');
+    } else if (data.speedMultiplier >= 3) {
+      this.levelBarFill.setFillStyle(0xff3300);
+      this.speedText.setColor('#ff3300');
+    } else {
+      this.levelBarFill.setFillStyle(0xff6600);
+      this.speedText.setColor('#ff6600');
+    }
+    this.speedText.setText(`${data.speedMultiplier.toFixed(1)}x`);
+
+    // Dynamic page title
+    document.title = `KARALUCH | ${data.score} pkt | ${data.speedMultiplier.toFixed(1)}x`;
+
+    const distance = Math.floor((data.cockroachX - COCKROACH_START_X) / 50);
+    this.distanceText.setText(`Dystansik: ${distance}m`);
+
+    // Combo display
+    if (data.pickupCombo > 1) {
+      this.comboText.setText(`KOMB\u00d3\u015a x${data.comboMultiplier.toFixed(1)}`);
+      this.comboText.setVisible(true);
+    } else {
+      this.comboText.setVisible(false);
+    }
+
+    // Score text
+    this.scoreText.setText(`Punkt\u00f3wy: ${data.score}`);
+
+    // Dash cooldown bar
+    if (data.dashReady) {
+      this.dashBarFill.width = 100;
+      this.dashBarFill.setFillStyle(0x00ffff);
+    } else {
+      const totalCooldown = DASH_DURATION + DASH_COOLDOWN;
+      const elapsed = data.timeNow - data.dashStartTime;
+      const progress = Math.min(elapsed / totalCooldown, 1);
+      this.dashBarFill.width = 100 * progress;
+      if (data.isDashing) {
+        this.dashBarFill.setFillStyle(0xffffff);
+      } else {
+        this.dashBarFill.setFillStyle(0xff6600);
+      }
+    }
+  }
+
+  showPauseOverlay(): void {
+    this.blurOverlay.setVisible(true);
+    this.pauseOverlay.setVisible(true);
+    this.pauseText.setVisible(true);
+
+    // Cricket ambient sound
+    if (!this.cricketSound) {
+      this.cricketSound = this.scene.sound.add('cricket', { volume: 0.4, loop: true });
+    }
+    this.cricketSound.play();
+
+    // Blur effect via camera postFX if supported
+    const cam = this.scene.cameras.main;
+    if (cam.postFX) {
+      cam.postFX.addBlur(0, 2, 2, 1);
+    }
+  }
+
+  hidePauseOverlay(): void {
+    this.blurOverlay.setVisible(false);
+    this.pauseOverlay.setVisible(false);
+    this.pauseText.setVisible(false);
+
+    if (this.cricketSound) {
+      this.cricketSound.stop();
+    }
+
+    // Remove blur
+    const cam = this.scene.cameras.main;
+    if (cam.postFX) {
+      cam.postFX.clear();
+    }
+  }
+
+  showLevelAnnouncement(config: LevelConfig): void {
+    const w = this.scene.cameras.main.width;
+
+    const levelLabel = `POZIOM ${config.level}`;
+    const nameLabel = config.name.toUpperCase();
+
+    const levelText = this.scene.add.text(w / 2, 60, levelLabel, {
+      fontSize: '12px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 4,
+    });
+    levelText.setOrigin(0.5);
+    levelText.setScrollFactor(0);
+    levelText.setDepth(1000);
+    levelText.setScale(0.5);
+    levelText.setAlpha(0);
+
+    const nameText = this.scene.add.text(w / 2, 95, nameLabel, {
+      fontSize: '18px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 6,
+      shadow: {
+        offsetX: 2,
+        offsetY: 2,
+        color: '#ff6600',
+        blur: 8,
+        fill: true,
+        stroke: true,
+      },
+    });
+    nameText.setOrigin(0.5);
+    nameText.setScrollFactor(0);
+    nameText.setDepth(1000);
+    nameText.setScale(0.5);
+    nameText.setAlpha(0);
+
+    this.scene.tweens.add({
+      targets: [levelText, nameText],
+      scale: 1,
+      alpha: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: [levelText, nameText],
+          alpha: 0,
+          scale: 1.3,
+          duration: 500,
+          delay: 1500,
+          ease: 'Power2',
+          onComplete: () => {
+            levelText.destroy();
+            nameText.destroy();
+          },
+        });
+      },
+    });
+
+    this.scene.cameras.main.shake(200, 0.01);
+  }
+
+  showSurvivalMilestone(text: string): void {
+    const w = this.scene.cameras.main.width;
+    const h = this.scene.cameras.main.height;
+
+    const milestone = this.scene.add.text(
+      w / 2, h - 40,
+      text,
+      {
+        fontSize: '11px',
+        fontFamily: '"Press Start 2P", monospace',
+        color: '#ffff00',
+        stroke: '#000000',
+        strokeThickness: 4,
+      },
+    );
+    milestone.setOrigin(0.5);
+    milestone.setScrollFactor(0);
+    milestone.setDepth(999);
+    this.scene.tweens.add({
+      targets: milestone,
+      y: milestone.y - 60,
+      alpha: 0,
+      scale: 1.5,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => milestone.destroy(),
+    });
+  }
+}
