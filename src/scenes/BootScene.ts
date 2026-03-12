@@ -43,6 +43,8 @@ export class BootScene extends Phaser.Scene {
 
     // --- Sprites (new pixel art assets) ---
     this.load.image('cockroach', 'assets/cockroach.png');
+    this.load.image('cockroach-idle', 'assets/cockroach-idle.png');
+    this.load.image('cockroach-running', 'assets/cockroach-running.png');
     this.load.image('apple', 'apple.png');
     this.load.image('menu-bg', 'bg.png');
     this.load.image('pest-spray', 'assets/spray.png');
