@@ -22,6 +22,8 @@ import {
 const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
+import { mpClient, MPPlayer } from '../multiplayer/MultiplayerClient';
+import { GhostManager } from '../multiplayer/GhostManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
@@ -45,6 +47,14 @@ export class GameScene extends Phaser.Scene {
 
   // Multiplayer RNG (null in solo mode)
   private rng: SeededRNG | null = null;
+
+  // Multiplayer
+  private isMultiplayer = false;
+  private ghostManager: GhostManager | null = null;
+  private mpPositionTimer = 0;
+  private mpMyName = '';
+  private _wasDashing = false;
+  private _wasPillActive = false;
 
   // Level progression
   private currentLevel = 0;
@@ -140,6 +150,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Read multiplayer config from scene data
+    const data = this.scene.settings.data as {
+      multiplayer?: boolean;
+      seed?: number;
+      players?: MPPlayer[];
+      myId?: string;
+    } | undefined;
+
+    this.isMultiplayer = data?.multiplayer ?? false;
+
+    if (this.isMultiplayer && data?.seed != null) {
+      this.rng = new SeededRNG(data.seed);
+    } else {
+      this.rng = null;
+    }
+
+    // Reset multiplayer state
+    this.ghostManager = null;
+    this.mpPositionTimer = 0;
+    this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
+    this._wasDashing = false;
+    this._wasPillActive = false;
+
     // Reset ALL state
     this.score = 0;
     this.isDead = false;
@@ -257,6 +290,9 @@ export class GameScene extends Phaser.Scene {
 
     // Obstacle spawner
     this.obstacleSpawner = new ObstacleSpawner(this, this.obstacles);
+    if (this.rng) {
+      this.obstacleSpawner.setRNG(this.rng);
+    }
 
     // Floor colliders with process callbacks
     this.physics.add.collider(this.player.sprite, this.floorTopBody, undefined, () => {
@@ -265,6 +301,20 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player.sprite, this.floorBottomBody, undefined, () => {
       return this.player.currentFloor === 'bottom';
     }, this);
+
+    // Create ghost manager for multiplayer
+    if (this.isMultiplayer && data?.players && data?.myId) {
+      const COLLIDER_DROP = 8;
+      this.ghostManager = new GhostManager(
+        this,
+        data.players,
+        data.myId,
+        this.floorTopY + COLLIDER_DROP,
+        this.floorBottomY + COLLIDER_DROP,
+        COCKROACH_START_X,
+      );
+      this.setupMultiplayerListeners();
+    }
 
     // Overlap detectors
     this.physics.add.overlap(
@@ -326,8 +376,18 @@ export class GameScene extends Phaser.Scene {
 
     // Touch controls
     this.touchControls = new TouchControls(this, this.isMobile, {
-      onSwap: () => this.player.swapLane(),
-      onDash: () => this.player.startDash(),
+      onSwap: () => {
+        this.player.swapLane();
+        if (this.isMultiplayer) {
+          mpClient.sendSwap(this.player.currentFloor);
+        }
+      },
+      onDash: () => {
+        this.player.startDash();
+        if (this.isMultiplayer) {
+          mpClient.sendDashStart();
+        }
+      },
       isDisabled: () => this.isDead || this.isPaused || this.isCountingDown || this.isUnpauseCountdown,
       isDashAllowed: () => this.player.dashReady && !this.player.isDashing,
     });
@@ -349,6 +409,9 @@ export class GameScene extends Phaser.Scene {
         if (pauseDist <= pauseBtn.radius) return;
 
         this.player.swapLane();
+        if (this.isMultiplayer) {
+          mpClient.sendSwap(this.player.currentFloor);
+        }
       });
     }
 
@@ -409,7 +472,42 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.isDead) return;
+    if (this.isDead) {
+      if (this.isMultiplayer && this.ghostManager?.isSpectating) {
+        const target = this.ghostManager.spectateTargetPlayer;
+        if (target && target.alive) {
+          // Smooth camera follow toward spectated player
+          const targetScrollX = target.sprite.x - 200;
+          this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * 0.08;
+        }
+
+        // Allow cycling with left/right keys or taps
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.left) ||
+            Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
+          this.ghostManager.cycleSpectate(-1);
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.right) ||
+            Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
+          this.ghostManager.cycleSpectate(1);
+        }
+
+        // Update ghost manager even while spectating
+        this.ghostManager.update(
+          this.game.loop.delta,
+          this.cameras.main.scrollX,
+          this.cameras.main.width,
+        );
+
+        // Check if spectate target died
+        if (target && !target.alive) {
+          const next = this.ghostManager.cycleSpectate(1);
+          if (!next && this.ghostManager.allDead()) {
+            this.triggerMultiplayerGameOver();
+          }
+        }
+      }
+      return;
+    }
 
     if (this.isCountingDown) {
       this.player.freezeForCountdown();
@@ -492,6 +590,9 @@ export class GameScene extends Phaser.Scene {
 
     if (jumpPressed || dropPressed) {
       this.player.swapLane();
+      if (this.isMultiplayer) {
+        mpClient.sendSwap(this.player.currentFloor);
+      }
     }
 
     // Dash
@@ -501,11 +602,26 @@ export class GameScene extends Phaser.Scene {
 
     if (dashPressed && this.player.dashReady && !this.player.isDashing) {
       this.player.startDash();
+      if (this.isMultiplayer) {
+        mpClient.sendDashStart();
+      }
     }
 
     // Update dash and pill state machines
     this.player.updateDash();
     this.player.updatePill();
+
+    // Detect dash end for multiplayer sync
+    if (this.isMultiplayer && this._wasDashing && !this.player.isDashing) {
+      mpClient.sendDashEnd();
+    }
+    this._wasDashing = this.player.isDashing;
+
+    // Detect pill end for multiplayer sync
+    if (this.isMultiplayer && this._wasPillActive && !this.player.isPillActive) {
+      mpClient.sendPillEnd();
+    }
+    this._wasPillActive = this.player.isPillActive;
     this.player.updateVisuals();
 
     // Survival score (+1 per second)
@@ -596,6 +712,94 @@ export class GameScene extends Phaser.Scene {
         this.cockroachNoiseSound.play();
       }
     }
+
+    // Multiplayer position sync (every 500ms)
+    if (this.isMultiplayer && !this.isDead) {
+      this.mpPositionTimer += this.game.loop.delta;
+      if (this.mpPositionTimer >= 500) {
+        this.mpPositionTimer = 0;
+        mpClient.sendPosition(this.player.x, this.player.currentFloor);
+      }
+    }
+
+    // Ghost manager update
+    if (this.ghostManager) {
+      this.ghostManager.update(
+        this.game.loop.delta,
+        this.cameras.main.scrollX,
+        this.cameras.main.width,
+      );
+    }
+  }
+
+  private setupMultiplayerListeners(): void {
+    mpClient.on('game:player-swap', (data: any) => {
+      this.ghostManager?.handleSwap(data.id, data.lane);
+    });
+    mpClient.on('game:player-dash-start', (data: any) => {
+      this.ghostManager?.handleDashStart(data.id);
+    });
+    mpClient.on('game:player-dash-end', (data: any) => {
+      this.ghostManager?.handleDashEnd(data.id);
+    });
+    mpClient.on('game:player-pill-start', (data: any) => {
+      this.ghostManager?.handlePillStart(data.id);
+    });
+    mpClient.on('game:player-pill-end', (data: any) => {
+      this.ghostManager?.handlePillEnd(data.id);
+    });
+    mpClient.on('game:player-position', (data: any) => {
+      this.ghostManager?.handlePosition(data.id, data.x, data.lane);
+    });
+    mpClient.on('game:player-death', (data: any) => {
+      this.ghostManager?.handleDeath(data.id, data.score, data.stats);
+      // If I'm spectating and all ghosts are now dead, trigger game over
+      if (this.isDead && this.ghostManager?.allDead()) {
+        this.triggerMultiplayerGameOver();
+      }
+    });
+    mpClient.on('game:over', (data: any) => {
+      this.scene.start('MultiplayerGameOverScene', {
+        rankings: data.rankings,
+        myId: mpClient.myId,
+        isHost: false,
+      });
+    });
+
+    // Cleanup on scene shutdown
+    this.events.on('shutdown', () => {
+      if (this.isMultiplayer) {
+        mpClient.off('game:player-swap');
+        mpClient.off('game:player-dash-start');
+        mpClient.off('game:player-dash-end');
+        mpClient.off('game:player-pill-start');
+        mpClient.off('game:player-pill-end');
+        mpClient.off('game:player-position');
+        mpClient.off('game:player-death');
+        mpClient.off('game:over');
+      }
+      this.ghostManager?.destroy();
+      this.ghostManager = null;
+    });
+  }
+
+  private triggerMultiplayerGameOver(): void {
+    const stats = {
+      timeSurvived: this.activePlayTime,
+      distance: this.getDistance(),
+      maxSpeed: this.player.speedMultiplier,
+    };
+    const rankings = this.ghostManager!.getRankings(this.score, this.mpMyName, stats);
+    mpClient.sendAllDead(rankings);
+
+    this.ghostManager?.destroy();
+    this.ghostManager = null;
+
+    this.scene.start('MultiplayerGameOverScene', {
+      rankings,
+      myId: mpClient.myId,
+      isHost: true,
+    });
   }
 
   private togglePause(): void {
@@ -855,6 +1059,10 @@ export class GameScene extends Phaser.Scene {
 
     // Activate pill on player
     this.player.activatePill(px, py);
+
+    if (this.isMultiplayer) {
+      mpClient.sendPillStart();
+    }
   }
 
   private hitObstacle(
@@ -922,6 +1130,24 @@ export class GameScene extends Phaser.Scene {
 
     this.vfx.deathEffect();
     this.audio.playDeath();
+
+    // In multiplayer, start spectating instead of transitioning to GameOverScene
+    if (this.isMultiplayer) {
+      const stats = {
+        timeSurvived: this.activePlayTime,
+        distance: this.getDistance(),
+        maxSpeed: this.player.speedMultiplier,
+      };
+      mpClient.sendDeath(this.score, stats);
+
+      // Start spectating if there are alive ghosts
+      if (this.ghostManager && !this.ghostManager.allDead()) {
+        this.ghostManager.startSpectating();
+      } else {
+        this.triggerMultiplayerGameOver();
+      }
+      return; // Don't transition to solo GameOverScene
+    }
 
     // Increment games played
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
