@@ -50,35 +50,41 @@ export class TouchControls {
   }
 
   private createMobileUI(sw: number, sh: number): void {
-    const btnRadius = 25;
-    const btnMargin = 11;
+    const btnRadius = 50;
+    const btnMargin = 16;
     const btnCenterY = sh - btnMargin - btnRadius;
 
-    // SWAP button -- bottom-left circle
+    // SWAP: invisible zone covering left 50% of screen
+    const swapZone = this.scene.add.rectangle(0, 0, sw / 2, sh, 0x000000, 0)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(2999)
+      .setInteractive();
+
+    swapZone.on('pointerdown', () => {
+      if (this.callbacks.isDisabled()) return;
+      this.callbacks.onSwap();
+    });
+
+    // SWAP button -- bottom-left circle (visual only)
     this.touchSwapBtn = this.scene.add.circle(
       btnMargin + btnRadius, btnCenterY, btnRadius, 0xff6600, 0.5,
     )
       .setScrollFactor(0)
-      .setDepth(3000)
-      .setInteractive();
+      .setDepth(3000);
 
     this.touchSwapLabel = this.scene.add.text(
       btnMargin + btnRadius, btnCenterY, '\u21c5', {
-        fontSize: '14px',
+        fontSize: '28px',
         fontFamily: '"Press Start 2P", monospace',
         color: '#ff6600',
         stroke: '#000000',
-        strokeThickness: 3,
+        strokeThickness: 4,
       },
     )
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(3001);
-
-    this.touchSwapBtn.on('pointerdown', () => {
-      if (this.callbacks.isDisabled()) return;
-      this.callbacks.onSwap();
-    });
 
     // DASH button -- bottom-right circle
     this.dashCircle = this.scene.add.circle(
@@ -94,11 +100,11 @@ export class TouchControls {
 
     this.touchDashLabel = this.scene.add.text(
       sw - btnMargin - btnRadius, btnCenterY, '\u25b6', {
-        fontSize: '14px',
+        fontSize: '28px',
         fontFamily: '"Press Start 2P", monospace',
         color: '#00ffff',
         stroke: '#000000',
-        strokeThickness: 3,
+        strokeThickness: 4,
       },
     )
       .setOrigin(0.5)

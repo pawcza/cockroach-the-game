@@ -163,15 +163,9 @@ export class GameScene extends Phaser.Scene {
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
 
-    // Mobile floor positions: 72px from bottom, 100px gap
     this.isMobile = !this.sys.game.device.os.desktop;
-    if (this.isMobile) {
-      this.floorBottomY = h - 72;
-      this.floorTopY = h - 172;
-    } else {
-      this.floorBottomY = FLOOR_BOTTOM_Y;
-      this.floorTopY = FLOOR_TOP_Y;
-    }
+    this.floorBottomY = FLOOR_BOTTOM_Y;
+    this.floorTopY = FLOOR_TOP_Y;
 
     // Parallax backgrounds
     this.skyBg = this.add
