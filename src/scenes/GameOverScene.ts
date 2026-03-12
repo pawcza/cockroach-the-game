@@ -302,7 +302,7 @@ export class GameOverScene extends Phaser.Scene {
         this.submitScore(playerName, data).then(() => {
           showScoreboard(this, playerName);
         });
-        this.showRestartPrompt(width, height);
+        this.showMobileDeathButtons(width, height, false, data);
       } else if (event.key === 'Backspace') {
         playerName = playerName.slice(0, -1);
         nameText.setText(playerName.length > 0 ? playerName : '_');
@@ -310,8 +310,7 @@ export class GameOverScene extends Phaser.Scene {
         this.input.keyboard!.off('keydown', handleKey);
         promptText.destroy();
         nameText.destroy();
-        this.showRestartPrompt(width, height);
-        this.showScoreboardButton(width, height);
+        this.showMobileDeathButtons(width, height, false, data);
       } else if (event.key.length === 1 && playerName.length < 20) {
         playerName += event.key;
         nameText.setText(playerName);
@@ -323,44 +322,7 @@ export class GameOverScene extends Phaser.Scene {
 
   // ── Restart / navigation ───────────────────────────────────────────
 
-  private showRestartPrompt(width: number, height: number): void {
-    if (this.restartBound) return;
-    this.restartBound = true;
-
-    const label = 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy';
-
-    const restartText = this.add
-      .text(width / 2, height - 30, label, TEXT_STYLES.small('#ffffff'))
-      .setOrigin(0.5);
-
-    this.tweens.add({
-      targets: restartText,
-      alpha: 0,
-      duration: 500,
-      ease: 'Power2',
-      yoyo: true,
-      repeat: -1,
-    });
-
-    this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
-    this.input.keyboard!.once('keydown-R', () => this.restartGame());
-    this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
-  }
-
-  private showScoreboardButton(width: number, height: number): void {
-    const btnText = this.add
-      .text(width / 2, height - 55, '[ T — Tablica Wyników ]', TEXT_STYLES.small('#888888'))
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-
-    btnText.on('pointerover', () => btnText.setColor('#ffffff'));
-    btnText.on('pointerout', () => btnText.setColor('#888888'));
-    btnText.on('pointerdown', () => toggleScoreboard(this, null));
-
-    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
-  }
-
-  /** Mobile/universal death screen with 4 action buttons (no keyboard popup). */
+  /** Universal death screen with action buttons + keyboard shortcuts. */
   private showMobileDeathButtons(width: number, height: number, isNewRecord: boolean, data: GameOverData): void {
     if (this.restartBound) return;
     this.restartBound = true;
@@ -412,8 +374,8 @@ export class GameOverScene extends Phaser.Scene {
       const label = this.add.text(bx, btnY, btn.label, btnStyle)
         .setOrigin(0.5);
 
-      bg.on('pointerover', () => bg.setAlpha(1));
-      bg.on('pointerout', () => bg.setAlpha(0.6));
+      bg.on('pointerover', () => { bg.setAlpha(1); label.setColor('#ffff00'); });
+      bg.on('pointerout', () => { bg.setAlpha(0.6); label.setColor('#ffffff'); });
       bg.on('pointerdown', btn.action);
     });
 

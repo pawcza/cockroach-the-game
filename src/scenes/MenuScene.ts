@@ -125,42 +125,22 @@ export class MenuScene extends Phaser.Scene {
       strokeThickness: 3,
     }).setOrigin(0.5).setDepth(10);
 
-    // --- Pulsing start text ---
     const isMobile = !this.sys.game.device.os.desktop;
-    const startLabel = isMobile ? 'Stuknij w ekran w celach naukowych' : 'Walnij klawisz SPACJA, aby rozpocząć wynaturzenie';
-    const startText = this.add.text(width / 2, height - 110, startLabel, {
-      fontSize: '12px',
-      color: '#ffffff',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
-
-    this.tweens.add({
-      targets: startText,
-      scaleX: 1.08,
-      scaleY: 1.08,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-    startText.setScale(0.92);
 
     // --- CONTROLS DISPLAY ---
     const controlsLines = isMobile
       ? [
-          '(SWAP) <- Zmień tor',
-          '(DASH) <- Prędkozapierdalacz karaluszany',
-          'Pauzka — Przycisk ⏸',
+          'Lewy ekran — Zmień tor',
+          'Prawy ekran — Prędkozapierdalacz',
+          'Pauzka — Przycisk \u23f8',
         ]
       : [
-          'Spacja / Góra / Dół - Zmiana toru karalucha',
-          'Shift / Prawo - Prędkozapierdalacz karaluszany',
-          'ESC — Pauzka!',
+          'Spacja / G\u00f3ra / D\u00f3\u0142 - Zmiana toru karalucha',
+          'Shift / Prawo - Pr\u0119dkozapierdalacz karaluszany',
+          'ESC \u2014 Pauzka!',
         ];
     const controlsText = controlsLines.join('\n');
-    this.add.text(width / 2, height - 45, controlsText, {
+    this.add.text(width / 2, height - 55, controlsText, {
       fontSize: '7px',
       color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',
@@ -181,25 +161,6 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(1, 1)
       .setDepth(10);
 
-    // --- SCOREBOARD BUTTON ---
-    const scoreboardBtn = this.add
-      .text(width / 2, height / 2 + 75, '[ T - Najbardziej bycze karaluchy świata]', {
-        fontSize: '8px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5)
-      .setDepth(10)
-      .setInteractive({ useHandCursor: true });
-
-    scoreboardBtn.on('pointerover', () => scoreboardBtn.setColor('#ffffff'));
-    scoreboardBtn.on('pointerout', () => scoreboardBtn.setColor('#888888'));
-    scoreboardBtn.on('pointerdown', () => toggleScoreboard(this, null));
-
-    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
-
     // --- MENU MUSIC ---
     this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
     this.menuBgm.play();
@@ -211,15 +172,54 @@ export class MenuScene extends Phaser.Scene {
         this.menuBgm.destroy();
         this.menuBgm = null;
       }
-      // Request fullscreen on mobile (requires user gesture)
       if (isMobile && !document.fullscreenElement) {
         document.documentElement.requestFullscreen?.().catch(() => {});
       }
       this.scene.start('GameScene');
     };
 
+    // --- ACTION BUTTONS ---
+    const btnY = height / 2 + 80;
+    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '10px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+    };
+
+    // GRAJ button
+    const playBg = this.add.rectangle(width / 2 - 100, btnY, 140, 36, 0x880000, 0.6)
+      .setDepth(10).setInteractive({ useHandCursor: true });
+    const playLabel = this.add.text(width / 2 - 100, btnY, 'GRAJ', btnStyle)
+      .setOrigin(0.5).setDepth(11);
+    playBg.on('pointerover', () => { playBg.setFillStyle(0xbb0000, 0.8); playLabel.setColor('#ffff00'); });
+    playBg.on('pointerout', () => { playBg.setFillStyle(0x880000, 0.6); playLabel.setColor('#ffffff'); });
+    playBg.on('pointerdown', startGame);
+
+    // Pulsing glow on GRAJ
+    this.tweens.add({
+      targets: playBg,
+      alpha: { from: 0.6, to: 1 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Scoreboard button
+    const scoreBg = this.add.rectangle(width / 2 + 100, btnY, 140, 36, 0x664400, 0.6)
+      .setDepth(10).setInteractive({ useHandCursor: true });
+    const scoreLabel = this.add.text(width / 2 + 100, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: '7px' })
+      .setOrigin(0.5).setDepth(11);
+    scoreBg.on('pointerover', () => { scoreBg.setFillStyle(0x886600, 0.8); scoreLabel.setColor('#ffff00'); });
+    scoreBg.on('pointerout', () => { scoreBg.setFillStyle(0x664400, 0.6); scoreLabel.setColor('#ffffff'); });
+    scoreBg.on('pointerdown', () => toggleScoreboard(this, null));
+
+    // Keyboard shortcuts
     this.input.keyboard!.once('keydown-SPACE', startGame);
-    this.input.once('pointerdown', startGame);
+    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
   }
 
   update(): void {
