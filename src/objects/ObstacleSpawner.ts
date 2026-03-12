@@ -1,8 +1,17 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config/constants';
+import { SeededRNG } from '../multiplayer/SeededRNG';
 
 type Floor = 'top' | 'bottom';
 type SpawnFn = (x: number) => void;
+type RNGSource = SeededRNG | null;
+
+function rngBetween(rng: RNGSource, min: number, max: number): number {
+  return rng ? rng.between(min, max) : Phaser.Math.Between(min, max);
+}
+function rngRandom(rng: RNGSource): number {
+  return rng ? rng.next() : Math.random();
+}
 
 /** Vertical offset from floor Y to center obstacles on the running lane. */
 const OBSTACLE_OFFSET = 25;
@@ -31,6 +40,9 @@ export class ObstacleSpawner {
   private scene: GameSceneAccessor;
   private obstacles: Phaser.Physics.Arcade.Group;
   private forcedFloor: Floor | null = null;
+  private rng: RNGSource = null;
+
+  setRNG(rng: RNGSource): void { this.rng = rng; }
 
   /** Sorted list of obstacle types and when they unlock. */
   private readonly registry: ObstacleEntry[];
@@ -143,7 +155,7 @@ export class ObstacleSpawner {
   ): [Phaser.Physics.Arcade.Sprite, Phaser.Tweens.Tween] {
     const topY = this.floorTopY - OBSTACLE_OFFSET;
     const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
-    const startTop = Math.random() > 0.5;
+    const startTop = rngRandom(this.rng) > 0.5;
 
     const sprite = this.createSprite(
       x,
@@ -169,7 +181,7 @@ export class ObstacleSpawner {
 
   private randomFloor(): Floor {
     if (this.forcedFloor !== null) return this.forcedFloor;
-    return Math.random() < 0.5 ? 'top' : 'bottom';
+    return rngRandom(this.rng) < 0.5 ? 'top' : 'bottom';
   }
 
   private getFloorY(floor: Floor): number {
@@ -185,7 +197,7 @@ export class ObstacleSpawner {
   spawn(x: number, level: number = 1): void {
     const lvl = level;
     const available = this.registry.filter((e) => e.minLevel <= lvl);
-    const pick = Phaser.Math.Between(0, available.length - 1);
+    const pick = rngBetween(this.rng, 0, available.length - 1);
     available[pick].fn.call(this, x);
   }
 
@@ -212,7 +224,7 @@ export class ObstacleSpawner {
     // Stink waves
     const stinkStartY = centerY - onion.displayHeight * 0.3;
     for (let i = 0; i < 3; i++) {
-      const offsetX = Phaser.Math.Between(-8, 8);
+      const offsetX = rngBetween(this.rng, -8, 8);
       const stink = this.scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
       stink.setScale(0.5 + i * 0.15);
       stink.setDepth(10);
@@ -240,11 +252,11 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!onion.active) return;
-        const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+        const side = rngBetween(this.rng, 0, 1) === 0 ? -1 : 1;
         const tear = this.scene.add.circle(
-          x + side * Phaser.Math.Between(4, 10),
+          x + side * rngBetween(this.rng, 4, 10),
           tearStartY,
-          Phaser.Math.Between(1, 3),
+          rngBetween(this.rng, 1, 3),
           0x4488ff,
           0.7,
         );
@@ -254,7 +266,7 @@ export class ObstacleSpawner {
           y: tearEndY,
           alpha: 0,
           scaleY: 1.8,
-          duration: Phaser.Math.Between(600, 1000),
+          duration: rngBetween(this.rng, 600, 1000),
           ease: 'Quad.easeIn',
           onComplete: () => tear.destroy(),
         });
@@ -288,24 +300,24 @@ export class ObstacleSpawner {
     const sprayMist = (): void => {
       if (!spray.active) return;
       for (let i = 0; i < 4; i++) {
-        const radius = Phaser.Math.Between(2, 5);
+        const radius = rngBetween(this.rng, 2, 5);
         const droplet = this.scene.add.circle(
-          spray.x + Phaser.Math.Between(-3, 3),
-          nozzleY + Phaser.Math.Between(-2, 2),
+          spray.x + rngBetween(this.rng, -3, 3),
+          nozzleY + rngBetween(this.rng, -2, 2),
           radius,
           0x88dd44,
-          Phaser.Math.FloatBetween(0.15, 0.35),
+          rngRandom(this.rng) * (0.35 - 0.15) + 0.15,
         );
         droplet.setDepth(10);
-        const driftX = Phaser.Math.Between(-30, 30);
-        const driftY = Phaser.Math.Between(-35, -15);
+        const driftX = rngBetween(this.rng, -30, 30);
+        const driftY = rngBetween(this.rng, -35, -15);
         this.scene.tweens.add({
           targets: droplet,
           x: droplet.x + driftX,
           y: droplet.y + driftY,
           alpha: 0,
-          scale: Phaser.Math.FloatBetween(1.5, 2.5),
-          duration: Phaser.Math.Between(800, 1400),
+          scale: rngRandom(this.rng) * (2.5 - 1.5) + 1.5,
+          duration: rngBetween(this.rng, 800, 1400),
           ease: 'Sine.easeOut',
           onComplete: () => droplet.destroy(),
         });
@@ -463,16 +475,16 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!disco.active) return;
-        const angle = Math.random() * Math.PI * 2;
-        const color = Phaser.Utils.Array.GetRandom(rayColors);
+        const angle = rngRandom(this.rng) * Math.PI * 2;
+        const color = rayColors[rngBetween(this.rng, 0, rayColors.length - 1)];
         const ray = this.scene.add.rectangle(
           disco.x, disco.y,
-          Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20),
+          rngBetween(this.rng, 2, 4), rngBetween(this.rng, 8, 20),
           color, 0.6,
         );
         ray.setDepth(9);
         ray.setRotation(angle);
-        const dist = 40 + Math.random() * 30;
+        const dist = 40 + rngRandom(this.rng) * 30;
         this.scene.tweens.add({
           targets: ray,
           x: disco.x + Math.cos(angle) * dist,
@@ -534,9 +546,9 @@ export class ObstacleSpawner {
       callback: () => {
         if (!jelly.active) return;
         const particle = this.scene.add.circle(
-          jelly.x + Phaser.Math.Between(-10, 10),
+          jelly.x + rngBetween(this.rng, -10, 10),
           jelly.y + jelly.displayHeight * 0.3,
-          Phaser.Math.Between(1, 3),
+          rngBetween(this.rng, 1, 3),
           0x8844ff,
           0.5,
         );
@@ -577,9 +589,9 @@ export class ObstacleSpawner {
       callback: () => {
         if (!pope.active) return;
         const smoke = this.scene.add.circle(
-          pope.x + Phaser.Math.Between(-5, 5),
-          pope.y + Phaser.Math.Between(-5, 5),
-          Phaser.Math.Between(4, 8),
+          pope.x + rngBetween(this.rng, -5, 5),
+          pope.y + rngBetween(this.rng, -5, 5),
+          rngBetween(this.rng, 4, 8),
           0x888888,
           0.4,
         );
@@ -636,7 +648,7 @@ export class ObstacleSpawner {
         const dust = this.scene.add.circle(
           bison.x + (bison.flipX ? 15 : -15),
           centerY + 10,
-          Phaser.Math.Between(2, 4),
+          rngBetween(this.rng, 2, 4),
           0x997744,
           0.4,
         );
@@ -711,11 +723,11 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!hole.active) return;
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 30 + Math.random() * 40;
+        const angle = rngRandom(this.rng) * Math.PI * 2;
+        const dist = 30 + rngRandom(this.rng) * 40;
         const px = hole.x + Math.cos(angle) * dist;
         const py = hole.y + Math.sin(angle) * dist;
-        const particle = this.scene.add.circle(px, py, Phaser.Math.Between(1, 3), 0x6600cc, 0.7);
+        const particle = this.scene.add.circle(px, py, rngBetween(this.rng, 1, 3), 0x6600cc, 0.7);
         particle.setDepth(9);
         this.scene.tweens.add({
           targets: particle,
