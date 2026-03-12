@@ -416,13 +416,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Unpause countdown (3-2-1 after resuming from pause)
-    if (this.isUnpauseCountdown) {
-      this.updateUnpauseCountdown();
-      this.lastFrameTime = this.time.now;
-      return;
-    }
-
     // Pause toggle
     if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
       this.togglePause();
@@ -433,7 +426,8 @@ export class GameScene extends Phaser.Scene {
       for (const key of keys) {
         if (key && Phaser.Input.Keyboard.JustDown(key) && key.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) {
           this.togglePause();
-          break;
+          this.lastFrameTime = this.time.now;
+          return; // Don't process input this frame
         }
       }
       this.lastFrameTime = this.time.now;
@@ -608,12 +602,15 @@ export class GameScene extends Phaser.Scene {
       this.physics.pause();
       this.hud.showPauseOverlay();
     } else {
-      // Start unpause countdown
+      // Resume with a brief grace period to absorb the unpause input
       this.isPaused = false;
+      this.isUnpauseCountdown = true; // acts as input guard for one frame
       this.hud.hidePauseOverlay();
-      this.isUnpauseCountdown = true;
-      this.unpauseCountdownStart = performance.now();
-      this.unpauseCountdownLastShown = -1;
+      this.physics.resume();
+      this.lastFrameTime = this.time.now;
+      this.time.delayedCall(100, () => {
+        this.isUnpauseCountdown = false;
+      });
     }
   }
 

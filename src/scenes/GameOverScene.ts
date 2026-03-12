@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { fetchScores } from '../ui/Scoreboard';
 
 interface GameOverData {
   score: number;
@@ -116,7 +117,15 @@ export class GameOverScene extends Phaser.Scene {
     this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
     this.gameoverBgm.play();
 
-    this.showDeathButtons(width, height, isNewRecord, data);
+    // Check if score qualifies for top 100 leaderboard
+    const finalScore = data?.score ?? 0;
+    fetchScores().then((scores) => {
+      const inTop100 = scores.length < 100 || (finalScore > 0 && finalScore > scores[scores.length - 1].score);
+      const canSave = isNewRecord && inTop100;
+      this.showDeathButtons(width, height, isNewRecord, canSave, data);
+    }).catch(() => {
+      this.showDeathButtons(width, height, isNewRecord, false, data);
+    });
   }
 
   // ── Background & atmosphere ────────────────────────────────────────
@@ -217,11 +226,26 @@ export class GameOverScene extends Phaser.Scene {
       },
     });
 
-    // High score line — close to score
-    const suffix = isNewRecord ? '  NÓWKA SZTUKA!' : '';
-    this.add
-      .text(width / 2, scoreY + Math.round(28 * s), `Najlepsiejszy wynik: ${highScore}${suffix}`, TEXT_STYLES.highScore(isNewRecord))
+    // High score line
+    const hsY = scoreY + Math.round(28 * s);
+    const hsText = this.add
+      .text(width / 2, hsY, `Najlepsiejszy wynik: ${highScore}`, TEXT_STYLES.highScore(isNewRecord))
       .setOrigin(0.5);
+
+    if (isNewRecord) {
+      // Make it bigger and animate for new records
+      hsText.setFontSize(Math.round(16 * s));
+      hsText.setColor('#ffff00');
+      this.tweens.add({
+        targets: hsText,
+        scaleX: { from: 1, to: 1.1 },
+        scaleY: { from: 1, to: 1.1 },
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
   }
 
   private setupStats(width: number, height: number, data: GameOverData): void {
@@ -279,7 +303,7 @@ export class GameOverScene extends Phaser.Scene {
 
   // ── Restart / navigation ───────────────────────────────────────────
 
-  private showDeathButtons(width: number, height: number, isNewRecord: boolean, data: GameOverData): void {
+  private showDeathButtons(width: number, height: number, isNewRecord: boolean, canSave: boolean, data: GameOverData): void {
     if (this.restartBound) return;
     this.restartBound = true;
 
@@ -310,17 +334,16 @@ export class GameOverScene extends Phaser.Scene {
     createBtn(width / 2 - btnW / 2 - gap / 2, 'Ekran Główny', 0x666666, () => this.goToMenu());
     createBtn(width / 2 + btnW / 2 + gap / 2, 'Powtórka', 0x880000, () => this.restartGame());
 
-    // "Zapisz" button near the highscore text when it's a new record
-    if (isNewRecord) {
-      const saveY = height * 0.42 + Math.round(28 * s);
-      const saveBtnW = Math.round(100 * s);
-      const saveBtnH = Math.round(28 * s);
-      const saveBtnX = width / 2 + Math.round(160 * s);
+    // "Zapisz" button below the highscore text when score qualifies for top 100
+    if (canSave) {
+      const saveY = height * 0.42 + Math.round(56 * s);
+      const saveBtnW = Math.round(120 * s);
+      const saveBtnH = Math.round(32 * s);
 
-      const saveBg = this.add.rectangle(saveBtnX, saveY, saveBtnW, saveBtnH, 0x008800, 0.9)
+      const saveBg = this.add.rectangle(width / 2, saveY, saveBtnW, saveBtnH, 0x008800, 0.9)
         .setInteractive({ useHandCursor: true });
-      const saveTxt = this.add.text(saveBtnX, saveY, 'Zapisz', {
-        fontSize: `${Math.round(10 * s)}px`,
+      const saveTxt = this.add.text(width / 2, saveY, 'Zapisz', {
+        fontSize: `${Math.round(12 * s)}px`,
         fontFamily: FONT_FAMILY,
         color: '#ffffff',
         stroke: '#000000',
@@ -338,7 +361,11 @@ export class GameOverScene extends Phaser.Scene {
 
       saveBg.on('pointerover', () => { saveBg.setAlpha(1); saveTxt.setColor('#ffff00'); });
       saveBg.on('pointerout', () => { saveBg.setAlpha(0.9); saveTxt.setColor('#ffffff'); });
-      saveBg.on('pointerdown', () => this.showNameInputOverlay(width, height, data));
+      saveBg.on('pointerdown', () => {
+        saveBg.destroy();
+        saveTxt.destroy();
+        this.showNameInputOverlay(width, height, data);
+      });
     }
 
     // Keyboard shortcuts
@@ -389,10 +416,7 @@ export class GameOverScene extends Phaser.Scene {
       const name = input.value.trim().slice(0, 20);
       if (name.length > 0) {
         cleanup();
-        this.submitScore(name, data).then(() => {
-          // Restart the death scene to show it cleanly
-          this.scene.restart(data);
-        });
+        this.submitScore(name, data);
       }
     };
 
