@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { mpClient } from '../multiplayer/MultiplayerClient';
+import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
 
 interface MPGameOverRanking {
   id: string;
   name: string;
+  color: number;
   score: number;
   stats: Record<string, unknown>;
 }
@@ -86,10 +88,16 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       }
     }
 
-    // --- Rankings table ---
-    const tableStartY = Math.round(70 * s);
-    const lineHeight = Math.round(28 * s);
-    const rankColors = ['#ffd700', '#c0c0c0', '#cd7f32']; // gold, silver, bronze
+    // --- Rankings table with full stats ---
+    const tableStartY = Math.round(65 * s);
+    const lineHeight = Math.round(44 * s);
+
+    // Column positions
+    const colRank = Math.round(15 * s);
+    const colColor = Math.round(40 * s);
+    const colName = Math.round(58 * s);
+    const colScore = width - Math.round(15 * s);
+    const statFontSize = `${Math.round(7 * s)}px`;
 
     for (let i = 0; i < rankings.length; i++) {
       const entry = rankings[i];
@@ -104,19 +112,19 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
       if (rank === 1) {
         color = '#ffd700';
-        fontSize = Math.round(14 * s);
-        strokeThickness = Math.round(5 * s);
-      } else if (rank === 2) {
-        color = '#c0c0c0';
         fontSize = Math.round(12 * s);
         strokeThickness = Math.round(4 * s);
+      } else if (rank === 2) {
+        color = '#c0c0c0';
+        fontSize = Math.round(11 * s);
+        strokeThickness = Math.round(3 * s);
       } else if (rank === 3) {
         color = '#cd7f32';
-        fontSize = Math.round(11 * s);
+        fontSize = Math.round(10 * s);
         strokeThickness = Math.round(3 * s);
       } else {
         color = '#ffffff';
-        fontSize = Math.round(10 * s);
+        fontSize = Math.round(9 * s);
         strokeThickness = Math.round(2 * s);
       }
 
@@ -128,28 +136,47 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         strokeThickness,
       };
 
-      // Rank number
-      const rankText = this.add.text(Math.round(20 * s), y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
+      // Row background for self
+      if (isMe) {
+        this.add.rectangle(width / 2, y + Math.round(6 * s), width - Math.round(20 * s), lineHeight - Math.round(4 * s), 0x003322, 0.3);
+      }
 
-      // Color dot (rank-based)
-      const dotColor = rank <= 3
-        ? Phaser.Display.Color.HexStringToColor(rankColors[rank - 1]).color
-        : 0xffffff;
-      const dot = this.add.circle(Math.round(55 * s), y, Math.round(5 * s), dotColor);
+      // Rank number
+      const rankText = this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
+
+      // Player color square
+      const playerColor = MP_PLAYER_COLORS[entry.color] ?? 0xffffff;
+      const sq = Math.round(10 * s);
+      this.add.rectangle(colColor, y, sq, sq, playerColor, 1);
 
       // Player name (highlight if self)
       const nameStyle = { ...rowStyle };
-      if (isMe) {
-        nameStyle.color = '#00ffff';
-      }
-      const nameText = this.add.text(Math.round(70 * s), y, entry.name, nameStyle).setOrigin(0, 0.5);
+      if (isMe) nameStyle.color = '#00ffff';
+      const nameText = this.add.text(colName, y, entry.name, nameStyle).setOrigin(0, 0.5);
 
       // Score (right-aligned)
-      const scoreText = this.add.text(width - Math.round(20 * s), y, String(entry.score), rowStyle).setOrigin(1, 0.5);
+      const scoreText = this.add.text(colScore, y, String(entry.score), rowStyle).setOrigin(1, 0.5);
+
+      // Stats line below name
+      const stats = entry.stats || {};
+      const statParts: string[] = [];
+      if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
+      if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
+      if (stats.maxSpeed !== undefined) statParts.push(`${Number(stats.maxSpeed).toFixed(1)}x`);
+
+      if (statParts.length > 0) {
+        this.add.text(colName, y + Math.round(14 * s), statParts.join('  '), {
+          fontSize: statFontSize,
+          color: '#888888',
+          fontFamily: FONT_FAMILY,
+          stroke: '#000000',
+          strokeThickness: 1,
+        }).setOrigin(0, 0.5);
+      }
 
       // "NOWY REKORD!" badge
       if (isMe && isNewRecord) {
-        const badge = this.add.text(width - Math.round(20 * s), y - Math.round(12 * s), 'NOWY REKORD!', {
+        const badge = this.add.text(colScore, y - Math.round(10 * s), 'NOWY REKORD!', {
           fontSize: `${Math.round(7 * s)}px`,
           color: '#ffff00',
           fontFamily: FONT_FAMILY,
@@ -172,7 +199,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       const elements = [rankText, nameText, scoreText];
 
       if (rank === 1) {
-        // #1: color cycling + scale pulse + shake
         const colors = ['#ffd700', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
         let ci = 0;
         this.time.addEvent({
@@ -185,8 +211,8 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         });
         this.tweens.add({
           targets: elements,
-          scaleX: { from: 1, to: 1.08 },
-          scaleY: { from: 1, to: 1.08 },
+          scaleX: { from: 1, to: 1.06 },
+          scaleY: { from: 1, to: 1.06 },
           duration: 400,
           yoyo: true,
           repeat: -1,
@@ -196,13 +222,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           delay: 80,
           loop: true,
           callback: () => {
-            elements.forEach(el => {
-              el.x += Phaser.Math.Between(-1, 1);
-            });
+            elements.forEach(el => { el.x += Phaser.Math.Between(-1, 1); });
           },
         });
       } else if (rank === 2) {
-        // #2: glow pulse + slight wobble
         this.tweens.add({
           targets: elements,
           alpha: { from: 0.7, to: 1 },
@@ -211,16 +234,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           repeat: -1,
           ease: 'Sine.easeInOut',
         });
-        this.tweens.add({
-          targets: elements,
-          angle: { from: -1, to: 1 },
-          duration: 800,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
       } else if (rank === 3) {
-        // #3: subtle alpha pulse
         this.tweens.add({
           targets: elements,
           alpha: { from: 0.8, to: 1 },
@@ -230,43 +244,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
         });
       }
-    }
-
-    // --- Stats for my player ---
-    const statsStartY = tableStartY + rankings.length * lineHeight + Math.round(10 * s);
-    if (myRanking && myRanking.stats) {
-      const stats = myRanking.stats;
-      const statFontSize = `${Math.round(8 * s)}px`;
-      const statLineHeight = Math.round(18 * s);
-      let statIdx = 0;
-
-      const statEntries: { label: string; value: string; color: string }[] = [];
-      if (stats.timeSurvived !== undefined) {
-        statEntries.push({ label: 'Czas', value: `${stats.timeSurvived}s`, color: '#00ccff' });
-      }
-      if (stats.distance !== undefined) {
-        statEntries.push({ label: 'Dystans', value: `${stats.distance}m`, color: '#ff6600' });
-      }
-      if (stats.maxSpeed !== undefined) {
-        statEntries.push({ label: 'Maks Szybkosc', value: `${Number(stats.maxSpeed).toFixed(1)}x`, color: '#cc66ff' });
-      }
-
-      statEntries.forEach((stat) => {
-        const y = statsStartY + statIdx * statLineHeight;
-        this.add.text(width / 2 - Math.round(8 * s), y, stat.label, {
-          fontSize: statFontSize,
-          color: '#aaaaaa',
-          fontFamily: FONT_FAMILY,
-        }).setOrigin(1, 0.5);
-        this.add.text(width / 2 + Math.round(8 * s), y, stat.value, {
-          fontSize: statFontSize,
-          color: stat.color,
-          fontFamily: FONT_FAMILY,
-          stroke: '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0, 0.5);
-        statIdx++;
-      });
     }
 
     // --- Buttons ---
