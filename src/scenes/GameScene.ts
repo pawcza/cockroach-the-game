@@ -492,6 +492,16 @@ export class GameScene extends Phaser.Scene {
           this.ghostManager.cycleSpectate(1);
         }
 
+        // Update level based on spectated player's position
+        if (target && target.alive) {
+          const ghostDistance = Math.floor((target.sprite.x - COCKROACH_START_X) / 50);
+          const newLevelConfig = getLevelForDistance(ghostDistance);
+          if (newLevelConfig.level !== this.currentLevel) {
+            this.currentLevel = newLevelConfig.level;
+            this.switchLevel(newLevelConfig);
+          }
+        }
+
         // Keep the world alive — parallax, floors, obstacles, cleanup
         // so spectating feels like watching through the other player's eyes
         this.updateParallax();
@@ -777,6 +787,12 @@ export class GameScene extends Phaser.Scene {
         this.triggerMultiplayerGameOver();
       }
     });
+    mpClient.on('game:pickup', (data: any) => {
+      // Only destroy pickups on spectator's screen — don't steal from alive players
+      if (this.isDead) {
+        this.destroyPickupNear(data.x);
+      }
+    });
     mpClient.on('game:over', (data: any) => {
       if (this._mpGameOverTriggered) return;
       this._mpGameOverTriggered = true;
@@ -798,6 +814,7 @@ export class GameScene extends Phaser.Scene {
         mpClient.off('game:pill-start');
         mpClient.off('game:pill-end');
         mpClient.off('game:position');
+        mpClient.off('game:pickup');
         mpClient.off('game:death');
         mpClient.off('game:player-left');
         mpClient.off('game:over');
@@ -976,6 +993,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private destroyPickupNear(x: number): void {
+    const tolerance = 30;
+    const groups = [this.apples, this.tyskies, this.pills];
+    for (const group of groups) {
+      for (const obj of group.getChildren()) {
+        const sprite = obj as Phaser.Physics.Arcade.Sprite;
+        if (Math.abs(sprite.x - x) < tolerance) {
+          sprite.destroy();
+          return;
+        }
+      }
+    }
+  }
+
   private cleanupOffscreen(): void {
     const cameraLeft = this.cameras.main.scrollX - 200;
 
@@ -1014,6 +1045,7 @@ export class GameScene extends Phaser.Scene {
     apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = apple as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.audio.playApple();
     sprite.destroy();
@@ -1033,6 +1065,7 @@ export class GameScene extends Phaser.Scene {
     tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.sound.play('burp', { volume: 0.8 });
     sprite.destroy();
@@ -1051,6 +1084,7 @@ export class GameScene extends Phaser.Scene {
     pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = pill as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     const px = sprite.x;
     const py = sprite.y;
 

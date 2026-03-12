@@ -110,6 +110,7 @@ class MultiplayerClient {
   sendPillStart(): void { this.socket?.emit('game:pill-start'); }
   sendPillEnd(): void { this.socket?.emit('game:pill-end'); }
   sendPosition(x: number, lane: string): void { this.socket?.emit('game:position', { x, lane }); }
+  sendPickup(x: number): void { this.socket?.emit('game:pickup', { x }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
   sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
 

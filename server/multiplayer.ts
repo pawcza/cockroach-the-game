@@ -142,6 +142,12 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane });
     });
 
+    socket.on('game:pickup', (data: { x: number }) => {
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      if (!lobbyId) return;
+      socket.to(lobbyId).emit('game:pickup', { id: socket.id, x: data.x });
+    });
+
     socket.on('game:death', (data: { score: number; stats: Record<string, unknown> }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
