@@ -75,7 +75,7 @@ export class MenuScene extends Phaser.Scene {
     // --- TITLE: "KARALUCH" with floating bob ---
     const title = this.add.text(width / 2, height / 4, 'KARALUCH', {
       fontSize: '32px',
-      color: '#ffffff',
+      color: '#8b0000',
       fontFamily: '"Press Start 2P", monospace',
       fontStyle: 'bold',
       stroke: '#000000',
@@ -94,7 +94,7 @@ export class MenuScene extends Phaser.Scene {
     // --- SUBTITLE with rotation oscillation ---
     const subtitle = this.add.text(width / 2, height / 4 + 45, 'Gra Przegrancow', {
       fontSize: '14px',
-      color: '#ffffff',
+      color: '#ff6600',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
       strokeThickness: 4,
@@ -113,7 +113,7 @@ export class MenuScene extends Phaser.Scene {
     // --- GAME DESCRIPTION ---
     this.add.text(width / 2, height / 2 + 10, 'Zbieraj jabluszka i piwka,\nuciekaj przed zaglada!', {
       fontSize: '10px',
-      color: '#ffffff',
+      color: '#cc8844',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
       strokeThickness: 3,
