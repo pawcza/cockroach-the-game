@@ -31,6 +31,10 @@ import { LEVELS, getLevelForScore, LevelConfig, POINTS_PER_LEVEL } from '../conf
 type Floor = 'top' | 'bottom';
 
 export class GameScene extends Phaser.Scene {
+  // Floor positions (dynamic on mobile, constant on desktop)
+  public floorBottomY = FLOOR_BOTTOM_Y;
+  public floorTopY = FLOOR_TOP_Y;
+
   // Player
   private cockroach!: Phaser.Physics.Arcade.Sprite;
   private cockroachOffset = 24;
@@ -146,6 +150,8 @@ export class GameScene extends Phaser.Scene {
   private isMobile = false;
   private touchDashBtn!: Phaser.GameObjects.Rectangle;
   private touchDashLabel!: Phaser.GameObjects.Text;
+  private touchSwapBtn!: Phaser.GameObjects.Arc;
+  private touchSwapLabel!: Phaser.GameObjects.Text;
   private touchPauseBtn!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -195,6 +201,16 @@ export class GameScene extends Phaser.Scene {
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
 
+    // Mobile floor positions: 72px from bottom, 100px gap
+    this.isMobile = !this.sys.game.device.os.desktop;
+    if (this.isMobile) {
+      this.floorBottomY = h - 72;
+      this.floorTopY = h - 172;
+    } else {
+      this.floorBottomY = FLOOR_BOTTOM_Y;
+      this.floorTopY = FLOOR_TOP_Y;
+    }
+
     // Parallax backgrounds
     this.skyBg = this.add
       .tileSprite(0, 0, w, h, 'lv1-sky')
@@ -220,13 +236,13 @@ export class GameScene extends Phaser.Scene {
     const FLOOR_WIDTH = w + 200; // slight overscan
 
     this.floorTopTile = this.add
-      .tileSprite(0, FLOOR_TOP_Y, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
+      .tileSprite(0, this.floorTopY, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
       .setOrigin(0, 0);
     this.floorTopTile.setDepth(3);
     this.physics.add.existing(this.floorTopTile, true);
 
     this.floorBottomTile = this.add
-      .tileSprite(0, FLOOR_BOTTOM_Y, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
+      .tileSprite(0, this.floorBottomY, FLOOR_WIDTH, FLOOR_HEIGHT, 'lv1-floor')
       .setOrigin(0, 0);
     this.floorBottomTile.setDepth(3);
     this.physics.add.existing(this.floorBottomTile, true);
@@ -234,7 +250,7 @@ export class GameScene extends Phaser.Scene {
     // Cockroach
     this.cockroach = this.physics.add.sprite(
       COCKROACH_START_X,
-      FLOOR_BOTTOM_Y - 24,
+      this.floorBottomY - 24,
       'cockroach',
     );
     this.cockroach.setCollideWorldBounds(false);
@@ -410,31 +426,27 @@ export class GameScene extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(2001).setVisible(false);
 
-    // Mobile detection & touch UI
-    this.isMobile = !this.sys.game.device.os.desktop;
+    // Touch UI (isMobile already set above for floor positions)
     this.createTouchUI();
 
-    // Pointer handler for lane swap
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.isDead || this.isPaused || this.isCountingDown) return;
+    // Pointer handler for lane swap (desktop only — mobile uses button)
+    if (!this.isMobile) {
+      this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (this.isDead || this.isPaused || this.isCountingDown) return;
 
-      // On mobile, right half = dash, left half = lane swap
-      if (this.isMobile) {
-        if (pointer.x >= this.cameras.main.width / 2) return; // right half is dash zone
-      } else {
-        // Desktop: ignore taps on dash button / pause button
+        // Ignore taps on dash button / pause button
         const dbX = this.touchDashBtn.x - this.touchDashBtn.width / 2;
         const dbY = this.touchDashBtn.y - this.touchDashBtn.height / 2;
         if (pointer.x >= dbX && pointer.x <= dbX + this.touchDashBtn.width &&
             pointer.y >= dbY && pointer.y <= dbY + this.touchDashBtn.height) return;
-      }
-      const pauseX = this.touchPauseBtn.x - this.touchPauseBtn.width / 2;
-      const pauseY = this.touchPauseBtn.y;
-      if (pointer.x >= pauseX && pointer.x <= pauseX + this.touchPauseBtn.width &&
-          pointer.y >= pauseY && pointer.y <= pauseY + this.touchPauseBtn.height) return;
+        const pauseX = this.touchPauseBtn.x - this.touchPauseBtn.width / 2;
+        const pauseY = this.touchPauseBtn.y;
+        if (pointer.x >= pauseX && pointer.x <= pauseX + this.touchPauseBtn.width &&
+            pointer.y >= pauseY && pointer.y <= pauseY + this.touchPauseBtn.height) return;
 
-      this.swapLane();
-    });
+        this.swapLane();
+      });
+    }
 
     // Audio
     this.audio = new AudioManager(this);
@@ -496,7 +508,7 @@ export class GameScene extends Phaser.Scene {
     if (elapsed >= countdownTexts.length * 600) {
       this.isCountingDown = false;
       // Pin cockroach to floor and re-enable gravity
-      this.cockroach.y = FLOOR_BOTTOM_Y - this.cockroachOffset;
+      this.cockroach.y = this.floorBottomY - this.cockroachOffset;
       this.cockroach.setVelocity(0, 0);
       (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = true;
       this.startTime = this.time.now;
@@ -799,10 +811,12 @@ export class GameScene extends Phaser.Scene {
 
 
     // Dash cooldown bar + touch button
+    const dashCircle = this.touchDashBtn.getData('circle') as Phaser.GameObjects.Arc | null;
     if (this.dashReady) {
       this.dashBarFill.width = 100;
       this.dashBarFill.setFillStyle(0x00ffff);
       this.touchDashBtn.setFillStyle(0x00ffff, 0.4);
+      if (dashCircle) dashCircle.setFillStyle(0x00ffff, 0.5);
       this.touchDashLabel.setColor('#00ffff');
     } else {
       const totalCooldown = DASH_DURATION + DASH_COOLDOWN;
@@ -812,10 +826,12 @@ export class GameScene extends Phaser.Scene {
       if (this.isDashing) {
         this.dashBarFill.setFillStyle(0xffffff);
         this.touchDashBtn.setFillStyle(0xffffff, 0.4);
+        if (dashCircle) dashCircle.setFillStyle(0xffffff, 0.5);
         this.touchDashLabel.setColor('#ffffff');
       } else {
         this.dashBarFill.setFillStyle(0xff6600);
         this.touchDashBtn.setFillStyle(0xff6600, 0.4);
+        if (dashCircle) dashCircle.setFillStyle(0xff6600, 0.3);
         this.touchDashLabel.setColor('#ff6600');
       }
     }
@@ -972,12 +988,12 @@ export class GameScene extends Phaser.Scene {
 
   private swapLane(): void {
     if (this.currentFloor === 'bottom') {
-      this.cockroach.y = FLOOR_TOP_Y - this.cockroachOffset;
+      this.cockroach.y = this.floorTopY - this.cockroachOffset;
       this.cockroach.setVelocityY(0);
       this.currentFloor = 'top';
       this.audio.playJump();
     } else {
-      this.cockroach.y = FLOOR_BOTTOM_Y - this.cockroachOffset;
+      this.cockroach.y = this.floorBottomY - this.cockroachOffset;
       this.cockroach.setVelocityY(0);
       this.currentFloor = 'bottom';
       this.audio.playFloorSwitch();
@@ -998,49 +1014,113 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTouchUI(): void {
-    const btnAlpha = this.isMobile ? 0.7 : 0.3;
-
-    // Dash button — right half of screen on mobile, small button on desktop
     const sw = this.cameras.main.width;
     const sh = this.cameras.main.height;
-    const dashW = this.isMobile ? sw / 2 : 56;
-    const dashH = this.isMobile ? sh : 56;
-    const dashX = this.isMobile ? sw - dashW / 2 : sw - 44;
-    const dashY = this.isMobile ? sh / 2 : sh - 44;
-    const dashAlpha = this.isMobile ? 0 : 0.3;
 
-    this.touchDashBtn = this.add.rectangle(
-      dashX, dashY, dashW, dashH, 0x00ffff, 0.4,
-    )
-      .setScrollFactor(0)
-      .setDepth(3000)
-      .setAlpha(dashAlpha)
-      .setInteractive();
+    if (this.isMobile) {
+      // --- MOBILE: Two circular buttons at bottom ---
+      const btnRadius = 25; // 50px diameter
+      const btnMargin = 11;
+      const btnCenterY = sh - btnMargin - btnRadius;
 
-    this.touchDashLabel = this.add.text(
-      this.isMobile ? sw - sw / 4 : sw - 44,
-      this.isMobile ? sh / 2 : sh - 44,
-      'DASH ▶', {
-        fontSize: this.isMobile ? '18px' : '12px',
-        fontFamily: 'monospace',
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      },
-    )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(3001)
-      .setAlpha(this.isMobile ? 0.4 : 0.3);
+      // SWAP button — bottom-left circle
+      this.touchSwapBtn = this.add.circle(
+        btnMargin + btnRadius, btnCenterY, btnRadius, 0xff6600, 0.5,
+      )
+        .setScrollFactor(0)
+        .setDepth(3000)
+        .setInteractive();
 
-    this.touchDashBtn.on('pointerdown', () => {
-      if (this.isDead || this.isPaused || this.isCountingDown) return;
-      if (this.dashReady && !this.isDashing) {
-        this.startDash();
-      }
-    });
+      this.touchSwapLabel = this.add.text(
+        btnMargin + btnRadius, btnCenterY, '⇅', {
+          fontSize: '22px',
+          fontFamily: 'monospace',
+          color: '#ff6600',
+          stroke: '#000000',
+          strokeThickness: 3,
+        },
+      )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(3001);
 
-    // Pause button — top-right
+      this.touchSwapBtn.on('pointerdown', () => {
+        if (this.isDead || this.isPaused || this.isCountingDown) return;
+        this.swapLane();
+      });
+
+      // DASH button — bottom-right circle
+      this.touchDashBtn = this.add.rectangle(
+        sw - btnMargin - btnRadius, btnCenterY, btnRadius * 2, btnRadius * 2, 0x00ffff, 0.5,
+      )
+        .setScrollFactor(0)
+        .setDepth(3000)
+        .setInteractive();
+      // Make it look circular by using a circle overlay
+      const dashCircle = this.add.circle(
+        sw - btnMargin - btnRadius, btnCenterY, btnRadius, 0x00ffff, 0.5,
+      ).setScrollFactor(0).setDepth(3000);
+      this.touchDashBtn.setAlpha(0); // hide the rectangle, circle is visual
+      this.touchDashBtn.setSize(btnRadius * 2, btnRadius * 2);
+
+      this.touchDashLabel = this.add.text(
+        sw - btnMargin - btnRadius, btnCenterY, '▶', {
+          fontSize: '22px',
+          fontFamily: 'monospace',
+          color: '#00ffff',
+          stroke: '#000000',
+          strokeThickness: 3,
+        },
+      )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(3001);
+
+      // Store circle ref for color updates
+      this.touchDashBtn.setData('circle', dashCircle);
+
+      this.touchDashBtn.on('pointerdown', () => {
+        if (this.isDead || this.isPaused || this.isCountingDown) return;
+        if (this.dashReady && !this.isDashing) {
+          this.startDash();
+        }
+      });
+    } else {
+      // --- DESKTOP: Small dash button bottom-right ---
+      this.touchSwapBtn = this.add.circle(0, 0, 1, 0x000000, 0).setVisible(false);
+      this.touchSwapLabel = this.add.text(0, 0, '').setVisible(false);
+
+      this.touchDashBtn = this.add.rectangle(
+        sw - 44, sh - 44, 56, 56, 0x00ffff, 0.4,
+      )
+        .setScrollFactor(0)
+        .setDepth(3000)
+        .setAlpha(0.3)
+        .setInteractive();
+
+      this.touchDashLabel = this.add.text(
+        sw - 44, sh - 44, 'DASH', {
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          color: '#00ffff',
+          stroke: '#000000',
+          strokeThickness: 2,
+        },
+      )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(3001)
+        .setAlpha(0.3);
+
+      this.touchDashBtn.on('pointerdown', () => {
+        if (this.isDead || this.isPaused || this.isCountingDown) return;
+        if (this.dashReady && !this.isDashing) {
+          this.startDash();
+        }
+      });
+    }
+
+    // Pause button — top-right (both platforms)
     this.touchPauseBtn = this.add.text(
       sw - 20, 12, '\u23f8', {
         fontSize: '28px',
@@ -1053,7 +1133,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(3000)
-      .setAlpha(btnAlpha)
+      .setAlpha(this.isMobile ? 0.7 : 0.3)
       .setInteractive();
 
     this.touchPauseBtn.on('pointerdown', () => {
@@ -1080,7 +1160,7 @@ export class GameScene extends Phaser.Scene {
       if (roll < PILL_SPAWN_CHANCE) {
         // Pill slot (ultra rare!)
         const pFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
-        const pY = (pFloor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y) - 30;
+        const pY = (pFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const pill = this.pills.create(slotX, pY, 'pill') as Phaser.Physics.Arcade.Sprite;
         pill.setScale(0.15);
         pill.setDepth(10);
@@ -1123,7 +1203,7 @@ export class GameScene extends Phaser.Scene {
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE) {
         // Tyskie slot (rare!)
         const tFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
-        const tY = (tFloor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y) - 30;
+        const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
         tyskie.setScale(0.25);
         tyskie.setDepth(10);
@@ -1150,7 +1230,7 @@ export class GameScene extends Phaser.Scene {
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
         // Apple slot
         const appleFloor: Floor = Math.random() > 0.5 ? 'top' : 'bottom';
-        const appleY = (appleFloor === 'top' ? FLOOR_TOP_Y : FLOOR_BOTTOM_Y) - 30;
+        const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const apple = this.apples.create(slotX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
         apple.setScale(0.15);
         apple.setDepth(10);
