@@ -75,22 +75,10 @@ export class MenuScene extends Phaser.Scene {
 
     const isMobile = !this.sys.game.device.os.desktop;
 
-    // --- LAYOUT: 3 sections with space-between ---
-    // Section 1: Title area (top)
-    // Section 2: Buttons (middle)
-    // Section 3: 4 zones (bottom)
-    const pad = 20;
-    const sec1Top = pad + 100;
-    const sec3Bottom = height - pad;
-    const sec1H = 80;   // title + subtitle
-    const sec2H = 50;   // buttons
-    const sec3H = 150;  // 2 rows of zones
-    const totalContent = sec1H + sec2H + sec3H;
-    const spacer = (sec3Bottom - sec1Top - totalContent) / 2;
-
-    const sec1Y = sec1Top;
-    const sec2Y = sec1Top + sec1H + spacer - 50;
-    const sec3Y = sec2Y + sec2H + spacer;
+    // --- LAYOUT: 3 sections, fixed positions ---
+    const sec1Y = 120;  // title area top
+    const sec2Y = 220;  // buttons top
+    const sec3Y = 310;  // zones top
 
     // --- SECTION 1: KARALUCH title + subtitle ---
     const title = this.add.text(width / 2, sec1Y + 20, 'KARALUCH', {
@@ -145,7 +133,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('GameScene');
     };
 
-    const btnY = sec2Y + sec2H / 2;
+    const btnY = sec2Y + 25;
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '14px',
       fontFamily: '"Press Start 2P", monospace',
