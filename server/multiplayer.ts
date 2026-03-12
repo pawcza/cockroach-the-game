@@ -166,6 +166,7 @@ export function setupMultiplayer(io: Server): void {
           const rankings = [...lobby.players.values()].map(p => ({
             id: p.id,
             name: p.name,
+            color: p.color,
             score: deathData!.get(p.id)?.score ?? 0,
             stats: deathData!.get(p.id)?.stats ?? {},
           })).sort((a, b) => b.score - a.score);
@@ -227,6 +228,7 @@ export function setupMultiplayer(io: Server): void {
                 const rankings = [...lobby.players.values()].map(p => ({
                   id: p.id,
                   name: p.name,
+                  color: p.color,
                   score: deathData.get(p.id)?.score ?? 0,
                   stats: deathData.get(p.id)?.stats ?? {},
                 })).sort((a, b) => b.score - a.score);

@@ -1138,8 +1138,8 @@ export class GameScene extends Phaser.Scene {
     // In multiplayer, start spectating instead of transitioning to GameOverScene
     if (this.isMultiplayer) {
       const stats = {
-        timeSurvived: this.activePlayTime,
-        distance: this.getDistance(),
+        timeSurvived: Math.floor(this.activePlayTime / 1000),
+        distance: Math.floor(this.getDistance()),
         maxSpeed: this.player.speedMultiplier,
       };
       mpClient.sendDeath(this.score, stats);
