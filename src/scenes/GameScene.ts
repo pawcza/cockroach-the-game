@@ -492,7 +492,14 @@ export class GameScene extends Phaser.Scene {
           this.ghostManager.cycleSpectate(1);
         }
 
-        // Update ghost manager even while spectating
+        // Keep the world alive — parallax, floors, obstacles, cleanup
+        // so spectating feels like watching through the other player's eyes
+        this.updateParallax();
+        this.updateFloors();
+        this.handleSpawning();
+        this.cleanupOffscreen();
+
+        // Update ghost manager
         this.ghostManager.update(
           this.game.loop.delta,
           this.cameras.main.scrollX,
