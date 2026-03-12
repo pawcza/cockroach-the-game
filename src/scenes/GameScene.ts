@@ -1274,10 +1274,21 @@ export class GameScene extends Phaser.Scene {
       };
       mpClient.sendDeath(this.score, stats);
 
-      // Start spectating if there are alive ghosts
+      // Start spectating after death animation plays out
       if (this.ghostManager && !this.ghostManager.allDead()) {
         this.cameras.main.stopFollow();
-        this.ghostManager.startSpectating();
+        this.time.delayedCall(1000, () => {
+          if (this.ghostManager && !this.ghostManager.allDead()) {
+            this.ghostManager.startSpectating();
+            // Snap camera to spectate target immediately
+            const target = this.ghostManager.spectateTargetPlayer;
+            if (target && target.alive) {
+              this.cameras.main.scrollX = target.sprite.x - 200;
+            }
+          } else {
+            this.triggerMultiplayerGameOver();
+          }
+        });
       } else {
         this.triggerMultiplayerGameOver();
       }
