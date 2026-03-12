@@ -33,6 +33,9 @@ export class GhostPlayer {
   private _alive = true;
   private _score = 0;
   private _stats: Record<string, unknown> = {};
+  private _isSpectated = false;
+  private _isDashing = false;
+  private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
   // Dead reckoning
   private lastX: number;
@@ -49,6 +52,13 @@ export class GhostPlayer {
   get score(): number { return this._score; }
   get stats(): Record<string, unknown> { return this._stats; }
   get lane(): string { return this.targetLane; }
+  get isDashing(): boolean { return this._isDashing; }
+
+  setSpectated(spectated: boolean): void {
+    this._isSpectated = spectated;
+    if (!this._alive) return;
+    this.updateAlpha();
+  }
 
   constructor(scene: Phaser.Scene, id: string, name: string, colorIndex: number, startX: number, floorBottomY: number) {
     this.scene = scene;
@@ -96,8 +106,50 @@ export class GhostPlayer {
     }
   }
 
+  private updateAlpha(): void {
+    if (this._isSpectated) {
+      this.sprite.setAlpha(this._isDashing ? 0.5 : 1);
+    } else {
+      this.sprite.setAlpha(this._isDashing ? 0.35 : 0.2);
+    }
+  }
+
   setDashing(active: boolean): void {
-    this.sprite.setAlpha(active ? 0.35 : 0.2);
+    this._isDashing = active;
+    this.updateAlpha();
+
+    if (active) {
+      this.sprite.setTint(0xffffaa);
+      // Afterimage trail like the real player
+      this.dashTrailTimer = this.scene.time.addEvent({
+        delay: 80,
+        repeat: -1,
+        callback: () => {
+          if (!this._isDashing || !this._alive) {
+            this.dashTrailTimer?.destroy();
+            this.dashTrailTimer = null;
+            return;
+          }
+          const afterimage = this.scene.add.sprite(this.sprite.x, this.sprite.y, this.sprite.texture.key);
+          afterimage.setScale(this.sprite.scaleX, this.sprite.scaleY);
+          afterimage.setAlpha(this._isSpectated ? 0.3 : 0.15);
+          afterimage.setTint(this.color);
+          afterimage.setDepth(this.sprite.depth - 1);
+          this.scene.tweens.add({
+            targets: afterimage,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => afterimage.destroy(),
+          });
+        },
+      });
+    } else {
+      this.sprite.setTint(this.color);
+      if (this.dashTrailTimer) {
+        this.dashTrailTimer.destroy();
+        this.dashTrailTimer = null;
+      }
+    }
   }
 
   setPill(active: boolean): void {
@@ -112,6 +164,11 @@ export class GhostPlayer {
     this._alive = false;
     this._score = score;
     this._stats = stats;
+    this._isDashing = false;
+    if (this.dashTrailTimer) {
+      this.dashTrailTimer.destroy();
+      this.dashTrailTimer = null;
+    }
 
     // Death animation — tint gray, fling upward with spin, then fade out
     this.sprite.setTint(0x444444);
@@ -145,6 +202,10 @@ export class GhostPlayer {
   }
 
   destroy(): void {
+    if (this.dashTrailTimer) {
+      this.dashTrailTimer.destroy();
+      this.dashTrailTimer = null;
+    }
     this.sprite.destroy();
   }
 }
