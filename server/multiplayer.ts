@@ -88,6 +88,18 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobby.id).emit('lobby:updated', lobbyData);
     });
 
+    socket.on('lobby:ready', (ready: boolean, callback: Function) => {
+      const lobby = lobbies.setReady(socket.id, ready);
+      if (!lobby) {
+        callback({ error: 'Cannot set ready' });
+        return;
+      }
+
+      const lobbyData = serializeLobby(lobbies, lobby.id);
+      callback({ lobby: lobbyData });
+      socket.to(lobby.id).emit('lobby:updated', lobbyData);
+    });
+
     socket.on('lobby:start', (callback: Function) => {
       const lobby = lobbies.startGame(socket.id);
       if (!lobby) {
