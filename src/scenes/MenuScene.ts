@@ -237,7 +237,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(): void {
-    this.menuBg.tilePositionX += 0.3;
+    this.menuBg.tilePositionX += 0.15;
   }
 
   private spawnFloatingParticle(
