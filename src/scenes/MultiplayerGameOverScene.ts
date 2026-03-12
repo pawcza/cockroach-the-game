@@ -18,6 +18,37 @@ interface MPGameOverData {
 
 const FONT_FAMILY = '"Press Start 2P", monospace';
 
+// Map obstacle type names to texture keys for the death icon
+const OBSTACLE_TEXTURE: Record<string, string> = {
+  onion: 'onion',
+  spray: 'pest-spray',
+  flipper: 'flipper',
+  newspaper: 'newspaper',
+  bird: 'bird',
+  cat: 'cat-paw',
+  disco: 'disco-ball',
+  jellyfish: 'jellyfish',
+  pope: 'pope',
+  bison: 'bison',
+  blackhole: 'black-hole',
+};
+
+// Polish death cause labels
+const OBSTACLE_LABEL: Record<string, string> = {
+  onion: 'Cebula',
+  spray: 'Spray',
+  flipper: 'Klapek',
+  newspaper: 'Gazeta',
+  bird: 'Ptak',
+  cat: 'Łapa kota',
+  disco: 'Dyskoteka',
+  jellyfish: 'Meduza',
+  pope: 'Papież',
+  bison: 'Żubr',
+  blackhole: 'Czarna dziura',
+  fall: 'Spadł',
+};
+
 function getScale(): number {
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
 }
@@ -66,7 +97,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       strokeThickness: Math.round(6 * s),
     }).setOrigin(0.5);
 
-    // Wobbly angle oscillation
     title.setAngle(-3);
     this.tweens.add({
       targets: title,
@@ -88,16 +118,16 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       }
     }
 
-    // --- Rankings table with full stats ---
+    // --- Rankings table ---
     const tableStartY = Math.round(65 * s);
-    const lineHeight = Math.round(44 * s);
+    const lineHeight = Math.round(58 * s); // more vertical padding
+    const statFontSize = `${Math.round(7 * s)}px`;
 
     // Column positions
     const colRank = Math.round(15 * s);
-    const colColor = Math.round(40 * s);
-    const colName = Math.round(58 * s);
+    const colColor = Math.round(45 * s);
+    const colName = Math.round(68 * s);
     const colScore = width - Math.round(15 * s);
-    const statFontSize = `${Math.round(7 * s)}px`;
 
     for (let i = 0; i < rankings.length; i++) {
       const entry = rankings[i];
@@ -138,15 +168,15 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
       // Row background for self
       if (isMe) {
-        this.add.rectangle(width / 2, y + Math.round(6 * s), width - Math.round(20 * s), lineHeight - Math.round(4 * s), 0x003322, 0.3);
+        this.add.rectangle(width / 2, y + Math.round(8 * s), width - Math.round(20 * s), lineHeight - Math.round(6 * s), 0x003322, 0.3);
       }
 
-      // Rank number
-      const rankText = this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
+      // Rank number (stable — never animated)
+      this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
 
-      // Player color square
+      // Player color square — bigger
       const playerColor = MP_PLAYER_COLORS[entry.color] ?? 0xffffff;
-      const sq = Math.round(10 * s);
+      const sq = Math.round(16 * s);
       this.add.rectangle(colColor, y, sq, sq, playerColor, 1);
 
       // Player name (highlight if self)
@@ -157,22 +187,37 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       // Score (right-aligned)
       const scoreText = this.add.text(colScore, y, String(entry.score), rowStyle).setOrigin(1, 0.5);
 
-      // Stats line below name
+      // Death cause icon + label below name
       const stats = entry.stats || {};
-      const statParts: string[] = [];
+      const obstacleType = (stats.obstacleType as string) || 'fall';
+      const deathTexture = OBSTACLE_TEXTURE[obstacleType];
+      const deathLabel = OBSTACLE_LABEL[obstacleType] || obstacleType;
+
+      const statLineY = y + Math.round(16 * s);
+
+      // Show obstacle sprite if texture exists
+      let statTextX = colName;
+      if (deathTexture && this.textures.exists(deathTexture)) {
+        const icon = this.add.image(colName, statLineY, deathTexture);
+        icon.setScale(Math.round(12 * s) / Math.max(icon.width, icon.height));
+        icon.setOrigin(0, 0.5);
+        icon.setDepth(10);
+        statTextX = colName + Math.round(18 * s);
+      }
+
+      // Death cause + stats line
+      const statParts: string[] = [deathLabel];
       if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
       if (stats.maxSpeed !== undefined) statParts.push(`${Number(stats.maxSpeed).toFixed(1)}x`);
 
-      if (statParts.length > 0) {
-        this.add.text(colName, y + Math.round(14 * s), statParts.join('  '), {
-          fontSize: statFontSize,
-          color: '#888888',
-          fontFamily: FONT_FAMILY,
-          stroke: '#000000',
-          strokeThickness: 1,
-        }).setOrigin(0, 0.5);
-      }
+      this.add.text(statTextX, statLineY, statParts.join('  '), {
+        fontSize: statFontSize,
+        color: '#888888',
+        fontFamily: FONT_FAMILY,
+        stroke: '#000000',
+        strokeThickness: 1,
+      }).setOrigin(0, 0.5);
 
       // "NOWY REKORD!" badge
       if (isMe && isNewRecord) {
@@ -195,8 +240,8 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         });
       }
 
-      // Top 3 trippy effects
-      const elements = [rankText, nameText, scoreText];
+      // Top 3 effects — only name and score animate (rank stays stable)
+      const animElements = [nameText, scoreText];
 
       if (rank === 1) {
         const colors = ['#ffd700', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
@@ -206,11 +251,11 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           loop: true,
           callback: () => {
             ci = (ci + 1) % colors.length;
-            elements.forEach(el => el.setColor(colors[ci]));
+            animElements.forEach(el => el.setColor(colors[ci]));
           },
         });
         this.tweens.add({
-          targets: elements,
+          targets: animElements,
           scaleX: { from: 1, to: 1.06 },
           scaleY: { from: 1, to: 1.06 },
           duration: 400,
@@ -222,12 +267,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           delay: 80,
           loop: true,
           callback: () => {
-            elements.forEach(el => { el.x += Phaser.Math.Between(-1, 1); });
+            animElements.forEach(el => { el.x += Phaser.Math.Between(-1, 1); });
           },
         });
       } else if (rank === 2) {
         this.tweens.add({
-          targets: elements,
+          targets: animElements,
           alpha: { from: 0.7, to: 1 },
           duration: 600,
           yoyo: true,
@@ -236,7 +281,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         });
       } else if (rank === 3) {
         this.tweens.add({
-          targets: elements,
+          targets: animElements,
           alpha: { from: 0.8, to: 1 },
           duration: 1000,
           yoyo: true,
@@ -281,7 +326,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       let countdown = 10;
-      const countdownEvent = this.time.addEvent({
+      this.time.addEvent({
         delay: 1000,
         repeat: 9,
         callback: () => {
@@ -289,7 +334,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           if (countdown > 0) {
             countdownText.setText(`Rewanzyk (${countdown})`);
           } else {
-            // Unlock button
             countdownText.setText('Rewanzyk');
             countdownText.setColor('#ffffff');
             rematchBg.setAlpha(0.9);
@@ -329,7 +373,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     };
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
 
-    // Clean up on scene shutdown
     this.events.on('shutdown', () => {
       this.cleanupListeners();
     });
