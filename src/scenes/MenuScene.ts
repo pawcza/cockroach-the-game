@@ -114,21 +114,10 @@ export class MenuScene extends Phaser.Scene {
     // --- TUTORIAL ZONES: Pyszniutkie (pickups) & Fujka (obstacles) ---
     this.setupTutorialZones(width, height);
 
-    // High score from localStorage
-    const highScore = localStorage.getItem('cockroach-highscore') || '0';
-    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-    this.add.text(width / 2, height / 2 + 55, `Najlepsiejszy wynik: ${highScore} | Giereczki: ${gamesPlayed}`, {
-      fontSize: '8px',
-      color: '#ffffff',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(10);
-
     const isMobile = !this.sys.game.device.os.desktop;
 
-    // --- CONTROLS DISPLAY ---
-    this.setupControlsDisplay(width, height, isMobile);
+    // --- BOTTOM ZONES: Sterowanie & Moje Staty ---
+    this.setupBottomZones(width, height, isMobile);
 
     this.add
       .text(width - 10, height - 10, 'v0.4.2 THE KARALUCH PROJECT', {
@@ -206,12 +195,18 @@ export class MenuScene extends Phaser.Scene {
     this.menuBg.tilePositionX += 0.05;
   }
 
-  private setupControlsDisplay(width: number, height: number, isMobile: boolean): void {
-    const baseY = height - 65;
+  private setupBottomZones(width: number, height: number, isMobile: boolean): void {
+    const zoneY = height / 2 + 55;
+    const zoneW = width * 0.38;
+    const zoneH = 60;
+    const gap = 16;
 
-    // Title with floating bob
-    const title = this.add.text(width / 2, baseY - 18, 'Sterowanie', {
-      fontSize: '9px',
+    // --- STEROWANIE (cyan, left) ---
+    const leftX = width / 2 - gap / 2 - zoneW / 2;
+    this.add.rectangle(leftX, zoneY, zoneW, zoneH, 0x003344, 0.3).setDepth(10);
+
+    const sterTitle = this.add.text(leftX, zoneY - 18, 'Sterowanie', {
+      fontSize: '10px',
       color: '#00ccff',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
@@ -219,15 +214,15 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(11);
 
     this.tweens.add({
-      targets: title,
-      y: title.y - 3,
+      targets: sterTitle,
+      y: sterTitle.y - 4,
       duration: 1200,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
 
-    // Key bindings: [keys[], description]
+    // Key bindings
     const bindings: [string[], string][] = isMobile
       ? [
           [['Lewy ekran'], 'Zmie\u0144 tor'],
@@ -240,9 +235,9 @@ export class MenuScene extends Phaser.Scene {
           [['ESC'], 'Pauzka'],
         ];
 
-    const totalW = isMobile ? 420 : 520;
-    const segW = totalW / bindings.length;
-    const startX = width / 2 - totalW / 2 + segW / 2;
+    const segW = zoneW / bindings.length;
+    const keysStartX = leftX - zoneW / 2 + segW / 2;
+    const keysY = zoneY + 2;
 
     const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '7px',
@@ -253,17 +248,16 @@ export class MenuScene extends Phaser.Scene {
     };
 
     const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '6px',
+      fontSize: '5px',
       fontFamily: '"Press Start 2P", monospace',
-      color: '#aaaaaa',
+      color: '#88ccdd',
       stroke: '#000000',
       strokeThickness: 1,
     };
 
     bindings.forEach(([keys, desc], i) => {
-      const cx = startX + i * segW;
+      const cx = keysStartX + i * segW;
 
-      // Render key caps side by side
       const keyTexts: Phaser.GameObjects.Text[] = [];
       keys.forEach((k) => {
         const rotate = k.endsWith('>rot90');
@@ -273,32 +267,65 @@ export class MenuScene extends Phaser.Scene {
         keyTexts.push(kt);
       });
 
-      // Measure total width of key caps with gaps
-      const keyGap = 4;
+      const keyGap = 3;
       let keysW = 0;
       keyTexts.forEach((kt, ki) => {
         keysW += kt.width;
         if (ki < keyTexts.length - 1) keysW += keyGap;
       });
 
-      // Position key caps centered on cx
       let kx = cx - keysW / 2;
       keyTexts.forEach((kt) => {
         if (kt.angle !== 0) {
-          // Rotated keys: position at center so rotation pivot is correct
           kt.setOrigin(0.5, 0.5);
-          kt.setPosition(kx + kt.width / 2, baseY - 2);
+          kt.setPosition(kx + kt.width / 2, keysY);
         } else {
-          kt.setPosition(kx, baseY - 2);
+          kt.setPosition(kx, keysY);
           kt.setOrigin(0, 0.5);
         }
         kx += kt.width + keyGap;
       });
 
-      // Description below
-      this.add.text(cx, baseY + 12, desc, descStyle)
+      this.add.text(cx, keysY + 12, desc, descStyle)
         .setOrigin(0.5, 0).setDepth(11);
     });
+
+    // --- MOJE STATY (purple, right) ---
+    const rightX = width / 2 + gap / 2 + zoneW / 2;
+    this.add.rectangle(rightX, zoneY, zoneW, zoneH, 0x330044, 0.3).setDepth(10);
+
+    const statyTitle = this.add.text(rightX, zoneY - 18, 'Moje Staty', {
+      fontSize: '10px',
+      color: '#cc66ff',
+      fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(11);
+
+    this.tweens.add({
+      targets: statyTitle,
+      y: statyTitle.y - 4,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    const highScore = localStorage.getItem('cockroach-highscore') || '0';
+    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
+
+    const statStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '7px',
+      fontFamily: '"Press Start 2P", monospace',
+      color: '#ddaaff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    };
+
+    this.add.text(rightX, zoneY + 0, `Najlepszy: ${highScore}`, statStyle)
+      .setOrigin(0.5).setDepth(11);
+    this.add.text(rightX, zoneY + 16, `Giereczki: ${gamesPlayed}`, statStyle)
+      .setOrigin(0.5).setDepth(11);
   }
 
   private setupTutorialZones(width: number, height: number): void {
