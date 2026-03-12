@@ -112,8 +112,17 @@ export class GhostPlayer {
     this._alive = false;
     this._score = score;
     this._stats = stats;
-    this.sprite.setAlpha(0.05);
+
+    // Death animation — tint gray, fling upward with spin, then fade out
     this.sprite.setTint(0x444444);
+    this.scene.tweens.add({
+      targets: this.sprite,
+      y: this.sprite.y - 80,
+      angle: 720,
+      alpha: 0,
+      duration: 800,
+      ease: 'Quad.easeOut',
+    });
   }
 
   update(delta: number): void {
