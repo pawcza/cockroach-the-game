@@ -251,11 +251,77 @@ export class GameHUD {
     }
   }
 
+  private pauseTweens: Phaser.Tweens.Tween[] = [];
+
   showPauseOverlay(): void {
+    const h = this.scene.cameras.main.height;
+
     this.blurOverlay.setVisible(true);
     this.pauseOverlay.setVisible(true);
     this.pauseText.setVisible(true);
     this.pauseSubtext.setVisible(true);
+
+    // Animate title: scale in from 0 + floating bob
+    this.pauseText.setScale(0);
+    this.pauseText.setAlpha(0);
+    this.pauseTweens.push(
+      this.scene.tweens.add({
+        targets: this.pauseText,
+        scale: 1,
+        alpha: 1,
+        duration: 300,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+          // Floating bob like menu title
+          this.pauseTweens.push(
+            this.scene.tweens.add({
+              targets: this.pauseText,
+              y: h / 2 - 25,
+              duration: 1500,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            }),
+          );
+        },
+      }),
+    );
+
+    // Animate subtext: fade in with slight delay + pulsing alpha
+    this.pauseSubtext.setAlpha(0);
+    this.pauseTweens.push(
+      this.scene.tweens.add({
+        targets: this.pauseSubtext,
+        alpha: 1,
+        duration: 400,
+        delay: 200,
+        ease: 'Power2',
+        onComplete: () => {
+          this.pauseTweens.push(
+            this.scene.tweens.add({
+              targets: this.pauseSubtext,
+              alpha: 0.4,
+              duration: 800,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            }),
+          );
+          // Gentle rotation oscillation like menu subtitle
+          this.pauseSubtext.setAngle(-2);
+          this.pauseTweens.push(
+            this.scene.tweens.add({
+              targets: this.pauseSubtext,
+              angle: 2,
+              duration: 2000,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            }),
+          );
+        },
+      }),
+    );
 
     // Cricket ambient sound
     if (!this.cricketSound) {
@@ -265,10 +331,18 @@ export class GameHUD {
   }
 
   hidePauseOverlay(): void {
+    const h = this.scene.cameras.main.height;
+
+    // Kill all pause tweens and reset positions
+    for (const tween of this.pauseTweens) {
+      tween.destroy();
+    }
+    this.pauseTweens = [];
+
     this.blurOverlay.setVisible(false);
     this.pauseOverlay.setVisible(false);
-    this.pauseText.setVisible(false);
-    this.pauseSubtext.setVisible(false);
+    this.pauseText.setVisible(false).setY(h / 2 - 15).setScale(1).setAlpha(1);
+    this.pauseSubtext.setVisible(false).setAngle(0).setAlpha(1);
 
     if (this.cricketSound) {
       this.cricketSound.stop();
