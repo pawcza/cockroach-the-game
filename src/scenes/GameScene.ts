@@ -172,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
     this._wasDashing = false;
     this._wasPillActive = false;
+    this.deathNotificationY = 80;
 
     // Reset ALL state
     this.score = 0;
@@ -762,7 +763,12 @@ export class GameScene extends Phaser.Scene {
       this.ghostManager?.handlePillEnd(data.id);
     });
     mpClient.on('game:death', (data: any) => {
+      const name = this.ghostManager?.getGhostName(data.id);
+      const color = this.ghostManager?.getGhostColor(data.id);
       this.ghostManager?.handleDeath(data.id, data.score, data.stats);
+      if (name) {
+        this.showDeathNotification(name, color ?? 0xffffff);
+      }
       // If I'm spectating and all ghosts are now dead, trigger game over
       if (this.isDead && this.ghostManager?.allDead()) {
         this.triggerMultiplayerGameOver();
@@ -770,7 +776,12 @@ export class GameScene extends Phaser.Scene {
     });
     // Handle player disconnect mid-game — kill their ghost
     mpClient.on('game:player-left', (data: any) => {
+      const name = this.ghostManager?.getGhostName(data.id);
+      const color = this.ghostManager?.getGhostColor(data.id);
       this.ghostManager?.handleDeath(data.id, 0, {});
+      if (name) {
+        this.showDeathNotification(name, color ?? 0xffffff, true);
+      }
       if (this.isDead && this.ghostManager?.allDead()) {
         this.triggerMultiplayerGameOver();
       }
@@ -811,6 +822,49 @@ export class GameScene extends Phaser.Scene {
       }
       this.ghostManager?.destroy();
       this.ghostManager = null;
+    });
+  }
+
+  private deathNotificationY = 80;
+
+  private showDeathNotification(name: string, color: number, disconnected = false): void {
+    const cam = this.cameras.main;
+    const colorStr = '#' + color.toString(16).padStart(6, '0');
+    const label = disconnected ? `${name} uciekł` : `${name} zginął!`;
+
+    const text = this.add.text(cam.width / 2, this.deathNotificationY, label, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: colorStr,
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    text.setOrigin(0.5, 0);
+    text.setScrollFactor(0);
+    text.setDepth(4000);
+    text.setAlpha(0);
+
+    this.deathNotificationY += 20;
+
+    this.tweens.add({
+      targets: text,
+      alpha: 1,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => {
+        this.tweens.add({
+          targets: text,
+          alpha: 0,
+          y: text.y - 15,
+          delay: 2000,
+          duration: 500,
+          ease: 'Power2',
+          onComplete: () => {
+            text.destroy();
+            this.deathNotificationY = Math.max(80, this.deathNotificationY - 20);
+          },
+        });
+      },
     });
   }
 
