@@ -294,12 +294,12 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Obstacle icons
-    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper', 'bird', 'cat-paw', 'disco-ball', 'jellyfish', 'pope', 'bison', 'black-hole'];
-    const obstSpacing = zoneW / (obstacles.length + 1);
+    // Obstacle icons (only early-game ones to avoid spoilers)
+    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper'];
+    const obstSpacing = zoneW / (obstacles.length + 2);
     obstacles.forEach((key, i) => {
       const ix = rightX - zoneW / 2 + obstSpacing * (i + 1);
-      const icon = this.add.image(ix, iconY, key).setScale(0.08).setDepth(11);
+      const icon = this.add.image(ix, iconY, key).setScale(0.1).setDepth(11);
       this.tweens.add({
         targets: icon,
         y: iconY - 3,
@@ -310,6 +310,13 @@ export class MenuScene extends Phaser.Scene {
         ease: 'Sine.easeInOut',
       });
     });
+    this.add.text(rightX - zoneW / 2 + obstSpacing * (obstacles.length + 1), iconY, '...i inne', {
+      fontSize: '7px',
+      color: '#ff6666',
+      fontFamily: '"Press Start 2P", monospace',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(11);
   }
 
   private spawnFloatingParticle(
