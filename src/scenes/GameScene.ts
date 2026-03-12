@@ -832,6 +832,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private togglePause(): void {
+    if (this.isMultiplayer) return;
     if (this.isUnpauseCountdown) return;
 
     if (!this.isPaused) {
@@ -1350,22 +1351,42 @@ export class GameScene extends Phaser.Scene {
     (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
 
     // Advance stepped-on ranges for the cockroach's current floor
-    const cockroachX = this.player.x;
-    if (!this.isCountingDown && !this.isDead) {
-      const currentFloor = this.player.currentFloor;
-      const ranges = currentFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
+    // During spectate, use the spectated ghost's position/lane instead
+    let trackX: number;
+    let trackFloor: 'top' | 'bottom';
+    let shouldTrack: boolean;
+
+    if (this.isDead && this.isMultiplayer && this.ghostManager?.isSpectating) {
+      const target = this.ghostManager.spectateTargetPlayer;
+      if (target && target.alive) {
+        trackX = target.sprite.x;
+        trackFloor = target.lane as 'top' | 'bottom';
+        shouldTrack = true;
+      } else {
+        shouldTrack = false;
+        trackX = 0;
+        trackFloor = 'bottom';
+      }
+    } else {
+      trackX = this.player.x;
+      trackFloor = this.player.currentFloor;
+      shouldTrack = !this.isCountingDown && !this.isDead;
+    }
+
+    if (shouldTrack) {
+      const ranges = trackFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
 
       // On floor swap, start a new range at the landing position
-      if (currentFloor !== this.lastTrackedFloor) {
-        const snapX = Math.floor(cockroachX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
-        ranges.push({ from: snapX, to: cockroachX, lastFallX: snapX - FLOOR_TILE_STEP });
-        this.lastTrackedFloor = currentFloor;
+      if (trackFloor !== this.lastTrackedFloor) {
+        const snapX = Math.floor(trackX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+        ranges.push({ from: snapX, to: trackX, lastFallX: snapX - FLOOR_TILE_STEP });
+        this.lastTrackedFloor = trackFloor;
       }
 
       // Extend the current range
       if (ranges.length > 0) {
         const current = ranges[ranges.length - 1];
-        current.to = Math.max(current.to, cockroachX);
+        current.to = Math.max(current.to, trackX);
       }
     }
 
