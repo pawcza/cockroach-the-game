@@ -236,7 +236,7 @@ export class MenuScene extends Phaser.Scene {
         ]
       : [
           [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
-          [['SHIFT', '\u2192'], 'Dash'],
+          [['SHIFT', '\u2191>rot90'], 'Dash'],
           [['ESC'], 'Pauzka'],
         ];
 
@@ -245,11 +245,11 @@ export class MenuScene extends Phaser.Scene {
     const startX = width / 2 - totalW / 2 + segW / 2;
 
     const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '10px',
+      fontSize: '7px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#111111',
       backgroundColor: '#e8e8e8',
-      padding: { x: 5, y: 4 },
+      padding: { x: 4, y: 3 },
     };
 
     const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
@@ -266,7 +266,11 @@ export class MenuScene extends Phaser.Scene {
       // Render key caps side by side
       const keyTexts: Phaser.GameObjects.Text[] = [];
       keys.forEach((k) => {
-        keyTexts.push(this.add.text(0, 0, k, keyStyle).setDepth(11));
+        const rotate = k.endsWith('>rot90');
+        const label = rotate ? k.replace('>rot90', '') : k;
+        const kt = this.add.text(0, 0, label, keyStyle).setDepth(11);
+        if (rotate) kt.setAngle(90);
+        keyTexts.push(kt);
       });
 
       // Measure total width of key caps with gaps
