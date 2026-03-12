@@ -515,6 +515,7 @@ export class GameScene extends Phaser.Scene {
           this.game.loop.delta,
           this.cameras.main.scrollX,
           this.cameras.main.width,
+          this.cameras.main.height,
         );
 
         // Check if spectate target died
@@ -738,6 +739,7 @@ export class GameScene extends Phaser.Scene {
         this.game.loop.delta,
         this.cameras.main.scrollX,
         this.cameras.main.width,
+        this.cameras.main.height,
       );
     }
   }
