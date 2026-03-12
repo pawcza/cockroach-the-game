@@ -80,7 +80,7 @@ export class MenuScene extends Phaser.Scene {
     // Section 2: Buttons (middle)
     // Section 3: 4 zones (bottom)
     const pad = 20;
-    const sec1Top = pad;
+    const sec1Top = pad + 100;
     const sec3Bottom = height - pad;
     const sec1H = 80;   // title + subtitle
     const sec2H = 50;   // buttons
