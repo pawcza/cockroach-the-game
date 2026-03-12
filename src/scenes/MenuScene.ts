@@ -235,8 +235,8 @@ export class MenuScene extends Phaser.Scene {
           [['\u23f8'], 'Pauzka'],
         ]
       : [
-          [['SPACJA', 'G\u00d3RA', 'D\u00d3\u0141'], 'Zmiana toru'],
-          [['SHIFT', 'PRAWO'], 'Dash'],
+          [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
+          [['SHIFT', '\u2192'], 'Dash'],
           [['ESC'], 'Pauzka'],
         ];
 
@@ -245,11 +245,11 @@ export class MenuScene extends Phaser.Scene {
     const startX = width / 2 - totalW / 2 + segW / 2;
 
     const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '7px',
+      fontSize: '10px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#111111',
       backgroundColor: '#e8e8e8',
-      padding: { x: 4, y: 3 },
+      padding: { x: 5, y: 4 },
     };
 
     const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
