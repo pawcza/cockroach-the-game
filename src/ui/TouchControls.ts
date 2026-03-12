@@ -86,13 +86,26 @@ export class TouchControls {
       .setScrollFactor(0)
       .setDepth(3001);
 
-    // DASH button -- bottom-right circle
+    // DASH: invisible zone covering right 50% of screen
+    const dashZone = this.scene.add.rectangle(sw / 2, 0, sw / 2, sh, 0x000000, 0)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(2999)
+      .setInteractive();
+
+    dashZone.on('pointerdown', () => {
+      if (this.callbacks.isDisabled()) return;
+      if (this.callbacks.isDashAllowed()) {
+        this.callbacks.onDash();
+      }
+    });
+
+    // DASH button -- bottom-right circle (visual only)
     this.dashCircle = this.scene.add.circle(
       sw - btnMargin - btnRadius, btnCenterY, btnRadius, 0x00ffff, 0.5,
     )
       .setScrollFactor(0)
-      .setDepth(3000)
-      .setInteractive();
+      .setDepth(3000);
 
     // Invisible rectangle just to satisfy type for touchDashBtn (used in update loop)
     this.touchDashBtn = this.scene.add.rectangle(0, 0, 1, 1, 0x000000, 0)
@@ -113,13 +126,6 @@ export class TouchControls {
 
     // Store circle ref for color updates
     this.touchDashBtn.setData('circle', this.dashCircle);
-
-    this.dashCircle.on('pointerdown', () => {
-      if (this.callbacks.isDisabled()) return;
-      if (this.callbacks.isDashAllowed()) {
-        this.callbacks.onDash();
-      }
-    });
   }
 
   private createDesktopUI(sw: number, sh: number): void {
