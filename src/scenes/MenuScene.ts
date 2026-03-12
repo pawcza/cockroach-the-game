@@ -73,8 +73,27 @@ export class MenuScene extends Phaser.Scene {
       onUpdate: () => drawVignette(vignetteData.alpha),
     });
 
-    // --- TITLE: "KARALUCH" with floating bob ---
-    const title = this.add.text(width / 2, height / 4, 'KARALUCH', {
+    const isMobile = !this.sys.game.device.os.desktop;
+
+    // --- LAYOUT: 3 sections with space-between ---
+    // Section 1: Title area (top)
+    // Section 2: Buttons (middle)
+    // Section 3: 4 zones (bottom)
+    const pad = 20;
+    const sec1Top = pad;
+    const sec3Bottom = height - pad;
+    const sec1H = 80;   // title + subtitle
+    const sec2H = 50;   // buttons
+    const sec3H = 150;  // 2 rows of zones
+    const totalContent = sec1H + sec2H + sec3H;
+    const spacer = (sec3Bottom - sec1Top - totalContent) / 2;
+
+    const sec1Y = sec1Top;
+    const sec2Y = sec1Top + sec1H + spacer;
+    const sec3Y = sec2Y + sec2H + spacer;
+
+    // --- SECTION 1: KARALUCH title + subtitle ---
+    const title = this.add.text(width / 2, sec1Y + 20, 'KARALUCH', {
       fontSize: '32px',
       color: '#8b0000',
       fontFamily: '"Press Start 2P", monospace',
@@ -92,8 +111,7 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // --- SUBTITLE with rotation oscillation ---
-    const subtitle = this.add.text(width / 2, height / 4 + 45, 'Gra przegrańców', {
+    const subtitle = this.add.text(width / 2, sec1Y + 65, 'Gra przegra\u0144c\u00f3w', {
       fontSize: '14px',
       color: '#ff6600',
       fontFamily: '"Press Start 2P", monospace',
@@ -111,30 +129,10 @@ export class MenuScene extends Phaser.Scene {
     });
     subtitle.setAngle(-3);
 
-    // --- TUTORIAL ZONES: Pyszniutkie (pickups) & Fujka (obstacles) ---
-    this.setupTutorialZones(width, height);
-
-    const isMobile = !this.sys.game.device.os.desktop;
-
-    // --- BOTTOM ZONES: Sterowanie & Moje Staty ---
-    this.setupBottomZones(width, height, isMobile);
-
-    this.add
-      .text(width - 10, height - 10, 'v0.4.2 THE KARALUCH PROJECT', {
-        fontSize: '7px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
-      .setOrigin(1, 1)
-      .setDepth(10);
-
-    // --- MENU MUSIC ---
+    // --- SECTION 2: Action buttons ---
     this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
     this.menuBgm.play();
 
-    // Start the game
     const startGame = (): void => {
       if (this.menuBgm) {
         this.menuBgm.stop();
@@ -147,27 +145,24 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('GameScene');
     };
 
-    // --- ACTION BUTTONS ---
-    const btnY = height / 2 + 80;
+    const btnY = sec2Y + sec2H / 2;
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '10px',
+      fontSize: '14px',
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: 4,
       align: 'center',
     };
 
-    // GRAJ button
-    const playBg = this.add.rectangle(width / 2 - 76, btnY, 140, 36, 0x880000, 0.9)
+    const playBg = this.add.rectangle(width / 2 - 95, btnY, 170, 44, 0x880000, 0.9)
       .setDepth(10).setInteractive({ useHandCursor: true });
-    const playLabel = this.add.text(width / 2 - 76, btnY, 'GRAJ', btnStyle)
+    const playLabel = this.add.text(width / 2 - 95, btnY, 'GRAJ', btnStyle)
       .setOrigin(0.5).setDepth(11);
     playBg.on('pointerover', () => { playBg.setFillStyle(0xbb0000, 1); playLabel.setColor('#ffff00'); });
     playBg.on('pointerout', () => { playBg.setFillStyle(0x880000, 0.9); playLabel.setColor('#ffffff'); });
     playBg.on('pointerdown', startGame);
 
-    // Pulsing glow on GRAJ
     this.tweens.add({
       targets: playBg,
       alpha: { from: 0.85, to: 1 },
@@ -177,26 +172,38 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Scoreboard button
-    const scoreBg = this.add.rectangle(width / 2 + 76, btnY, 140, 36, 0x664400, 0.9)
+    const scoreBg = this.add.rectangle(width / 2 + 95, btnY, 170, 44, 0x664400, 0.9)
       .setDepth(10).setInteractive({ useHandCursor: true });
-    const scoreLabel = this.add.text(width / 2 + 76, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: '7px' })
+    const scoreLabel = this.add.text(width / 2 + 95, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: '8px' })
       .setOrigin(0.5).setDepth(11);
     scoreBg.on('pointerover', () => { scoreBg.setFillStyle(0x886600, 1); scoreLabel.setColor('#ffff00'); });
     scoreBg.on('pointerout', () => { scoreBg.setFillStyle(0x664400, 0.9); scoreLabel.setColor('#ffffff'); });
     scoreBg.on('pointerdown', () => toggleScoreboard(this, null));
 
-    // Keyboard shortcuts
     this.input.keyboard!.once('keydown-SPACE', startGame);
     this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
+
+    // --- SECTION 3: 4 info zones (2x2) ---
+    this.setupTutorialZones(width, sec3Y);
+    this.setupBottomZones(width, sec3Y + 80, isMobile);
+
+    this.add
+      .text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', {
+        fontSize: '6px',
+        color: '#ffffff',
+        fontFamily: '"Press Start 2P", monospace',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(1, 1)
+      .setDepth(10);
   }
 
   update(): void {
     this.menuBg.tilePositionX += 0.05;
   }
 
-  private setupBottomZones(width: number, height: number, isMobile: boolean): void {
-    const zoneY = height / 2 + 55;
+  private setupBottomZones(width: number, zoneY: number, isMobile: boolean): void {
     const zoneW = width * 0.38;
     const zoneH = 60;
     const gap = 16;
@@ -328,8 +335,7 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5).setDepth(11);
   }
 
-  private setupTutorialZones(width: number, height: number): void {
-    const zoneY = height / 2 - 5;
+  private setupTutorialZones(width: number, zoneY: number): void {
     const zoneW = width * 0.38;
     const zoneH = 70;
     const gap = 16;
