@@ -92,6 +92,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('pope-sfx', 'audio/pope.mp3');
     this.load.audio('bison-sfx', 'audio/bison.ogg');
     this.load.audio('blackhole-sfx', 'audio/blackhole.mp3');
+    this.load.audio('cricket', 'audio/cricket.mp3');
   }
 
   create(): void {

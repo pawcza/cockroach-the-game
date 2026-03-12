@@ -10,6 +10,50 @@ interface GameOverData {
   obstacleType?: string | null;
 }
 
+/** Shared font family used for all text in the scene. */
+const FONT_FAMILY = '"Press Start 2P", monospace';
+
+/** Reusable text style presets. */
+const TEXT_STYLES = {
+  title: (message: string): Phaser.Types.GameObjects.Text.TextStyle => ({
+    fontSize: message.length > 15 ? '18px' : '28px',
+    color: '#8b0000',
+    fontFamily: FONT_FAMILY,
+    fontStyle: 'bold',
+    stroke: '#000000',
+    strokeThickness: 6,
+  }),
+  score: {
+    fontSize: '16px',
+    color: '#ffffff',
+    fontFamily: FONT_FAMILY,
+  } as Phaser.Types.GameObjects.Text.TextStyle,
+  small: (color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
+    fontSize: '9px',
+    color,
+    fontFamily: FONT_FAMILY,
+  }),
+  nameInput: {
+    fontSize: '12px',
+    color: '#ffffff',
+    fontFamily: FONT_FAMILY,
+    stroke: '#000000',
+    strokeThickness: 3,
+  } as Phaser.Types.GameObjects.Text.TextStyle,
+  nameConfirmed: {
+    fontSize: '12px',
+    color: '#00ff00',
+    fontFamily: FONT_FAMILY,
+    stroke: '#000000',
+    strokeThickness: 3,
+  } as Phaser.Types.GameObjects.Text.TextStyle,
+  highScore: (isRecord: boolean): Phaser.Types.GameObjects.Text.TextStyle => ({
+    fontSize: '11px',
+    color: isRecord ? '#ffff00' : '#999999',
+    fontFamily: FONT_FAMILY,
+  }),
+} as const;
+
 export class GameOverScene extends Phaser.Scene {
   private gameoverBgm: Phaser.Sound.BaseSound | null = null;
   private restartBound = false;
@@ -43,19 +87,51 @@ export class GameOverScene extends Phaser.Scene {
     blackhole: 'black-hole',
   };
 
+  private static readonly DEFAULT_DEATH = 'ZGNIOTŁEŚ SIĘ!';
+  private static readonly CONFETTI_COLORS = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xff6600];
+
   constructor() {
     super({ key: 'GameOverScene' });
   }
 
   create(data: GameOverData): void {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    const { width, height } = this.cameras.main;
     this.restartBound = false;
 
-    // Dark background
     this.cameras.main.setBackgroundColor('#0a0a0a');
+    this.setupBackground(width, height);
 
-    // --- DARK RED/BLACK PULSING OVERLAY ---
+    const deathMessage = data?.obstacleType
+      ? GameOverScene.DEATH_TEXT[data.obstacleType] || GameOverScene.DEFAULT_DEATH
+      : GameOverScene.DEFAULT_DEATH;
+
+    const titleY = this.setupDeathTitle(width, height, deathMessage);
+    this.setupObstacleImage(width, titleY, data);
+
+    const { isNewRecord, highScore } = this.getHighScoreInfo(data?.score ?? 0);
+    this.setupScoreDisplay(width, height, data?.score ?? 0, highScore, isNewRecord);
+    this.setupStats(width, height, data);
+
+    if (isNewRecord) {
+      this.spawnConfetti(width, height);
+    }
+
+    // Game over music
+    this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
+    this.gameoverBgm.play();
+
+    // Name input or restart
+    if (isNewRecord) {
+      this.showNameInput(width, height, data);
+    } else {
+      this.showRestartPrompt(width, height);
+      this.showScoreboardButton(width, height);
+    }
+  }
+
+  // ── Background & atmosphere ────────────────────────────────────────
+
+  private setupBackground(width: number, height: number): void {
     const pulseOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x440000, 0.3);
     pulseOverlay.setBlendMode(Phaser.BlendModes.ADD);
 
@@ -68,7 +144,6 @@ export class GameOverScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // --- SUBTLE CAMERA ZOOM PULSE ---
     this.tweens.add({
       targets: this.cameras.main,
       zoom: 1.02,
@@ -78,172 +153,135 @@ export class GameOverScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // --- FLOATING RED CIRCLES DRIFTING UPWARD ---
     for (let i = 0; i < 12; i++) {
       this.spawnDeathParticle(width, height);
     }
+  }
 
-    // --- DEATH TEXT (custom per obstacle) ---
-    const deathMessage = data?.obstacleType
-      ? GameOverScene.DEATH_TEXT[data.obstacleType] || 'ZGNIOTŁEŚ SIĘ!'
-      : 'ZGNIOTŁEŚ SIĘ!';
-
+  private setupDeathTitle(width: number, height: number, message: string): number {
     const titleText = this.add
-      .text(width / 2, height / 3 - 20, deathMessage, {
-        fontSize: deathMessage.length > 15 ? '18px' : '28px',
-        color: '#8b0000',
-        fontFamily: '"Press Start 2P", monospace',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 6,
-      })
+      .text(width / 2, height / 3 - 20, message, TEXT_STYLES.title(message))
       .setOrigin(0.5);
 
-    // Title shake jitter
-    const titleBaseX = titleText.x;
-    const titleBaseY = titleText.y;
+    const baseX = titleText.x;
+    const baseY = titleText.y;
     this.time.addEvent({
       delay: 100,
       loop: true,
       callback: () => {
-        titleText.x = titleBaseX + Phaser.Math.Between(-2, 2);
-        titleText.y = titleBaseY + Phaser.Math.Between(-2, 2);
+        titleText.x = baseX + Phaser.Math.Between(-2, 2);
+        titleText.y = baseY + Phaser.Math.Between(-2, 2);
       },
     });
 
-    // --- OBSTACLE IMAGE below death text ---
-    if (data?.obstacleType && GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) {
-      const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
-      const obstacleImg = this.add.image(width / 2, titleText.y + 40, textureKey);
-      obstacleImg.setScale(0.3);
-      obstacleImg.setOrigin(0.5, 0);
+    return titleText.y;
+  }
 
-      this.tweens.add({
-        targets: obstacleImg,
-        y: obstacleImg.y - 5,
-        duration: 1000,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    }
+  private setupObstacleImage(width: number, titleY: number, data: GameOverData): void {
+    if (!data?.obstacleType || !GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) return;
 
-    // --- SCORE COUNT-UP ---
-    const finalScore = data?.score ?? 0;
-    const scoreCounter = { value: 0 };
+    const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
+    const img = this.add.image(width / 2, titleY + 40, textureKey);
+    img.setScale(0.3).setOrigin(0.5, 0);
 
+    this.tweens.add({
+      targets: img,
+      y: img.y - 5,
+      duration: 1000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  // ── Score display ──────────────────────────────────────────────────
+
+  private getHighScoreInfo(finalScore: number): { isNewRecord: boolean; highScore: number } {
+    const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
+    return {
+      isNewRecord: finalScore > 0 && finalScore >= highScore,
+      highScore,
+    };
+  }
+
+  private setupScoreDisplay(
+    width: number, height: number,
+    finalScore: number, highScore: number, isNewRecord: boolean,
+  ): void {
+    // Animated count-up
+    const counter = { value: 0 };
     const scoreText = this.add
-      .text(width / 2, height / 2, 'Punktówy: 0', {
-        fontSize: '16px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-      })
+      .text(width / 2, height / 2, 'Punktówy: 0', TEXT_STYLES.score)
       .setOrigin(0.5);
 
     this.tweens.add({
-      targets: scoreCounter,
+      targets: counter,
       value: finalScore,
       duration: Math.min(2000, finalScore * 50 + 500),
       ease: 'Power2',
       onUpdate: () => {
-        scoreText.setText(`Punktówy: ${Math.floor(scoreCounter.value)}`);
+        scoreText.setText(`Punktówy: ${Math.floor(counter.value)}`);
       },
     });
 
-    // High score comparison
-    const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
-    const isNewRecord = finalScore > 0 && finalScore >= highScore;
-
+    // High score line
+    const suffix = isNewRecord ? '  NÓWKA SZTUKA!' : '';
     this.add
-      .text(
-        width / 2,
-        height / 2 + 50,
-        `Najlepszy Wyńczyk: ${highScore}${isNewRecord ? '  NÓWKA SZTUKA!' : ''}`,
-        {
-          fontSize: '11px',
-          color: isNewRecord ? '#ffff00' : '#999999',
-          fontFamily: '"Press Start 2P", monospace',
-        },
-      )
+      .text(width / 2, height / 2 + 50, `Najlepszy Wyńczyk: ${highScore}${suffix}`, TEXT_STYLES.highScore(isNewRecord))
       .setOrigin(0.5);
+  }
 
-    // Confetti for new record
-    if (isNewRecord) {
-      for (let i = 0; i < 40; i++) {
-        const confettiColors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xff6600];
-        const color = confettiColors[i % confettiColors.length];
-        const size = Phaser.Math.Between(3, 8);
-        const confetti = this.add.rectangle(
-          Phaser.Math.Between(0, width),
-          -20,
-          size,
-          size * 2,
-          color,
-          0.9,
-        );
-        confetti.setAngle(Phaser.Math.Between(0, 360));
+  private setupStats(width: number, height: number, data: GameOverData): void {
+    const parts: string[] = [];
+    if (data?.timeSurvived !== undefined) parts.push(`Czas Przeżywalności: ${data.timeSurvived}s`);
+    if (data?.applesCollected !== undefined && data.applesCollected > 0) parts.push(`Jabłuszka: ${data.applesCollected}`);
+    if (data?.distance !== undefined) parts.push(`Dystansik: ${data.distance}m`);
+    if (data?.topSpeed !== undefined) parts.push(`Maks Szybkóść: ${data.topSpeed.toFixed(1)}x`);
 
-        this.tweens.add({
-          targets: confetti,
-          y: height + 20,
-          x: confetti.x + Phaser.Math.Between(-100, 100),
-          angle: confetti.angle + Phaser.Math.Between(-360, 360),
-          duration: Phaser.Math.Between(1500, 3000),
-          delay: Phaser.Math.Between(0, 1000),
-          ease: 'Cubic.easeIn',
-          onComplete: () => confetti.destroy(),
-        });
-      }
-    }
-
-    // Stats
-    const stats: string[] = [];
-    if (data?.timeSurvived !== undefined) stats.push(`Czas Przeżywalności: ${data.timeSurvived}s`);
-    if (data?.applesCollected !== undefined && data.applesCollected > 0) stats.push(`Jabłuszka: ${data.applesCollected}`);
-    if (data?.distance !== undefined) stats.push(`Dystansik: ${data.distance}m`);
-    if (data?.topSpeed !== undefined) stats.push(`Maks Szybkóść: ${data.topSpeed.toFixed(1)}x`);
-
-    if (stats.length > 0) {
+    if (parts.length > 0) {
       this.add
-        .text(width / 2, height / 2 + 90, stats.join('  |  '), {
-          fontSize: '9px',
-          color: '#888888',
-          fontFamily: '"Press Start 2P", monospace',
-        })
+        .text(width / 2, height / 2 + 90, parts.join('  |  '), TEXT_STYLES.small('#888888'))
         .setOrigin(0.5);
     }
+  }
 
-    // --- GAME OVER MUSIC ---
-    this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
-    this.gameoverBgm.play();
+  // ── Confetti ───────────────────────────────────────────────────────
 
-    // --- NAME INPUT or RESTART ---
-    if (isNewRecord) {
-      this.showNameInput(width, height, data);
-    } else {
-      this.showRestartPrompt(width, height);
-      this.showScoreboardButton(width, height);
+  private spawnConfetti(width: number, height: number): void {
+    for (let i = 0; i < 40; i++) {
+      const color = GameOverScene.CONFETTI_COLORS[i % GameOverScene.CONFETTI_COLORS.length];
+      const size = Phaser.Math.Between(3, 8);
+      const confetti = this.add.rectangle(
+        Phaser.Math.Between(0, width), -20,
+        size, size * 2, color, 0.9,
+      );
+      confetti.setAngle(Phaser.Math.Between(0, 360));
+
+      this.tweens.add({
+        targets: confetti,
+        y: height + 20,
+        x: confetti.x + Phaser.Math.Between(-100, 100),
+        angle: confetti.angle + Phaser.Math.Between(-360, 360),
+        duration: Phaser.Math.Between(1500, 3000),
+        delay: Phaser.Math.Between(0, 1000),
+        ease: 'Cubic.easeIn',
+        onComplete: () => confetti.destroy(),
+      });
     }
   }
+
+  // ── Name input ─────────────────────────────────────────────────────
 
   private showNameInput(width: number, height: number, data: GameOverData): void {
     const isMobile = !this.sys.game.device.os.desktop;
 
     if (isMobile) {
-      // On mobile, use native prompt for soft keyboard support
       this.time.delayedCall(300, () => {
         const playerName = window.prompt('Wpisz swoje imię:') || '';
         if (playerName.length > 0) {
-          const nameText = this.add
-            .text(width / 2, height - 80, playerName, {
-              fontSize: '12px',
-              color: '#00ff00',
-              fontFamily: '"Press Start 2P", monospace',
-              stroke: '#000000',
-              strokeThickness: 3,
-            })
+          this.add
+            .text(width / 2, height - 80, playerName, TEXT_STYLES.nameConfirmed)
             .setOrigin(0.5);
-          nameText.setAlpha(1);
 
           this.submitScore(playerName.slice(0, 20), data).then(() => {
             showScoreboard(this, playerName.slice(0, 20));
@@ -258,22 +296,12 @@ export class GameOverScene extends Phaser.Scene {
 
     // Desktop: custom keyboard handler
     const promptText = this.add
-      .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', {
-        fontSize: '9px',
-        color: '#ffff00',
-        fontFamily: '"Press Start 2P", monospace',
-      })
+      .text(width / 2, height - 100, 'Wpisz swoje imię (ENTER zatwierdza, ESC pomija):', TEXT_STYLES.small('#ffff00'))
       .setOrigin(0.5);
 
     let playerName = '';
     const nameText = this.add
-      .text(width / 2, height - 75, '_', {
-        fontSize: '12px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 3,
-      })
+      .text(width / 2, height - 75, '_', TEXT_STYLES.nameInput)
       .setOrigin(0.5);
 
     this.tweens.add({
@@ -315,21 +343,19 @@ export class GameOverScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown', handleKey);
   }
 
+  // ── Restart / navigation ───────────────────────────────────────────
+
   private showRestartPrompt(width: number, height: number): void {
     if (this.restartBound) return;
     this.restartBound = true;
 
     const isMobile = !this.sys.game.device.os.desktop;
-    const restartLabel = isMobile
+    const label = isMobile
       ? 'Dotknij żeby zagrać jeszcze raz!'
       : 'SPACJA / R — Jeszcze Raz!  |  ESC — Do Chałupy';
 
     const restartText = this.add
-      .text(width / 2, height - 30, restartLabel, {
-        fontSize: '9px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-      })
+      .text(width / 2, height - 30, label, TEXT_STYLES.small('#ffffff'))
       .setOrigin(0.5);
 
     this.tweens.add({
@@ -345,10 +371,22 @@ export class GameOverScene extends Phaser.Scene {
     this.input.keyboard!.once('keydown-R', () => this.restartGame());
     this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
 
-    // Touch: tap to restart (with delay to prevent accidental tap)
     this.time.delayedCall(500, () => {
       this.input.once('pointerdown', () => this.restartGame());
     });
+  }
+
+  private showScoreboardButton(width: number, height: number): void {
+    const btnText = this.add
+      .text(width / 2, height - 55, '[ T — Tablica Wyników ]', TEXT_STYLES.small('#888888'))
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    btnText.on('pointerover', () => btnText.setColor('#ffffff'));
+    btnText.on('pointerout', () => btnText.setColor('#888888'));
+    btnText.on('pointerdown', () => toggleScoreboard(this, null));
+
+    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
   }
 
   private restartGame(): void {
@@ -369,22 +407,7 @@ export class GameOverScene extends Phaser.Scene {
     }
   }
 
-  private showScoreboardButton(width: number, height: number): void {
-    const btnText = this.add
-      .text(width / 2, height - 55, '[ T — Tablica Wyników ]', {
-        fontSize: '9px',
-        color: '#888888',
-        fontFamily: '"Press Start 2P", monospace',
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-
-    btnText.on('pointerover', () => btnText.setColor('#ffffff'));
-    btnText.on('pointerout', () => btnText.setColor('#888888'));
-    btnText.on('pointerdown', () => toggleScoreboard(this, null));
-
-    this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
-  }
+  // ── Network ────────────────────────────────────────────────────────
 
   private async submitScore(name: string, data: GameOverData): Promise<void> {
     try {
@@ -404,6 +427,8 @@ export class GameOverScene extends Phaser.Scene {
     }
   }
 
+  // ── Particles ──────────────────────────────────────────────────────
+
   private spawnDeathParticle(sceneWidth: number, sceneHeight: number): void {
     const size = Phaser.Math.Between(2, 6);
     const x = Phaser.Math.Between(0, sceneWidth);
@@ -412,13 +437,11 @@ export class GameOverScene extends Phaser.Scene {
     const particle = this.add.circle(x, y, size, 0xaa0000, 0.5);
     particle.setBlendMode(Phaser.BlendModes.ADD);
 
-    const duration = Phaser.Math.Between(2000, 5000);
-
     this.tweens.add({
       targets: particle,
       y: y - Phaser.Math.Between(100, 300),
       alpha: 0,
-      duration,
+      duration: Phaser.Math.Between(2000, 5000),
       ease: 'Sine.easeIn',
       onComplete: () => {
         particle.destroy();
