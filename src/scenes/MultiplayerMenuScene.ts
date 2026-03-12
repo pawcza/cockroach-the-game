@@ -13,6 +13,8 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   private scrollY = 0;
   private maxScroll = 0;
   private lobbies: MPLobbyListEntry[] = [];
+  private loadingSpinner: Phaser.GameObjects.Text | null = null;
+  private isLoading = false;
 
   constructor() {
     super({ key: 'MultiplayerMenuScene' });
@@ -91,17 +93,15 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     const listBottom = height - 100;
     const listHeight = listBottom - listTop;
 
-    // Header
-    this.add.text(width / 2, listTop - 5, 'Aktywne lobby:', {
-      fontSize: '10px',
-      color: '#00ccff',
-      fontFamily: FONT_FAMILY,
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5, 1);
-
     // List background
     this.add.rectangle(width / 2, listTop + listHeight / 2, width - 40, listHeight, 0x111122, 0.6);
+
+    // Loading spinner (top-left of list)
+    this.loadingSpinner = this.add.text(28, listTop + 8, '/', {
+      fontSize: '12px',
+      color: '#00ccff',
+      fontFamily: FONT_FAMILY,
+    }).setOrigin(0, 0).setDepth(100).setVisible(false);
 
     // Scrollable container for lobby entries
     this.lobbyContainer = this.add.container(0, 0);
@@ -202,13 +202,45 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     });
   }
 
+  private spinnerFrames = ['/', '-', '\\', '|'];
+  private spinnerIdx = 0;
+  private spinnerTimer: Phaser.Time.TimerEvent | null = null;
+
+  private showSpinner(): void {
+    if (this.loadingSpinner) {
+      this.loadingSpinner.setVisible(true);
+      if (!this.spinnerTimer) {
+        this.spinnerTimer = this.time.addEvent({
+          delay: 100,
+          loop: true,
+          callback: () => {
+            this.spinnerIdx = (this.spinnerIdx + 1) % this.spinnerFrames.length;
+            this.loadingSpinner?.setText(this.spinnerFrames[this.spinnerIdx]);
+          },
+        });
+      }
+    }
+  }
+
+  private hideSpinner(): void {
+    if (this.loadingSpinner) {
+      this.loadingSpinner.setVisible(false);
+    }
+    if (this.spinnerTimer) {
+      this.spinnerTimer.destroy();
+      this.spinnerTimer = null;
+    }
+  }
+
   private async refreshLobbies(): Promise<void> {
+    this.showSpinner();
     try {
       this.lobbies = await mpClient.listLobbies();
       this.renderLobbies();
     } catch {
       // Silently fail
     }
+    this.hideSpinner();
   }
 
   private renderLobbies(): void {
@@ -239,13 +271,15 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       const y = listTop + 10 + i * lineHeight;
 
       const isWaiting = lobby.status === 'waiting';
+      const isPostgame = lobby.status === 'postgame';
       const isIngame = lobby.status === 'ingame';
+      const canJoin = isWaiting || isPostgame;
 
       // Entry background
       const entryBg = this.add.rectangle(width / 2, y + lineHeight / 2 - 4, width - 60, lineHeight - 4,
-        isWaiting ? 0x112233 : 0x221111, 0.7);
+        canJoin ? 0x112233 : 0x221111, 0.7);
 
-      if (isWaiting) {
+      if (canJoin) {
         entryBg.setInteractive({ useHandCursor: true });
         entryBg.on('pointerover', () => entryBg.setFillStyle(0x223344, 0.9));
         entryBg.on('pointerout', () => entryBg.setFillStyle(0x112233, 0.7));
@@ -256,7 +290,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       const lobbyText = this.add.text(40, y + lineHeight / 2 - 4,
         `${lobby.host}'s Lobby \u2014 ${lobby.playerCount}/16`, {
           fontSize: '9px',
-          color: isWaiting ? '#ffffff' : '#888888',
+          color: canJoin ? '#ffffff' : '#888888',
           fontFamily: FONT_FAMILY,
           stroke: '#000000',
           strokeThickness: 2,
