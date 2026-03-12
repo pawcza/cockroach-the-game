@@ -283,9 +283,15 @@ export class MenuScene extends Phaser.Scene {
 
       // Position key caps centered on cx
       let kx = cx - keysW / 2;
-      keyTexts.forEach((kt, ki) => {
-        kt.setPosition(kx, baseY - 2);
-        kt.setOrigin(0, 0.5);
+      keyTexts.forEach((kt) => {
+        if (kt.angle !== 0) {
+          // Rotated keys: position at center so rotation pivot is correct
+          kt.setOrigin(0.5, 0.5);
+          kt.setPosition(kx + kt.width / 2, baseY - 2);
+        } else {
+          kt.setPosition(kx, baseY - 2);
+          kt.setOrigin(0, 0.5);
+        }
         kx += kt.width + keyGap;
       });
 
