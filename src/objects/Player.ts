@@ -590,12 +590,16 @@ export class Player {
     this.cockroach.setVelocity(-50, -300);
     (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = true;
 
-    // Spin while falling
+    // Spin while falling, then hide
     this.scene.tweens.add({
       targets: this.cockroach,
       angle: 720,
+      alpha: 0,
       duration: 1000,
       ease: 'Linear',
+      onComplete: () => {
+        this.cockroach.setVisible(false);
+      },
     });
   }
 
