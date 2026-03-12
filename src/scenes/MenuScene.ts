@@ -5,6 +5,7 @@ export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
   private menuBg!: Phaser.GameObjects.TileSprite;
   private bgScrollSpeed = 0.05;
+  private scoreCleanups: (() => void)[] = [];
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -122,16 +123,45 @@ export class MenuScene extends Phaser.Scene {
     this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
     this.menuBgm.play();
 
+    let startingGame = false;
     const startGame = (): void => {
-      if (this.menuBgm) {
-        this.menuBgm.stop();
-        this.menuBgm.destroy();
-        this.menuBgm = null;
-      }
+      if (startingGame) return;
+      startingGame = true;
       if (isMobile && !document.fullscreenElement) {
         document.documentElement.requestFullscreen?.().catch(() => {});
       }
-      this.scene.start('GameScene');
+
+      // HTML overlay for reliable cross-scene fade
+      const fade = document.createElement('div');
+      fade.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;opacity:0;transition:opacity 0.5s;pointer-events:none;';
+      document.body.appendChild(fade);
+
+      // Force reflow then fade in the black overlay
+      fade.offsetHeight;
+      fade.style.opacity = '1';
+
+      if (this.menuBgm) {
+        this.tweens.add({
+          targets: this.menuBgm,
+          volume: 0,
+          duration: 500,
+        });
+      }
+
+      setTimeout(() => {
+        if (this.menuBgm) {
+          this.menuBgm.stop();
+          this.menuBgm.destroy();
+          this.menuBgm = null;
+        }
+        this.scene.start('GameScene');
+
+        // Fade out the overlay to reveal the game
+        requestAnimationFrame(() => {
+          fade.style.opacity = '0';
+          fade.addEventListener('transitionend', () => fade.remove());
+        });
+      }, 500);
     };
 
     // --- 3 BUTTONS vertically stacked ---
@@ -175,26 +205,25 @@ export class MenuScene extends Phaser.Scene {
 
     // --- Scoreboard page container (off-screen to the left) ---
     const scorePage = this.add.container(-width, 0).setDepth(10);
-    let scoreBuilt = false;
-
     const showScores = (): void => {
-      if (!scoreBuilt) {
-        this.buildScorePage(scorePage, width, height);
-        const backBg = this.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
-          .setInteractive({ useHandCursor: true });
-        const backTxt = this.add.text(width / 2, height - 40, 'Powrót →', {
-          fontSize: '10px',
-          fontFamily: '"Press Start 2P", monospace',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 3,
-        }).setOrigin(0.5);
-        backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
-        backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
-        backBg.on('pointerdown', hideScores);
-        scorePage.add([backBg, backTxt]);
-        scoreBuilt = true;
-      }
+      // Clean up previous score page resources
+      this.scoreCleanups.forEach(fn => fn());
+      this.scoreCleanups = [];
+      scorePage.removeAll(true);
+      this.buildScorePage(scorePage, width, height);
+      const backBg = this.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const backTxt = this.add.text(width / 2, height - 40, 'Powrót →', {
+        fontSize: '10px',
+        fontFamily: '"Press Start 2P", monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5);
+      backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
+      backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
+      backBg.on('pointerdown', hideScores);
+      scorePage.add([backBg, backTxt]);
       this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
@@ -319,35 +348,165 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
 
-      const startY = 60;
-      const lineHeight = 20;
-      const maxVisible = Math.min(scores.length, Math.floor((height - 100) / lineHeight));
+      // Scrollable list container
+      const listTop = 55;
+      const listBottom = height - 70; // room for back button
+      const lineHeight = 26;
+      const scrollContainer = this.add.container(0, 0);
+      container.add(scrollContainer);
 
-      for (let i = 0; i < maxVisible; i++) {
+      // Mask so entries don't overflow
+      const maskShape = this.make.graphics({});
+      maskShape.fillRect(0, listTop, width, listBottom - listTop);
+      scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
+
+      const font = '"Press Start 2P", monospace';
+      const timeEvents: Phaser.Time.TimerEvent[] = [];
+
+      for (let i = 0; i < scores.length; i++) {
         const entry = scores[i];
         const rank = i + 1;
-        const color = rank <= 3 ? '#ffdd00' : '#cccccc';
+        const y = listTop + i * lineHeight;
 
-        const rankText = this.add.text(30, startY + i * lineHeight, `${String(rank).padStart(3, ' ')}.`, {
-          fontSize: '10px',
-          color,
-          fontFamily: '"Press Start 2P", monospace',
-        }).setOrigin(0, 0);
-        container.add(rankText);
+        let color: string;
+        let fontSize: string;
+        let strokeThickness: number;
 
-        const nameText = this.add.text(80, startY + i * lineHeight, entry.name, {
-          fontSize: '10px',
-          color,
-          fontFamily: '"Press Start 2P", monospace',
-        }).setOrigin(0, 0);
-        container.add(nameText);
+        if (rank === 1) {
+          color = '#ff0000';
+          fontSize = '16px';
+          strokeThickness = 5;
+        } else if (rank === 2) {
+          color = '#ff6600';
+          fontSize = '14px';
+          strokeThickness = 4;
+        } else if (rank === 3) {
+          color = '#ffdd00';
+          fontSize = '13px';
+          strokeThickness = 3;
+        } else {
+          color = '#cccccc';
+          fontSize = '11px';
+          strokeThickness = 2;
+        }
 
-        const scoreText = this.add.text(width - 30, startY + i * lineHeight, String(entry.score), {
-          fontSize: '10px',
+        const style: Phaser.Types.GameObjects.Text.TextStyle = {
+          fontSize,
           color,
-          fontFamily: '"Press Start 2P", monospace',
-        }).setOrigin(1, 0);
-        container.add(scoreText);
+          fontFamily: font,
+          stroke: '#000000',
+          strokeThickness,
+        };
+
+        const rankText = this.add.text(20, y, `${rank}.`, style).setOrigin(0, 0);
+        const nameText = this.add.text(70, y, entry.name, style).setOrigin(0, 0);
+        const scoreText = this.add.text(width - 20, y, String(entry.score), style).setOrigin(1, 0);
+        scrollContainer.add([rankText, nameText, scoreText]);
+
+        // Top 3 trippy effects — progressively more intense
+        if (rank === 1) {
+          // #1: color cycling + shake + scale pulse
+          const elements = [rankText, nameText, scoreText];
+          const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
+          let ci = 0;
+          timeEvents.push(this.time.addEvent({
+            delay: 150,
+            loop: true,
+            callback: () => {
+              ci = (ci + 1) % colors.length;
+              elements.forEach(el => el.setColor(colors[ci]));
+            },
+          }));
+          this.tweens.add({
+            targets: elements,
+            scaleX: { from: 1, to: 1.08 },
+            scaleY: { from: 1, to: 1.08 },
+            duration: 400,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+          timeEvents.push(this.time.addEvent({
+            delay: 80,
+            loop: true,
+            callback: () => {
+              elements.forEach(el => {
+                el.x += Phaser.Math.Between(-1, 1);
+                el.y = y + Phaser.Math.Between(-1, 1);
+              });
+            },
+          }));
+        } else if (rank === 2) {
+          // #2: gentle glow pulse + slight wobble
+          const elements = [rankText, nameText, scoreText];
+          this.tweens.add({
+            targets: elements,
+            alpha: { from: 0.7, to: 1 },
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+          this.tweens.add({
+            targets: elements,
+            angle: { from: -1, to: 1 },
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        } else if (rank === 3) {
+          // #3: subtle alpha pulse
+          const elements = [rankText, nameText, scoreText];
+          this.tweens.add({
+            targets: elements,
+            alpha: { from: 0.8, to: 1 },
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
+      }
+
+      // Scroll with mouse wheel / touch drag
+      const totalHeight = scores.length * lineHeight;
+      const viewHeight = listBottom - listTop;
+      let scrollY = 0;
+      const maxScroll = Math.max(0, totalHeight - viewHeight);
+
+      // Register cleanups for time events and mask
+      this.scoreCleanups.push(
+        () => timeEvents.forEach(te => te.destroy()),
+        () => maskShape.destroy(),
+      );
+
+      if (maxScroll > 0) {
+        const wheelHandler = (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number): void => {
+          scrollY = Phaser.Math.Clamp(scrollY + dy * 0.5, 0, maxScroll);
+          scrollContainer.y = -scrollY;
+        };
+        this.input.on('wheel', wheelHandler);
+        this.scoreCleanups.push(() => this.input.off('wheel', wheelHandler));
+
+        // Touch drag scrolling
+        let dragStartY = 0;
+        let dragScrollStart = 0;
+        const hitZone = this.add.rectangle(width / 2, listTop + viewHeight / 2, width, viewHeight, 0x000000, 0)
+          .setInteractive();
+        container.add(hitZone);
+
+        hitZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          dragStartY = pointer.y;
+          dragScrollStart = scrollY;
+        });
+
+        hitZone.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+          if (!pointer.isDown) return;
+          const delta = dragStartY - pointer.y;
+          scrollY = Phaser.Math.Clamp(dragScrollStart + delta, 0, maxScroll);
+          scrollContainer.y = -scrollY;
+        });
       }
     });
   }

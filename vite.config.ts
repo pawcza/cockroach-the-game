@@ -5,4 +5,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://cockroach.wszystko.app',
+        changeOrigin: true,
+      },
+    },
+  },
 });
