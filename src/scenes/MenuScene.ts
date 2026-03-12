@@ -74,6 +74,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     const isMobile = !this.sys.game.device.os.desktop;
+    const s = isMobile ? 1.5 : 1; // mobile scale factor
 
     // --- LAYOUT: 3 sections, fixed positions ---
     const sec1Y = 120;  // title area top
@@ -82,12 +83,12 @@ export class MenuScene extends Phaser.Scene {
 
     // --- SECTION 1: KARALUCH title + subtitle ---
     const title = this.add.text(width / 2, sec1Y + 20, 'KARALUCH', {
-      fontSize: '32px',
+      fontSize: `${Math.round(32 * s)}px`,
       color: '#8b0000',
       fontFamily: '"Press Start 2P", monospace',
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 6,
+      strokeThickness: 6 * s,
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -99,12 +100,12 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    const subtitle = this.add.text(width / 2, sec1Y + 65, 'Gra przegra\u0144c\u00f3w', {
-      fontSize: '14px',
+    const subtitle = this.add.text(width / 2, sec1Y + 65 * s, 'Gra przegra\u0144c\u00f3w', {
+      fontSize: `${Math.round(14 * s)}px`,
       color: '#ff6600',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 4 * s,
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -134,18 +135,21 @@ export class MenuScene extends Phaser.Scene {
     };
 
     const btnY = sec2Y + 25;
+    const btnW = Math.round(170 * s);
+    const btnH = Math.round(44 * s);
+    const btnGap = Math.round(95 * s);
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '14px',
+      fontSize: `${Math.round(14 * s)}px`,
       fontFamily: '"Press Start 2P", monospace',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 4 * s,
       align: 'center',
     };
 
-    const playBg = this.add.rectangle(width / 2 - 95, btnY, 170, 44, 0x880000, 0.9)
+    const playBg = this.add.rectangle(width / 2 - btnGap, btnY, btnW, btnH, 0x880000, 0.9)
       .setDepth(10).setInteractive({ useHandCursor: true });
-    const playLabel = this.add.text(width / 2 - 95, btnY, 'GRAJ', btnStyle)
+    const playLabel = this.add.text(width / 2 - btnGap, btnY, 'GRAJ', btnStyle)
       .setOrigin(0.5).setDepth(11);
     playBg.on('pointerover', () => { playBg.setFillStyle(0xbb0000, 1); playLabel.setColor('#ffff00'); });
     playBg.on('pointerout', () => { playBg.setFillStyle(0x880000, 0.9); playLabel.setColor('#ffffff'); });
@@ -160,9 +164,9 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    const scoreBg = this.add.rectangle(width / 2 + 95, btnY, 170, 44, 0x664400, 0.9)
+    const scoreBg = this.add.rectangle(width / 2 + btnGap, btnY, btnW, btnH, 0x664400, 0.9)
       .setDepth(10).setInteractive({ useHandCursor: true });
-    const scoreLabel = this.add.text(width / 2 + 95, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: '8px' })
+    const scoreLabel = this.add.text(width / 2 + btnGap, btnY, 'Bycze Karaluchy', { ...btnStyle, fontSize: `${Math.round(8 * s)}px` })
       .setOrigin(0.5).setDepth(11);
     scoreBg.on('pointerover', () => { scoreBg.setFillStyle(0x886600, 1); scoreLabel.setColor('#ffff00'); });
     scoreBg.on('pointerout', () => { scoreBg.setFillStyle(0x664400, 0.9); scoreLabel.setColor('#ffffff'); });
@@ -172,12 +176,12 @@ export class MenuScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-T', () => toggleScoreboard(this, null));
 
     // --- SECTION 3: 4 info zones (2x2) ---
-    this.setupTutorialZones(width, sec3Y);
-    this.setupBottomZones(width, sec3Y + 80, isMobile);
+    this.setupTutorialZones(width, sec3Y, s);
+    this.setupBottomZones(width, sec3Y + Math.round(80 * s), isMobile, s);
 
     this.add
       .text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', {
-        fontSize: '6px',
+        fontSize: `${Math.round(6 * s)}px`,
         color: '#ffffff',
         fontFamily: '"Press Start 2P", monospace',
         stroke: '#000000',
@@ -191,21 +195,21 @@ export class MenuScene extends Phaser.Scene {
     this.menuBg.tilePositionX += 0.05;
   }
 
-  private setupBottomZones(width: number, zoneY: number, isMobile: boolean): void {
+  private setupBottomZones(width: number, zoneY: number, isMobile: boolean, s: number): void {
     const zoneW = width * 0.38;
-    const zoneH = 60;
+    const zoneH = Math.round(60 * s);
     const gap = 16;
 
     // --- STEROWANIE (cyan, left) ---
     const leftX = width / 2 - gap / 2 - zoneW / 2;
     this.add.rectangle(leftX, zoneY, zoneW, zoneH, 0x003344, 0.3).setDepth(10);
 
-    const sterTitle = this.add.text(leftX, zoneY - 18, 'Sterowanie', {
-      fontSize: '10px',
+    const sterTitle = this.add.text(leftX, zoneY - Math.round(18 * s), 'Sterowanie', {
+      fontSize: `${Math.round(10 * s)}px`,
       color: '#00ccff',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 4 * s,
     }).setOrigin(0.5).setDepth(11);
 
     this.tweens.add({
@@ -235,15 +239,15 @@ export class MenuScene extends Phaser.Scene {
     const keysY = zoneY + 2;
 
     const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '7px',
+      fontSize: `${Math.round(7 * s)}px`,
       fontFamily: '"Press Start 2P", monospace',
       color: '#111111',
       backgroundColor: '#e8e8e8',
-      padding: { x: 4, y: 3 },
+      padding: { x: Math.round(4 * s), y: Math.round(3 * s) },
     };
 
     const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '5px',
+      fontSize: `${Math.round(5 * s)}px`,
       fontFamily: '"Press Start 2P", monospace',
       color: '#88ccdd',
       stroke: '#000000',
@@ -262,7 +266,7 @@ export class MenuScene extends Phaser.Scene {
         keyTexts.push(kt);
       });
 
-      const keyGap = 3;
+      const keyGap = Math.round(3 * s);
       let keysW = 0;
       keyTexts.forEach((kt, ki) => {
         keysW += kt.width;
@@ -281,7 +285,7 @@ export class MenuScene extends Phaser.Scene {
         kx += kt.width + keyGap;
       });
 
-      this.add.text(cx, keysY + 12, desc, descStyle)
+      this.add.text(cx, keysY + Math.round(12 * s), desc, descStyle)
         .setOrigin(0.5, 0).setDepth(11);
     });
 
@@ -289,12 +293,12 @@ export class MenuScene extends Phaser.Scene {
     const rightX = width / 2 + gap / 2 + zoneW / 2;
     this.add.rectangle(rightX, zoneY, zoneW, zoneH, 0x330044, 0.3).setDepth(10);
 
-    const statyTitle = this.add.text(rightX, zoneY - 18, 'Moje Staty', {
-      fontSize: '10px',
+    const statyTitle = this.add.text(rightX, zoneY - Math.round(18 * s), 'Moje Staty', {
+      fontSize: `${Math.round(10 * s)}px`,
       color: '#cc66ff',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 4 * s,
     }).setOrigin(0.5).setDepth(11);
 
     this.tweens.add({
@@ -310,7 +314,7 @@ export class MenuScene extends Phaser.Scene {
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
 
     const statStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '7px',
+      fontSize: `${Math.round(7 * s)}px`,
       fontFamily: '"Press Start 2P", monospace',
       color: '#ddaaff',
       stroke: '#000000',
@@ -319,13 +323,13 @@ export class MenuScene extends Phaser.Scene {
 
     this.add.text(rightX, zoneY + 0, `Najlepszy: ${highScore}`, statStyle)
       .setOrigin(0.5).setDepth(11);
-    this.add.text(rightX, zoneY + 16, `Giereczki: ${gamesPlayed}`, statStyle)
+    this.add.text(rightX, zoneY + Math.round(16 * s), `Giereczki: ${gamesPlayed}`, statStyle)
       .setOrigin(0.5).setDepth(11);
   }
 
-  private setupTutorialZones(width: number, zoneY: number): void {
+  private setupTutorialZones(width: number, zoneY: number, s: number): void {
     const zoneW = width * 0.38;
-    const zoneH = 70;
+    const zoneH = Math.round(70 * s);
     const gap = 16;
 
     // --- PYSZNIUTKIE (green, left) ---
@@ -333,12 +337,12 @@ export class MenuScene extends Phaser.Scene {
     this.add.rectangle(leftX, zoneY, zoneW, zoneH, 0x005500, 0.3)
       .setDepth(10);
 
-    const pyszTitle = this.add.text(leftX, zoneY - 22, 'Pyszniutkie', {
-      fontSize: '10px',
+    const pyszTitle = this.add.text(leftX, zoneY - Math.round(22 * s), 'Pyszniutkie', {
+      fontSize: `${Math.round(10 * s)}px`,
       color: '#00ff44',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 4 * s,
     }).setOrigin(0.5).setDepth(11);
 
     this.tweens.add({
@@ -353,10 +357,11 @@ export class MenuScene extends Phaser.Scene {
     // Pickup icons
     const pickups = ['apple', 'tyskie', 'pill'];
     const pickupSpacing = zoneW / (pickups.length + 1);
-    const iconY = zoneY + 8;
+    const iconY = zoneY + Math.round(8 * s);
+    const iconScale = 0.12 * s;
     pickups.forEach((key, i) => {
       const ix = leftX - zoneW / 2 + pickupSpacing * (i + 1);
-      const icon = this.add.image(ix, iconY, key).setScale(0.12).setDepth(11);
+      const icon = this.add.image(ix, iconY, key).setScale(iconScale).setDepth(11);
       this.tweens.add({
         targets: icon,
         y: iconY - 3,
@@ -373,12 +378,12 @@ export class MenuScene extends Phaser.Scene {
     this.add.rectangle(rightX, zoneY, zoneW, zoneH, 0x550000, 0.3)
       .setDepth(10);
 
-    const fujTitle = this.add.text(rightX, zoneY - 22, 'Fujka', {
-      fontSize: '10px',
+    const fujTitle = this.add.text(rightX, zoneY - Math.round(22 * s), 'Fujka', {
+      fontSize: `${Math.round(10 * s)}px`,
       color: '#ff3333',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 4 * s,
     }).setOrigin(0.5).setDepth(11);
 
     this.tweens.add({
@@ -393,9 +398,10 @@ export class MenuScene extends Phaser.Scene {
     // Obstacle icons (only early-game ones to avoid spoilers)
     const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper'];
     const obstSpacing = zoneW / (obstacles.length + 2);
+    const obstScale = 0.1 * s;
     obstacles.forEach((key, i) => {
       const ix = rightX - zoneW / 2 + obstSpacing * (i + 1);
-      const icon = this.add.image(ix, iconY, key).setScale(0.1).setDepth(11);
+      const icon = this.add.image(ix, iconY, key).setScale(obstScale).setDepth(11);
       this.tweens.add({
         targets: icon,
         y: iconY - 3,
@@ -407,7 +413,7 @@ export class MenuScene extends Phaser.Scene {
       });
     });
     this.add.text(rightX - zoneW / 2 + obstSpacing * (obstacles.length + 1), iconY, '...i inne', {
-      fontSize: '7px',
+      fontSize: `${Math.round(7 * s)}px`,
       color: '#ff6666',
       fontFamily: '"Press Start 2P", monospace',
       stroke: '#000000',
