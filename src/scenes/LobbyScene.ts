@@ -9,9 +9,12 @@ export class LobbyScene extends Phaser.Scene {
   private playerListContainer!: Phaser.GameObjects.Container;
   private startBtnBg!: Phaser.GameObjects.Rectangle;
   private startBtnTxt!: Phaser.GameObjects.Text;
+  private readyBtnBg!: Phaser.GameObjects.Rectangle;
+  private readyBtnTxt!: Phaser.GameObjects.Text;
   private playerCountText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
   private gameStartHandler!: (data: { seed: number; players: MPPlayer[] }) => void;
+  private visibilityHandler!: () => void;
 
   constructor() {
     super({ key: 'LobbyScene' });
@@ -88,9 +91,31 @@ export class LobbyScene extends Phaser.Scene {
       align: 'center',
     };
 
+    // "Gotowy" ready toggle button (everyone)
+    this.readyBtnBg = this.add.rectangle(width / 2, height - 105, 260, 36, 0x886600, 0.9);
+    this.readyBtnTxt = this.add.text(width / 2, height - 105, 'Gotowy', btnStyle).setOrigin(0.5);
+    this.readyBtnBg.setInteractive({ useHandCursor: true });
+    this.readyBtnBg.on('pointerover', () => {
+      this.readyBtnBg.setAlpha(1);
+      this.readyBtnTxt.setColor('#ffff00');
+    });
+    this.readyBtnBg.on('pointerout', () => {
+      this.updateReadyButton();
+    });
+    this.readyBtnBg.on('pointerdown', () => {
+      const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
+      const newReady = !(me?.ready);
+      mpClient.setReady(newReady).then((updatedLobby) => {
+        this.lobbyData = updatedLobby;
+        this.renderPlayerList();
+        this.updateStartButton();
+        this.updateReadyButton();
+      }).catch(() => {});
+    });
+
     // "Rozpocznij Gre" button (host only)
-    this.startBtnBg = this.add.rectangle(width / 2, height - 72, 260, 36, 0x008800, 0.9);
-    this.startBtnTxt = this.add.text(width / 2, height - 72, 'Rozpocznij Gr\u0119', btnStyle).setOrigin(0.5);
+    this.startBtnBg = this.add.rectangle(width / 2, height - 63, 260, 36, 0x008800, 0.9);
+    this.startBtnTxt = this.add.text(width / 2, height - 63, 'Rozpocznij Gr\u0119', btnStyle).setOrigin(0.5);
     this.startBtnBg.setInteractive({ useHandCursor: true });
     this.startBtnBg.on('pointerover', () => {
       if (this.isStartEnabled()) {
@@ -104,7 +129,6 @@ export class LobbyScene extends Phaser.Scene {
     this.startBtnBg.on('pointerdown', () => {
       if (this.isStartEnabled()) {
         mpClient.startGame().then((res) => {
-          // Host also transitions to game scene (non-host gets game:start event)
           this.scene.start('GameScene', {
             multiplayer: true,
             seed: res.seed,
@@ -115,19 +139,10 @@ export class LobbyScene extends Phaser.Scene {
       }
     });
 
-    this.tweens.add({
-      targets: this.startBtnBg,
-      alpha: { from: 0.85, to: 1 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
     // "Opusc" leave button
-    const leaveBg = this.add.rectangle(width / 2, height - 30, 200, 30, 0x660000, 0.9)
+    const leaveBg = this.add.rectangle(width / 2, height - 25, 200, 30, 0x660000, 0.9)
       .setInteractive({ useHandCursor: true });
-    const leaveTxt = this.add.text(width / 2, height - 30, 'Opu\u015b\u0107', {
+    const leaveTxt = this.add.text(width / 2, height - 25, 'Opu\u015b\u0107', {
       fontSize: '10px',
       fontFamily: FONT_FAMILY,
       color: '#ffffff',
@@ -141,15 +156,33 @@ export class LobbyScene extends Phaser.Scene {
       this.scene.start('MultiplayerMenuScene');
     });
 
+    // --- VISIBILITY CHANGE — unready when tab loses focus ---
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
+        if (me?.ready) {
+          mpClient.setReady(false).then((updatedLobby) => {
+            this.lobbyData = updatedLobby;
+            this.renderPlayerList();
+            this.updateStartButton();
+            this.updateReadyButton();
+          }).catch(() => {});
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+
     // --- RENDER INITIAL STATE ---
     this.renderPlayerList();
     this.updateStartButton();
+    this.updateReadyButton();
 
     // --- SOCKET EVENT LISTENERS ---
     this.lobbyUpdatedHandler = (data: MPLobbyData) => {
       this.lobbyData = data;
       this.renderPlayerList();
       this.updateStartButton();
+      this.updateReadyButton();
     };
 
     this.gameStartHandler = (data: { seed: number; players: MPPlayer[] }) => {
@@ -168,6 +201,7 @@ export class LobbyScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       mpClient.off('game:start', this.gameStartHandler);
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
       maskGraphics.destroy();
     });
   }
@@ -182,7 +216,9 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private isStartEnabled(): boolean {
-    return this.isHost() && this.lobbyData.players.length >= 2;
+    return this.isHost()
+      && this.lobbyData.players.length >= 2
+      && this.lobbyData.players.every(p => p.ready);
   }
 
   private updateStartButton(): void {
@@ -202,6 +238,20 @@ export class LobbyScene extends Phaser.Scene {
         this.startBtnTxt.setColor('#666666');
         this.startBtnBg.setAlpha(0.5);
       }
+    }
+  }
+
+  private updateReadyButton(): void {
+    const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
+    const isReady = me?.ready ?? false;
+    if (isReady) {
+      this.readyBtnBg.setFillStyle(0x008800, 0.9);
+      this.readyBtnTxt.setText('Gotowy!');
+      this.readyBtnTxt.setColor('#00ff00');
+    } else {
+      this.readyBtnBg.setFillStyle(0x886600, 0.9);
+      this.readyBtnTxt.setText('Gotowy?');
+      this.readyBtnTxt.setColor('#ffffff');
     }
   }
 
@@ -248,7 +298,8 @@ export class LobbyScene extends Phaser.Scene {
 
       // Player name
       const nameColor = isMe ? '#00ff66' : '#ffffff';
-      const nameText = this.add.text(80, y + lineHeight / 2 - 4, player.name + (player.isHost ? ' (host)' : ''), {
+      const suffix = player.isHost ? ' (host)' : '';
+      const nameText = this.add.text(80, y + lineHeight / 2 - 4, player.name + suffix, {
         fontSize: '10px',
         color: nameColor,
         fontFamily: FONT_FAMILY,
@@ -256,13 +307,22 @@ export class LobbyScene extends Phaser.Scene {
         strokeThickness: 2,
       }).setOrigin(0, 0.5);
 
+      // Ready indicator on the right
+      const readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', {
+        fontSize: player.ready ? '14px' : '10px',
+        color: player.ready ? '#00ff00' : '#666666',
+        fontFamily: FONT_FAMILY,
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0.5, 0.5);
+
       // Row background highlight for self
       if (isMe) {
         const rowBg = this.add.rectangle(width / 2, y + lineHeight / 2 - 4, width - 60, lineHeight - 4, 0x003322, 0.3);
         this.playerListContainer.add(rowBg);
       }
 
-      this.playerListContainer.add([swatch, nameText]);
+      this.playerListContainer.add([swatch, nameText, readyText]);
     }
   }
 
