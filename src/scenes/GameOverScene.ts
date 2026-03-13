@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
+import { FONT_FAMILY, getScale } from '../ui/shared';
 
 interface GameOverData {
   score: number;
@@ -7,14 +8,6 @@ interface GameOverData {
   topSpeed?: number;
   distance?: number;
   obstacleType?: string | null;
-}
-
-/** Shared font family used for all text in the scene. */
-const FONT_FAMILY = '"Press Start 2P", monospace';
-
-/** Returns a mobile-aware scale factor. */
-function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
 }
 
 /** Reusable text style presets. */
