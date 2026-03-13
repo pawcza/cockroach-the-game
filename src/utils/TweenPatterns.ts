@@ -1,19 +1,18 @@
 import Phaser from 'phaser';
+import { DEPTH } from '../config/constants';
 
-// ---------------------------------------------------------------------------
-//  Float / bob — endless up-down oscillation
-// ---------------------------------------------------------------------------
+// ── Simple movement tweens ──────────────────────────────────────────
 
-/** Make a target gently bob up and down forever. */
+/** Gentle float up and down (pickups, collectibles). */
 export function floatUpDown(
   scene: Phaser.Scene,
-  target: Phaser.GameObjects.GameObject & { y: number },
-  distance = 10,
-  duration = 1500,
+  target: Phaser.GameObjects.GameObject,
+  distance: number,
+  duration: number,
 ): Phaser.Tweens.Tween {
   return scene.tweens.add({
     targets: target,
-    y: target.y - distance,
+    y: (target as unknown as { y: number }).y - distance,
     duration,
     yoyo: true,
     repeat: -1,
@@ -21,16 +20,12 @@ export function floatUpDown(
   });
 }
 
-// ---------------------------------------------------------------------------
-//  Pulse / throb — endless scale oscillation
-// ---------------------------------------------------------------------------
-
-/** Make a target pulse between its current scale and a target scale forever. */
+/** Pulsing scale tween. */
 export function pulse(
   scene: Phaser.Scene,
   target: Phaser.GameObjects.GameObject,
   toScale: number,
-  duration = 500,
+  duration: number,
 ): Phaser.Tweens.Tween {
   return scene.tweens.add({
     targets: target,
@@ -43,175 +38,160 @@ export function pulse(
   });
 }
 
-// ---------------------------------------------------------------------------
-//  Fade out + destroy — one-shot disposable animation
-// ---------------------------------------------------------------------------
+// ── Fade + destroy ──────────────────────────────────────────────────
 
-export interface FadeOutConfig {
-  y?: number;
-  x?: number;
-  scale?: number;
-  angle?: number;
-  duration?: number;
-  ease?: string;
-  delay?: number;
-}
-
-/** Fade a game object to alpha 0, then destroy it. */
+/** Fade a game object to alpha 0 then destroy it. */
 export function fadeAndDestroy(
   scene: Phaser.Scene,
   target: Phaser.GameObjects.GameObject,
-  config: FadeOutConfig = {},
+  duration: number,
+  props?: Partial<Phaser.Types.Tweens.TweenBuilderConfig>,
 ): Phaser.Tweens.Tween {
-  const tweenConfig: Phaser.Types.Tweens.TweenBuilderConfig = {
+  return scene.tweens.add({
     targets: target,
     alpha: 0,
-    duration: config.duration ?? 600,
-    ease: config.ease ?? 'Power2',
-    delay: config.delay ?? 0,
-    onComplete: () => (target as Phaser.GameObjects.GameObject).destroy(),
-  };
-  if (config.y !== undefined) tweenConfig.y = config.y;
-  if (config.x !== undefined) tweenConfig.x = config.x;
-  if (config.scale !== undefined) tweenConfig.scale = config.scale;
-  if (config.angle !== undefined) tweenConfig.angle = config.angle;
-  return scene.tweens.add(tweenConfig);
+    duration,
+    ...props,
+    onComplete: () => {
+      (target as Phaser.GameObjects.Sprite).destroy();
+    },
+  });
 }
 
-// ---------------------------------------------------------------------------
-//  Floating text popup — rises and fades ("+10", "PIGULKA!", etc.)
-// ---------------------------------------------------------------------------
+// ── Floating text ───────────────────────────────────────────────────
 
-/** Show a text popup that floats upward and fades out. */
+/** Show text that floats upward and fades out. */
 export function floatingText(
   scene: Phaser.Scene,
   x: number,
   y: number,
   message: string,
   style: Phaser.Types.GameObjects.Text.TextStyle,
-  config: { rise?: number; duration?: number; scale?: number; depth?: number } = {},
-): void {
-  const text = scene.add.text(x, y, message, style).setOrigin(0.5).setDepth(config.depth ?? 999);
-  fadeAndDestroy(scene, text, {
-    y: y - (config.rise ?? 40),
-    scale: config.scale,
-    duration: config.duration ?? 800,
+  opts?: { floatY?: number; duration?: number; scale?: number; scrollFactor?: number },
+): Phaser.GameObjects.Text {
+  const text = scene.add.text(x, y, message, style);
+  text.setOrigin(0.5);
+  text.setDepth(DEPTH.POPUP);
+  if (opts?.scrollFactor !== undefined) text.setScrollFactor(opts.scrollFactor);
+
+  scene.tweens.add({
+    targets: text,
+    y: text.y - (opts?.floatY ?? 30),
+    alpha: 0,
+    scale: opts?.scale,
+    duration: opts?.duration ?? 800,
+    ease: 'Power2',
+    onComplete: () => text.destroy(),
   });
+
+  return text;
 }
 
-// ---------------------------------------------------------------------------
-//  Glow effect — additive-blend circle that pulses around a sprite
-// ---------------------------------------------------------------------------
+// ── Glow helpers ────────────────────────────────────────────────────
 
-/** Create a pulsing additive-blend glow circle. Returns the glow object. */
+/** Create a standalone glow circle (additive blend). Returns the circle. */
 export function createGlow(
   scene: Phaser.Scene,
   x: number,
   y: number,
   radius: number,
   color: number,
-  alpha = 0.3,
-  pulseDuration = 400,
+  alpha: number,
 ): Phaser.GameObjects.Arc {
-  const glow = scene.add
-    .circle(x, y, radius, color, alpha)
-    .setDepth(9)
+  return scene.add.circle(x, y, radius, color, alpha)
+    .setDepth(DEPTH.GLOW)
     .setBlendMode(Phaser.BlendModes.ADD);
-
-  scene.tweens.add({
-    targets: glow,
-    alpha: alpha * 0.3,
-    scale: 1.3,
-    duration: pulseDuration,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  });
-
-  return glow;
 }
 
 /**
- * Attach a glow to a sprite — glow auto-destroys with the sprite.
- * Returns the glow for further customisation.
+ * Attach a pulsing glow to a sprite. The glow auto-destroys when the sprite
+ * is destroyed. Returns the glow circle.
  */
 export function attachGlow(
   scene: Phaser.Scene,
   sprite: Phaser.GameObjects.Sprite | Phaser.Physics.Arcade.Sprite,
   radius: number,
   color: number,
-  alpha = 0.3,
-  pulseDuration = 400,
+  alpha: number,
+  pulseConfig?: { toAlpha?: number; toScale?: number; duration?: number },
 ): Phaser.GameObjects.Arc {
-  const glow = createGlow(scene, sprite.x, sprite.y, radius, color, alpha, pulseDuration);
-  sprite.on('destroy', () => {
-    scene.tweens.killTweensOf(sprite);
-    scene.tweens.killTweensOf(glow);
-    glow.destroy();
-  });
-  return glow;
-}
+  const glow = createGlow(scene, sprite.x, sprite.y, radius, color, alpha);
 
-// ---------------------------------------------------------------------------
-//  Pulsing overlay — fullscreen additive-blend rectangle that breathes
-// ---------------------------------------------------------------------------
+  const pAlpha = pulseConfig?.toAlpha ?? alpha * 0.33;
+  const pScale = pulseConfig?.toScale;
+  const pDuration = pulseConfig?.duration ?? 500;
 
-/** Create a fullscreen pulsing overlay (used for scene backgrounds). */
-export function createPulsingOverlay(
-  scene: Phaser.Scene,
-  width: number,
-  height: number,
-  color: number,
-  alpha = 0.3,
-  duration = 1500,
-): Phaser.GameObjects.Rectangle {
-  const overlay = scene.add
-    .rectangle(width / 2, height / 2, width, height, color, alpha)
-    .setBlendMode(Phaser.BlendModes.ADD);
-
-  scene.tweens.add({
-    targets: overlay,
-    alpha: 0.05,
-    duration,
+  const tweenCfg: Phaser.Types.Tweens.TweenBuilderConfig = {
+    targets: glow,
+    alpha: pAlpha,
+    duration: pDuration,
     yoyo: true,
     repeat: -1,
     ease: 'Sine.easeInOut',
+  };
+  if (pScale !== undefined) {
+    (tweenCfg as Record<string, unknown>).scale = pScale;
+  }
+  scene.tweens.add(tweenCfg);
+
+  sprite.on('destroy', () => {
+    scene.tweens.killTweensOf(glow);
+    glow.destroy();
   });
 
-  return overlay;
+  return glow;
 }
 
-// ---------------------------------------------------------------------------
-//  Burst particles — radial explosion of small circles
-// ---------------------------------------------------------------------------
+// ── Overlay / particles ─────────────────────────────────────────────
 
-/** Spawn a radial burst of colored particles that fade out. */
+/** Create a full-screen pulsing overlay (additive blend). */
+export function createPulsingOverlay(
+  scene: Phaser.Scene,
+  color: number,
+  alpha: number,
+  depth: number,
+): Phaser.GameObjects.Rectangle {
+  const w = scene.cameras.main.width;
+  const h = scene.cameras.main.height;
+  return scene.add.rectangle(w / 2, h / 2, w, h, color, alpha)
+    .setScrollFactor(0)
+    .setDepth(depth)
+    .setBlendMode(Phaser.BlendModes.ADD);
+}
+
+/** Emit a burst of circle particles that fly outward and fade. */
 export function burstParticles(
   scene: Phaser.Scene,
   x: number,
   y: number,
-  colors: number[],
-  count = 12,
-  config: { radius?: number; speed?: number; duration?: number; depth?: number } = {},
+  colors: readonly number[],
+  count: number,
+  opts?: { radius?: number; speed?: number; duration?: number; depth?: number },
 ): void {
-  const radius = config.radius ?? 3;
-  const speed = config.speed ?? 80;
-  const duration = config.duration ?? 400;
-  const depth = config.depth ?? 996;
+  const radius = opts?.radius ?? 3;
+  const speed = opts?.speed ?? 110;
+  const duration = opts?.duration ?? 500;
+  const depth = opts?.depth ?? DEPTH.VFX_TEXT;
 
   for (let i = 0; i < count; i++) {
     const color = colors[i % colors.length];
-    const particle = scene.add.circle(x, y, radius, color, 1).setDepth(depth);
+    const particle = scene.add.circle(x, y, radius, color, 1);
+    particle.setDepth(depth);
 
     const angle = (i / count) * Math.PI * 2;
-    const dist = speed + Math.random() * (speed * 0.75);
+    const dist = (speed * 0.57) + Math.random() * (speed * 0.43);
+    const targetX = x + Math.cos(angle) * dist;
+    const targetY = y + Math.sin(angle) * dist;
 
-    fadeAndDestroy(scene, particle, {
-      x: x + Math.cos(angle) * dist,
-      y: y + Math.sin(angle) * dist,
+    scene.tweens.add({
+      targets: particle,
+      x: targetX,
+      y: targetY,
+      alpha: 0,
       scale: 0.1,
-      duration: duration + Math.random() * (duration * 0.5),
+      duration: duration * 0.67 + Math.random() * duration * 0.33,
       ease: 'Power2',
+      onComplete: () => particle.destroy(),
     });
   }
 }
