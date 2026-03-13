@@ -254,8 +254,9 @@ export class GameHUD {
       this.levelBarFillGfx.fillRoundedRect(bx + 2, by + 1, Math.max(0, fillW - 4), bh * 0.35, { tl: r - 1, tr: fillW >= bw - r ? r - 1 : 0, bl: 0, br: 0 });
     }
 
-    // Bar text
-    const distLabel = levelSpan > 0 ? `(${inLevel}/${levelSpan})m` : `${Math.floor(distance)}m`;
+    // Bar text — show total distance / next level threshold
+    const nextThreshold = levelConfig.distanceThreshold + levelSpan;
+    const distLabel = levelSpan > 0 ? `(${Math.floor(distance)}/${nextThreshold})m` : `${Math.floor(distance)}m`;
     this.levelBarText.setText(`Lv${levelConfig.level} ${levelConfig.name} ${distLabel}`);
   }
 

@@ -18,7 +18,6 @@ const SCORE_MILESTONES = [
   { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
   { threshold: 2000, text: 'DWIE BAŃKI, BOSSMAN!', tier: 4 },
   { threshold: 2137, text: 'KREMÓWKI DLA WSZYSTKICH', tier: 4 },
-  { threshold: 2500, text: 'PYSZNOŚCI DELUXE', tier: 4 },
   { threshold: 3000, text: 'TRZY KOŁA NA LICZNIKU', tier: 4 },
   { threshold: 4000, text: 'CZTERY OSIEMNASTKI TYLKO W MOIM SAMOCHODZIE', tier: 5 },
   { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
@@ -232,7 +231,10 @@ export class GameOverHandler {
       if (score >= m.threshold && this.lastMilestone < m.threshold) {
         this.lastMilestone = m.threshold;
         this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
-        this.scene.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
+        const key = `milestone-${m.threshold}`;
+        if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
+          this.scene.sound.play(key, { volume: 0.7 });
+        }
         break;
       }
     }
@@ -243,7 +245,10 @@ export class GameOverHandler {
       if (ghostScore >= m.threshold && this.lastSpectatedMilestone < m.threshold) {
         this.lastSpectatedMilestone = m.threshold;
         this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
-        this.scene.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
+        const key = `milestone-${m.threshold}`;
+        if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
+          this.scene.sound.play(key, { volume: 0.7 });
+        }
         break;
       }
     }
