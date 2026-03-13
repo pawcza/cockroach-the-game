@@ -301,7 +301,7 @@ export class MenuScene extends Phaser.Scene {
       if (this.textures.exists('pill')) {
         container.add(this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
       }
-      container.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
+      container.add(this.add.text(colScore, headerY, 'Punkciory', headerStyle).setOrigin(1, 0.5));
 
       // Scrollable list container (below header)
       const listTop = 78;
