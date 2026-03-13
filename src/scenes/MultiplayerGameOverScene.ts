@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
-import { startFloatingParticles } from '../ui/SceneBackground';
 import { FONT_FAMILY, getScale, createButton, OBSTACLE_TEXTURE, OBSTACLE_LABEL } from '../ui/shared';
+import { spawnFloatingParticle } from '../ui/ConfettiEffect';
 
 interface MPGameOverRanking {
   id: string;
@@ -17,7 +17,6 @@ interface MPGameOverData {
   myId: string;
   isHost: boolean;
 }
-
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((...args: any[]) => void) | null = null;
@@ -48,7 +47,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     });
 
     // Floating neon particles
-    startFloatingParticles(this, width, height, 10);
+    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff];
+    for (let i = 0; i < 10; i++) {
+      spawnFloatingParticle(this, width, height, neonColors);
+    }
 
     // --- Title: "WYNIKI ZJAZDU" ---
     const title = this.add.text(width / 2, Math.round(30 * s), 'WYNIKI ZJAZDU', {
@@ -82,11 +84,33 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     }
 
     // --- Rankings table ---
+    this.renderRankings(rankings, myId, isNewRecord, width, s);
+
+    // --- Buttons ---
+    this.renderButtons(width, height, s, isHost);
+
+    // --- Socket listeners ---
+    this.lobbyUpdatedHandler = (lobbyData: { id: string; players: any[]; status: string }) => {
+      if (lobbyData.status === 'waiting') {
+        this.cleanupListeners();
+        this.scene.start('LobbyScene', { lobbyData });
+      }
+    };
+    mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
+
+    this.events.on('shutdown', () => {
+      this.cleanupListeners();
+    });
+  }
+
+  private renderRankings(
+    rankings: MPGameOverRanking[], myId: string, isNewRecord: boolean,
+    width: number, s: number,
+  ): void {
     const tableStartY = Math.round(65 * s);
-    const lineHeight = Math.round(58 * s); // more vertical padding
+    const lineHeight = Math.round(58 * s);
     const statFontSize = `${Math.round(7 * s)}px`;
 
-    // Column positions
     const colRank = Math.round(15 * s);
     const colColor = Math.round(45 * s);
     const colName = Math.round(68 * s);
@@ -98,28 +122,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       const y = tableStartY + i * lineHeight;
       const isMe = entry.id === myId;
 
-      // Rank-based styling
-      let color: string;
-      let fontSize: number;
-      let strokeThickness: number;
-
-      if (rank === 1) {
-        color = '#ffd700';
-        fontSize = Math.round(12 * s);
-        strokeThickness = Math.round(4 * s);
-      } else if (rank === 2) {
-        color = '#c0c0c0';
-        fontSize = Math.round(11 * s);
-        strokeThickness = Math.round(3 * s);
-      } else if (rank === 3) {
-        color = '#cd7f32';
-        fontSize = Math.round(10 * s);
-        strokeThickness = Math.round(3 * s);
-      } else {
-        color = '#ffffff';
-        fontSize = Math.round(9 * s);
-        strokeThickness = Math.round(2 * s);
-      }
+      const { color, fontSize, strokeThickness } = this.getRankStyle(rank, s);
 
       const rowStyle: Phaser.Types.GameObjects.Text.TextStyle = {
         fontSize: `${fontSize}px`,
@@ -134,31 +137,25 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         this.add.rectangle(width / 2, y + Math.round(8 * s), width - Math.round(20 * s), lineHeight - Math.round(6 * s), 0x003322, 0.3);
       }
 
-      // Rank number (stable — never animated)
       this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
 
-      // Player color square — bigger
       const playerColor = MP_PLAYER_COLORS[entry.color] ?? 0xffffff;
       const sq = Math.round(16 * s);
       this.add.rectangle(colColor, y, sq, sq, playerColor, 1);
 
-      // Player name (highlight if self)
       const nameStyle = { ...rowStyle };
       if (isMe) nameStyle.color = '#00ffff';
       const nameText = this.add.text(colName, y, entry.name, nameStyle).setOrigin(0, 0.5);
 
-      // Score (right-aligned)
       const scoreText = this.add.text(colScore, y, String(entry.score), rowStyle).setOrigin(1, 0.5);
 
-      // Death cause icon + label below name
+      // Death cause icon + label
       const stats = entry.stats || {};
       const obstacleType = (stats.obstacleType as string) || 'fall';
       const deathTexture = OBSTACLE_TEXTURE[obstacleType];
       const deathLabel = OBSTACLE_LABEL[obstacleType] || obstacleType;
 
       const statLineY = y + Math.round(16 * s);
-
-      // Show obstacle sprite if texture exists
       let statTextX = colName;
       if (deathTexture && this.textures.exists(deathTexture)) {
         const icon = this.add.image(colName, statLineY, deathTexture);
@@ -168,7 +165,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         statTextX = colName + Math.round(18 * s);
       }
 
-      // Death cause + stats line
       const statParts: string[] = [deathLabel];
       if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
@@ -203,59 +199,69 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         });
       }
 
-      // Top 3 effects — only name and score animate (rank stays stable)
-      const animElements = [nameText, scoreText];
-
-      if (rank === 1) {
-        const colors = ['#ffd700', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
-        let ci = 0;
-        this.time.addEvent({
-          delay: 150,
-          loop: true,
-          callback: () => {
-            ci = (ci + 1) % colors.length;
-            animElements.forEach(el => el.setColor(colors[ci]));
-          },
-        });
-        this.tweens.add({
-          targets: animElements,
-          scaleX: { from: 1, to: 1.06 },
-          scaleY: { from: 1, to: 1.06 },
-          duration: 400,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        const originalXs = animElements.map(el => el.x);
-        this.time.addEvent({
-          delay: 80,
-          loop: true,
-          callback: () => {
-            animElements.forEach((el, idx) => { el.x = originalXs[idx] + Phaser.Math.Between(-1, 1); });
-          },
-        });
-      } else if (rank === 2) {
-        this.tweens.add({
-          targets: animElements,
-          alpha: { from: 0.7, to: 1 },
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      } else if (rank === 3) {
-        this.tweens.add({
-          targets: animElements,
-          alpha: { from: 0.8, to: 1 },
-          duration: 1000,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      }
+      // Top 3 rank animations
+      this.applyRankAnimation(rank, [nameText, scoreText]);
     }
+  }
 
-    // --- Buttons ---
+  private getRankStyle(rank: number, s: number): { color: string; fontSize: number; strokeThickness: number } {
+    if (rank === 1) return { color: '#ffd700', fontSize: Math.round(12 * s), strokeThickness: Math.round(4 * s) };
+    if (rank === 2) return { color: '#c0c0c0', fontSize: Math.round(11 * s), strokeThickness: Math.round(3 * s) };
+    if (rank === 3) return { color: '#cd7f32', fontSize: Math.round(10 * s), strokeThickness: Math.round(3 * s) };
+    return { color: '#ffffff', fontSize: Math.round(9 * s), strokeThickness: Math.round(2 * s) };
+  }
+
+  private applyRankAnimation(rank: number, elements: Phaser.GameObjects.Text[]): void {
+    if (rank === 1) {
+      const colors = ['#ffd700', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
+      let ci = 0;
+      this.time.addEvent({
+        delay: 150,
+        loop: true,
+        callback: () => {
+          ci = (ci + 1) % colors.length;
+          elements.forEach(el => el.setColor(colors[ci]));
+        },
+      });
+      this.tweens.add({
+        targets: elements,
+        scaleX: { from: 1, to: 1.06 },
+        scaleY: { from: 1, to: 1.06 },
+        duration: 400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      const originalXs = elements.map(el => el.x);
+      this.time.addEvent({
+        delay: 80,
+        loop: true,
+        callback: () => {
+          elements.forEach((el, idx) => { el.x = originalXs[idx] + Phaser.Math.Between(-1, 1); });
+        },
+      });
+    } else if (rank === 2) {
+      this.tweens.add({
+        targets: elements,
+        alpha: { from: 0.7, to: 1 },
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else if (rank === 3) {
+      this.tweens.add({
+        targets: elements,
+        alpha: { from: 0.8, to: 1 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+  }
+
+  private renderButtons(width: number, height: number, s: number, isHost: boolean): void {
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: `${Math.round(11 * s)}px`,
       fontFamily: FONT_FAMILY,
@@ -271,15 +277,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     const bottomBtnY = height - Math.round(40 * s);
     const topBtnY = bottomBtnY - btnH - btnGap;
 
-    // Leave button (everyone)
-    createButton(
-      this, width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnStyle,
-      () => {
-        this.cleanupListeners();
-        mpClient.leaveLobby();
-        this.scene.start('MultiplayerMenuScene');
-      },
-    );
+    // Leave button
+    createButton(this, width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnStyle, () => {
+      this.cleanupListeners();
+      mpClient.leaveLobby();
+      this.scene.start('MultiplayerMenuScene');
+    });
 
     // Host: Rematch with countdown; Non-host: waiting text
     if (isHost) {
@@ -327,19 +330,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5);
     }
-
-    // --- Socket listeners ---
-    this.lobbyUpdatedHandler = (lobbyData: { id: string; players: any[]; status: string }) => {
-      if (lobbyData.status === 'waiting') {
-        this.cleanupListeners();
-        this.scene.start('LobbyScene', { lobbyData });
-      }
-    };
-    mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
-
-    this.events.on('shutdown', () => {
-      this.cleanupListeners();
-    });
   }
 
   private cleanupListeners(): void {
@@ -348,5 +338,4 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       this.lobbyUpdatedHandler = null;
     }
   }
-
 }

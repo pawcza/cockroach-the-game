@@ -33,10 +33,7 @@ export function createButton(
   return { bg, txt };
 }
 
-/**
- * Obstacle type to texture key mapping, shared between GameOverScene
- * and MultiplayerGameOverScene.
- */
+/** Obstacle type to texture key mapping. */
 export const OBSTACLE_TEXTURE: Record<string, string> = {
   bird: 'bird',
   cat: 'cat-paw',
@@ -51,7 +48,7 @@ export const OBSTACLE_TEXTURE: Record<string, string> = {
   blackhole: 'black-hole',
 };
 
-/** Polish death-cause labels used in multiplayer game-over rankings. */
+/** Polish death cause labels. */
 export const OBSTACLE_LABEL: Record<string, string> = {
   onion: 'Cebula',
   spray: 'Spray',
