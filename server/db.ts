@@ -20,10 +20,25 @@ db.exec(`
     death_cause TEXT,
     distance INTEGER,
     time_survived INTEGER,
+    apples_collected INTEGER,
+    tyskies_collected INTEGER,
+    pills_collected INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(score DESC);
 `);
+
+// Add new columns if missing (existing DBs)
+for (const col of ['apples_collected', 'tyskies_collected', 'pills_collected']) {
+  try {
+    db.exec(`ALTER TABLE scores ADD COLUMN ${col} INTEGER`);
+  } catch {
+    // Column already exists
+  }
+}
+
+// Clear old scores — game rebalanced, old entries no longer comparable
+db.exec('DELETE FROM scores');
 
 export interface ScoreEntry {
   id: number;
@@ -32,6 +47,9 @@ export interface ScoreEntry {
   death_cause: string | null;
   distance: number | null;
   time_survived: number | null;
+  apples_collected: number | null;
+  tyskies_collected: number | null;
+  pills_collected: number | null;
   created_at: string;
 }
 
@@ -56,11 +74,14 @@ export function insertScore(
   deathCause: string | null,
   distance: number | null,
   timeSurvived: number | null,
+  applesCollected: number | null,
+  tyskiesCollected: number | null,
+  pillsCollected: number | null,
 ): ScoreEntry {
   const stmt = db.prepare(
-    'INSERT INTO scores (name, score, death_cause, distance, time_survived) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
-  const info = stmt.run(name, score, deathCause, distance, timeSurvived);
+  const info = stmt.run(name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected);
   const inserted = db.prepare('SELECT * FROM scores WHERE id = ?').get(info.lastInsertRowid) as ScoreEntry;
   return inserted;
 }
@@ -71,13 +92,16 @@ export function insertScores(entries: Array<{
   deathCause?: string | null;
   distance?: number | null;
   timeSurvived?: number | null;
+  applesCollected?: number | null;
+  tyskiesCollected?: number | null;
+  pillsCollected?: number | null;
 }>): void {
   const stmt = db.prepare(
-    'INSERT INTO scores (name, score, death_cause, distance, time_survived) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
   const insertMany = db.transaction((rows: typeof entries) => {
     for (const e of rows) {
-      stmt.run(e.name, e.score, e.deathCause ?? null, e.distance ?? null, e.timeSurvived ?? null);
+      stmt.run(e.name, e.score, e.deathCause ?? null, e.distance ?? null, e.timeSurvived ?? null, e.applesCollected ?? null, e.tyskiesCollected ?? null, e.pillsCollected ?? null);
     }
   });
   insertMany(entries);

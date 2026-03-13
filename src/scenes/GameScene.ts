@@ -112,8 +112,11 @@ export class GameScene extends Phaser.Scene {
   private nextNoiseTime = 0;
   private cockroachNoiseSound: Phaser.Sound.BaseSound | null = null;
 
-  // Pickup combo
+  // Pickup combo & collection counts
   private pickupCombo = 0;
+  private applesCollected = 0;
+  private tyskiesCollected = 0;
+  private pillsCollected = 0;
 
   // Mobile detection (input only — not scaling)
   private isMobile = false;
@@ -150,6 +153,9 @@ export class GameScene extends Phaser.Scene {
     this.cockroachNoiseTimer = 0;
     this.nextNoiseTime = 20000 + Math.random() * 15000;
     this.pickupCombo = 0;
+    this.applesCollected = 0;
+    this.tyskiesCollected = 0;
+    this.pillsCollected = 0;
     this.currentLevel = 1;
     this.isCountingDown = true;
     this.bgTransitioning = false;
@@ -216,6 +222,9 @@ export class GameScene extends Phaser.Scene {
       getPickupCombo: () => this.pickupCombo,
       incrementCombo: () => { this.pickupCombo++; },
       getComboMultiplier: () => this.getComboMultiplier(),
+      onAppleCollected: () => { this.applesCollected++; },
+      onTyskieCollected: () => { this.tyskiesCollected++; },
+      onPillCollected: () => { this.pillsCollected++; },
       isMultiplayer: this.isMultiplayer,
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
     });
@@ -237,6 +246,7 @@ export class GameScene extends Phaser.Scene {
       getActivePlayTime: () => this.activePlayTime,
       getDistance: () => this.getDistance(),
       getCurrentLevel: () => this.currentLevel,
+      getPickupCounts: () => ({ apples: this.applesCollected, tyskies: this.tyskiesCollected, pills: this.pillsCollected }),
       getGhostManager: () => this.ghostManager,
       setGhostManager: (gm) => { this.ghostManager = gm; },
       setIsDead: () => { this.isDead = true; },

@@ -43,6 +43,7 @@ export class GameOverHandler {
   private getActivePlayTime: () => number;
   private getDistance: () => number;
   private getCurrentLevel: () => number;
+  private getPickupCounts: () => { apples: number; tyskies: number; pills: number };
   private getGhostManager: () => GhostManager | null;
   private setGhostManager: (gm: GhostManager | null) => void;
   private setIsDead: () => void;
@@ -62,6 +63,7 @@ export class GameOverHandler {
       getActivePlayTime: () => number;
       getDistance: () => number;
       getCurrentLevel: () => number;
+      getPickupCounts: () => { apples: number; tyskies: number; pills: number };
       getGhostManager: () => GhostManager | null;
       setGhostManager: (gm: GhostManager | null) => void;
       setIsDead: () => void;
@@ -78,6 +80,7 @@ export class GameOverHandler {
     this.getActivePlayTime = callbacks.getActivePlayTime;
     this.getDistance = callbacks.getDistance;
     this.getCurrentLevel = callbacks.getCurrentLevel;
+    this.getPickupCounts = callbacks.getPickupCounts;
     this.getGhostManager = callbacks.getGhostManager;
     this.setGhostManager = callbacks.setGhostManager;
     this.setIsDead = callbacks.setIsDead;
@@ -107,11 +110,15 @@ export class GameOverHandler {
     this.audio.playDeath();
 
     if (this.isMultiplayer) {
+      const pickups = this.getPickupCounts();
       const stats = {
         timeSurvived: Math.floor(this.getActivePlayTime() / 1000),
         distance: Math.floor(this.getDistance()),
         maxSpeed: this.player.speedMultiplier,
         obstacleType: obstacleType || 'fall',
+        applesCollected: pickups.apples,
+        tyskiesCollected: pickups.tyskies,
+        pillsCollected: pickups.pills,
       };
       mpClient.sendDeath(score, stats);
 
@@ -157,6 +164,7 @@ export class GameOverHandler {
           distance: this.getDistance(),
           obstacleType: obstacleType || null,
           level: this.getCurrentLevel(),
+          pickupCounts: this.getPickupCounts(),
         });
       });
     }, 1000);

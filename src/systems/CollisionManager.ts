@@ -12,6 +12,9 @@ export interface CollisionCallbacks {
   getPickupCombo: () => number;
   incrementCombo: () => void;
   getComboMultiplier: () => number;
+  onAppleCollected: () => void;
+  onTyskieCollected: () => void;
+  onPillCollected: () => void;
   isMultiplayer: boolean;
   onDie: (obstacleType?: string | null) => void;
 }
@@ -92,6 +95,7 @@ export class CollisionManager {
     sprite.destroy();
 
     this.callbacks.incrementCombo();
+    this.callbacks.onAppleCollected();
     const multiplier = this.callbacks.getComboMultiplier();
     const points = Math.round(APPLE_SCORE * multiplier);
     this.callbacks.addScore(points);
@@ -112,6 +116,7 @@ export class CollisionManager {
     sprite.destroy();
 
     this.callbacks.incrementCombo();
+    this.callbacks.onTyskieCollected();
     const multiplier = this.callbacks.getComboMultiplier();
     const points = Math.round(TYSKIE_SCORE * multiplier);
     this.callbacks.addScore(points);
@@ -133,6 +138,7 @@ export class CollisionManager {
     sprite.destroy();
 
     this.callbacks.incrementCombo();
+    this.callbacks.onPillCollected();
     const multiplier = this.callbacks.getComboMultiplier();
     const pillPoints = Math.round(PILL_SCORE * multiplier);
     this.callbacks.addScore(pillPoints);

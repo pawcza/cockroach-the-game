@@ -289,12 +289,40 @@ export class MenuScene extends Phaser.Scene {
       maskShape.fillRect(0, listTop, width, listBottom - listTop);
       scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
 
+      // Header row with pickup icons
+      const headerY = listTop;
+      const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+        fontSize: '8px', color: '#666666', fontFamily: FONT_FAMILY,
+        stroke: '#000000', strokeThickness: 1,
+      };
+      const colApple = width - 110;
+      const colTyskie = width - 80;
+      const colPill = width - 50;
+      const colScore = width - 20;
+      const iconScale = 0.12;
+
+      // Icon headers
+      if (this.textures.exists('apple')) {
+        const appleIcon = this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5);
+        scrollContainer.add(appleIcon);
+      }
+      if (this.textures.exists('tyskie')) {
+        const tyskieIcon = this.add.image(colTyskie, headerY, 'tyskie').setScale(iconScale).setOrigin(0.5, 0.5);
+        scrollContainer.add(tyskieIcon);
+      }
+      if (this.textures.exists('pill')) {
+        const pillIcon = this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5);
+        scrollContainer.add(pillIcon);
+      }
+      scrollContainer.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
+
       const timeEvents: Phaser.Time.TimerEvent[] = [];
+      const dataStartY = listTop + 16;
 
       for (let i = 0; i < scores.length; i++) {
         const entry = scores[i];
         const rank = i + 1;
-        const y = listTop + i * lineHeight;
+        const y = dataStartY + i * lineHeight;
 
         let color: string;
         let fontSize: string;
@@ -326,14 +354,25 @@ export class MenuScene extends Phaser.Scene {
           strokeThickness,
         };
 
+        const smallStatStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+          fontSize: rank <= 3 ? '10px' : '9px',
+          color,
+          fontFamily: FONT_FAMILY,
+          stroke: '#000000',
+          strokeThickness: Math.max(1, strokeThickness - 1),
+        };
+
         const rankText = this.add.text(20, y, `${rank}.`, style).setOrigin(0, 0);
         const nameText = this.add.text(70, y, entry.name, style).setOrigin(0, 0);
-        const scoreText = this.add.text(width - 20, y, String(entry.score), style).setOrigin(1, 0);
-        scrollContainer.add([rankText, nameText, scoreText]);
+        const appleText = this.add.text(colApple, y, entry.apples_collected != null ? String(entry.apples_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
+        const tyskieText = this.add.text(colTyskie, y, entry.tyskies_collected != null ? String(entry.tyskies_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
+        const pillText = this.add.text(colPill, y, entry.pills_collected != null ? String(entry.pills_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
+        const scoreText = this.add.text(colScore, y, String(entry.score), style).setOrigin(1, 0);
+        scrollContainer.add([rankText, nameText, appleText, tyskieText, pillText, scoreText]);
 
-        // Top 3 trippy effects
+        // Top 3 effects — constrained wobble for rank 1
         if (rank === 1) {
-          const elements = [rankText, nameText, scoreText];
+          const elements = [rankText, nameText, appleText, tyskieText, pillText, scoreText];
           const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
           let ci = 0;
           timeEvents.push(this.time.addEvent({
@@ -346,25 +385,15 @@ export class MenuScene extends Phaser.Scene {
           }));
           this.tweens.add({
             targets: elements,
-            scaleX: { from: 1, to: 1.08 },
-            scaleY: { from: 1, to: 1.08 },
-            duration: 400,
+            scaleX: { from: 1, to: 1.05 },
+            scaleY: { from: 1, to: 1.05 },
+            duration: 600,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.easeInOut',
           });
-          timeEvents.push(this.time.addEvent({
-            delay: 80,
-            loop: true,
-            callback: () => {
-              elements.forEach(el => {
-                el.x += Phaser.Math.Between(-1, 1);
-                el.y = y + Phaser.Math.Between(-1, 1);
-              });
-            },
-          }));
         } else if (rank === 2) {
-          const elements = [rankText, nameText, scoreText];
+          const elements = [rankText, nameText, appleText, tyskieText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.7, to: 1 },
@@ -373,16 +402,8 @@ export class MenuScene extends Phaser.Scene {
             repeat: -1,
             ease: 'Sine.easeInOut',
           });
-          this.tweens.add({
-            targets: elements,
-            angle: { from: -1, to: 1 },
-            duration: 800,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
         } else if (rank === 3) {
-          const elements = [rankText, nameText, scoreText];
+          const elements = [rankText, nameText, appleText, tyskieText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.8, to: 1 },
@@ -395,7 +416,7 @@ export class MenuScene extends Phaser.Scene {
       }
 
       // Scroll with mouse wheel / touch drag
-      const totalHeight = scores.length * lineHeight;
+      const totalHeight = 16 + scores.length * lineHeight;
       const viewHeight = listBottom - listTop;
       let scrollY = 0;
       const maxScroll = Math.max(0, totalHeight - viewHeight);

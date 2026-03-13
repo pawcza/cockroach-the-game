@@ -1,7 +1,11 @@
-interface ScoreEntry {
+export interface ScoreEntry {
   name: string;
   score: number;
   death_cause: string | null;
+  distance: number | null;
+  apples_collected: number | null;
+  tyskies_collected: number | null;
+  pills_collected: number | null;
 }
 
 export async function fetchScores(): Promise<ScoreEntry[]> {

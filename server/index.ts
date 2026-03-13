@@ -50,7 +50,7 @@ app.get('/api/scores/:playerName', (req, res) => {
 
 // POST /api/scores
 app.post('/api/scores', submitLimiter, (req, res) => {
-  const { name, score, deathCause, distance, timeSurvived } = req.body;
+  const { name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected } = req.body;
 
   // Validation
   if (!name || typeof name !== 'string' || name.trim().length < 1 || name.trim().length > 20) {
@@ -68,6 +68,9 @@ app.post('/api/scores', submitLimiter, (req, res) => {
     deathCause || null,
     typeof distance === 'number' ? distance : null,
     typeof timeSurvived === 'number' ? timeSurvived : null,
+    typeof applesCollected === 'number' ? applesCollected : null,
+    typeof tyskiesCollected === 'number' ? tyskiesCollected : null,
+    typeof pillsCollected === 'number' ? pillsCollected : null,
   );
 
   res.status(201).json(entry);
