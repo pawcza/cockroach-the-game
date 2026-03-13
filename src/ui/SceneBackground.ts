@@ -11,9 +11,9 @@ export function spawnFloatingParticle(
   scene: Phaser.Scene,
   sceneWidth: number,
   sceneHeight: number,
-  colors: number[] = NEON_COLORS,
+  colors: readonly number[] = NEON_COLORS,
 ): void {
-  const color = Phaser.Utils.Array.GetRandom(colors);
+  const color = Phaser.Utils.Array.GetRandom(colors as number[]);
   const size = Phaser.Math.Between(2, 8);
   const x = Phaser.Math.Between(0, sceneWidth);
   const y = Phaser.Math.Between(0, sceneHeight);
@@ -49,7 +49,7 @@ export function startFloatingParticles(
   width: number,
   height: number,
   count: number,
-  colors: number[] = NEON_COLORS,
+  colors: readonly number[] = NEON_COLORS,
 ): void {
   for (let i = 0; i < count; i++) {
     spawnFloatingParticle(scene, width, height, colors);

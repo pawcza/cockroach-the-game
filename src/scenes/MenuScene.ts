@@ -1,12 +1,16 @@
 import Phaser from 'phaser';
-import { startFloatingParticles } from '../ui/SceneBackground';
-import { ScorePage } from '../ui/ScorePage';
-import { InfoPage } from '../ui/InfoPage';
+import { fetchScores } from '../ui/Scoreboard';
+import { COLORS } from '../config/constants';
+import { titleStyle, headingStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { floatUpDown } from '../utils/TweenPatterns';
+import { spawnFloatingParticle } from '../ui/SceneBackground';
+import { createButton } from '../ui/shared';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
   private menuBg!: Phaser.GameObjects.TileSprite;
   private bgScrollSpeed = 0.05;
+  private scoreCleanups: (() => void)[] = [];
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -42,7 +46,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- FLOATING NEON PARTICLES ---
-    startFloatingParticles(this, width, height, 14);
+    for (let i = 0; i < 14; i++) {
+      spawnFloatingParticle(this, width, height, COLORS.NEON);
+    }
 
     // --- PULSING VIGNETTE ---
     const vignette = this.add.graphics();
@@ -79,32 +85,19 @@ export class MenuScene extends Phaser.Scene {
     const mainPage = this.add.container(0, 0).setDepth(10);
 
     // --- TITLE ---
-    const title = this.add.text(width / 2, 140, 'KARALUCH', {
+    const title = this.add.text(width / 2, 140, 'KARALUCH', titleStyle({
       fontSize: '32px',
       color: '#8b0000',
-      fontFamily: '"Press Start 2P", monospace',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 6,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     mainPage.add(title);
 
-    this.tweens.add({
-      targets: title,
-      y: title.y - 10,
-      duration: 1500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    floatUpDown(this, title, 10, 1500);
 
-    const subtitle = this.add.text(width / 2, 185, 'Gra przegra\u0144c\u00f3w', {
+    const subtitle = this.add.text(width / 2, 185, 'Gra przegra\u0144c\u00f3w', bodyStyle({
       fontSize: '14px',
       color: '#ff6600',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
       strokeThickness: 4,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     mainPage.add(subtitle);
 
     this.tweens.add({
@@ -167,36 +160,22 @@ export class MenuScene extends Phaser.Scene {
       }, 500);
     };
 
-    // --- 3 BUTTONS vertically stacked ---
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-    };
-
+    // --- BUTTONS vertically stacked ---
+    const btnS = buttonStyle();
     const btnW = 280;
     const btnH = 40;
     const btnStartY = 240;
     const btnSpacing = 46;
 
-    const createBtn = (y: number, label: string, color: number, action: () => void): void => {
-      const bg = this.add.rectangle(width / 2, y, btnW, btnH, color, 0.9)
-        .setInteractive({ useHandCursor: true });
-      const txt = this.add.text(width / 2, y, label, btnStyle).setOrigin(0.5);
-      bg.on('pointerover', () => { bg.setFillStyle(color, 1); txt.setColor('#ffff00'); });
-      bg.on('pointerout', () => { bg.setFillStyle(color, 0.9); txt.setColor('#ffffff'); });
-      bg.on('pointerdown', action);
+    const addBtn = (y: number, label: string, color: number, action: () => void): { bg: Phaser.GameObjects.Rectangle; txt: Phaser.GameObjects.Text } => {
+      const { bg, txt } = createButton(this, width / 2, y, btnW, btnH, label, color, btnS, action);
       mainPage.add([bg, txt]);
-      return;
+      return { bg, txt };
     };
 
-    createBtn(btnStartY, 'Jeden Karaluch', 0x880000, startGame);
+    const { bg: soloBtn } = addBtn(btnStartY, 'Jeden Karaluch', 0x880000, startGame);
 
     // Pulsing on "Jeden Karaluch" button
-    const soloBtn = mainPage.list[mainPage.list.length - 2] as Phaser.GameObjects.Rectangle;
     this.tweens.add({
       targets: soloBtn,
       alpha: { from: 0.85, to: 1 },
@@ -206,17 +185,22 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    createBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
+    addBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
       this.scene.start('MultiplayerMenuScene');
     });
 
-    // --- Scoreboard page ---
-    const scorePage = new ScorePage(this, width, height);
-
+    // --- Scoreboard page container (off-screen to the left) ---
+    const scorePage = this.add.container(-width, 0).setDepth(10);
     const showScores = (): void => {
-      scorePage.rebuild(hideScores);
+      // Clean up previous score page resources
+      this.scoreCleanups.forEach(fn => fn());
+      this.scoreCleanups = [];
+      scorePage.removeAll(true);
+      this.buildScorePage(scorePage, width, height);
+      const { bg: backBg, txt: backTxt } = createButton(this, width / 2, height - 40, 200, 36, 'Powr\u00f3t \u2192', 0x444444, buttonStyle({ fontSize: '10px' }), hideScores);
+      scorePage.add([backBg, backTxt]);
       this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: scorePage.getContainer(), x: 0, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -226,7 +210,7 @@ export class MenuScene extends Phaser.Scene {
 
     const hideScores = (): void => {
       this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: scorePage.getContainer(), x: -width, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: scorePage, x: -width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: 6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -234,15 +218,22 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    createBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
+    addBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
 
-    // --- Info page ---
-    const infoPage = new InfoPage(this, width, height);
+    // --- Info page container (off-screen to the right) ---
+    const infoPage = this.add.container(width, 0).setDepth(10);
+    let infoBuilt = false;
 
     const showInfo = (): void => {
-      infoPage.ensureBuilt(hideInfo);
+      if (!infoBuilt) {
+        this.buildInfoPage(infoPage, width, height, isMobile);
+        // Back button
+        const { bg: backBg, txt: backTxt } = createButton(this, width / 2, height - 40, 200, 36, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideInfo);
+        infoPage.add([backBg, backTxt]);
+        infoBuilt = true;
+      }
       this.tweens.add({ targets: mainPage, x: -width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: infoPage.getContainer(), x: 0, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: infoPage, x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: 6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -252,7 +243,7 @@ export class MenuScene extends Phaser.Scene {
 
     const hideInfo = (): void => {
       this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: infoPage.getContainer(), x: width, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: infoPage, x: width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -260,24 +251,370 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    createBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
+    addBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
 
     // Version
-    const ver = this.add.text(width - 10, height - 5, 'v0.4.269 THE KARALUCH PROJECT', {
+    const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', smallStyle({
       fontSize: '6px',
       color: '#ffffff',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(1, 1);
+    })).setOrigin(1, 1);
     mainPage.add(ver);
 
     // Keyboard shortcuts
     this.input.keyboard!.once('keydown-SPACE', startGame);
-    this.input.keyboard!.on('keydown-T', () => { scorePage.getContainer().x === 0 ? hideScores() : showScores(); });
+    this.input.keyboard!.on('keydown-T', () => { scorePage.x === 0 ? hideScores() : showScores(); });
+  }
+
+  private buildScorePage(
+    container: Phaser.GameObjects.Container,
+    width: number,
+    height: number,
+  ): void {
+    const title = this.add.text(width / 2, 30, 'BYCZE KARALUCHY', headingStyle()).setOrigin(0.5);
+    container.add(title);
+
+    floatUpDown(this, title, 4, 1200);
+
+    const loadingText = this.add.text(width / 2, height / 2, '\u0141adowanie...', bodyStyle({ color: '#888888' })).setOrigin(0.5);
+    container.add(loadingText);
+
+    fetchScores().then((scores) => {
+      loadingText.destroy();
+
+      if (scores.length === 0) {
+        const emptyText = this.add.text(width / 2, height / 2, 'Jeszcze pusto...\nB\u0105d\u017a pierwszy!', bodyStyle({
+          fontSize: '14px',
+          color: '#888888',
+          align: 'center',
+        })).setOrigin(0.5);
+        container.add(emptyText);
+        return;
+      }
+
+      // Scrollable list container
+      const listTop = 55;
+      const listBottom = height - 70;
+      const lineHeight = 26;
+      const scrollContainer = this.add.container(0, 0);
+      container.add(scrollContainer);
+
+      // Mask so entries don't overflow
+      const maskShape = this.make.graphics({});
+      maskShape.fillRect(0, listTop, width, listBottom - listTop);
+      scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
+
+      const timeEvents: Phaser.Time.TimerEvent[] = [];
+
+      for (let i = 0; i < scores.length; i++) {
+        const entry = scores[i];
+        const rank = i + 1;
+        const y = listTop + i * lineHeight;
+
+        let color: string;
+        let fontSize: string;
+        let strokeThickness: number;
+
+        if (rank === 1) {
+          color = '#ff0000';
+          fontSize = '16px';
+          strokeThickness = 5;
+        } else if (rank === 2) {
+          color = '#ff6600';
+          fontSize = '14px';
+          strokeThickness = 4;
+        } else if (rank === 3) {
+          color = '#ffdd00';
+          fontSize = '13px';
+          strokeThickness = 3;
+        } else {
+          color = '#cccccc';
+          fontSize = '11px';
+          strokeThickness = 2;
+        }
+
+        const style: Phaser.Types.GameObjects.Text.TextStyle = {
+          fontSize,
+          color,
+          fontFamily: FONT_FAMILY,
+          stroke: '#000000',
+          strokeThickness,
+        };
+
+        const rankText = this.add.text(20, y, `${rank}.`, style).setOrigin(0, 0);
+        const nameText = this.add.text(70, y, entry.name, style).setOrigin(0, 0);
+        const scoreText = this.add.text(width - 20, y, String(entry.score), style).setOrigin(1, 0);
+        scrollContainer.add([rankText, nameText, scoreText]);
+
+        // Top 3 trippy effects
+        if (rank === 1) {
+          const elements = [rankText, nameText, scoreText];
+          const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
+          let ci = 0;
+          timeEvents.push(this.time.addEvent({
+            delay: 150,
+            loop: true,
+            callback: () => {
+              ci = (ci + 1) % colors.length;
+              elements.forEach(el => el.setColor(colors[ci]));
+            },
+          }));
+          this.tweens.add({
+            targets: elements,
+            scaleX: { from: 1, to: 1.08 },
+            scaleY: { from: 1, to: 1.08 },
+            duration: 400,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+          timeEvents.push(this.time.addEvent({
+            delay: 80,
+            loop: true,
+            callback: () => {
+              elements.forEach(el => {
+                el.x += Phaser.Math.Between(-1, 1);
+                el.y = y + Phaser.Math.Between(-1, 1);
+              });
+            },
+          }));
+        } else if (rank === 2) {
+          const elements = [rankText, nameText, scoreText];
+          this.tweens.add({
+            targets: elements,
+            alpha: { from: 0.7, to: 1 },
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+          this.tweens.add({
+            targets: elements,
+            angle: { from: -1, to: 1 },
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        } else if (rank === 3) {
+          const elements = [rankText, nameText, scoreText];
+          this.tweens.add({
+            targets: elements,
+            alpha: { from: 0.8, to: 1 },
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
+      }
+
+      // Scroll with mouse wheel / touch drag
+      const totalHeight = scores.length * lineHeight;
+      const viewHeight = listBottom - listTop;
+      let scrollY = 0;
+      const maxScroll = Math.max(0, totalHeight - viewHeight);
+
+      // Register cleanups for time events and mask
+      this.scoreCleanups.push(
+        () => timeEvents.forEach(te => te.destroy()),
+        () => maskShape.destroy(),
+      );
+
+      if (maxScroll > 0) {
+        const wheelHandler = (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number): void => {
+          scrollY = Phaser.Math.Clamp(scrollY + dy * 0.5, 0, maxScroll);
+          scrollContainer.y = -scrollY;
+        };
+        this.input.on('wheel', wheelHandler);
+        this.scoreCleanups.push(() => this.input.off('wheel', wheelHandler));
+
+        // Touch drag scrolling
+        let dragStartY = 0;
+        let dragScrollStart = 0;
+        const hitZone = this.add.rectangle(width / 2, listTop + viewHeight / 2, width, viewHeight, 0x000000, 0)
+          .setInteractive();
+        container.add(hitZone);
+
+        hitZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          dragStartY = pointer.y;
+          dragScrollStart = scrollY;
+        });
+
+        hitZone.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+          if (!pointer.isDown) return;
+          const delta = dragStartY - pointer.y;
+          scrollY = Phaser.Math.Clamp(dragScrollStart + delta, 0, maxScroll);
+          scrollContainer.y = -scrollY;
+        });
+      }
+    });
   }
 
   update(): void {
     this.menuBg.tilePositionX += this.bgScrollSpeed;
+  }
+
+  private buildInfoPage(
+    container: Phaser.GameObjects.Container,
+    width: number,
+    height: number,
+    isMobile: boolean,
+  ): void {
+    // 2x2 grid layout
+    const gap = 10;
+    const zoneW = (width - gap * 3) / 2;
+    const zoneH = (height - 80 - gap * 3) / 2;
+    const left = gap + zoneW / 2;
+    const right = gap * 2 + zoneW + zoneW / 2;
+    const top = gap + zoneH / 2;
+    const bottom = gap * 2 + zoneH + zoneH / 2;
+
+    const zoneTitleStyle = (color: string): Phaser.Types.GameObjects.Text.TextStyle => headingStyle({
+      fontSize: '20px',
+      color,
+      strokeThickness: 6,
+    });
+
+    const animateTitle = (t: Phaser.GameObjects.Text): void => {
+      floatUpDown(this, t, 4, 1200);
+    };
+
+    // --- PYSZNIUTKIE (green, top-left) ---
+    container.add(this.add.rectangle(left, top, zoneW, zoneH, 0x005500, 0.3));
+    const pyszTitle = this.add.text(left, top - 30, 'Pyszniutkie', zoneTitleStyle('#00ff44')).setOrigin(0.5);
+    container.add(pyszTitle);
+    animateTitle(pyszTitle);
+
+    const pickups = ['apple', 'tyskie', 'pill'];
+    const pickupSpacing = zoneW / (pickups.length + 1);
+    const pickupY = top + 25;
+    pickups.forEach((key, i) => {
+      const ix = left - zoneW / 2 + pickupSpacing * (i + 1);
+      const icon = this.add.image(ix, pickupY, key).setScale(0.28);
+      container.add(icon);
+      this.tweens.add({
+        targets: icon,
+        y: pickupY - 4,
+        angle: { from: -5, to: 5 },
+        duration: 800 + i * 200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
+
+    // --- FUJKA (red, top-right) ---
+    container.add(this.add.rectangle(right, top, zoneW, zoneH, 0x550000, 0.3));
+    const fujTitle = this.add.text(right, top - 30, 'Fujka', zoneTitleStyle('#ff3333')).setOrigin(0.5);
+    container.add(fujTitle);
+    animateTitle(fujTitle);
+
+    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper'];
+    const obstSpacing = zoneW / (obstacles.length + 1);
+    const obstY = top + 25;
+    obstacles.forEach((key, i) => {
+      const ix = right - zoneW / 2 + obstSpacing * (i + 1);
+      const icon = this.add.image(ix, obstY, key).setScale(0.25);
+      container.add(icon);
+      this.tweens.add({
+        targets: icon,
+        y: obstY - 4,
+        angle: { from: -5, to: 5 },
+        duration: 800 + i * 150,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
+    const iInne = this.add.text(right, top + 60, '...i inne', bodyStyle({
+      fontSize: '14px',
+      color: '#ff6666',
+      strokeThickness: 4,
+    })).setOrigin(0.5);
+    container.add(iInne);
+
+    // --- STEROWANIE (cyan, bottom-left) ---
+    container.add(this.add.rectangle(left, bottom, zoneW, zoneH, 0x003344, 0.3));
+    const sterTitle = this.add.text(left, bottom - 30, 'Sterowanie', zoneTitleStyle('#00ccff')).setOrigin(0.5);
+    container.add(sterTitle);
+    animateTitle(sterTitle);
+
+    const bindings: [string[], string][] = isMobile
+      ? [
+          [['Lewy ekran'], 'Zmie\u0144 tor'],
+          [['Prawy ekran'], 'Dash'],
+          [['\u23f8'], 'Pauzka'],
+        ]
+      : [
+          [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
+          [['SHIFT', '\u2191>rot90'], 'Dash'],
+          [['ESC'], 'Pauzka'],
+        ];
+
+    const rowStartY = bottom - 10;
+    const rowSpacing = 28;
+
+    const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '13px',
+      fontFamily: FONT_FAMILY,
+      color: '#111111',
+      backgroundColor: '#e8e8e8',
+      padding: { x: 6, y: 5 },
+    };
+
+    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = smallStyle({
+      fontSize: '10px',
+      color: '#88ccdd',
+      strokeThickness: 3,
+    });
+
+    bindings.forEach(([keys, desc], i) => {
+      const rowY = rowStartY + i * rowSpacing;
+
+      const keyTexts: Phaser.GameObjects.Text[] = [];
+      keys.forEach((k) => {
+        const rotate = k.endsWith('>rot90');
+        const label = rotate ? k.replace('>rot90', '') : k;
+        const kt = this.add.text(0, 0, label, keyStyle);
+        if (rotate) kt.setAngle(90);
+        keyTexts.push(kt);
+        container.add(kt);
+      });
+
+      const keyGap = 4;
+      let kx = left - zoneW / 2 + 8;
+      keyTexts.forEach((kt) => {
+        if (kt.angle !== 0) {
+          kt.setOrigin(0.5, 0.5);
+          kt.setPosition(kx + kt.width / 2, rowY);
+        } else {
+          kt.setPosition(kx, rowY);
+          kt.setOrigin(0, 0.5);
+        }
+        kx += kt.width + keyGap;
+      });
+
+      const descText = this.add.text(left + zoneW / 2 - 8, rowY, desc, descStyle).setOrigin(1, 0.5);
+      container.add(descText);
+    });
+
+    // --- MOJE STATY (purple, bottom-right) ---
+    container.add(this.add.rectangle(right, bottom, zoneW, zoneH, 0x330044, 0.3));
+    const statyTitle = this.add.text(right, bottom - 30, 'Moje Staty', zoneTitleStyle('#cc66ff')).setOrigin(0.5);
+    container.add(statyTitle);
+    animateTitle(statyTitle);
+
+    const highScore = localStorage.getItem('cockroach-highscore') || '0';
+    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
+
+    const statStyle = bodyStyle({
+      fontSize: '14px',
+      color: '#ddaaff',
+      strokeThickness: 4,
+    });
+
+    const stat1 = this.add.text(right, bottom, `Najlepszy: ${highScore}`, statStyle).setOrigin(0.5);
+    const stat2 = this.add.text(right, bottom + 28, `Giereczki: ${gamesPlayed}`, statStyle).setOrigin(0.5);
+    container.add([stat1, stat2]);
   }
 }

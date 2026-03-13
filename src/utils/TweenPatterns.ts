@@ -144,19 +144,28 @@ export function attachGlow(
 
 // ── Overlay / particles ─────────────────────────────────────────────
 
-/** Create a full-screen pulsing overlay (additive blend). */
+/** Create a pulsing overlay (additive blend) that fades between alpha and pulseAlpha. */
 export function createPulsingOverlay(
   scene: Phaser.Scene,
+  w: number,
+  h: number,
   color: number,
   alpha: number,
-  depth: number,
+  pulseAlpha: number,
 ): Phaser.GameObjects.Rectangle {
-  const w = scene.cameras.main.width;
-  const h = scene.cameras.main.height;
-  return scene.add.rectangle(w / 2, h / 2, w, h, color, alpha)
+  const overlay = scene.add.rectangle(w / 2, h / 2, w, h, color, alpha)
     .setScrollFactor(0)
-    .setDepth(depth)
+    .setDepth(DEPTH.VFX_VIGNETTE)
     .setBlendMode(Phaser.BlendModes.ADD);
+  scene.tweens.add({
+    targets: overlay,
+    alpha: pulseAlpha,
+    duration: 2000,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+  });
+  return overlay;
 }
 
 /** Emit a burst of circle particles that fly outward and fade. */
