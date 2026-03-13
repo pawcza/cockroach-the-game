@@ -1,6 +1,12 @@
 import Phaser from 'phaser';
 
-const BASE_FONT = '"Press Start 2P", monospace';
+export const FONT_FAMILY = '"Press Start 2P", monospace';
+const BASE_FONT = FONT_FAMILY;
+
+/** Returns a mobile-aware scale factor (1.5x on mobile, 1x on desktop). */
+export function getScale(): number {
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
+}
 
 /** Large centered title text. */
 export function titleStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
@@ -22,9 +28,16 @@ export function smallStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.Tex
   return { fontSize: '9px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
 }
 
-/** HUD elements — no stroke, clean look. */
-export function hudStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
-  return { fontSize: '14px', fontFamily: BASE_FONT, color: '#ffffff', ...overrides };
+/** HUD elements — mobile-aware, no stroke, clean look. */
+export function hudStyle(mobile?: boolean, overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  const size = mobile ? '18px' : '14px';
+  return { fontSize: size, fontFamily: BASE_FONT, color: '#ffffff', ...overrides };
+}
+
+/** Small HUD text — mobile-aware. */
+export function hudSmallStyle(mobile?: boolean, overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  const size = mobile ? '12px' : '10px';
+  return { fontSize: size, fontFamily: BASE_FONT, color: '#ffffff', ...overrides };
 }
 
 /** Floating popup text (score, combo, etc.). */

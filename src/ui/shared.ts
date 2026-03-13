@@ -8,10 +8,7 @@ export function getScale(): number {
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
 }
 
-/**
- * Creates a styled interactive button (rectangle + label) with hover effects.
- * Returns the background and text objects for further customisation.
- */
+/** Create a styled rectangle button with hover effects and click handler. */
 export function createButton(
   scene: Phaser.Scene,
   x: number,
@@ -23,8 +20,7 @@ export function createButton(
   style: Phaser.Types.GameObjects.Text.TextStyle,
   action: () => void,
 ): { bg: Phaser.GameObjects.Rectangle; txt: Phaser.GameObjects.Text } {
-  const bg = scene.add
-    .rectangle(x, y, w, h, color, 0.9)
+  const bg = scene.add.rectangle(x, y, w, h, color, 0.9)
     .setInteractive({ useHandCursor: true });
   const txt = scene.add.text(x, y, label, style).setOrigin(0.5);
   bg.on('pointerover', () => { bg.setAlpha(1); txt.setColor('#ffff00'); });
