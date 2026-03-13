@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { FONT_FAMILY, titleStyle, smallStyle } from '../utils/TextStyles';
+import { DEPTH } from '../config/constants';
 
 export class PauseOverlay {
   private scene: Phaser.Scene;
@@ -30,25 +32,20 @@ export class PauseOverlay {
 
     // Pause UI — depth above touch controls (3000) so overlay covers buttons
     this.overlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.6)
-      .setScrollFactor(0).setDepth(4001).setVisible(false)
+      .setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false)
       .setInteractive();
     this.overlay.on('pointerdown', () => {
       this.onTogglePause();
     });
-    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', {
+    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', titleStyle({
       fontSize: m ? '28px' : '24px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
       strokeThickness: 4,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
-    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wciśnij cokolwiek, po to by grać dalej', {
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT + 1).setVisible(false);
+    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wciśnij cokolwiek, po to by grać dalej', smallStyle({
       fontSize: m ? '9px' : '7px',
-      fontFamily: '"Press Start 2P", monospace',
       color: '#aaaaaa',
-      stroke: '#000000',
       strokeThickness: 2,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT + 1).setVisible(false);
 
     // Pause button -- circular, top-right
     const pauseR = m ? 30 : 18;
@@ -56,19 +53,19 @@ export class PauseOverlay {
     const pauseY = pauseR + 12;
     this.touchPauseBtn = this.scene.add.circle(pauseX, pauseY, pauseR, 0x888888, m ? 0.35 : 0.2)
       .setScrollFactor(0)
-      .setDepth(5000)
+      .setDepth(DEPTH.PAUSE_BTN)
       .setInteractive();
 
     this.touchPauseBtnLabel = this.scene.add.text(pauseX, pauseY, '\u23f8', {
       fontSize: m ? '18px' : '12px',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 2,
     })
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(5001)
+      .setDepth(DEPTH.PAUSE_BTN_LABEL)
       .setAlpha(m ? 0.7 : 0.4);
 
     this.touchPauseBtn.on('pointerdown', () => {

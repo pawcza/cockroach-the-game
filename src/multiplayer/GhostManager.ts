@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { DEPTH } from '../config/constants';
+import { smallStyle } from '../utils/TextStyles';
 import { GhostPlayer } from './GhostPlayer';
 
 // Import MPPlayer interface inline to avoid circular deps
@@ -95,15 +97,9 @@ export class GhostManager {
       return this.arrowPool[index];
     }
     // Create a new arrow and add to pool
-    const arrow = this.scene.add.text(0, 0, '', {
-      fontFamily: '"Press Start 2P"',
-      fontSize: '8px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-    });
+    const arrow = this.scene.add.text(0, 0, '', smallStyle({ fontSize: '8px', strokeThickness: 2 }));
     arrow.setScrollFactor(0);
-    arrow.setDepth(3500);
+    arrow.setDepth(DEPTH.GHOST_ARROW);
     this.arrowPool.push(arrow);
     return arrow;
   }
@@ -198,17 +194,11 @@ export class GhostManager {
         cam.width / 2,
         30,
         `Ogl\u0105danie: ${this.spectateTarget.name}`,
-        {
-          fontFamily: '"Press Start 2P"',
-          fontSize: '10px',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 3,
-        }
+        smallStyle()
       );
       this.spectateOverlay.setOrigin(0.5, 0);
       this.spectateOverlay.setScrollFactor(0);
-      this.spectateOverlay.setDepth(3500);
+      this.spectateOverlay.setDepth(DEPTH.SPECTATE_OVERLAY);
 
       // Wobble tween
       this.scene.tweens.add({

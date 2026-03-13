@@ -3,7 +3,9 @@ import {
   PILL_SPEED_MULTIPLIER,
   PILL_DURATION,
   PILL_WARN_TIME,
+  DEPTH,
 } from '../config/constants';
+import { neonStyle, popupStyle, headingStyle } from '../utils/TextStyles';
 import { AudioManager } from '../audio/AudioManager';
 
 export class PillSystem {
@@ -47,7 +49,7 @@ export class PillSystem {
     const h = this.scene.cameras.main.height;
     this.pillOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0xff00ff, 0)
       .setScrollFactor(0)
-      .setDepth(989)
+      .setDepth(DEPTH.PILL_OVERLAY)
       .setBlendMode(Phaser.BlendModes.ADD);
   }
 
@@ -121,23 +123,9 @@ export class PillSystem {
     this.setInvulnerable(true);
 
     // --- "PIGULKA!" floating text ---
-    const pillText = this.scene.add.text(px, py - 30, 'PIGULKA!', {
-      fontSize: '16px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ff00ff',
-      stroke: '#000000',
-      strokeThickness: 5,
-      shadow: {
-        offsetX: 2,
-        offsetY: 2,
-        color: '#00ffff',
-        blur: 10,
-        fill: true,
-        stroke: true,
-      },
-    });
+    const pillText = this.scene.add.text(px, py - 30, 'PIGULKA!', neonStyle());
     pillText.setOrigin(0.5);
-    pillText.setDepth(999);
+    pillText.setDepth(DEPTH.POPUP);
     this.scene.tweens.add({
       targets: pillText,
       y: pillText.y - 60,
@@ -149,15 +137,9 @@ export class PillSystem {
     });
 
     // --- Score popup ---
-    const scorePopup = this.scene.add.text(px, py, '+100', {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#00ffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
+    const scorePopup = this.scene.add.text(px, py, '+100', popupStyle());
     scorePopup.setOrigin(0.5);
-    scorePopup.setDepth(999);
+    scorePopup.setDepth(DEPTH.POPUP);
     this.scene.tweens.add({
       targets: scorePopup,
       y: scorePopup.y - 40,
@@ -246,7 +228,7 @@ export class PillSystem {
         lineWidth, 2, color, 0.6,
       );
       line.setScrollFactor(0);
-      line.setDepth(988);
+      line.setDepth(DEPTH.PILL_SPEED_LINES);
       line.setBlendMode(Phaser.BlendModes.ADD);
       this.pillSpeedLines.push(line);
 
@@ -300,17 +282,11 @@ export class PillSystem {
 
     const endText = this.scene.add.text(
       this.scene.cameras.main.width / 2, this.scene.cameras.main.height / 2 - 20,
-      'KONIEC JAZDY!', {
-        fontSize: '18px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ffff00',
-        stroke: '#000000',
-        strokeThickness: 5,
-      },
+      'KONIEC JAZDY!', headingStyle({ color: '#ffff00' }),
     );
     endText.setOrigin(0.5);
     endText.setScrollFactor(0);
-    endText.setDepth(999);
+    endText.setDepth(DEPTH.POPUP);
     this.scene.tweens.add({
       targets: endText,
       y: endText.y - 50,

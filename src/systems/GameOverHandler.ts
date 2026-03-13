@@ -4,6 +4,8 @@ import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
+import { DEPTH } from '../config/constants';
+import { smallStyle } from '../utils/TextStyles';
 
 export class GameOverHandler {
   private scene: Phaser.Scene;
@@ -168,16 +170,12 @@ export class GameOverHandler {
     const colorStr = '#' + color.toString(16).padStart(6, '0');
     const label = disconnected ? `${name} uciek\u0142` : `${name} zgin\u0105\u0142!`;
 
-    const text = this.scene.add.text(cam.width / 2, this.deathNotificationY, label, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '10px',
-      color: colorStr,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
+    const text = this.scene.add.text(cam.width / 2, this.deathNotificationY, label,
+      smallStyle({ fontSize: '10px', color: colorStr }),
+    );
     text.setOrigin(0.5, 0);
     text.setScrollFactor(0);
-    text.setDepth(4000);
+    text.setDepth(DEPTH.DEATH_NOTIFICATION);
     text.setAlpha(0);
 
     this.deathNotificationY += 20;

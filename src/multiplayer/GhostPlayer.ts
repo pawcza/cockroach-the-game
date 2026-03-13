@@ -8,7 +8,9 @@ import {
   PILL_SPEED_MULTIPLIER,
   PILL_DURATION,
   SPEED_BOOST_PER_LEVEL,
+  DEPTH,
 } from '../config/constants';
+import { smallStyle } from '../utils/TextStyles';
 import { getLevelForDistance } from '../config/levels';
 
 // Re-export for convenience — must match server/lobby.ts PLAYER_COLORS exactly
@@ -84,19 +86,13 @@ export class GhostPlayer {
     this.sprite.setScale(0.30);
     this.sprite.setAlpha(0.2);
     this.sprite.setTint(this.color);
-    this.sprite.setDepth(500);
+    this.sprite.setDepth(DEPTH.GHOST_SPRITE);
 
     const colorStr = '#' + this.color.toString(16).padStart(6, '0');
-    this.nameLabel = scene.add.text(startX, floorBottomY - 45, name, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '10px',
-      color: colorStr,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
+    this.nameLabel = scene.add.text(startX, floorBottomY - 45, name, smallStyle({ color: colorStr }));
     this.nameLabel.setOrigin(0.5, 1);
     this.nameLabel.setAlpha(0.5);
-    this.nameLabel.setDepth(501);
+    this.nameLabel.setDepth(DEPTH.GHOST_LABEL);
   }
 
   /** Compute current speed using the same formula as Player.updateSpeed */

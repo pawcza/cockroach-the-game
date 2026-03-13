@@ -23,6 +23,7 @@ import {
   DEPTH,
 } from '../config/constants';
 import { floatUpDown, pulse, attachGlow } from '../utils/TweenPatterns';
+import { popupStyle, smallStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { mpClient, MPPlayer } from '../multiplayer/MultiplayerClient';
@@ -218,7 +219,7 @@ export class GameScene extends Phaser.Scene {
       .tileSprite(0, 0, w, h, 'lv1-bg')
       .setOrigin(0, 0)
       .setScrollFactor(0)
-      .setDepth(1)
+      .setDepth(DEPTH.MID_BG)
       .setAlpha(0.15);
     this.midBg.setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
 
@@ -226,16 +227,16 @@ export class GameScene extends Phaser.Scene {
       .tileSprite(0, 0, w, h, 'lv1-fg')
       .setOrigin(0, 0)
       .setScrollFactor(0)
-      .setDepth(2);
+      .setDepth(DEPTH.FG_BG);
 
     // Next-level background layers (for crossfade transitions)
     this.nextSkyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky')
       .setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
     this.nextMidBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg')
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(1).setAlpha(0)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.MID_BG).setAlpha(0)
       .setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
     this.nextFgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg')
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(2).setAlpha(0);
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FG_BG).setAlpha(0);
     this.bgTransitioning = false;
 
     // Generate rounded floor textures for all levels
@@ -261,20 +262,20 @@ export class GameScene extends Phaser.Scene {
     const tilesNeeded = Math.ceil(FLOOR_WIDTH / FLOOR_TILE_STEP) + 2;
     for (let i = 0; i < tilesNeeded; i++) {
       const topTile = this.add.image(i * FLOOR_TILE_STEP, this.floorTopY, 'floor-rounded-lv1')
-        .setOrigin(0, 0).setDepth(3);
+        .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
       this.floorTopSprites.push(topTile);
 
       const bottomTile = this.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, 'floor-rounded-lv1')
-        .setOrigin(0, 0).setDepth(3);
+        .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
       this.floorBottomSprites.push(bottomTile);
     }
 
     // Active floor highlight — subtle glow strip behind the current floor
     const highlightW = w + 200;
     this.floorHighlightTop = this.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
     this.floorHighlightBottom = this.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
 
     // Audio (created before Player since Player needs it)
     this.audio = new AudioManager(this);
@@ -443,16 +444,12 @@ export class GameScene extends Phaser.Scene {
     if (step < countdownTexts.length && step > this.countdownLastShown) {
       this.countdownLastShown = step;
       const text = countdownTexts[step];
-      const countText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
-        fontSize: text === 'JAZDA!' ? '24px' : '32px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 6,
-      });
+      const countText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text,
+        popupStyle({ fontSize: text === 'JAZDA!' ? '24px' : '32px', color: text === 'JAZDA!' ? '#00ff00' : '#ffffff', strokeThickness: 6 }),
+      );
       countText.setOrigin(0.5);
       countText.setScrollFactor(0);
-      countText.setDepth(1000);
+      countText.setDepth(DEPTH.COUNTDOWN);
       this.tweens.add({
         targets: countText,
         scale: { from: 2, to: 0.5 },
@@ -841,16 +838,12 @@ export class GameScene extends Phaser.Scene {
     const colorStr = '#' + color.toString(16).padStart(6, '0');
     const label = disconnected ? `${name} uciekł` : `${name} zginął!`;
 
-    const text = this.add.text(cam.width / 2, this.deathNotificationY, label, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '10px',
-      color: colorStr,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
+    const text = this.add.text(cam.width / 2, this.deathNotificationY, label,
+      smallStyle({ color: colorStr }),
+    );
     text.setOrigin(0.5, 0);
     text.setScrollFactor(0);
-    text.setDepth(4000);
+    text.setDepth(DEPTH.DEATH_NOTIFICATION);
     text.setAlpha(0);
 
     this.deathNotificationY += 20;
@@ -936,15 +929,10 @@ export class GameScene extends Phaser.Scene {
       this.unpauseCountdownLastShown = step;
       const text = steps[step];
       const countText = this.add.text(
-        this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
-          fontSize: text === 'JAZDA!' ? '24px' : '32px',
-          fontFamily: '"Press Start 2P", monospace',
-          color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 6,
-        },
+        this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text,
+        popupStyle({ fontSize: text === 'JAZDA!' ? '24px' : '32px', color: text === 'JAZDA!' ? '#00ff00' : '#ffffff', strokeThickness: 6 }),
       );
-      countText.setOrigin(0.5).setScrollFactor(0).setDepth(4003);
+      countText.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UNPAUSE_COUNTDOWN);
       this.tweens.add({
         targets: countText,
         scale: { from: 2, to: 0.5 },
@@ -1167,15 +1155,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showPickupPopup(x: number, y: number, text: string, color: string): void {
-    const popup = this.add.text(x, y - 20, text, {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
+    const popup = this.add.text(x, y - 20, text, popupStyle({ color }));
     popup.setOrigin(0.5);
-    popup.setDepth(999);
+    popup.setDepth(DEPTH.POPUP);
     popup.setAlpha(0);
 
     // Phase 1: Slide up + fade in (150ms)
@@ -1286,7 +1268,7 @@ export class GameScene extends Phaser.Scene {
     this.nextSkyBg.setTexture(config.skyKey);
     this.nextMidBg.setTexture(config.bgKey);
     this.nextFgBg.setTexture(config.fgKey);
-    this.nextFgBg.setDepth(2);
+    this.nextFgBg.setDepth(DEPTH.FG_BG);
     this.bgTransitioning = true;
 
     const fadeDuration = 3000;
@@ -1306,7 +1288,7 @@ export class GameScene extends Phaser.Scene {
         this.skyBg.setTexture(config.skyKey).setAlpha(0.8);
         this.midBg.setTexture(config.bgKey).setAlpha(0.15);
         this.fgBg.setTexture(config.fgKey).setAlpha(1);
-        this.fgBg.setDepth(2);
+        this.fgBg.setDepth(DEPTH.FG_BG);
         this.nextSkyBg.setAlpha(0);
         this.nextMidBg.setAlpha(0);
         this.nextFgBg.setAlpha(0);
@@ -1511,7 +1493,7 @@ export class GameScene extends Phaser.Scene {
       const textureKey = `floor-rounded-lv${tileLevelConfig.level}`;
 
       const fallingTile = this.add.image(startX, floorY, textureKey)
-        .setOrigin(0, 0).setDepth(3);
+        .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
 
       const spinDir = Math.random() > 0.5 ? 1 : -1;
       this.tweens.add({
@@ -1541,7 +1523,7 @@ export class GameScene extends Phaser.Scene {
 
     const birdImg = this.add.image(corner.x, corner.y, 'bird-overlook');
     birdImg.setScrollFactor(0);
-    birdImg.setDepth(2000);
+    birdImg.setDepth(DEPTH.BIRD_OVERLOOK);
     birdImg.setScale(0.4);
     birdImg.setAlpha(0);
     birdImg.setFlipX(corner.flipX);
@@ -1572,16 +1554,12 @@ export class GameScene extends Phaser.Scene {
         if (obstacleFloor && obstacleFloor !== this.player.currentFloor) return;
 
         const warningY = sprite.y < this.cameras.main.height / 2 ? 30 : this.cameras.main.height - 30;
-        const warning = this.add.text(this.cameras.main.width - 30, warningY, '!', {
-          fontSize: '12px',
-          fontFamily: '"Press Start 2P", monospace',
-          color: '#ff0000',
-          stroke: '#000000',
-          strokeThickness: 3,
-        });
+        const warning = this.add.text(this.cameras.main.width - 30, warningY, '!',
+          popupStyle({ color: '#ff0000' }),
+        );
         warning.setOrigin(0.5);
         warning.setScrollFactor(0);
-        warning.setDepth(500);
+        warning.setDepth(DEPTH.WARNING);
         this.tweens.add({
           targets: warning,
           alpha: 0,

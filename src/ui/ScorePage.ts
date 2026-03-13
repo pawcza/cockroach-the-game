@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { fetchScores } from './Scoreboard';
+import { FONT_FAMILY, buttonStyle, bodyStyle, smallStyle } from '../utils/TextStyles';
 
 /**
  * Self-contained score / leaderboard page that lives inside a Phaser container.
@@ -40,13 +41,10 @@ export class ScorePage {
   private buildContent(onBack: () => void): void {
     const { scene, container, width, height } = this;
 
-    const title = scene.add.text(width / 2, 30, 'BYCZE KARALUCHY', {
-      fontSize: '16px',
+    const title = scene.add.text(width / 2, 30, 'BYCZE KARALUCHY', buttonStyle({
       color: '#ffff00',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
       strokeThickness: 5,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     container.add(title);
 
     scene.tweens.add({
@@ -61,7 +59,7 @@ export class ScorePage {
     const loadingText = scene.add.text(width / 2, height / 2, '\u0141adowanie...', {
       fontSize: '12px',
       color: '#888888',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
     }).setOrigin(0.5);
     container.add(loadingText);
 
@@ -72,7 +70,7 @@ export class ScorePage {
         const emptyText = scene.add.text(width / 2, height / 2, 'Jeszcze pusto...\nB\u0105d\u017a pierwszy!', {
           fontSize: '14px',
           color: '#888888',
-          fontFamily: '"Press Start 2P", monospace',
+          fontFamily: FONT_FAMILY,
           align: 'center',
         }).setOrigin(0.5);
         container.add(emptyText);
@@ -91,7 +89,7 @@ export class ScorePage {
       maskShape.fillRect(0, listTop, width, listBottom - listTop);
       scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(scene, maskShape));
 
-      const font = '"Press Start 2P", monospace';
+      const font = FONT_FAMILY;
       const timeEvents: Phaser.Time.TimerEvent[] = [];
 
       for (let i = 0; i < scores.length; i++) {
@@ -240,13 +238,9 @@ export class ScorePage {
     // Back button
     const backBg = scene.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
       .setInteractive({ useHandCursor: true });
-    const backTxt = scene.add.text(width / 2, height - 40, 'Powr\u00f3t \u2192', {
+    const backTxt = scene.add.text(width / 2, height - 40, 'Powr\u00f3t \u2192', smallStyle({
       fontSize: '10px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
     backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
     backBg.on('pointerdown', onBack);

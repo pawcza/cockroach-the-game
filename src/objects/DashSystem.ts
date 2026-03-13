@@ -3,7 +3,9 @@ import {
   DASH_DURATION,
   DASH_COOLDOWN,
   DASH_SPEED_BOOST,
+  DEPTH,
 } from '../config/constants';
+import { smallStyle } from '../utils/TextStyles';
 import { AudioManager } from '../audio/AudioManager';
 
 export class DashSystem {
@@ -155,16 +157,10 @@ export class DashSystem {
 
     const dashText = this.scene.add.text(
       this.sprite.x, this.sprite.y - 50,
-      'Pr\u0119dkozapierdalacz', {
-        fontSize: '9px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      },
+      'Pr\u0119dkozapierdalacz', smallStyle({ color: '#00ffff' }),
     );
     dashText.setOrigin(0.5);
-    dashText.setDepth(999);
+    dashText.setDepth(DEPTH.POPUP);
     this.scene.tweens.add({
       targets: dashText,
       y: dashText.y - 30,

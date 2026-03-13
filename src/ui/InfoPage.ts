@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { FONT_FAMILY, smallStyle } from '../utils/TextStyles';
 
 /**
  * Self-contained info / credits page that lives inside a Phaser container.
@@ -50,7 +51,7 @@ export class InfoPage {
     const titleStyle = (color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
       fontSize: '20px',
       color,
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       stroke: '#000000',
       strokeThickness: 6,
     });
@@ -116,7 +117,7 @@ export class InfoPage {
     const iInne = scene.add.text(right, top + 60, '...i inne', {
       fontSize: '14px',
       color: '#ff6666',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       stroke: '#000000',
       strokeThickness: 4,
     }).setOrigin(0.5);
@@ -145,19 +146,16 @@ export class InfoPage {
 
     const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '13px',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: '#111111',
       backgroundColor: '#e8e8e8',
       padding: { x: 6, y: 5 },
     };
 
-    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = smallStyle({
       fontSize: '10px',
-      fontFamily: '"Press Start 2P", monospace',
       color: '#88ccdd',
-      stroke: '#000000',
-      strokeThickness: 3,
-    };
+    });
 
     bindings.forEach(([keys, desc], i) => {
       const rowY = rowStartY + i * rowSpacing;
@@ -200,7 +198,7 @@ export class InfoPage {
 
     const statStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '14px',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: '#ddaaff',
       stroke: '#000000',
       strokeThickness: 4,
@@ -213,13 +211,9 @@ export class InfoPage {
     // Back button
     const backBg = scene.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
       .setInteractive({ useHandCursor: true });
-    const backTxt = scene.add.text(width / 2, height - 40, '\u2190 Powr\u00f3t', {
+    const backTxt = scene.add.text(width / 2, height - 40, '\u2190 Powr\u00f3t', smallStyle({
       fontSize: '10px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
     backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
     backBg.on('pointerdown', onBack);
