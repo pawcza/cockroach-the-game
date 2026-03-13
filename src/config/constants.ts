@@ -40,6 +40,9 @@ export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
 // Speed per level (added on top of time-based acceleration)
 export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed
 
+// Tyskie pickup
+export const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
+
 // Scoring
 export const APPLE_SCORE = 10;
 export const TYSKIE_SCORE = 25;
