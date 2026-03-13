@@ -1,71 +1,57 @@
 import Phaser from 'phaser';
-import { FONT_FAMILY, getScale } from '../ui/shared';
 
-/**
- * Scaled text style factory.
- * Every call applies the shared font family and mobile scale factor automatically.
- */
-function scaled(
-  fontSize: number,
-  color: string,
-  strokeThickness = 2,
-  extras: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {},
-): Phaser.Types.GameObjects.Text.TextStyle {
-  const s = getScale();
+const BASE_FONT = '"Press Start 2P", monospace';
+
+/** Large centered title text. */
+export function titleStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '24px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 6, ...overrides };
+}
+
+/** Mid-size heading. */
+export function headingStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '18px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 5, ...overrides };
+}
+
+/** Standard body copy. */
+export function bodyStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '12px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
+}
+
+/** Small helper / label text. */
+export function smallStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '9px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
+}
+
+/** HUD elements — no stroke, clean look. */
+export function hudStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '14px', fontFamily: BASE_FONT, color: '#ffffff', ...overrides };
+}
+
+/** Floating popup text (score, combo, etc.). */
+export function popupStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '12px', fontFamily: BASE_FONT, color: '#00ffff', stroke: '#000000', strokeThickness: 3, ...overrides };
+}
+
+/** Button / interactive label. */
+export function buttonStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontSize: '16px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 4, ...overrides };
+}
+
+/** Neon-glow text with shadow. */
+export function neonStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
   return {
-    fontSize: `${Math.round(fontSize * s)}px`,
-    fontFamily: FONT_FAMILY,
-    color,
+    fontSize: '16px',
+    fontFamily: BASE_FONT,
+    color: '#ff00ff',
     stroke: '#000000',
-    strokeThickness: Math.round(strokeThickness * s),
-    ...extras,
+    strokeThickness: 5,
+    shadow: { offsetX: 2, offsetY: 2, color: '#00ffff', blur: 10, fill: true, stroke: true },
+    ...overrides,
   };
 }
 
-// ---------------------------------------------------------------------------
-//  Preset factories — each returns a fresh style object so callers can mutate
-// ---------------------------------------------------------------------------
-
-/** Large scene titles (game over, menus). */
-export const titleStyle = (color = '#ffffff') => scaled(28, color, 6, { fontStyle: 'bold' });
-
-/** Medium headings / section titles. */
-export const headingStyle = (color = '#ffff00') => scaled(16, color, 4);
-
-/** Standard body / paragraph text. */
-export const bodyStyle = (color = '#ffffff') => scaled(10, color, 2);
-
-/** Small labels and captions. */
-export const smallStyle = (color = '#cccccc') => scaled(8, color, 2);
-
-/** HUD elements (score, level, floor indicator). */
-export const hudStyle = (color = '#ffffff') => scaled(12, color, 3);
-
-/** In-game floating popups (+10, PIGULKA!, etc.). */
-export const popupStyle = (color = '#ffff00', size = 12) => scaled(size, color, 3);
-
-/** Button label text. */
-export const buttonStyle = (color = '#ffffff', size = 10) => scaled(size, color, 3);
-
-/** Neon-glow style for special effects text. */
-export const neonStyle = (color = '#ff00ff', size = 16) =>
-  scaled(size, color, 5, {
-    shadow: {
-      offsetX: 2,
-      offsetY: 2,
-      color: '#00ffff',
-      blur: 10,
-      fill: true,
-      stroke: true,
-    },
-  });
-
-// ---------------------------------------------------------------------------
-//  One-off helper for dynamic sizing (e.g. title that shrinks for long text)
-// ---------------------------------------------------------------------------
-
-/** Title that auto-sizes down if the message is long. */
-export const adaptiveTitleStyle = (message: string, color = '#8b0000') => {
-  const fontSize = message.length > 15 ? 18 : 28;
-  return scaled(fontSize, color, 6, { fontStyle: 'bold' });
-};
+/** Responsive title that scales with camera width. */
+export function adaptiveTitleStyle(cameraWidth: number, overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
+  const size = Math.max(16, Math.min(32, Math.floor(cameraWidth / 25)));
+  return titleStyle({ fontSize: `${size}px`, ...overrides });
+}
