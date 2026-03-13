@@ -290,7 +290,7 @@ export class MenuScene extends Phaser.Scene {
       scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
 
       // Header row with pickup icons
-      const headerY = listTop;
+      const headerY = listTop + 8;
       const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
         fontSize: '8px', color: '#666666', fontFamily: FONT_FAMILY,
         stroke: '#000000', strokeThickness: 1,
@@ -317,7 +317,7 @@ export class MenuScene extends Phaser.Scene {
       scrollContainer.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
 
       const timeEvents: Phaser.Time.TimerEvent[] = [];
-      const dataStartY = listTop + 16;
+      const dataStartY = listTop + 24;
 
       for (let i = 0; i < scores.length; i++) {
         const entry = scores[i];
