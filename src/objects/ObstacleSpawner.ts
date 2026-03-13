@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH } from '../config/constants';
+import { GAME_WIDTH, COLORS, DEPTH } from '../config/constants';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 
 type Floor = 'top' | 'bottom';
@@ -130,7 +130,7 @@ export class ObstacleSpawner {
     const sprite = this.obstacles.create(x, y, texture) as Phaser.Physics.Arcade.Sprite;
     sprite.setOrigin(0.5, 0.5);
     sprite.setScale(scale);
-    sprite.setDepth(10);
+    sprite.setDepth(DEPTH.OBSTACLES);
     sprite.setImmovable(true);
     sprite.setData('floor', floor);
     sprite.setData('type', type);
@@ -227,7 +227,7 @@ export class ObstacleSpawner {
       const offsetX = rngBetween(this.rng, -8, 8);
       const stink = this.scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
       stink.setScale(0.5 + i * 0.15);
-      stink.setDepth(10);
+      stink.setDepth(DEPTH.OBSTACLES);
 
       tweens.push(this.scene.tweens.add({
         targets: stink,
@@ -260,7 +260,7 @@ export class ObstacleSpawner {
           0x4488ff,
           0.7,
         );
-        tear.setDepth(10);
+        tear.setDepth(DEPTH.OBSTACLES);
         this.scene.tweens.add({
           targets: tear,
           y: tearEndY,
@@ -308,7 +308,7 @@ export class ObstacleSpawner {
           0x88dd44,
           Math.random() * (0.35 - 0.15) + 0.15,
         );
-        droplet.setDepth(10);
+        droplet.setDepth(DEPTH.OBSTACLES);
         const driftX = Phaser.Math.Between(-30, 30);
         const driftY = Phaser.Math.Between(-35, -15);
         this.scene.tweens.add({
@@ -348,7 +348,7 @@ export class ObstacleSpawner {
 
     // Whoosh arc
     const whooshGfx = this.scene.add.graphics();
-    whooshGfx.setDepth(9);
+    whooshGfx.setDepth(DEPTH.GLOW);
     const arcRadius = flipper.displayHeight * 0.8;
     const whooshUpdate = (): void => {
       if (!flipper.active) { whooshGfx.destroy(); return; }
@@ -469,7 +469,7 @@ export class ObstacleSpawner {
     });
 
     // Rainbow light ray particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
-    const rayColors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff];
+    const rayColors = COLORS.DISCO;
     const raysTimer = this.scene.time.addEvent({
       delay: 150,
       loop: true,
@@ -482,7 +482,7 @@ export class ObstacleSpawner {
           Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20),
           color, 0.6,
         );
-        ray.setDepth(9);
+        ray.setDepth(DEPTH.GLOW);
         ray.setRotation(angle);
         const dist = 40 + Math.random() * 30;
         this.scene.tweens.add({
@@ -501,7 +501,7 @@ export class ObstacleSpawner {
     const strobeOverlay = this.scene.add
       .rectangle(GAME_WIDTH / 2, this.scene.cameras.main.height / 2, GAME_WIDTH, this.scene.cameras.main.height, 0xffffff, 0)
       .setScrollFactor(0)
-      .setDepth(90);
+      .setDepth(DEPTH.DISCO_STROBE);
 
     let strobePhase = 0;
     const strobeUpdate = (): void => {
@@ -552,7 +552,7 @@ export class ObstacleSpawner {
           0x8844ff,
           0.5,
         );
-        particle.setDepth(9);
+        particle.setDepth(DEPTH.GLOW);
         this.scene.tweens.add({
           targets: particle,
           y: particle.y + 20,
@@ -595,7 +595,7 @@ export class ObstacleSpawner {
           0x888888,
           0.4,
         );
-        smoke.setDepth(9);
+        smoke.setDepth(DEPTH.GLOW);
         this.scene.tweens.add({
           targets: smoke,
           alpha: 0,
@@ -652,7 +652,7 @@ export class ObstacleSpawner {
           0x997744,
           0.4,
         );
-        dust.setDepth(9);
+        dust.setDepth(DEPTH.GLOW);
         this.scene.tweens.add({
           targets: dust,
           alpha: 0,
@@ -728,7 +728,7 @@ export class ObstacleSpawner {
         const px = hole.x + Math.cos(angle) * dist;
         const py = hole.y + Math.sin(angle) * dist;
         const particle = this.scene.add.circle(px, py, Phaser.Math.Between(1, 3), 0x6600cc, 0.7);
-        particle.setDepth(9);
+        particle.setDepth(DEPTH.GLOW);
         this.scene.tweens.add({
           targets: particle,
           x: hole.x,

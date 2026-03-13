@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { COLORS, DEPTH } from '../config/constants';
+import { burstParticles } from '../utils/TweenPatterns';
 
 export class VisualEffects {
   private scene: Phaser.Scene;
@@ -15,12 +17,6 @@ export class VisualEffects {
   private invertFlashActive = false;
   private invertTimer = 0;
 
-  private static readonly DEPTH_TINT = 990;
-  private static readonly DEPTH_VIGNETTE = 991;
-  private static readonly DEPTH_FLASH = 995;
-  private static readonly DEPTH_BORDER = 993;
-  private static readonly DEPTH_TEXT = 996;
-
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
   }
@@ -34,22 +30,22 @@ export class VisualEffects {
 
     this.tintOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0);
     this.tintOverlay.setScrollFactor(0);
-    this.tintOverlay.setDepth(VisualEffects.DEPTH_TINT);
+    this.tintOverlay.setDepth(DEPTH.VFX_TINT);
     this.tintOverlay.setBlendMode(Phaser.BlendModes.ADD);
 
     this.vignetteGraphics = this.scene.add.graphics();
     this.vignetteGraphics.setScrollFactor(0);
-    this.vignetteGraphics.setDepth(VisualEffects.DEPTH_VIGNETTE);
+    this.vignetteGraphics.setDepth(DEPTH.VFX_VIGNETTE);
     this.vignetteGraphics.setAlpha(0);
     this.drawVignette();
 
     this.flashOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0xffffff, 0);
     this.flashOverlay.setScrollFactor(0);
-    this.flashOverlay.setDepth(VisualEffects.DEPTH_FLASH);
+    this.flashOverlay.setDepth(DEPTH.VFX_FLASH);
 
     this.borderOverlay = this.scene.add.graphics();
     this.borderOverlay.setScrollFactor(0);
-    this.borderOverlay.setDepth(VisualEffects.DEPTH_BORDER);
+    this.borderOverlay.setDepth(DEPTH.VFX_BORDER);
     this.borderOverlay.setAlpha(0);
 
     this.initialized = true;
@@ -201,29 +197,12 @@ export class VisualEffects {
   appleCollectEffect(x: number, y: number): void {
     if (!this.initialized) return;
 
-    const colors = [0xffd700, 0xff6b35, 0xff1493, 0x00ff88, 0xffff00];
-
-    for (let i = 0; i < 12; i++) {
-      const color = colors[i % colors.length];
-      const particle = this.scene.add.circle(x, y, 3, color, 1);
-      particle.setDepth(VisualEffects.DEPTH_TEXT);
-
-      const angle = (i / 12) * Math.PI * 2;
-      const speed = 80 + Math.random() * 60;
-      const targetX = x + Math.cos(angle) * speed;
-      const targetY = y + Math.sin(angle) * speed;
-
-      this.scene.tweens.add({
-        targets: particle,
-        x: targetX,
-        y: targetY,
-        alpha: 0,
-        scale: 0.1,
-        duration: 400 + Math.random() * 200,
-        ease: 'Power2',
-        onComplete: () => particle.destroy(),
-      });
-    }
+    burstParticles(this.scene, x, y, COLORS.COLLECT, 12, {
+      radius: 3,
+      speed: 110,
+      duration: 500,
+      depth: DEPTH.VFX_TEXT,
+    });
 
     this.flashOverlay.setBlendMode(Phaser.BlendModes.NORMAL);
     this.flashOverlay.setFillStyle(0xffffff, 0.3);

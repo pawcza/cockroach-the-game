@@ -10,8 +10,12 @@ import {
   PILL_DURATION,
   PILL_WARN_TIME,
   SPEED_BOOST_PER_LEVEL,
+  COLORS,
+  DEPTH,
 } from '../config/constants';
 import { AudioManager } from '../audio/AudioManager';
+import { fadeAndDestroy, floatingText } from '../utils/TweenPatterns';
+import { neonStyle, popupStyle } from '../utils/TextStyles';
 
 export type Floor = 'top' | 'bottom';
 
@@ -107,9 +111,9 @@ export class Player {
     // Pill psychedelic overlay (hidden by default)
     const w = this.scene.cameras.main.width;
     const h = this.scene.cameras.main.height;
-    this.pillOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0xff00ff, 0)
+    this.pillOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, COLORS.PILL_GLOW, 0)
       .setScrollFactor(0)
-      .setDepth(989)
+      .setDepth(DEPTH.PILL_OVERLAY)
       .setBlendMode(Phaser.BlendModes.ADD);
   }
 
@@ -200,14 +204,14 @@ export class Player {
       if (this._isPillWarning) {
         const blinkOn = Math.floor(this.scene.time.now / 100) % 2 === 0;
         if (blinkOn) {
-          this.cockroach.setTint(0xff00ff);
+          this.cockroach.setTint(COLORS.PILL_GLOW);
           this.cockroach.setAlpha(1);
         } else {
           this.cockroach.clearTint();
           this.cockroach.setAlpha(0.4);
         }
         this.cockroach.setScale(0.30);
-        this.pillOverlay.setFillStyle(0xff00ff, blinkOn ? 0.1 : 0);
+        this.pillOverlay.setFillStyle(COLORS.PILL_GLOW, blinkOn ? 0.1 : 0);
       } else {
         const t = this.scene.time.now * 0.003;
         const r = Math.floor((Math.sin(t) + 1) * 127);
@@ -299,19 +303,12 @@ export class Player {
     );
     afterimage.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
     afterimage.setAlpha(0.4);
-    const trailColors = [0xffff00, 0xff6600, 0xff00ff, 0x00ffff, 0x00ff00];
+    const trailColors = COLORS.DASH_TRAIL;
     const colorIndex = Math.floor(this._speedMultiplier) % trailColors.length;
     afterimage.setTint(trailColors[colorIndex]);
     afterimage.setFlipY(this.cockroach.flipY);
 
-    this.scene.tweens.add({
-      targets: afterimage,
-      alpha: 0,
-      duration: 200,
-      onComplete: () => {
-        afterimage.destroy();
-      },
-    });
+    fadeAndDestroy(this.scene, afterimage, 200);
   }
 
   private playDashReadyEffect(): void {
@@ -329,26 +326,12 @@ export class Player {
       },
     });
 
-    const dashText = this.scene.add.text(
+    floatingText(
+      this.scene,
       this.cockroach.x, this.cockroach.y - 50,
-      'Prędkozapierdalacz', {
-        fontSize: '9px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      },
+      'Prędkozapierdalacz',
+      popupStyle({ fontSize: '9px' }),
     );
-    dashText.setOrigin(0.5);
-    dashText.setDepth(999);
-    this.scene.tweens.add({
-      targets: dashText,
-      y: dashText.y - 30,
-      alpha: 0,
-      duration: 800,
-      ease: 'Power2',
-      onComplete: () => dashText.destroy(),
-    });
   }
 
   activatePill(px: number, py: number): void {
@@ -360,51 +343,14 @@ export class Player {
     this._isInvulnerable = true;
 
     // --- "PIGULKA!" floating text ---
-    const pillText = this.scene.add.text(px, py - 30, 'PIGULKA!', {
-      fontSize: '16px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ff00ff',
-      stroke: '#000000',
-      strokeThickness: 5,
-      shadow: {
-        offsetX: 2,
-        offsetY: 2,
-        color: '#00ffff',
-        blur: 10,
-        fill: true,
-        stroke: true,
-      },
-    });
-    pillText.setOrigin(0.5);
-    pillText.setDepth(999);
-    this.scene.tweens.add({
-      targets: pillText,
-      y: pillText.y - 60,
-      alpha: 0,
+    floatingText(this.scene, px, py - 30, 'PIGULKA!', neonStyle(), {
+      floatY: 60,
       scale: 2,
       duration: 1200,
-      ease: 'Power2',
-      onComplete: () => pillText.destroy(),
     });
 
     // --- Score popup ---
-    const scorePopup = this.scene.add.text(px, py, '+100', {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#00ffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
-    scorePopup.setOrigin(0.5);
-    scorePopup.setDepth(999);
-    this.scene.tweens.add({
-      targets: scorePopup,
-      y: scorePopup.y - 40,
-      alpha: 0,
-      duration: 800,
-      ease: 'Power2',
-      onComplete: () => scorePopup.destroy(),
-    });
+    floatingText(this.scene, px, py, '+100', popupStyle(), { floatY: 40 });
 
     // --- Screen flash ---
     this.scene.cameras.main.flash(300, 180, 0, 255);
@@ -438,7 +384,7 @@ export class Player {
     this.startPillSpeedLines();
 
     // --- Pill overlay activation ---
-    this.pillOverlay.setFillStyle(0xff00ff, 0.1);
+    this.pillOverlay.setFillStyle(COLORS.PILL_GLOW, 0.1);
 
     // --- Track pill start time ---
     this._isPillWarning = false;
@@ -456,17 +402,13 @@ export class Player {
     afterimage.setAlpha(0.5);
     afterimage.setFlipY(this.cockroach.flipY);
 
-    const rainbowColors = [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x00ffff, 0x0088ff, 0xff00ff];
+    const rainbowColors = COLORS.RAINBOW;
     const colorIdx = Math.floor(this.scene.time.now / 60) % rainbowColors.length;
     afterimage.setTint(rainbowColors[colorIdx]);
 
-    this.scene.tweens.add({
-      targets: afterimage,
-      alpha: 0,
+    fadeAndDestroy(this.scene, afterimage, 300, {
       scaleX: afterimage.scaleX * 1.3,
       scaleY: afterimage.scaleY * 1.3,
-      duration: 300,
-      onComplete: () => afterimage.destroy(),
     });
   }
 
@@ -478,14 +420,14 @@ export class Player {
       if (!this._isPillActive || this._isDead) return;
       const lineY = Phaser.Math.Between(0, this.scene.cameras.main.height);
       const lineWidth = Phaser.Math.Between(40, 120);
-      const lineColors = [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88];
+      const lineColors = COLORS.PILL_LINES;
       const color = lineColors[Math.floor(Math.random() * lineColors.length)];
       const line = this.scene.add.rectangle(
         this.scene.cameras.main.width + lineWidth, lineY,
         lineWidth, 2, color, 0.6,
       );
       line.setScrollFactor(0);
-      line.setDepth(988);
+      line.setDepth(DEPTH.PILL_SPEED_LINES);
       line.setBlendMode(Phaser.BlendModes.ADD);
       this.pillSpeedLines.push(line);
 
@@ -537,28 +479,14 @@ export class Player {
 
     this.scene.cameras.main.flash(200, 255, 255, 255);
 
-    const endText = this.scene.add.text(
-      this.scene.cameras.main.width / 2, this.scene.cameras.main.height / 2 - 20,
-      'KONIEC JAZDY!', {
-        fontSize: '18px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ffff00',
-        stroke: '#000000',
-        strokeThickness: 5,
-      },
+    floatingText(
+      this.scene,
+      this.scene.cameras.main.width / 2,
+      this.scene.cameras.main.height / 2 - 20,
+      'KONIEC JAZDY!',
+      popupStyle({ fontSize: '18px', color: '#ffff00', strokeThickness: 5 }),
+      { floatY: 50, scale: 1.5, duration: 1500, scrollFactor: 0 },
     );
-    endText.setOrigin(0.5);
-    endText.setScrollFactor(0);
-    endText.setDepth(999);
-    this.scene.tweens.add({
-      targets: endText,
-      y: endText.y - 50,
-      alpha: 0,
-      scale: 1.5,
-      duration: 1500,
-      ease: 'Power2',
-      onComplete: () => endText.destroy(),
-    });
   }
 
   die(): void {
