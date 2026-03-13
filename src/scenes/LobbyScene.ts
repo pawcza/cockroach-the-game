@@ -1,18 +1,16 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyData, MPPlayer } from '../multiplayer/MultiplayerClient';
-import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
 import { startFloatingParticles } from '../ui/SceneBackground';
-
-const FONT_FAMILY = '"Press Start 2P", monospace';
+import { FONT_FAMILY } from '../ui/shared';
+import { PlayerList } from '../ui/PlayerList';
 
 export class LobbyScene extends Phaser.Scene {
   private lobbyData!: MPLobbyData;
-  private playerListContainer!: Phaser.GameObjects.Container;
+  private playerList!: PlayerList;
   private startBtnBg!: Phaser.GameObjects.Rectangle;
   private startBtnTxt!: Phaser.GameObjects.Text;
   private readyBtnBg!: Phaser.GameObjects.Rectangle;
   private readyBtnTxt!: Phaser.GameObjects.Text;
-  private playerCountText!: Phaser.GameObjects.Text;
   private titleText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
   private gameStartHandler!: (data: { seed: number; players: MPPlayer[] }) => void;
@@ -57,7 +55,7 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     // --- PLAYER COUNT ---
-    this.playerCountText = this.add.text(width / 2, 70, '', {
+    const playerCountText = this.add.text(width / 2, 70, '', {
       fontSize: '10px',
       color: '#aaaaaa',
       fontFamily: FONT_FAMILY,
@@ -66,18 +64,10 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // --- PLAYER LIST ---
-    const listTop = 90;
-    const listBottom = height - 110;
-    const listHeight = listBottom - listTop;
-
-    this.add.rectangle(width / 2, listTop + listHeight / 2, width - 40, listHeight, 0x111122, 0.5);
-
-    this.playerListContainer = this.add.container(0, 0);
-
-    // Mask for player list
-    const maskGraphics = this.make.graphics({});
-    maskGraphics.fillRect(20, listTop, width - 40, listHeight);
-    this.playerListContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskGraphics));
+    this.playerList = new PlayerList(this, {
+      listTop: 90,
+      listBottom: height - 110,
+    }, playerCountText);
 
     // --- BUTTONS ---
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
@@ -89,7 +79,6 @@ export class LobbyScene extends Phaser.Scene {
       align: 'center',
     };
 
-    // Main action button position — shared between ready (non-host) and start (host)
     const actionBtnY = height - 63;
 
     // "Gotowy" ready toggle button (non-host only)
@@ -108,9 +97,7 @@ export class LobbyScene extends Phaser.Scene {
       const newReady = !(me?.ready);
       mpClient.setReady(newReady).then((updatedLobby) => {
         this.lobbyData = updatedLobby;
-        this.renderPlayerList();
-        this.updateStartButton();
-        this.updateReadyButton();
+        this.refreshUI();
       }).catch((err) => { console.error('setReady failed:', err); });
     });
 
@@ -157,16 +144,14 @@ export class LobbyScene extends Phaser.Scene {
       this.scene.start('MultiplayerMenuScene');
     });
 
-    // --- VISIBILITY CHANGE — unready when tab loses focus ---
+    // --- VISIBILITY CHANGE -- unready when tab loses focus ---
     this.visibilityHandler = () => {
       if (document.hidden && !this.isHost()) {
         const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
         if (me?.ready) {
           mpClient.setReady(false).then((updatedLobby) => {
             this.lobbyData = updatedLobby;
-            this.renderPlayerList();
-            this.updateStartButton();
-            this.updateReadyButton();
+            this.refreshUI();
           }).catch((err) => { console.error('unready failed:', err); });
         }
       }
@@ -174,17 +159,13 @@ export class LobbyScene extends Phaser.Scene {
     document.addEventListener('visibilitychange', this.visibilityHandler);
 
     // --- RENDER INITIAL STATE ---
-    this.renderPlayerList();
-    this.updateStartButton();
-    this.updateReadyButton();
+    this.refreshUI();
 
     // --- SOCKET EVENT LISTENERS ---
     this.lobbyUpdatedHandler = (data: MPLobbyData) => {
       this.lobbyData = data;
       this.titleText.setText(`${this.getHostName()}'s Lobby`);
-      this.renderPlayerList();
-      this.updateStartButton();
-      this.updateReadyButton();
+      this.refreshUI();
     };
 
     this.gameStartHandler = (data: { seed: number; players: MPPlayer[] }) => {
@@ -204,8 +185,17 @@ export class LobbyScene extends Phaser.Scene {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       mpClient.off('game:start', this.gameStartHandler);
       document.removeEventListener('visibilitychange', this.visibilityHandler);
-      maskGraphics.destroy();
+      this.playerList.destroy();
     });
+  }
+
+  private refreshUI(): void {
+    this.playerList.render(this.lobbyData, (updatedLobby) => {
+      this.lobbyData = updatedLobby;
+      this.refreshUI();
+    });
+    this.updateStartButton();
+    this.updateReadyButton();
   }
 
   private getHostName(): string {
@@ -263,81 +253,4 @@ export class LobbyScene extends Phaser.Scene {
       this.readyBtnTxt.setColor('#ffffff');
     }
   }
-
-  private renderPlayerList(): void {
-    const { width } = this.cameras.main;
-    const listTop = 90;
-    const lineHeight = 36;
-
-    this.playerListContainer.removeAll(true);
-
-    // Update player count
-    this.playerCountText.setText(`${this.lobbyData.players.length}/16 karaluch\u00f3w`);
-
-    for (let i = 0; i < this.lobbyData.players.length; i++) {
-      const player = this.lobbyData.players[i];
-      const y = listTop + 10 + i * lineHeight;
-      const isMe = player.id === mpClient.myId;
-
-      // Color swatch (24x24)
-      const swatchColor = MP_PLAYER_COLORS[player.color] ?? 0xffffff;
-      const swatch = this.add.rectangle(50, y + lineHeight / 2 - 4, 24, 24, swatchColor, 1);
-
-      if (isMe) {
-        // Own color swatch is clickable — cycles to next available color
-        swatch.setInteractive({ useHandCursor: true });
-        swatch.setStrokeStyle(2, 0xffffff);
-        swatch.on('pointerdown', () => {
-          const usedColors = new Set(
-            this.lobbyData.players.filter(p => p.id !== player.id).map(p => p.color),
-          );
-          let next = (player.color + 1) % MP_PLAYER_COLORS.length;
-          const start = next;
-          while (usedColors.has(next)) {
-            next = (next + 1) % MP_PLAYER_COLORS.length;
-            if (next === start) return; // all taken
-          }
-          mpClient.changeColor(next).then((updatedLobby) => {
-            this.lobbyData = updatedLobby;
-            this.renderPlayerList();
-            this.updateStartButton();
-          }).catch(() => {});
-        });
-      }
-
-      // Player name
-      const nameColor = isMe ? '#00ff66' : '#ffffff';
-      const suffix = player.isHost ? ' (host)' : '';
-      const nameText = this.add.text(80, y + lineHeight / 2 - 4, player.name + suffix, {
-        fontSize: '10px',
-        color: nameColor,
-        fontFamily: FONT_FAMILY,
-        stroke: '#000000',
-        strokeThickness: 2,
-      }).setOrigin(0, 0.5);
-
-      // Ready indicator on the right (skip for host)
-      let readyText: Phaser.GameObjects.Text | null = null;
-      if (!player.isHost) {
-        readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', {
-          fontSize: player.ready ? '14px' : '10px',
-          color: player.ready ? '#00ff00' : '#666666',
-          fontFamily: FONT_FAMILY,
-          stroke: '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0.5, 0.5);
-      }
-
-      // Row background highlight for self
-      if (isMe) {
-        const rowBg = this.add.rectangle(width / 2, y + lineHeight / 2 - 4, width - 60, lineHeight - 4, 0x003322, 0.3);
-        this.playerListContainer.add(rowBg);
-      }
-
-      const items: Phaser.GameObjects.GameObject[] = [swatch, nameText];
-      if (readyText) items.push(readyText);
-      this.playerListContainer.add(items);
-    }
-  }
-
 }
