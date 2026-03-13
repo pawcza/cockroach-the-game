@@ -12,6 +12,7 @@ interface GameOverData {
   topSpeed?: number;
   distance?: number;
   obstacleType?: string | null;
+  pickupCounts?: { apples: number; tyskies: number; pills: number };
 }
 
 export class GameOverScene extends Phaser.Scene {
@@ -214,8 +215,12 @@ export class GameOverScene extends Phaser.Scene {
 
     const stats: { label: string; value: string; color: string }[] = [];
     if (data?.timeSurvived !== undefined) stats.push({ label: 'Czas Przeżywalności', value: `${data.timeSurvived}s`, color: '#00ccff' });
-    if (data?.distance !== undefined) stats.push({ label: 'Dystansik', value: `${data.distance}m`, color: '#ff6600' });
+    if (data?.distance !== undefined) stats.push({ label: 'Dystansik', value: `${Math.floor(data.distance)}m`, color: '#ff6600' });
     if (data?.topSpeed !== undefined) stats.push({ label: 'Maks Szybkóść', value: `${data.topSpeed.toFixed(1)}x`, color: '#cc66ff' });
+    if (data?.pickupCounts) {
+      const p = data.pickupCounts;
+      stats.push({ label: 'Jabłka / Tyskie / Pigułki', value: `${p.apples} / ${p.tyskies} / ${p.pills}`, color: '#44ff44' });
+    }
 
     stats.forEach((stat, i) => {
       const y = startY + i * lineHeight;
@@ -382,6 +387,9 @@ export class GameOverScene extends Phaser.Scene {
           deathCause: data.obstacleType || null,
           distance: data.distance || null,
           timeSurvived: data.timeSurvived || null,
+          applesCollected: data.pickupCounts?.apples ?? null,
+          tyskiesCollected: data.pickupCounts?.tyskies ?? null,
+          pillsCollected: data.pickupCounts?.pills ?? null,
         }),
       });
     } catch {

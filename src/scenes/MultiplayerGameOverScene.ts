@@ -6,6 +6,7 @@ import { titleStyle, bodyStyle, smallStyle, buttonStyle, getScale, FONT_FAMILY }
 import { createPulsingOverlay } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
+import { fetchScores } from '../ui/Scoreboard';
 
 interface MPGameOverRanking {
   id: string;
@@ -100,6 +101,30 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       if (myRanking.score > currentHigh) {
         localStorage.setItem('cockroach-highscore', String(myRanking.score));
         isNewRecord = true;
+      }
+
+      // Auto-submit to leaderboard if qualifies for top 100
+      if (isNewRecord && myRanking.score > 0) {
+        fetchScores().then((scores) => {
+          const inTop100 = scores.length < 100 || myRanking.score > scores[scores.length - 1].score;
+          if (inTop100) {
+            const stats = myRanking.stats || {};
+            fetch('/api/scores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: myRanking.name,
+                score: myRanking.score,
+                deathCause: stats.obstacleType || null,
+                distance: typeof stats.distance === 'number' ? stats.distance : null,
+                timeSurvived: typeof stats.timeSurvived === 'number' ? stats.timeSurvived : null,
+                applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
+                tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
+                pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
+              }),
+            }).catch(() => { /* offline is fine */ });
+          }
+        }).catch(() => { /* offline is fine */ });
       }
     }
 
