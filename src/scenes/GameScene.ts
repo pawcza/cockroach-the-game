@@ -2,35 +2,32 @@ import Phaser from 'phaser';
 import {
   FLOOR_BOTTOM_Y,
   FLOOR_TOP_Y,
-  FLOOR_HEIGHT,
-  FLOOR_TILE_W,
-  FLOOR_TILE_H,
-  FLOOR_TILE_GAP,
-  FLOOR_TILE_STEP,
-  FLOOR_TILE_RADIUS,
   COCKROACH_START_X,
   COCKROACH_BASE_SPEED,
-  APPLE_SCORE,
-  PILL_SCORE,
-  TYSKIE_SCORE,
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
-  APPLE_SPAWN_CHANCE,
-  PILL_SPAWN_CHANCE,
   SPEED_BOOST_PER_LEVEL,
 } from '../config/constants';
 
-const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { mpClient, MPPlayer } from '../multiplayer/MultiplayerClient';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
-import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
+import { getLevelForDistance, LevelConfig } from '../config/levels';
 import { GameHUD, HUDUpdateData } from '../ui/GameHUD';
 import { TouchControls } from '../ui/TouchControls';
-import { Player, Floor } from '../objects/Player';
+import { Player } from '../objects/Player';
+
+// Systems
+import { ParallaxManager } from '../systems/ParallaxManager';
+import { FloorManager } from '../systems/FloorManager';
+import { PickupSpawner } from '../systems/PickupSpawner';
+import { AmbientEffects } from '../systems/AmbientEffects';
+import { CountdownManager } from '../systems/CountdownManager';
+import { MultiplayerHandler } from '../systems/MultiplayerHandler';
+import { ScoreManager } from '../systems/ScoreManager';
 
 export class GameScene extends Phaser.Scene {
   // Floor positions (dynamic on mobile, constant on desktop)
@@ -52,36 +49,13 @@ export class GameScene extends Phaser.Scene {
   // Multiplayer
   private isMultiplayer = false;
   private ghostManager: GhostManager | null = null;
+  private multiplayerHandler: MultiplayerHandler | null = null;
   private mpMyName = '';
   private _wasDashing = false;
   private _wasPillActive = false;
-  private pendingPickupDestructions: number[] = [];
 
   // Level progression
   private currentLevel = 0;
-
-  // Backgrounds (current + next for crossfade)
-  private skyBg!: Phaser.GameObjects.TileSprite;
-  private midBg!: Phaser.GameObjects.TileSprite;
-  private fgBg!: Phaser.GameObjects.TileSprite;
-  private nextSkyBg!: Phaser.GameObjects.TileSprite;
-  private nextMidBg!: Phaser.GameObjects.TileSprite;
-  private nextFgBg!: Phaser.GameObjects.TileSprite;
-  private bgTransitioning = false;
-
-  // Floors
-  private floorTopBody!: Phaser.GameObjects.Rectangle;
-  private floorBottomBody!: Phaser.GameObjects.Rectangle;
-  private floorTopSprites: Phaser.GameObjects.Image[] = [];
-  private floorBottomSprites: Phaser.GameObjects.Image[] = [];
-  private floorHighlightTop!: Phaser.GameObjects.Rectangle;
-  private floorHighlightBottom!: Phaser.GameObjects.Rectangle;
-
-  // Floor crumble — tiles behind cockroach fall away
-  // Each range is {from, to, lastFallX} — the cockroach walked from `from` to `to` on that floor
-  private steppedTopRanges: { from: number; to: number; lastFallX: number }[] = [];
-  private steppedBottomRanges: { from: number; to: number; lastFallX: number }[] = [];
-  private lastTrackedFloor: 'top' | 'bottom' = 'bottom';
 
   // Groups
   private obstacles!: Phaser.Physics.Arcade.Group;
@@ -89,19 +63,25 @@ export class GameScene extends Phaser.Scene {
   private tyskies!: Phaser.Physics.Arcade.Group;
   private pills!: Phaser.Physics.Arcade.Group;
 
-  // Systems
+  // Core systems
   private obstacleSpawner!: ObstacleSpawner;
   private vfx!: VisualEffects;
   private audio!: AudioManager;
   private hud!: GameHUD;
   private touchControls!: TouchControls;
 
-  // Scoring
-  private score = 0;
+  // Extracted subsystems
+  private parallaxManager!: ParallaxManager;
+  private floorManager!: FloorManager;
+  private pickupSpawner!: PickupSpawner;
+  private ambientEffects!: AmbientEffects;
+  private countdownManager!: CountdownManager;
+  private scoreManager!: ScoreManager;
+
+  // Timing
   private startTime = 0;
   private activePlayTime = 0;
   private lastFrameTime = 0;
-  private lastScoreTime = 0;
 
   // Speed
   private lastMilestone = 1;
@@ -120,28 +100,9 @@ export class GameScene extends Phaser.Scene {
   // Pause
   private isPaused = false;
   private isUnpauseCountdown = false;
-  private unpauseCountdownStart = 0;
-  private unpauseCountdownLastShown = -1;
 
   // Countdown
   private isCountingDown = true;
-  private countdownStartReal = 0;
-  private countdownLastShown = -1;
-
-  // Dust trail
-  private dustTimer = 0;
-
-  // Bird overlook
-  private birdOverlookTimer = 0;
-  private nextBirdOverlookTime = 0;
-
-  // Cockroach ambient noise
-  private cockroachNoiseTimer = 0;
-  private nextNoiseTime = 0;
-  private cockroachNoiseSound: Phaser.Sound.BaseSound | null = null;
-
-  // Pickup combo
-  private pickupCombo = 0;
 
   // Mobile detection
   private isMobile = false;
@@ -169,115 +130,46 @@ export class GameScene extends Phaser.Scene {
 
     // Reset multiplayer state
     this.ghostManager = null;
+    this.multiplayerHandler = null;
     this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
     this._wasDashing = false;
     this._wasPillActive = false;
     this.deathNotificationY = 80;
 
     // Reset ALL state
-    this.score = 0;
     this.isDead = false;
     this.nextSpawnX = COCKROACH_START_X + 400;
     this.startTime = this.time.now;
     this.activePlayTime = 0;
     this.lastFrameTime = this.time.now;
-    this.lastScoreTime = this.time.now;
     this.lastMilestone = 0;
     this.isCountingDown = true;
-    this.steppedTopRanges = [];
-    const startSnap = Math.floor(COCKROACH_START_X / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
-    this.steppedBottomRanges = [{ from: startSnap, to: COCKROACH_START_X, lastFallX: startSnap - FLOOR_TILE_STEP }];
-    this.lastTrackedFloor = 'bottom';
-    this.dustTimer = 0;
-    this.birdOverlookTimer = 0;
-    this.nextBirdOverlookTime = 15000 + Math.random() * 10000;
-    this.cockroachNoiseTimer = 0;
-    this.nextNoiseTime = 20000 + Math.random() * 15000;
-    this.pickupCombo = 0;
     this.isPaused = false;
     this.currentLevel = 1;
 
     // Screen dimensions
     const w = this.cameras.main.width;
-    const h = this.cameras.main.height;
 
     this.isMobile = !this.sys.game.device.os.desktop;
     this.floorBottomY = FLOOR_BOTTOM_Y;
     this.floorTopY = FLOOR_TOP_Y;
 
+    // --- Subsystems ---
+
     // Parallax backgrounds
-    this.skyBg = this.add
-      .tileSprite(0, 0, w, h, 'lv1-sky')
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setAlpha(0.8);
+    this.parallaxManager = new ParallaxManager(this);
+    this.parallaxManager.create();
 
-    this.midBg = this.add
-      .tileSprite(0, 0, w, h, 'lv1-bg')
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(1)
-      .setAlpha(0.15);
-    this.midBg.setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
-
-    this.fgBg = this.add
-      .tileSprite(0, 0, w, h, 'lv1-fg')
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(2);
-
-    // Next-level background layers (for crossfade transitions)
-    this.nextSkyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky')
-      .setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
-    this.nextMidBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg')
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(1).setAlpha(0)
-      .setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
-    this.nextFgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg')
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(2).setAlpha(0);
-    this.bgTransitioning = false;
-
-    // Generate rounded floor textures for all levels
-    this.generateRoundedFloorTextures();
-
-    // Reset floor sprite arrays (old sprites are destroyed by scene restart)
-    this.floorTopSprites = [];
-    this.floorBottomSprites = [];
-
-    // Floor platforms — invisible physics bodies + visual tile sprites
-    const FLOOR_WIDTH = w + 200;
-
-    const COLLIDER_DROP = 8; // shift colliders down so cockroach sits on the tile visually
-    this.floorTopBody = this.add.rectangle(0, this.floorTopY + COLLIDER_DROP, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
-      .setOrigin(0, 0);
-    this.physics.add.existing(this.floorTopBody, true);
-
-    this.floorBottomBody = this.add.rectangle(0, this.floorBottomY + COLLIDER_DROP, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
-      .setOrigin(0, 0);
-    this.physics.add.existing(this.floorBottomBody, true);
-
-    // Create visual floor tile sprites
-    const tilesNeeded = Math.ceil(FLOOR_WIDTH / FLOOR_TILE_STEP) + 2;
-    for (let i = 0; i < tilesNeeded; i++) {
-      const topTile = this.add.image(i * FLOOR_TILE_STEP, this.floorTopY, 'floor-rounded-lv1')
-        .setOrigin(0, 0).setDepth(3);
-      this.floorTopSprites.push(topTile);
-
-      const bottomTile = this.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, 'floor-rounded-lv1')
-        .setOrigin(0, 0).setDepth(3);
-      this.floorBottomSprites.push(bottomTile);
-    }
-
-    // Active floor highlight — subtle glow strip behind the current floor
-    const highlightW = w + 200;
-    this.floorHighlightTop = this.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
-    this.floorHighlightBottom = this.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+    // Floor manager
+    this.floorManager = new FloorManager(this, this.floorTopY, this.floorBottomY);
+    this.floorManager.create();
+    this.floorManager.resetCrumbleState();
 
     // Audio (created before Player since Player needs it)
     this.audio = new AudioManager(this);
 
     // Player
+    const COLLIDER_DROP = 8;
     this.player = new Player(this, this.audio, this.floorTopY + COLLIDER_DROP, this.floorBottomY + COLLIDER_DROP);
     this.player.create();
     this.player.resetState();
@@ -295,17 +187,33 @@ export class GameScene extends Phaser.Scene {
       this.obstacleSpawner.setRNG(this.rng);
     }
 
+    // Pickup spawner
+    this.pickupSpawner = new PickupSpawner(
+      this, this.apples, this.tyskies, this.pills,
+      this.floorTopY, this.floorBottomY, this.rng,
+    );
+
+    // Score manager
+    this.scoreManager = new ScoreManager(this);
+    this.scoreManager.reset(this.time.now);
+
+    // Ambient effects
+    this.ambientEffects = new AmbientEffects(this);
+    this.ambientEffects.reset();
+
+    // Countdown manager
+    this.countdownManager = new CountdownManager(this);
+
     // Floor colliders with process callbacks
-    this.physics.add.collider(this.player.sprite, this.floorTopBody, undefined, () => {
+    this.physics.add.collider(this.player.sprite, this.floorManager.floorTopBody, undefined, () => {
       return this.player.currentFloor === 'top';
     }, this);
-    this.physics.add.collider(this.player.sprite, this.floorBottomBody, undefined, () => {
+    this.physics.add.collider(this.player.sprite, this.floorManager.floorBottomBody, undefined, () => {
       return this.player.currentFloor === 'bottom';
     }, this);
 
     // Create ghost manager for multiplayer
     if (this.isMultiplayer && data?.players && data?.myId) {
-      const COLLIDER_DROP = 8;
       this.ghostManager = new GhostManager(
         this,
         data.players,
@@ -314,7 +222,13 @@ export class GameScene extends Phaser.Scene {
         this.floorBottomY + COLLIDER_DROP,
         COCKROACH_START_X,
       );
-      this.setupMultiplayerListeners();
+      this.multiplayerHandler = new MultiplayerHandler(this, this.ghostManager, {
+        onDeathNotification: (name, color, disconnected) => this.showDeathNotification(name, color, disconnected),
+        onPickupDestroy: (x) => this.pickupSpawner.destroyPickupNear(x),
+        onAllDead: () => this.triggerMultiplayerGameOver(),
+        onGameOver: (data) => this.handleMpGameOver(data),
+      });
+      this.multiplayerHandler.setupListeners(() => this.isDead);
     }
 
     // Overlap detectors
@@ -429,47 +343,7 @@ export class GameScene extends Phaser.Scene {
 
     // Countdown before game starts
     this.player.freezeForCountdown();
-    this.countdownStartReal = performance.now();
-    this.countdownLastShown = -1;
-  }
-
-  private updateCountdown(): void {
-    const elapsed = performance.now() - this.countdownStartReal;
-    const countdownTexts = ['3', '2', '1', 'JAZDA!'];
-    const step = Math.floor(elapsed / 600);
-
-    if (step < countdownTexts.length && step > this.countdownLastShown) {
-      this.countdownLastShown = step;
-      const text = countdownTexts[step];
-      const countText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
-        fontSize: text === 'JAZDA!' ? '24px' : '32px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 6,
-      });
-      countText.setOrigin(0.5);
-      countText.setScrollFactor(0);
-      countText.setDepth(1000);
-      this.tweens.add({
-        targets: countText,
-        scale: { from: 2, to: 0.5 },
-        alpha: { from: 1, to: 0 },
-        duration: 500,
-        ease: 'Power2',
-        onComplete: () => countText.destroy(),
-      });
-    }
-
-    if (elapsed >= countdownTexts.length * 600) {
-      this.isCountingDown = false;
-      this.player.startRunning();
-      this.startTime = this.time.now;
-      this.lastFrameTime = this.time.now;
-      this.activePlayTime = 0;
-      this.lastScoreTime = this.time.now;
-
-    }
+    this.countdownManager.startCountdown();
   }
 
   update(): void {
@@ -503,10 +377,9 @@ export class GameScene extends Phaser.Scene {
           }
         }
 
-        // Keep the world alive — parallax, floors, obstacles, cleanup
-        // so spectating feels like watching through the other player's eyes
-        this.updateParallax();
-        this.updateFloors();
+        // Keep the world alive for spectating
+        this.parallaxManager.update(this.player.speedMultiplier);
+        this.updateFloorTracking();
         this.handleSpawning();
         this.cleanupOffscreen();
 
@@ -531,10 +404,18 @@ export class GameScene extends Phaser.Scene {
 
     if (this.isCountingDown) {
       this.player.freezeForCountdown();
-      this.updateCountdown();
-      this.updateFloors();
+      const done = this.countdownManager.updateCountdown();
+      if (done) {
+        this.isCountingDown = false;
+        this.player.startRunning();
+        this.startTime = this.time.now;
+        this.lastFrameTime = this.time.now;
+        this.activePlayTime = 0;
+        this.scoreManager.reset(this.time.now);
+      }
+      this.updateFloorTracking();
       this.handleSpawning();
-      this.updateParallax();
+      this.parallaxManager.update(this.player.speedMultiplier);
       return;
     }
 
@@ -563,36 +444,11 @@ export class GameScene extends Phaser.Scene {
     // Update player speed + velocity
     this.player.updateSpeed(this.activePlayTime, this.currentLevel);
 
-    // Dust trail particles
-    this.dustTimer += this.game.loop.delta;
-    const dustInterval = Math.max(100, 300 / this.player.speedMultiplier);
-    const onGroundForDust = this.player.sprite.body!.touching.down || this.player.sprite.body!.blocked.down;
-    if (this.dustTimer >= dustInterval && onGroundForDust) {
-      this.dustTimer = 0;
-      const dust = this.add.circle(
-        this.player.x - 20,
-        this.player.y + 10,
-        2 + Math.random() * 2,
-        0x8b7355,
-        0.6,
-      );
-      this.tweens.add({
-        targets: dust,
-        y: dust.y - 15,
-        alpha: 0,
-        scaleX: 0.3,
-        scaleY: 0.3,
-        duration: 400,
-        onComplete: () => {
-          dust.destroy();
-        },
-      });
-    } else if (this.dustTimer >= dustInterval) {
-      this.dustTimer = 0;
-    }
+    // Ambient effects (dust, birds, noise)
+    this.ambientEffects.update(this.player);
 
-    this.updateParallax();
-    this.updateFloors();
+    this.parallaxManager.update(this.player.speedMultiplier);
+    this.updateFloorTracking();
 
     // --- Off-screen death ---
     if (this.player.y > this.cameras.main.height + 50 || this.player.y < -100) {
@@ -644,36 +500,11 @@ export class GameScene extends Phaser.Scene {
     this._wasPillActive = this.player.isPillActive;
     this.player.updateVisuals();
 
-    // Survival score (+1 per second)
-    if (this.time.now - this.lastScoreTime >= 1000) {
-      this.score += 1;
-      this.lastScoreTime = this.time.now;
-    }
+    // Survival score
+    this.scoreManager.updateSurvival(this.time.now);
 
     // Score milestones
-    const scoreMilestones: { threshold: number; text: string; tier: number }[] = [
-      { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
-      { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1 },
-      { threshold: 420, text: 'BLAZE IT!', tier: 2 },
-      { threshold: 500, text: 'PI\u0118\u0106 DYCH NA BROWARA!', tier: 2 },
-      { threshold: 1000, text: 'GRAJ ZE MNOM W TYSIĄCA', tier: 3 },
-      { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
-      { threshold: 2000, text: 'DWA KAFLE WYPŁATY', tier: 4 },
-      { threshold: 2137, text: 'KREM\u00d3WKI DLA WSZYSTKICH!', tier: 5 },
-      { threshold: 3000, text: 'TRZY WIELKIE KLOCE', tier: 4 },
-      { threshold: 4000, text: 'BANIA U CYGANA', tier: 4 },
-      { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
-      { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 5 },
-      { threshold: 10000, text: 'KARALUCH JEST BOGIEM!', tier: 5 },
-    ];
-    for (const m of scoreMilestones) {
-      if (this.score >= m.threshold && this.lastMilestone < m.threshold) {
-        this.lastMilestone = m.threshold;
-        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
-        this.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
-        break;
-      }
-    }
+    this.scoreManager.checkMilestones(this.hud);
 
     // Level progression check (distance-based)
     const distance = this.getDistance();
@@ -685,12 +516,12 @@ export class GameScene extends Phaser.Scene {
 
     // Update HUD
     const hudData: HUDUpdateData = {
-      score: this.score,
+      score: this.scoreManager.score,
       distance,
       speedMultiplier: this.player.speedMultiplier,
       currentFloor: this.player.currentFloor,
-      pickupCombo: this.pickupCombo,
-      comboMultiplier: this.getComboMultiplier(),
+      pickupCombo: this.scoreManager.pickupCombo,
+      comboMultiplier: this.scoreManager.getComboMultiplier(),
       dashReady: this.player.dashReady,
       isDashing: this.player.isDashing,
       dashStartTime: this.player.dashStartTime,
@@ -714,25 +545,6 @@ export class GameScene extends Phaser.Scene {
     // Audio pitch update (pill mode speeds up BGM further)
     this.audio.updatePitch(this.player.speedMultiplier * this.player.pillSpeedBoost);
 
-    // Bird overlook
-    this.birdOverlookTimer += this.game.loop.delta;
-    if (this.birdOverlookTimer >= this.nextBirdOverlookTime) {
-      this.birdOverlookTimer = 0;
-      this.nextBirdOverlookTime = 15000 + Math.random() * 10000;
-      this.spawnBirdOverlook();
-    }
-
-    // Cockroach ambient noise
-    this.cockroachNoiseTimer += this.game.loop.delta;
-    if (this.cockroachNoiseTimer >= this.nextNoiseTime) {
-      this.cockroachNoiseTimer = 0;
-      this.nextNoiseTime = 20000 + Math.random() * 15000;
-      if (!this.cockroachNoiseSound || !this.cockroachNoiseSound.isPlaying) {
-        this.cockroachNoiseSound = this.sound.add('cockroach-noise', { volume: 0.3 });
-        this.cockroachNoiseSound.play();
-      }
-    }
-
     // Ghost manager update
     if (this.ghostManager) {
       this.ghostManager.update(
@@ -744,100 +556,236 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private _mpGameOverTriggered = false;
+  // --- Floor tracking delegation ---
 
-  private setupMultiplayerListeners(): void {
-    this._mpGameOverTriggered = false;
+  private updateFloorTracking(): void {
+    let trackX: number;
+    let trackFloor: 'top' | 'bottom';
+    let shouldTrack: boolean;
 
-    mpClient.on('game:swap', (data: any) => {
-      this.ghostManager?.handleSwap(data.id, data.lane);
-    });
-    mpClient.on('game:dash-start', (data: any) => {
-      this.ghostManager?.handleDashStart(data.id);
-    });
-    mpClient.on('game:dash-end', (data: any) => {
-      this.ghostManager?.handleDashEnd(data.id);
-    });
-    mpClient.on('game:pill-start', (data: any) => {
-      this.ghostManager?.handlePillStart(data.id);
-    });
-    mpClient.on('game:pill-end', (data: any) => {
-      this.ghostManager?.handlePillEnd(data.id);
-    });
-    mpClient.on('game:death', (data: any) => {
-      const name = this.ghostManager?.getGhostName(data.id);
-      const color = this.ghostManager?.getGhostColor(data.id);
-      this.ghostManager?.handleDeath(data.id, data.score, data.stats);
-      if (name) {
-        this.showDeathNotification(name, color ?? 0xffffff);
+    if (this.isDead && this.isMultiplayer && this.ghostManager?.isSpectating) {
+      const target = this.ghostManager.spectateTargetPlayer;
+      if (target && target.alive) {
+        trackX = target.sprite.x;
+        trackFloor = target.lane as 'top' | 'bottom';
+        shouldTrack = true;
+      } else {
+        shouldTrack = false;
+        trackX = 0;
+        trackFloor = 'bottom';
       }
-      // If I'm spectating and all ghosts are now dead, trigger game over
-      if (this.isDead && this.ghostManager?.allDead()) {
-        this.triggerMultiplayerGameOver();
+    } else {
+      trackX = this.player.x;
+      trackFloor = this.player.currentFloor;
+      shouldTrack = !this.isCountingDown && !this.isDead;
+    }
+
+    this.floorManager.update(trackX, trackFloor, shouldTrack, this.player.currentFloor);
+  }
+
+  // --- Spawning ---
+
+  private handleSpawning(): void {
+    const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
+    const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
+
+    while (this.nextSpawnX <= spawnHorizon) {
+      const slotX = this.nextSpawnX;
+
+      // Derive level and speed from slot position -- deterministic across all clients
+      const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
+      const spawnLevel = getLevelForDistance(slotDistance).level;
+      const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
+      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.3);
+      this.nextSpawnX += slotWidth;
+
+      const roll = this.rng?.next() ?? Math.random();
+      if (!this.pickupSpawner.trySpawn(slotX, roll)) {
+        this.obstacleSpawner.spawn(slotX, spawnLevel);
       }
-    });
-    // Handle player disconnect mid-game — kill their ghost
-    mpClient.on('game:player-left', (data: any) => {
-      const name = this.ghostManager?.getGhostName(data.id);
-      const color = this.ghostManager?.getGhostColor(data.id);
-      this.ghostManager?.handleDeath(data.id, 0, {});
-      if (name) {
-        this.showDeathNotification(name, color ?? 0xffffff, true);
-      }
-      if (this.isDead && this.ghostManager?.allDead()) {
-        this.triggerMultiplayerGameOver();
-      }
-    });
-    mpClient.on('game:pickup', (data: any) => {
-      // Only destroy pickups on spectator's screen — don't steal from alive players
-      if (this.isDead) {
-        if (!this.destroyPickupNear(data.x)) {
-          // Pickup not spawned yet on our screen — queue for later
-          this.pendingPickupDestructions.push(data.x);
-        }
-      }
-    });
-    mpClient.on('game:over', (data: any) => {
-      if (this._mpGameOverTriggered) return;
-      this._mpGameOverTriggered = true;
-      // Wait for the last death animation to finish before transitioning
-      this.time.delayedCall(1200, () => {
-        this.audio.destroy();
-        this.sound.stopAll();
-        this.ghostManager?.destroy();
-        this.ghostManager = null;
-        this.scene.start('MultiplayerGameOverScene', {
-          rankings: data.rankings,
-          myId: mpClient.myId,
-          isHost: data.hostId === mpClient.myId,
-        });
-      });
+    }
+
+    // Flush queued pickup destructions (from events that arrived before we spawned them)
+    if (this.multiplayerHandler) {
+      this.multiplayerHandler.flushPendingPickupDestructions(
+        (x) => this.pickupSpawner.destroyPickupNear(x),
+      );
+    }
+  }
+
+  private cleanupOffscreen(): void {
+    const cameraLeft = this.cameras.main.scrollX - 200;
+
+    this.obstacles.getChildren().forEach((obj) => {
+      const sprite = obj as Phaser.Physics.Arcade.Sprite;
+      if (sprite.x < cameraLeft) sprite.destroy();
     });
 
-    // Cleanup on scene shutdown
-    this.events.on('shutdown', () => {
-      if (this.isMultiplayer) {
-        mpClient.off('game:swap');
-        mpClient.off('game:dash-start');
-        mpClient.off('game:dash-end');
-        mpClient.off('game:pill-start');
-        mpClient.off('game:pill-end');
-        mpClient.off('game:pickup');
-        mpClient.off('game:death');
-        mpClient.off('game:player-left');
-        mpClient.off('game:over');
-      }
-      this.ghostManager?.destroy();
-      this.ghostManager = null;
+    this.pickupSpawner.cleanup(cameraLeft, () => {
+      this.scoreManager.resetCombo();
     });
   }
+
+  // --- Pickup collection ---
+
+  private collectApple(
+    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+  ): void {
+    const sprite = apple as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
+    this.vfx.appleCollectEffect(sprite.x, sprite.y);
+    this.audio.playApple();
+    sprite.destroy();
+
+    const points = this.scoreManager.addAppleScore();
+    const combo = this.scoreManager.pickupCombo;
+    const comboColor = combo >= 10 ? '#ff00ff' : combo >= 5 ? '#ffff00' : '#00ff00';
+    this.scoreManager.showPickupPopup(sprite.x, sprite.y, `+${points}`, comboColor);
+    this.hud.updateScore(this.scoreManager.score);
+  }
+
+  private collectTyskie(
+    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+  ): void {
+    const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
+    this.vfx.appleCollectEffect(sprite.x, sprite.y);
+    this.sound.play('burp', { volume: 0.8 });
+    sprite.destroy();
+
+    const points = this.scoreManager.addTyskieScore();
+    this.scoreManager.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
+    this.hud.updateScore(this.scoreManager.score);
+  }
+
+  private collectPill(
+    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+  ): void {
+    const sprite = pill as Phaser.Physics.Arcade.Sprite;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
+    const px = sprite.x;
+    const py = sprite.y;
+
+    const glowTween = sprite.getData('glowTween');
+    if (glowTween) glowTween.destroy();
+    sprite.destroy();
+
+    // Score with combo
+    this.scoreManager.addPillScore();
+    this.hud.updateScore(this.scoreManager.score);
+
+    // VFX
+    this.vfx.appleCollectEffect(px, py);
+
+    // Activate pill on player
+    this.player.activatePill(px, py);
+
+    if (this.isMultiplayer) {
+      mpClient.sendPillStart();
+    }
+  }
+
+  private hitObstacle(
+    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    obstacle: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+  ): void {
+    const obstacleType = (obstacle as Phaser.Physics.Arcade.Sprite).getData('type') || null;
+    this.die(obstacleType);
+  }
+
+  // --- Death ---
+
+  private die(obstacleType?: string | null): void {
+    if (this.isDead) return;
+    this.isDead = true;
+
+    this.player.die();
+
+    document.title = `ZGNIOT\u0141E\u015a SI\u0118! | ${this.scoreManager.score} pkt`;
+    this.cameras.main.shake(300, 0.02);
+
+    this.sound.play('cockroach-hiss', { volume: 0.7 });
+
+    this.vfx.deathEffect();
+    this.audio.playDeath();
+
+    // In multiplayer, start spectating instead of transitioning to GameOverScene
+    if (this.isMultiplayer) {
+      const stats = {
+        timeSurvived: Math.floor(this.activePlayTime / 1000),
+        distance: Math.floor(this.getDistance()),
+        maxSpeed: this.player.speedMultiplier,
+        obstacleType: obstacleType || 'fall',
+      };
+      mpClient.sendDeath(this.scoreManager.score, stats);
+
+      // Start spectating after death animation plays out
+      if (this.ghostManager && !this.ghostManager.allDead()) {
+        this.cameras.main.stopFollow();
+        this.time.delayedCall(1000, () => {
+          if (this.ghostManager && !this.ghostManager.allDead()) {
+            this.ghostManager.startSpectating();
+            // Snap camera to spectate target immediately
+            const target = this.ghostManager.spectateTargetPlayer;
+            if (target && target.alive) {
+              this.cameras.main.scrollX = target.sprite.x - 200;
+            }
+          } else {
+            this.triggerMultiplayerGameOver();
+          }
+        });
+      } else {
+        this.triggerMultiplayerGameOver();
+      }
+      return; // Don't transition to solo GameOverScene
+    }
+
+    // Increment games played
+    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
+    localStorage.setItem('cockroach-games-played', (gamesPlayed + 1).toString());
+
+    // Persist high score
+    const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
+    if (this.scoreManager.score > highScore) {
+      localStorage.setItem('cockroach-highscore', this.scoreManager.score.toString());
+    }
+
+    this.time.delayedCall(250, () => {
+      this.vfx.destroy();
+      this.audio.destroy();
+      this.scene.start('GameOverScene', {
+        score: this.scoreManager.score,
+        timeSurvived: Math.floor(this.activePlayTime / 1000),
+        topSpeed: this.player.speedMultiplier,
+        distance: this.getDistance(),
+        obstacleType: obstacleType || null,
+        level: this.currentLevel,
+      });
+    });
+  }
+
+  // --- Level switching ---
+
+  private switchLevel(config: LevelConfig): void {
+    this.parallaxManager.crossfade(config);
+
+    if (!this.isDead) {
+      this.audio.switchBGM(config.bgmKey);
+    }
+    this.hud.showLevelAnnouncement(config);
+  }
+
+  // --- Multiplayer ---
 
   private deathNotificationY = 80;
 
   private showDeathNotification(name: string, color: number, disconnected = false): void {
     const cam = this.cameras.main;
     const colorStr = '#' + color.toString(16).padStart(6, '0');
-    const label = disconnected ? `${name} uciekł` : `${name} zginął!`;
+    const label = disconnected ? `${name} uciek\u0142` : `${name} zgin\u0105\u0142!`;
 
     const text = this.add.text(cam.width / 2, this.deathNotificationY, label, {
       fontFamily: '"Press Start 2P", monospace',
@@ -875,16 +823,30 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private handleMpGameOver(data: any): void {
+    if (this.multiplayerHandler?.mpGameOverTriggered) return;
+    if (this.multiplayerHandler) this.multiplayerHandler.mpGameOverTriggered = true;
+    // Wait for the last death animation to finish before transitioning
+    this.time.delayedCall(1200, () => {
+      this.audio.destroy();
+      this.sound.stopAll();
+      this.ghostManager?.destroy();
+      this.ghostManager = null;
+      this.scene.start('MultiplayerGameOverScene', {
+        rankings: data.rankings,
+        myId: mpClient.myId,
+        isHost: data.hostId === mpClient.myId,
+      });
+    });
+  }
+
   private triggerMultiplayerGameOver(): void {
-    // Server detects all-dead and emits game:over with rankings.
-    // As a safety net, if game:over doesn't arrive within 3s,
-    // build local rankings and transition anyway.
-    if (this._mpGameOverTriggered) return;
+    if (this.multiplayerHandler?.mpGameOverTriggered) return;
     this.time.delayedCall(3000, () => {
-      if (this._mpGameOverTriggered) return;
-      this._mpGameOverTriggered = true;
+      if (this.multiplayerHandler?.mpGameOverTriggered) return;
+      if (this.multiplayerHandler) this.multiplayerHandler.mpGameOverTriggered = true;
       const rankings = this.ghostManager?.getRankings(
-        this.score,
+        this.scoreManager.score,
         this.mpMyName,
         {
           timeSurvived: Math.floor(this.activePlayTime / 1000),
@@ -903,6 +865,8 @@ export class GameScene extends Phaser.Scene {
       });
     });
   }
+
+  // --- Pause ---
 
   private togglePause(): void {
     if (this.isMultiplayer) return;
@@ -925,678 +889,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private updateUnpauseCountdown(): void {
-    const elapsed = performance.now() - this.unpauseCountdownStart;
-    const steps = ['3', '2', '1', 'JAZDA!'];
-    const step = Math.floor(elapsed / 600);
-
-    if (step < steps.length && step > this.unpauseCountdownLastShown) {
-      this.unpauseCountdownLastShown = step;
-      const text = steps[step];
-      const countText = this.add.text(
-        this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text, {
-          fontSize: text === 'JAZDA!' ? '24px' : '32px',
-          fontFamily: '"Press Start 2P", monospace',
-          color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 6,
-        },
-      );
-      countText.setOrigin(0.5).setScrollFactor(0).setDepth(4003);
-      this.tweens.add({
-        targets: countText,
-        scale: { from: 2, to: 0.5 },
-        alpha: { from: 1, to: 0 },
-        duration: 500,
-        ease: 'Power2',
-        onComplete: () => countText.destroy(),
-      });
-    }
-
-    if (elapsed >= steps.length * 600) {
-      this.isUnpauseCountdown = false;
-      this.physics.resume();
-      this.lastFrameTime = this.time.now;
-    }
-  }
-
-  private handleSpawning(): void {
-    const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
-    const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
-
-    while (this.nextSpawnX <= spawnHorizon) {
-      const slotX = this.nextSpawnX;
-
-      // Derive level and speed from slot position — deterministic across all clients
-      const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
-      const spawnLevel = getLevelForDistance(slotDistance).level;
-      const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
-      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.3);
-      this.nextSpawnX += slotWidth;
-
-      const roll = this.rng?.next() ?? Math.random();
-      if (roll < PILL_SPAWN_CHANCE) {
-        const pFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-        const pY = (pFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-        const pill = this.pills.create(slotX, pY, 'pill') as Phaser.Physics.Arcade.Sprite;
-        pill.setScale(0.15);
-        pill.setDepth(10);
-        (pill.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-        pill.setImmovable(true);
-        this.tweens.add({
-          targets: pill,
-          y: pY - 10,
-          duration: 400,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        const pillGlowTween = this.tweens.addCounter({
-          from: 0,
-          to: 360,
-          duration: 1500,
-          repeat: -1,
-          onUpdate: (tween) => {
-            if (pill.active) {
-              const hue = tween.getValue() ?? 0;
-              const color = Phaser.Display.Color.HSLToColor(hue / 360, 1, 0.5);
-              pill.setTint(color.color);
-            }
-          },
-        });
-        pill.setData('glowTween', pillGlowTween);
-        // Pulsing pink glow
-        const pGlow = this.add.circle(slotX, pY, 20, 0xff00ff, 0.3).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: pGlow, alpha: 0.1, scale: 1.3, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        pill.on('destroy', () => { this.tweens.killTweensOf(pill); this.tweens.killTweensOf(pGlow); pGlow.destroy(); });
-        this.tweens.add({
-          targets: pill,
-          scaleX: 0.18,
-          scaleY: 0.18,
-          duration: 300,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE) {
-        const tFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-        const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-        const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
-        tyskie.setScale(0.18);
-        tyskie.setDepth(10);
-        (tyskie.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-        tyskie.setImmovable(true);
-        this.tweens.add({
-          targets: tyskie,
-          y: tY - 8,
-          duration: 400,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        this.tweens.add({
-          targets: tyskie,
-          scale: 0.22,
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        tyskie.setTint(0xffdd00);
-        // Golden glow
-        const tGlow = this.add.circle(slotX, tY, 18, 0xffdd00, 0.25).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: tGlow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        tyskie.on('destroy', () => { this.tweens.killTweensOf(tyskie); this.tweens.killTweensOf(tGlow); tGlow.destroy(); });
-      } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
-        const appleFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-        const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-        const apple = this.apples.create(slotX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
-        apple.setScale(0.15);
-        apple.setDepth(10);
-        (apple.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-        apple.setImmovable(true);
-        this.tweens.add({
-          targets: apple,
-          y: appleY - 8,
-          duration: 500,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        // Green glow
-        const aGlow = this.add.circle(slotX, appleY, 16, 0x00ff44, 0.2).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: aGlow, alpha: 0.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        apple.on('destroy', () => { this.tweens.killTweensOf(apple); this.tweens.killTweensOf(aGlow); aGlow.destroy(); });
-      } else {
-        this.obstacleSpawner.spawn(slotX, spawnLevel);
-      }
-    }
-
-    // Flush queued pickup destructions (from events that arrived before we spawned them)
-    if (this.pendingPickupDestructions.length > 0) {
-      this.pendingPickupDestructions = this.pendingPickupDestructions.filter(
-        x => !this.destroyPickupNear(x),
-      );
-    }
-  }
-
-  private destroyPickupNear(x: number): boolean {
-    const tolerance = 30;
-    const groups = [this.apples, this.tyskies, this.pills];
-    for (const group of groups) {
-      for (const obj of group.getChildren()) {
-        const sprite = obj as Phaser.Physics.Arcade.Sprite;
-        if (Math.abs(sprite.x - x) < tolerance) {
-          sprite.destroy();
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  private cleanupOffscreen(): void {
-    const cameraLeft = this.cameras.main.scrollX - 200;
-
-    this.obstacles.getChildren().forEach((obj) => {
-      const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (sprite.x < cameraLeft) sprite.destroy();
-    });
-
-    this.apples.getChildren().forEach((obj) => {
-      const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (sprite.x < cameraLeft) {
-        this.pickupCombo = 0;
-        sprite.destroy();
-      }
-    });
-
-    this.tyskies.getChildren().forEach((obj) => {
-      const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (sprite.x < cameraLeft) {
-        this.pickupCombo = 0;
-        sprite.destroy();
-      }
-    });
-
-    this.pills.getChildren().forEach((obj) => {
-      const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (sprite.x < cameraLeft) {
-        this.pickupCombo = 0;
-        sprite.destroy();
-      }
-    });
-  }
-
-  private collectApple(
-    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-    apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-  ): void {
-    const sprite = apple as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
-    this.vfx.appleCollectEffect(sprite.x, sprite.y);
-    this.audio.playApple();
-    sprite.destroy();
-
-    this.pickupCombo++;
-    const multiplier = this.getComboMultiplier();
-    const points = Math.round(APPLE_SCORE * multiplier);
-    this.score += points;
-
-    const comboColor = this.pickupCombo >= 10 ? '#ff00ff' : this.pickupCombo >= 5 ? '#ffff00' : '#00ff00';
-    this.showPickupPopup(sprite.x, sprite.y, `+${points}`, comboColor);
-    this.hud.updateScore(this.score);
-  }
-
-  private collectTyskie(
-    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-    tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-  ): void {
-    const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
-    this.vfx.appleCollectEffect(sprite.x, sprite.y);
-    this.sound.play('burp', { volume: 0.8 });
-    sprite.destroy();
-
-    this.pickupCombo++;
-    const multiplier = this.getComboMultiplier();
-    const points = Math.round(TYSKIE_SCORE * multiplier);
-    this.score += points;
-
-    this.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
-    this.hud.updateScore(this.score);
-  }
-
-  private collectPill(
-    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-    pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-  ): void {
-    const sprite = pill as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
-    const px = sprite.x;
-    const py = sprite.y;
-
-    const glowTween = sprite.getData('glowTween');
-    if (glowTween) glowTween.destroy();
-    sprite.destroy();
-
-    // Score with combo
-    this.pickupCombo++;
-    const multiplier = this.getComboMultiplier();
-    const pillPoints = Math.round(PILL_SCORE * multiplier);
-    this.score += pillPoints;
-    this.hud.updateScore(this.score);
-
-    // VFX
-    this.vfx.appleCollectEffect(px, py);
-
-    // Activate pill on player
-    this.player.activatePill(px, py);
-
-    if (this.isMultiplayer) {
-      mpClient.sendPillStart();
-    }
-  }
-
-  private hitObstacle(
-    _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-    obstacle: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-  ): void {
-    const obstacleType = (obstacle as Phaser.Physics.Arcade.Sprite).getData('type') || null;
-    this.die(obstacleType);
-  }
-
-  private showPickupPopup(x: number, y: number, text: string, color: string): void {
-    const popup = this.add.text(x, y - 20, text, {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
-    popup.setOrigin(0.5);
-    popup.setDepth(999);
-    popup.setAlpha(0);
-
-    // Phase 1: Slide up + fade in (150ms)
-    this.tweens.add({
-      targets: popup,
-      y: popup.y - 15,
-      alpha: 1,
-      duration: 150,
-      ease: 'Power2',
-      onComplete: () => {
-        // Phase 2: Wobble in place (300ms)
-        this.tweens.add({
-          targets: popup,
-          angle: { from: -3, to: 3 },
-          duration: 75,
-          yoyo: true,
-          repeat: 1,
-          ease: 'Sine.easeInOut',
-          onComplete: () => {
-            // Phase 3: Slide up + fade out (150ms)
-            this.tweens.add({
-              targets: popup,
-              y: popup.y - 20,
-              alpha: 0,
-              duration: 150,
-              ease: 'Power2',
-              onComplete: () => popup.destroy(),
-            });
-          },
-        });
-      },
-    });
-  }
-
-  private die(obstacleType?: string | null): void {
-    if (this.isDead) return;
-    this.isDead = true;
-
-    this.player.die();
-
-    document.title = `ZGNIOT\u0141E\u015a SI\u0118! | ${this.score} pkt`;
-    this.cameras.main.shake(300, 0.02);
-
-    this.sound.play('cockroach-hiss', { volume: 0.7 });
-
-    this.vfx.deathEffect();
-    this.audio.playDeath();
-
-    // In multiplayer, start spectating instead of transitioning to GameOverScene
-    if (this.isMultiplayer) {
-      const stats = {
-        timeSurvived: Math.floor(this.activePlayTime / 1000),
-        distance: Math.floor(this.getDistance()),
-        maxSpeed: this.player.speedMultiplier,
-        obstacleType: obstacleType || 'fall',
-      };
-      mpClient.sendDeath(this.score, stats);
-
-      // Start spectating after death animation plays out
-      if (this.ghostManager && !this.ghostManager.allDead()) {
-        this.cameras.main.stopFollow();
-        this.time.delayedCall(1000, () => {
-          if (this.ghostManager && !this.ghostManager.allDead()) {
-            this.ghostManager.startSpectating();
-            // Snap camera to spectate target immediately
-            const target = this.ghostManager.spectateTargetPlayer;
-            if (target && target.alive) {
-              this.cameras.main.scrollX = target.sprite.x - 200;
-            }
-          } else {
-            this.triggerMultiplayerGameOver();
-          }
-        });
-      } else {
-        this.triggerMultiplayerGameOver();
-      }
-      return; // Don't transition to solo GameOverScene
-    }
-
-    // Increment games played
-    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-    localStorage.setItem('cockroach-games-played', (gamesPlayed + 1).toString());
-
-    // Persist high score
-    const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
-    if (this.score > highScore) {
-      localStorage.setItem('cockroach-highscore', this.score.toString());
-    }
-
-    this.time.delayedCall(250, () => {
-      this.vfx.destroy();
-      this.audio.destroy();
-      this.scene.start('GameOverScene', {
-        score: this.score,
-        timeSurvived: Math.floor(this.activePlayTime / 1000),
-        topSpeed: this.player.speedMultiplier,
-        distance: this.getDistance(),
-        obstacleType: obstacleType || null,
-        level: this.currentLevel,
-      });
-    });
-  }
-
-  private switchLevel(config: LevelConfig): void {
-    // Floor tiles transition spatially in updateFloors() — no bulk swap needed
-
-    // Crossfade backgrounds over 3 seconds
-    this.nextSkyBg.setTexture(config.skyKey);
-    this.nextMidBg.setTexture(config.bgKey);
-    this.nextFgBg.setTexture(config.fgKey);
-    this.nextFgBg.setDepth(2);
-    this.bgTransitioning = true;
-
-    const fadeDuration = 3000;
-
-    // Fade in next backgrounds to their target alphas
-    this.tweens.add({ targets: this.nextSkyBg, alpha: 0.8, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: this.nextMidBg, alpha: 0.15, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: this.nextFgBg, alpha: 1, duration: fadeDuration, ease: 'Sine.easeInOut' });
-
-    // Fade out current backgrounds, then swap
-    this.tweens.add({ targets: this.skyBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: this.midBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({
-      targets: this.fgBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut',
-      onComplete: () => {
-        // Swap: current takes next's textures, reset alphas
-        this.skyBg.setTexture(config.skyKey).setAlpha(0.8);
-        this.midBg.setTexture(config.bgKey).setAlpha(0.15);
-        this.fgBg.setTexture(config.fgKey).setAlpha(1);
-        this.fgBg.setDepth(2);
-        this.nextSkyBg.setAlpha(0);
-        this.nextMidBg.setAlpha(0);
-        this.nextFgBg.setAlpha(0);
-        this.bgTransitioning = false;
-      },
-    });
-
-    if (!this.isDead) {
-      this.audio.switchBGM(config.bgmKey);
-    }
-    this.hud.showLevelAnnouncement(config);
-  }
-
-  /** Combo multiplier: 10 combo = 1.5x, 20 combo = 2.0x, etc. */
-  private getComboMultiplier(): number {
-    return 1 + this.pickupCombo * 0.025;
-  }
+  // --- Helpers ---
 
   private getDistance(): number {
     return Math.floor((this.player.x - COCKROACH_START_X) / 50);
-  }
-
-  private generateRoundedFloorTextures(): void {
-    for (let i = 1; i <= 10; i++) {
-      const key = `floor-rounded-lv${i}`;
-      const sourceKey = `lv${i}-floor`;
-      const sourceImage = this.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
-
-      if (this.textures.exists(key)) {
-        // Redraw existing canvas in place and refresh the texture source
-        const tex = this.textures.get(key);
-        const existingCanvas = tex.getSourceImage() as HTMLCanvasElement;
-        const ctx = existingCanvas.getContext('2d')!;
-        ctx.clearRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H, FLOOR_TILE_RADIUS);
-        ctx.clip();
-        ctx.drawImage(sourceImage, 0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
-        ctx.restore();
-        (tex.source[0] as Phaser.Textures.TextureSource).update();
-      } else {
-        const canvas = document.createElement('canvas');
-        canvas.width = FLOOR_TILE_W;
-        canvas.height = FLOOR_TILE_H;
-        const ctx = canvas.getContext('2d')!;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, FLOOR_TILE_W, FLOOR_TILE_H, FLOOR_TILE_RADIUS);
-        ctx.clip();
-        ctx.drawImage(sourceImage, 0, 0, FLOOR_TILE_W, FLOOR_TILE_H);
-        this.textures.addCanvas(key, canvas);
-      }
-    }
-  }
-
-  private updateParallax(): void {
-    const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
-    const scrollX = this.cameras.main.scrollX;
-    this.skyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
-    this.midBg.tilePositionX = scrollX * 0.4 * breatheFactor;
-    this.fgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
-
-    // Keep next-level backgrounds in sync during crossfade
-    if (this.bgTransitioning) {
-      this.nextSkyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
-      this.nextMidBg.tilePositionX = scrollX * 0.4 * breatheFactor;
-      this.nextFgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
-    }
-
-    const targetZoom = Math.max(0.88, 1 - Math.max(this.player.speedMultiplier - 5, 0) * 0.02);
-    this.cameras.main.zoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.02);
-
-    const darkening = Math.min(Math.max(this.player.speedMultiplier - 3.5, 0) * 0.08, 0.5);
-    if (darkening > 0) {
-      this.skyBg.setTint(
-        Phaser.Display.Color.GetColor(
-          Math.floor(255 * (1 - darkening)),
-          Math.floor(255 * (1 - darkening * 0.8)),
-          Math.floor(255 * (1 - darkening * 0.3)),
-        ),
-      );
-    }
-
-    this.cameras.main.scrollY = 0;
-  }
-
-  private updateFloors(): void {
-    const camX = this.cameras.main.scrollX;
-    const bodyX = camX - 100;
-
-    // Move invisible physics bodies
-    this.floorTopBody.x = bodyX;
-    (this.floorTopBody.body as Phaser.Physics.Arcade.StaticBody).x = bodyX;
-    (this.floorTopBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
-    this.floorBottomBody.x = bodyX;
-    (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).x = bodyX;
-    (this.floorBottomBody.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
-
-    // Advance stepped-on ranges for the cockroach's current floor
-    // During spectate, use the spectated ghost's position/lane instead
-    let trackX: number;
-    let trackFloor: 'top' | 'bottom';
-    let shouldTrack: boolean;
-
-    if (this.isDead && this.isMultiplayer && this.ghostManager?.isSpectating) {
-      const target = this.ghostManager.spectateTargetPlayer;
-      if (target && target.alive) {
-        trackX = target.sprite.x;
-        trackFloor = target.lane as 'top' | 'bottom';
-        shouldTrack = true;
-      } else {
-        shouldTrack = false;
-        trackX = 0;
-        trackFloor = 'bottom';
-      }
-    } else {
-      trackX = this.player.x;
-      trackFloor = this.player.currentFloor;
-      shouldTrack = !this.isCountingDown && !this.isDead;
-    }
-
-    if (shouldTrack) {
-      const ranges = trackFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
-
-      // On floor swap, start a new range at the landing position
-      if (trackFloor !== this.lastTrackedFloor) {
-        const snapX = Math.floor(trackX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
-        ranges.push({ from: snapX, to: trackX, lastFallX: snapX - FLOOR_TILE_STEP });
-        this.lastTrackedFloor = trackFloor;
-      }
-
-      // Extend the current range
-      if (ranges.length > 0) {
-        const current = ranges[ranges.length - 1];
-        current.to = Math.max(current.to, trackX);
-      }
-    }
-
-    // Position visual tile sprites — snap to tile grid, pick texture per tile based on world position
-    const firstTileX = Math.floor((camX - 100) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
-    for (let i = 0; i < this.floorTopSprites.length; i++) {
-      const tx = firstTileX + i * FLOOR_TILE_STEP;
-      this.floorTopSprites[i].x = tx;
-      this.floorBottomSprites[i].x = tx;
-
-      // Pick texture based on world position (spatial level transition)
-      const tileDistance = (tx - COCKROACH_START_X) / 50;
-      const tileLevelConfig = getLevelForDistance(tileDistance);
-      const tileTextureKey = `floor-rounded-lv${tileLevelConfig.level}`;
-
-      // Top floor tile: hide if inside any stepped range
-      const topStepped = this.isTileStepped(tx, this.steppedTopRanges);
-      this.floorTopSprites[i].setVisible(!topStepped);
-      if (!topStepped && this.floorTopSprites[i].texture.key !== tileTextureKey) {
-        this.floorTopSprites[i].setTexture(tileTextureKey);
-      }
-
-      // Bottom floor tile: hide if inside any stepped range
-      const bottomStepped = this.isTileStepped(tx, this.steppedBottomRanges);
-      this.floorBottomSprites[i].setVisible(!bottomStepped);
-      if (!bottomStepped && this.floorBottomSprites[i].texture.key !== tileTextureKey) {
-        this.floorBottomSprites[i].setTexture(tileTextureKey);
-      }
-    }
-
-    // Spawn falling tile copies for all ranges
-    for (const range of this.steppedTopRanges) {
-      this.spawnFallingTilesForRange(range, this.floorTopY);
-    }
-    for (const range of this.steppedBottomRanges) {
-      this.spawnFallingTilesForRange(range, this.floorBottomY);
-    }
-
-    // Active floor highlight — pulse the glow on the current floor
-    this.floorHighlightTop.x = bodyX;
-    this.floorHighlightBottom.x = bodyX;
-    const currentFloor = this.player.currentFloor;
-    const pulse = 0.08 + Math.sin(this.time.now * 0.004) * 0.04;
-    this.floorHighlightTop.setAlpha(currentFloor === 'top' ? pulse : 0);
-    this.floorHighlightBottom.setAlpha(currentFloor === 'bottom' ? pulse : 0);
-  }
-
-  private isTileStepped(tx: number, ranges: { from: number; to: number }[]): boolean {
-    const tileEnd = tx + FLOOR_TILE_W;
-    for (const range of ranges) {
-      if (tileEnd > range.from && tileEnd < range.to) return true;
-    }
-    return false;
-  }
-
-  private spawnFallingTilesForRange(range: { from: number; to: number; lastFallX: number }, floorY: number): void {
-    // Snap to tile grid from the last spawned position
-    let startX = Math.floor((range.lastFallX + 1) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
-    if (startX <= range.lastFallX) startX += FLOOR_TILE_STEP;
-
-    const MAX_TILES_PER_FRAME = 3;
-    let tilesSpawned = 0;
-
-    while (startX + FLOOR_TILE_W < range.to && tilesSpawned < MAX_TILES_PER_FRAME) {
-      const tileDistance = (startX - COCKROACH_START_X) / 50;
-      const tileLevelConfig = getLevelForDistance(tileDistance);
-      const textureKey = `floor-rounded-lv${tileLevelConfig.level}`;
-
-      const fallingTile = this.add.image(startX, floorY, textureKey)
-        .setOrigin(0, 0).setDepth(3);
-
-      const spinDir = Math.random() > 0.5 ? 1 : -1;
-      this.tweens.add({
-        targets: fallingTile,
-        y: floorY + 200 + Math.random() * 100,
-        angle: spinDir * (30 + Math.random() * 60),
-        alpha: 0,
-        duration: 600 + Math.random() * 400,
-        ease: 'Quad.easeIn',
-        onComplete: () => fallingTile.destroy(),
-      });
-
-      range.lastFallX = startX;
-      startX += FLOOR_TILE_STEP;
-      tilesSpawned++;
-    }
-  }
-
-  private spawnBirdOverlook(): void {
-    const corners = [
-      { x: 60, y: this.cameras.main.height - 60, flipX: false, flipY: false },
-      { x: this.cameras.main.width - 60, y: this.cameras.main.height - 60, flipX: true, flipY: false },
-      { x: 60, y: 60, flipX: false, flipY: true },
-      { x: this.cameras.main.width - 60, y: 60, flipX: true, flipY: true },
-    ];
-    const corner = corners[Math.floor(Math.random() * corners.length)];
-
-    const birdImg = this.add.image(corner.x, corner.y, 'bird-overlook');
-    birdImg.setScrollFactor(0);
-    birdImg.setDepth(2000);
-    birdImg.setScale(0.4);
-    birdImg.setAlpha(0);
-    birdImg.setFlipX(corner.flipX);
-    birdImg.setFlipY(corner.flipY);
-
-    this.sound.play('huh', { volume: 0.5 });
-
-    this.tweens.add({
-      targets: birdImg,
-      alpha: 1,
-      duration: 300,
-      hold: 1500,
-      yoyo: true,
-      onComplete: () => birdImg.destroy(),
-    });
   }
 
   private showObstacleWarnings(): void {
