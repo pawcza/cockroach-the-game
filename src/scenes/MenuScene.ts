@@ -295,24 +295,24 @@ export class MenuScene extends Phaser.Scene {
         fontSize: '8px', color: '#666666', fontFamily: FONT_FAMILY,
         stroke: '#000000', strokeThickness: 1,
       };
-      const colApple = width - 110;
-      const colTyskie = width - 80;
-      const colPill = width - 50;
+      // Column layout: rank | name | apple | tyskie | pill | score
+      const colRank = 20;
+      const colName = 65;
+      const colApple = width * 0.52;
+      const colTyskie = width * 0.62;
+      const colPill = width * 0.72;
       const colScore = width - 20;
       const iconScale = 0.12;
 
       // Icon headers
       if (this.textures.exists('apple')) {
-        const appleIcon = this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5);
-        scrollContainer.add(appleIcon);
+        scrollContainer.add(this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5));
       }
       if (this.textures.exists('tyskie')) {
-        const tyskieIcon = this.add.image(colTyskie, headerY, 'tyskie').setScale(iconScale).setOrigin(0.5, 0.5);
-        scrollContainer.add(tyskieIcon);
+        scrollContainer.add(this.add.image(colTyskie, headerY, 'tyskie').setScale(iconScale).setOrigin(0.5, 0.5));
       }
       if (this.textures.exists('pill')) {
-        const pillIcon = this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5);
-        scrollContainer.add(pillIcon);
+        scrollContainer.add(this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
       }
       scrollContainer.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
 
@@ -362,8 +362,8 @@ export class MenuScene extends Phaser.Scene {
           strokeThickness: Math.max(1, strokeThickness - 1),
         };
 
-        const rankText = this.add.text(20, y, `${rank}.`, style).setOrigin(0, 0);
-        const nameText = this.add.text(70, y, entry.name, style).setOrigin(0, 0);
+        const rankText = this.add.text(colRank, y, `${rank}.`, style).setOrigin(0, 0);
+        const nameText = this.add.text(colName, y, entry.name, style).setOrigin(0, 0);
         const appleText = this.add.text(colApple, y, entry.apples_collected != null ? String(entry.apples_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const tyskieText = this.add.text(colTyskie, y, entry.tyskies_collected != null ? String(entry.tyskies_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const pillText = this.add.text(colPill, y, entry.pills_collected != null ? String(entry.pills_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
