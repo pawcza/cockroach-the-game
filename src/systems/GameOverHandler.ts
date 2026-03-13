@@ -4,7 +4,6 @@ import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
-import { COCKROACH_START_X } from '../config/constants';
 
 export class GameOverHandler {
   private scene: Phaser.Scene;

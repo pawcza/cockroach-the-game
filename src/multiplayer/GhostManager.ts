@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GhostPlayer, MP_PLAYER_COLORS } from './GhostPlayer';
+import { GhostPlayer } from './GhostPlayer';
 
 // Import MPPlayer interface inline to avoid circular deps
 interface MPPlayer {
