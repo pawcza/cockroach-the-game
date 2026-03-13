@@ -3,7 +3,8 @@ import { fetchScores } from '../ui/Scoreboard';
 import { COLORS } from '../config/constants';
 import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, getScale } from '../utils/TextStyles';
 import { createPulsingOverlay } from '../utils/TweenPatterns';
-import { createButton } from '../ui/shared';
+import { createButton, createHtmlButton } from '../ui/shared';
+import { crossfadeTransition } from '../utils/SceneTransition';
 
 interface GameOverData {
   score: number;
@@ -274,28 +275,21 @@ export class GameOverScene extends Phaser.Scene {
       const saveBtnW = Math.round(120 * s);
       const saveBtnH = Math.round(32 * s);
 
-      const saveBg = this.add.rectangle(width / 2, saveY, saveBtnW, saveBtnH, 0x008800, 0.9)
-        .setInteractive({ useHandCursor: true });
-      const saveTxt = this.add.text(width / 2, saveY, 'Zapisz', buttonStyle({
+      const saveBtn = createButton(this, width / 2, saveY, saveBtnW, saveBtnH, 'Zapisz', 0x008800, buttonStyle({
         fontSize: `${Math.round(12 * s)}px`,
         strokeThickness: 2,
-      })).setOrigin(0.5);
+      }), () => {
+        for (const obj of saveBtn.all) obj.destroy();
+        this.showNameInputOverlay(width, height, data);
+      });
 
       this.tweens.add({
-        targets: [saveBg, saveTxt],
+        targets: saveBtn.all,
         alpha: { from: 0.7, to: 1 },
         duration: 600,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
-      });
-
-      saveBg.on('pointerover', () => { saveBg.setAlpha(1); saveTxt.setColor('#ffff00'); });
-      saveBg.on('pointerout', () => { saveBg.setAlpha(0.9); saveTxt.setColor('#ffffff'); });
-      saveBg.on('pointerdown', () => {
-        saveBg.destroy();
-        saveTxt.destroy();
-        this.showNameInputOverlay(width, height, data);
       });
     }
 
@@ -306,32 +300,26 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private showNameInputOverlay(width: number, height: number, data: GameOverData): void {
-    // Create an HTML input overlay for name entry
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:"Press Start 2P",monospace;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;font-family:"Press Start 2P",monospace;';
 
     const label = document.createElement('div');
-    label.textContent = 'Wpisz swoje imię:';
-    label.style.cssText = 'color:#ffff00;font-size:14px;';
+    label.textContent = 'Wpisz swoje imi\u0119:';
+    label.style.cssText = 'color:#ffff00;font-size:24px;text-shadow:0 0 12px #ffff00;';
     overlay.appendChild(label);
 
     const input = document.createElement('input');
     input.type = 'text';
     input.maxLength = 20;
-    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:18px;padding:8px 12px;background:#111;color:#fff;border:2px solid #8b0000;outline:none;text-align:center;width:240px;';
+    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:28px;padding:16px 20px;background:#111;color:#fff;border:3px solid #8b0000;outline:none;text-align:center;width:380px;border-radius:8px;';
     overlay.appendChild(input);
 
     const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:12px;';
+    btnRow.style.cssText = 'display:flex;gap:20px;';
 
-    const submitBtn = document.createElement('button');
-    submitBtn.textContent = 'Zapisz';
-    submitBtn.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:12px;padding:8px 16px;background:#008800;color:#fff;border:none;cursor:pointer;';
+    const submitBtn = createHtmlButton('Zapisz', '#008800');
     btnRow.appendChild(submitBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Anuluj';
-    cancelBtn.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:12px;padding:8px 16px;background:#666;color:#fff;border:none;cursor:pointer;';
+    const cancelBtn = createHtmlButton('Anuluj', '#555');
     btnRow.appendChild(cancelBtn);
 
     overlay.appendChild(btnRow);
@@ -360,13 +348,17 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private restartGame(): void {
-    this.stopMusic();
-    this.scene.start('GameScene');
+    crossfadeTransition(500, () => {
+      this.stopMusic();
+      this.scene.start('GameScene');
+    });
   }
 
   private goToMenu(): void {
-    this.stopMusic();
-    this.scene.start('MenuScene');
+    crossfadeTransition(500, () => {
+      this.stopMusic();
+      this.scene.start('MenuScene');
+    });
   }
 
   private stopMusic(): void {

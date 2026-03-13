@@ -114,7 +114,6 @@ export class CollisionManager {
     apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = apple as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.audio.playApple();
     sprite.destroy();
@@ -123,6 +122,7 @@ export class CollisionManager {
     const multiplier = this.getComboMultiplier();
     const points = Math.round(APPLE_SCORE * multiplier);
     this.setScore(this.getScore() + points);
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x, this.getScore());
 
     const combo = this.getPickupCombo();
     const comboColor = combo >= 10 ? '#ff00ff' : combo >= 5 ? '#ffff00' : '#00ff00';
@@ -135,7 +135,6 @@ export class CollisionManager {
     tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.scene.sound.play('burp', { volume: 0.8 });
     sprite.destroy();
@@ -144,6 +143,7 @@ export class CollisionManager {
     const multiplier = this.getComboMultiplier();
     const points = Math.round(TYSKIE_SCORE * multiplier);
     this.setScore(this.getScore() + points);
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x, this.getScore());
 
     this.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
     this.hud.updateScore(this.getScore());
@@ -154,7 +154,6 @@ export class CollisionManager {
     pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = pill as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     const px = sprite.x;
     const py = sprite.y;
 
@@ -176,6 +175,7 @@ export class CollisionManager {
     this.player.activatePill(px, py);
 
     if (this.isMultiplayer) {
+      mpClient.sendPickup(px, this.getScore());
       mpClient.sendPillStart();
     }
   }

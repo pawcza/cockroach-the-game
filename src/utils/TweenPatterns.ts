@@ -74,15 +74,18 @@ export function floatingText(
   text.setDepth(DEPTH.POPUP);
   if (opts?.scrollFactor !== undefined) text.setScrollFactor(opts.scrollFactor);
 
-  scene.tweens.add({
+  const tweenConfig: Phaser.Types.Tweens.TweenBuilderConfig = {
     targets: text,
     y: text.y - (opts?.floatY ?? 30),
     alpha: 0,
-    scale: opts?.scale,
     duration: opts?.duration ?? 800,
     ease: 'Power2',
     onComplete: () => text.destroy(),
-  });
+  };
+  if (opts?.scale !== undefined) {
+    (tweenConfig as Record<string, unknown>).scale = opts.scale;
+  }
+  scene.tweens.add(tweenConfig);
 
   return text;
 }

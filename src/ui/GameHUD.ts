@@ -147,10 +147,10 @@ export class GameHUD {
   update(data: HUDUpdateData): void {
     // Floor indicator
     if (data.currentFloor === 'top') {
-      this.floorIndicator.setText('\u25b2 G\u00d3RA');
+      this.floorIndicator.setText('\u25b2 G\u00f3ra');
       this.floorIndicator.setColor('#88ccff');
     } else {
-      this.floorIndicator.setText('\u25bc D\u00d3\u0141');
+      this.floorIndicator.setText('\u25bc D\u00f3\u0142');
       this.floorIndicator.setColor('#ffcc88');
     }
 

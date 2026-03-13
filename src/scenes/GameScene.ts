@@ -34,6 +34,23 @@ import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
 import { GameHUD, HUDUpdateData } from '../ui/GameHUD';
 import { TouchControls } from '../ui/TouchControls';
 import { Player, Floor } from '../objects/Player';
+import { crossfadeTransition } from '../utils/SceneTransition';
+
+const SCORE_MILESTONES = [
+  { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
+  { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1 },
+  { threshold: 420, text: 'BLAZE IT!', tier: 2 },
+  { threshold: 500, text: 'PI\u0118\u0106 DYCH NA BROWARA!', tier: 2 },
+  { threshold: 1000, text: 'GRAJ ZE MNOM W TYSIĄCA', tier: 3 },
+  { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
+  { threshold: 2000, text: 'DWA KAFLE WYPŁATY', tier: 4 },
+  { threshold: 2137, text: 'KREM\u00d3WKI DLA WSZYSTKICH!', tier: 5 },
+  { threshold: 3000, text: 'TRZY WIELKIE KLOCE', tier: 4 },
+  { threshold: 4000, text: 'BANIA U CYGANA', tier: 4 },
+  { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
+  { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 5 },
+  { threshold: 10000, text: 'KARALUCH JEST BOGIEM!', tier: 5 },
+] as const;
 
 export class GameScene extends Phaser.Scene {
   // Floor positions (dynamic on mobile, constant on desktop)
@@ -108,6 +125,7 @@ export class GameScene extends Phaser.Scene {
 
   // Speed
   private lastMilestone = 1;
+  private lastSpectatedMilestone = 0;
 
   // Spawning (position-based)
   private nextSpawnX = 0;
@@ -186,6 +204,7 @@ export class GameScene extends Phaser.Scene {
     this.lastFrameTime = this.time.now;
     this.lastScoreTime = this.time.now;
     this.lastMilestone = 0;
+    this.lastSpectatedMilestone = 0;
     this.isCountingDown = true;
     this.steppedTopRanges = [];
     const startSnap = Math.floor(COCKROACH_START_X / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
@@ -473,26 +492,32 @@ export class GameScene extends Phaser.Scene {
 
   update(): void {
     if (this.isDead) {
+      // Keep ghosts moving even before spectating starts
+      if (this.isMultiplayer && this.ghostManager) {
+        this.ghostManager.update(
+          this.game.loop.delta,
+          this.cameras.main.scrollX,
+          this.cameras.main.width,
+          this.cameras.main.height,
+        );
+      }
+
       if (this.isMultiplayer && this.ghostManager?.isSpectating) {
         const target = this.ghostManager.spectateTargetPlayer;
-        if (target && target.alive) {
-          // Frame-rate independent smooth camera follow toward spectated player
-          const targetScrollX = target.sprite.x - 200;
-          const camFactor = 1 - Math.pow(1 - 0.25, this.game.loop.delta / 16.667);
-          this.cameras.main.scrollX += (targetScrollX - this.cameras.main.scrollX) * camFactor;
-        }
 
         // Allow cycling with left/right keys or taps
         if (Phaser.Input.Keyboard.JustDown(this.cursors.left) ||
             Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-          this.ghostManager.cycleSpectate(-1);
+          const newTarget = this.ghostManager.cycleSpectate(-1);
+          if (newTarget) this.followSpectateTarget(newTarget.sprite);
         }
         if (Phaser.Input.Keyboard.JustDown(this.cursors.right) ||
             Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
-          this.ghostManager.cycleSpectate(1);
+          const newTarget = this.ghostManager.cycleSpectate(1);
+          if (newTarget) this.followSpectateTarget(newTarget.sprite);
         }
 
-        // Update level based on spectated player's position
+        // Update level and milestones based on spectated player
         if (target && target.alive) {
           const ghostDistance = Math.floor((target.sprite.x - COCKROACH_START_X) / 50);
           const newLevelConfig = getLevelForDistance(ghostDistance);
@@ -500,6 +525,9 @@ export class GameScene extends Phaser.Scene {
             this.currentLevel = newLevelConfig.level;
             this.switchLevel(newLevelConfig);
           }
+
+          // Score milestones for spectated player
+          this.checkSpectatedMilestones(target.liveScore);
         }
 
         // Keep the world alive — parallax, floors, obstacles, cleanup
@@ -509,18 +537,12 @@ export class GameScene extends Phaser.Scene {
         this.handleSpawning();
         this.cleanupOffscreen();
 
-        // Update ghost manager
-        this.ghostManager.update(
-          this.game.loop.delta,
-          this.cameras.main.scrollX,
-          this.cameras.main.width,
-          this.cameras.main.height,
-        );
-
         // Check if spectate target died
         if (target && !target.alive) {
           const next = this.ghostManager.cycleSpectate(1);
-          if (!next && this.ghostManager.allDead()) {
+          if (next) {
+            this.followSpectateTarget(next.sprite);
+          } else if (this.ghostManager.allDead()) {
             this.triggerMultiplayerGameOver();
           }
         }
@@ -650,22 +672,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Score milestones
-    const scoreMilestones: { threshold: number; text: string; tier: number }[] = [
-      { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
-      { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1 },
-      { threshold: 420, text: 'BLAZE IT!', tier: 2 },
-      { threshold: 500, text: 'PI\u0118\u0106 DYCH NA BROWARA!', tier: 2 },
-      { threshold: 1000, text: 'GRAJ ZE MNOM W TYSIĄCA', tier: 3 },
-      { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
-      { threshold: 2000, text: 'DWA KAFLE WYPŁATY', tier: 4 },
-      { threshold: 2137, text: 'KREM\u00d3WKI DLA WSZYSTKICH!', tier: 5 },
-      { threshold: 3000, text: 'TRZY WIELKIE KLOCE', tier: 4 },
-      { threshold: 4000, text: 'BANIA U CYGANA', tier: 4 },
-      { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
-      { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 5 },
-      { threshold: 10000, text: 'KARALUCH JEST BOGIEM!', tier: 5 },
-    ];
-    for (const m of scoreMilestones) {
+    for (const m of SCORE_MILESTONES) {
       if (this.score >= m.threshold && this.lastMilestone < m.threshold) {
         this.lastMilestone = m.threshold;
         this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
@@ -788,6 +795,10 @@ export class GameScene extends Phaser.Scene {
       }
     });
     mpClient.on('game:pickup', (data: any) => {
+      // Update ghost's live score
+      if (data.id && data.score != null) {
+        this.ghostManager?.updateGhostScore(data.id, data.score);
+      }
       // Only destroy pickups on spectator's screen — don't steal from alive players
       if (this.isDead) {
         if (!this.destroyPickupNear(data.x)) {
@@ -868,6 +879,25 @@ export class GameScene extends Phaser.Scene {
         });
       },
     });
+  }
+
+  private checkSpectatedMilestones(ghostScore: number): void {
+    for (const m of SCORE_MILESTONES) {
+      if (ghostScore >= m.threshold && this.lastSpectatedMilestone < m.threshold) {
+        this.lastSpectatedMilestone = m.threshold;
+        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
+        this.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
+        break;
+      }
+    }
+  }
+
+  private followSpectateTarget(sprite: Phaser.GameObjects.Sprite): void {
+    this.cameras.main.stopFollow();
+    // Snap camera to target immediately, then follow with smooth lerp
+    this.cameras.main.scrollX = sprite.x - 200;
+    this.cameras.main.startFollow(sprite, true, 1, 0);
+    this.cameras.main.setFollowOffset(-200, 0);
   }
 
   private triggerMultiplayerGameOver(): void {
@@ -1081,7 +1111,6 @@ export class GameScene extends Phaser.Scene {
     apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = apple as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.audio.playApple();
     sprite.destroy();
@@ -1090,6 +1119,7 @@ export class GameScene extends Phaser.Scene {
     const multiplier = this.getComboMultiplier();
     const points = Math.round(APPLE_SCORE * multiplier);
     this.score += points;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x, this.score);
 
     const comboColor = this.pickupCombo >= 10 ? '#ff00ff' : this.pickupCombo >= 5 ? '#ffff00' : '#00ff00';
     this.showPickupPopup(sprite.x, sprite.y, `+${points}`, comboColor);
@@ -1101,7 +1131,6 @@ export class GameScene extends Phaser.Scene {
     tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.sound.play('burp', { volume: 0.8 });
     sprite.destroy();
@@ -1110,6 +1139,7 @@ export class GameScene extends Phaser.Scene {
     const multiplier = this.getComboMultiplier();
     const points = Math.round(TYSKIE_SCORE * multiplier);
     this.score += points;
+    if (this.isMultiplayer) mpClient.sendPickup(sprite.x, this.score);
 
     this.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
     this.hud.updateScore(this.score);
@@ -1120,7 +1150,6 @@ export class GameScene extends Phaser.Scene {
     pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = pill as Phaser.Physics.Arcade.Sprite;
-    if (this.isMultiplayer) mpClient.sendPickup(sprite.x);
     const px = sprite.x;
     const py = sprite.y;
 
@@ -1133,6 +1162,7 @@ export class GameScene extends Phaser.Scene {
     const multiplier = this.getComboMultiplier();
     const pillPoints = Math.round(PILL_SCORE * multiplier);
     this.score += pillPoints;
+    if (this.isMultiplayer) mpClient.sendPickup(px, this.score);
     this.hud.updateScore(this.score);
 
     // VFX
@@ -1222,10 +1252,9 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(1000, () => {
           if (this.ghostManager && !this.ghostManager.allDead()) {
             this.ghostManager.startSpectating();
-            // Snap camera to spectate target immediately
             const target = this.ghostManager.spectateTargetPlayer;
             if (target && target.alive) {
-              this.cameras.main.scrollX = target.sprite.x - 200;
+              this.followSpectateTarget(target.sprite);
             }
           } else {
             this.triggerMultiplayerGameOver();
@@ -1247,16 +1276,18 @@ export class GameScene extends Phaser.Scene {
       localStorage.setItem('cockroach-highscore', this.score.toString());
     }
 
-    this.time.delayedCall(250, () => {
-      this.vfx.destroy();
-      this.audio.destroy();
-      this.scene.start('GameOverScene', {
-        score: this.score,
-        timeSurvived: Math.floor(this.activePlayTime / 1000),
-        topSpeed: this.player.speedMultiplier,
-        distance: this.getDistance(),
-        obstacleType: obstacleType || null,
-        level: this.currentLevel,
+    this.time.delayedCall(800, () => {
+      crossfadeTransition(500, () => {
+        this.vfx.destroy();
+        this.audio.destroy();
+        this.scene.start('GameOverScene', {
+          score: this.score,
+          timeSurvived: Math.floor(this.activePlayTime / 1000),
+          topSpeed: this.player.speedMultiplier,
+          distance: this.getDistance(),
+          obstacleType: obstacleType || null,
+          level: this.currentLevel,
+        });
       });
     });
   }
@@ -1296,9 +1327,7 @@ export class GameScene extends Phaser.Scene {
       },
     });
 
-    if (!this.isDead) {
-      this.audio.switchBGM(config.bgmKey);
-    }
+    this.audio.switchBGM(config.bgmKey);
     this.hud.showLevelAnnouncement(config);
   }
 

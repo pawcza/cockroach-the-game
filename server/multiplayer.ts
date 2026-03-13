@@ -16,11 +16,27 @@ export function setupMultiplayer(io: Server): void {
   // Track death data server-side per lobby
   const lobbyDeathData = new Map<string, Map<string, { score: number; stats: Record<string, unknown> }>>();
 
+  /** Broadcast the current lobby list to everyone in the lobby-browser room. */
+  function broadcastLobbyList(): void {
+    io.to('lobby-browser').emit('lobbies:updated', lobbies.listLobbies());
+  }
+
   io.on('connection', (socket: Socket) => {
     let playerName = '';
 
     socket.on('set-name', (name: string) => {
       playerName = name.trim().slice(0, 20);
+    });
+
+    // Join/leave the lobby browser room for real-time list updates
+    socket.on('lobby:browse', () => {
+      socket.join('lobby-browser');
+      // Send current list immediately
+      socket.emit('lobbies:updated', lobbies.listLobbies());
+    });
+
+    socket.on('lobby:browse-stop', () => {
+      socket.leave('lobby-browser');
     });
 
     socket.on('lobby:list', (callback: Function) => {
@@ -35,6 +51,7 @@ export function setupMultiplayer(io: Server): void {
 
       const lobby = lobbies.createLobby(socket.id, playerName);
       socket.join(lobby.id);
+      socket.leave('lobby-browser');
       callback({
         lobby: {
           id: lobby.id,
@@ -42,6 +59,7 @@ export function setupMultiplayer(io: Server): void {
           status: lobby.status,
         },
       });
+      broadcastLobbyList();
     });
 
     socket.on('lobby:join', (lobbyId: string, callback: Function) => {
@@ -57,10 +75,12 @@ export function setupMultiplayer(io: Server): void {
       }
 
       socket.join(lobbyId);
+      socket.leave('lobby-browser');
       const lobbyData = serializeLobby(lobbies, lobbyId);
       callback({ lobby: lobbyData });
       // Notify others in the lobby
       socket.to(lobbyId).emit('lobby:updated', lobbyData);
+      broadcastLobbyList();
     });
 
     socket.on('lobby:leave', () => {
@@ -74,6 +94,7 @@ export function setupMultiplayer(io: Server): void {
           socket.to(result.lobbyId).emit('lobby:updated', lobbyData);
         }
       }
+      broadcastLobbyList();
     });
 
     socket.on('lobby:color', (colorIndex: number, callback: Function) => {
@@ -115,6 +136,7 @@ export function setupMultiplayer(io: Server): void {
         seed: lobby.seed,
         players,
       });
+      broadcastLobbyList();
     });
 
     // Game event relay — each event has its own handler to normalize data shapes
@@ -154,10 +176,10 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane });
     });
 
-    socket.on('game:pickup', (data: { x: number }) => {
+    socket.on('game:pickup', (data: { x: number; score: number }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:pickup', { id: socket.id, x: data.x });
+      socket.to(lobbyId).emit('game:pickup', { id: socket.id, x: data.x, score: data.score });
     });
 
     socket.on('game:death', (data: { score: number; stats: Record<string, unknown> }) => {
@@ -192,6 +214,7 @@ export function setupMultiplayer(io: Server): void {
           lobbies.endGame(lobbyId);
           io.to(lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
           lobbyDeathData.delete(lobbyId);
+          broadcastLobbyList();
         }
       }
     });
@@ -211,6 +234,7 @@ export function setupMultiplayer(io: Server): void {
       const lobbyData = serializeLobby(lobbies, lobby.id);
       callback({ ok: true });
       io.to(lobby.id).emit('lobby:updated', lobbyData);
+      broadcastLobbyList();
     });
 
     socket.on('disconnect', () => {
@@ -225,6 +249,7 @@ export function setupMultiplayer(io: Server): void {
         if (result?.disbanded && lobbyId) {
           lobbyDeathData.delete(lobbyId);
         }
+        broadcastLobbyList();
         return;
       }
 
@@ -259,6 +284,7 @@ export function setupMultiplayer(io: Server): void {
           }
         }
       }
+      broadcastLobbyList();
     });
   });
 }

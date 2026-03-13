@@ -224,7 +224,7 @@ export class ObstacleSpawner {
     // Stink waves
     const stinkStartY = centerY - onion.displayHeight * 0.3;
     for (let i = 0; i < 3; i++) {
-      const offsetX = rngBetween(this.rng, -8, 8);
+      const offsetX = Phaser.Math.Between(-8, 8);
       const stink = this.scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
       stink.setScale(0.5 + i * 0.15);
       stink.setDepth(DEPTH.OBSTACLES);
@@ -440,25 +440,29 @@ export class ObstacleSpawner {
   // ── 7. DISCO BALL (Lv6) ───────────────────────────────────────────
 
   private spawnDiscoBall(x: number): void {
-    const floor = this.randomFloor();
-    const centerY = this.getCenterY(floor);
+    const topY = this.floorTopY - OBSTACLE_OFFSET;
+    const bottomY = this.floorBottomY - OBSTACLE_OFFSET;
+    const startTop = rngRandom(this.rng) > 0.5;
+    let currentFloor: Floor = startTop ? 'top' : 'bottom';
 
-    const disco = this.createSprite(x, centerY, 'disco-ball', 'disco', floor, {
+    const disco = this.createSprite(x, startTop ? topY : bottomY, 'disco-ball', 'disco', currentFloor, {
       hitbox: { w: 0.6, h: 0.6 },
     });
     this.playSoundOnVisible(disco, 'disco-sfx', 0.4);
 
+    const tweens: Phaser.Tweens.Tween[] = [];
+
     // Constant spin
-    const spinTween = this.scene.tweens.add({
+    tweens.push(this.scene.tweens.add({
       targets: disco,
       angle: 360,
       duration: 2000,
       repeat: -1,
       ease: 'Linear',
-    });
+    }));
 
     // Pulsing scale
-    const pulseTween = this.scene.tweens.add({
+    tweens.push(this.scene.tweens.add({
       targets: disco,
       scaleX: 0.23,
       scaleY: 0.23,
@@ -466,6 +470,59 @@ export class ObstacleSpawner {
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
+    }));
+
+    // Rhythmic floor-swap every 1s: pink warm-up glow → jump
+    const warmupDuration = 400; // pink silhouette builds over 400ms
+    const jumpDuration = 100;
+    const jumpTimer = this.scene.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        if (!disco.active) return;
+        const targetFloor: Floor = currentFloor === 'top' ? 'bottom' : 'top';
+        const targetY = targetFloor === 'top' ? topY : bottomY;
+
+        // Show pink silhouette at destination before jumping
+        const silhouette = this.scene.add.circle(disco.x, targetY, 20, 0xff00ff, 0);
+        silhouette.setDepth(DEPTH.GLOW);
+        silhouette.setBlendMode(Phaser.BlendModes.ADD);
+
+        // Warm up: silhouette fades in over 400ms
+        this.scene.tweens.add({
+          targets: silhouette,
+          alpha: 0.6,
+          scaleX: 1.5,
+          scaleY: 1.5,
+          duration: warmupDuration,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            // Jump happens
+            currentFloor = targetFloor;
+            disco.setData('floor', currentFloor);
+            this.scene.tweens.add({
+              targets: disco,
+              y: targetY,
+              duration: jumpDuration,
+              ease: 'Power2',
+              onComplete: () => { if (disco.active) disco.clearTint(); },
+            });
+            // Silhouette pops and fades out
+            this.scene.tweens.add({
+              targets: silhouette,
+              alpha: 0,
+              scaleX: 2.5,
+              scaleY: 2.5,
+              duration: 200,
+              ease: 'Quad.easeOut',
+              onComplete: () => silhouette.destroy(),
+            });
+          },
+        });
+
+        // Tint pink during warmup + jump (cleared in jump onComplete above)
+        disco.setTint(0xff00ff);
+      },
     });
 
     // Rainbow light ray particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
@@ -519,7 +576,7 @@ export class ObstacleSpawner {
     };
     this.scene.events.on('update', strobeUpdate);
 
-    this.trackOnSprite(disco, [spinTween, pulseTween], [raysTimer], [strobeUpdate]);
+    this.trackOnSprite(disco, tweens, [jumpTimer, raysTimer], [strobeUpdate]);
   }
 
   // ── 8. JELLYFISH (Lv7) ────────────────────────────────────────────

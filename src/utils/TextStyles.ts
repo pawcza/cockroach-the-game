@@ -28,16 +28,16 @@ export function smallStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.Tex
   return { fontSize: '9px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
 }
 
-/** HUD elements — mobile-aware, no stroke, clean look. */
+/** HUD elements — mobile-aware. */
 export function hudStyle(mobile?: boolean, overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
   const size = mobile ? '18px' : '14px';
-  return { fontSize: size, fontFamily: BASE_FONT, color: '#ffffff', ...overrides };
+  return { fontSize: size, fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
 }
 
 /** Small HUD text — mobile-aware. */
 export function hudSmallStyle(mobile?: boolean, overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
   const size = mobile ? '12px' : '10px';
-  return { fontSize: size, fontFamily: BASE_FONT, color: '#ffffff', ...overrides };
+  return { fontSize: size, fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
 }
 
 /** Floating popup text (score, combo, etc.). */
