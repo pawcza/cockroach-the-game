@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyData, MPPlayer } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
+import { startFloatingParticles } from '../ui/SceneBackground';
 
 const FONT_FAMILY = '"Press Start 2P", monospace';
 
@@ -33,10 +34,7 @@ export class LobbyScene extends Phaser.Scene {
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
     // Floating neon particles
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00];
-    for (let i = 0; i < 8; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
-    }
+    startFloatingParticles(this, width, height, 8, [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00]);
 
     // --- TITLE ---
     this.titleText = this.add.text(width / 2, 40, `${this.getHostName()}'s Lobby`, {
@@ -342,30 +340,4 @@ export class LobbyScene extends Phaser.Scene {
     }
   }
 
-  private spawnFloatingParticle(sceneWidth: number, sceneHeight: number, colors: number[]): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    const duration = Phaser.Math.Between(3000, 7000);
-    const targetX = x + Phaser.Math.Between(-100, 100);
-    const targetY = y + Phaser.Math.Between(-150, -50);
-
-    this.tweens.add({
-      targets: particle,
-      x: targetX,
-      y: targetY,
-      alpha: 0,
-      duration,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
-    });
-  }
 }
