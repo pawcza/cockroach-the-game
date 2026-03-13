@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
-import { FONT_FAMILY, getScale } from '../ui/shared';
+import { FONT_FAMILY, getScale, OBSTACLE_TEXTURE } from '../ui/shared';
 
 interface GameOverData {
   score: number;
@@ -61,20 +61,6 @@ export class GameOverScene extends Phaser.Scene {
     pope: 'OKADZONY PRZEZ PAPIEŻA!',
     bison: 'ŻUBR CIĘ STRATOWAŁ!',
     blackhole: 'WCIĄGNIĘTY W NICOŚĆ!',
-  };
-
-  private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
-    bird: 'bird',
-    cat: 'cat-paw',
-    flipper: 'flipper',
-    newspaper: 'newspaper',
-    onion: 'onion',
-    spray: 'pest-spray',
-    disco: 'disco-ball',
-    jellyfish: 'jellyfish',
-    pope: 'pope',
-    bison: 'bison',
-    blackhole: 'black-hole',
   };
 
   private static readonly DEFAULT_DEATH = 'ZGNIOTŁEŚ SIĘ!';
@@ -170,9 +156,9 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private setupObstacleImage(width: number, titleY: number, data: GameOverData): void {
-    if (!data?.obstacleType || !GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) return;
+    if (!data?.obstacleType || !OBSTACLE_TEXTURE[data.obstacleType]) return;
 
-    const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
+    const textureKey = OBSTACLE_TEXTURE[data.obstacleType];
     const img = this.add.image(width / 2, titleY + 30, textureKey);
     img.setScale(0.25).setOrigin(0.5, 0);
 
