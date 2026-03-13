@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
+import { startFloatingParticles } from '../ui/SceneBackground';
+import { OBSTACLE_TEXTURE, OBSTACLE_LABEL, getScale } from '../ui/shared';
 
 interface MPGameOverRanking {
   id: string;
@@ -17,41 +19,6 @@ interface MPGameOverData {
 }
 
 const FONT_FAMILY = '"Press Start 2P", monospace';
-
-// Map obstacle type names to texture keys for the death icon
-const OBSTACLE_TEXTURE: Record<string, string> = {
-  onion: 'onion',
-  spray: 'pest-spray',
-  flipper: 'flipper',
-  newspaper: 'newspaper',
-  bird: 'bird',
-  cat: 'cat-paw',
-  disco: 'disco-ball',
-  jellyfish: 'jellyfish',
-  pope: 'pope',
-  bison: 'bison',
-  blackhole: 'black-hole',
-};
-
-// Polish death cause labels
-const OBSTACLE_LABEL: Record<string, string> = {
-  onion: 'Cebula',
-  spray: 'Spray',
-  flipper: 'Klapek',
-  newspaper: 'Gazeta',
-  bird: 'Ptak',
-  cat: 'Łapa kota',
-  disco: 'Dyskoteka',
-  jellyfish: 'Meduza',
-  pope: 'Papież',
-  bison: 'Żubr',
-  blackhole: 'Czarna dziura',
-  fall: 'Spadł',
-};
-
-function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
-}
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((...args: any[]) => void) | null = null;
@@ -82,10 +49,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     });
 
     // Floating neon particles
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff];
-    for (let i = 0; i < 10; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
-    }
+    startFloatingParticles(this, width, height, 10);
 
     // --- Title: "WYNIKI ZJAZDU" ---
     const title = this.add.text(width / 2, Math.round(30 * s), 'WYNIKI ZJAZDU', {
@@ -400,30 +364,4 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     }
   }
 
-  private spawnFloatingParticle(
-    sceneWidth: number,
-    sceneHeight: number,
-    colors: number[],
-  ): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    this.tweens.add({
-      targets: particle,
-      x: x + Phaser.Math.Between(-100, 100),
-      y: y + Phaser.Math.Between(-150, -50),
-      alpha: 0,
-      duration: Phaser.Math.Between(3000, 7000),
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
-    });
-  }
 }

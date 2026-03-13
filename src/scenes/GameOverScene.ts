@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
+import { OBSTACLE_TEXTURE, getScale as getSharedScale } from '../ui/shared';
 
 interface GameOverData {
   score: number;
@@ -12,10 +13,8 @@ interface GameOverData {
 /** Shared font family used for all text in the scene. */
 const FONT_FAMILY = '"Press Start 2P", monospace';
 
-/** Returns a mobile-aware scale factor. */
-function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
-}
+/** Returns a mobile-aware scale factor (delegated to shared utility). */
+const getScale = getSharedScale;
 
 /** Reusable text style presets. */
 const TEXT_STYLES = {
@@ -68,20 +67,6 @@ export class GameOverScene extends Phaser.Scene {
     pope: 'OKADZONY PRZEZ PAPIEŻA!',
     bison: 'ŻUBR CIĘ STRATOWAŁ!',
     blackhole: 'WCIĄGNIĘTY W NICOŚĆ!',
-  };
-
-  private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
-    bird: 'bird',
-    cat: 'cat-paw',
-    flipper: 'flipper',
-    newspaper: 'newspaper',
-    onion: 'onion',
-    spray: 'pest-spray',
-    disco: 'disco-ball',
-    jellyfish: 'jellyfish',
-    pope: 'pope',
-    bison: 'bison',
-    blackhole: 'black-hole',
   };
 
   private static readonly DEFAULT_DEATH = 'ZGNIOTŁEŚ SIĘ!';
@@ -177,9 +162,9 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private setupObstacleImage(width: number, titleY: number, data: GameOverData): void {
-    if (!data?.obstacleType || !GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) return;
+    if (!data?.obstacleType || !OBSTACLE_TEXTURE[data.obstacleType]) return;
 
-    const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
+    const textureKey = OBSTACLE_TEXTURE[data.obstacleType];
     const img = this.add.image(width / 2, titleY + 30, textureKey);
     img.setScale(0.25).setOrigin(0.5, 0);
 
