@@ -17,10 +17,12 @@ import {
   MIN_OBSTACLE_SPACING,
   APPLE_SPAWN_CHANCE,
   PILL_SPAWN_CHANCE,
+  TYSKIE_SPAWN_CHANCE,
   SPEED_BOOST_PER_LEVEL,
+  COLORS,
+  DEPTH,
 } from '../config/constants';
-
-const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
+import { floatUpDown, pulse, attachGlow } from '../utils/TweenPatterns';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { mpClient, MPPlayer } from '../multiplayer/MultiplayerClient';
@@ -980,17 +982,10 @@ export class GameScene extends Phaser.Scene {
         const pY = (pFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const pill = this.pills.create(slotX, pY, 'pill') as Phaser.Physics.Arcade.Sprite;
         pill.setScale(0.15);
-        pill.setDepth(10);
+        pill.setDepth(DEPTH.PICKUPS);
         (pill.body as Phaser.Physics.Arcade.Body).allowGravity = false;
         pill.setImmovable(true);
-        this.tweens.add({
-          targets: pill,
-          y: pY - 10,
-          duration: 400,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
+        floatUpDown(this, pill, 10, 400);
         const pillGlowTween = this.tweens.addCounter({
           from: 0,
           to: 360,
@@ -1006,67 +1001,32 @@ export class GameScene extends Phaser.Scene {
         });
         pill.setData('glowTween', pillGlowTween);
         // Pulsing pink glow
-        const pGlow = this.add.circle(slotX, pY, 20, 0xff00ff, 0.3).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: pGlow, alpha: 0.1, scale: 1.3, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        pill.on('destroy', () => { this.tweens.killTweensOf(pill); this.tweens.killTweensOf(pGlow); pGlow.destroy(); });
-        this.tweens.add({
-          targets: pill,
-          scaleX: 0.18,
-          scaleY: 0.18,
-          duration: 300,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
+        attachGlow(this, pill, 20, COLORS.PILL_GLOW, 0.3, { toAlpha: 0.1, toScale: 1.3, duration: 400 });
+        pulse(this, pill, 0.18, 300);
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE) {
         const tFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
         tyskie.setScale(0.18);
-        tyskie.setDepth(10);
+        tyskie.setDepth(DEPTH.PICKUPS);
         (tyskie.body as Phaser.Physics.Arcade.Body).allowGravity = false;
         tyskie.setImmovable(true);
-        this.tweens.add({
-          targets: tyskie,
-          y: tY - 8,
-          duration: 400,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        this.tweens.add({
-          targets: tyskie,
-          scale: 0.22,
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-        tyskie.setTint(0xffdd00);
+        floatUpDown(this, tyskie, 8, 400);
+        pulse(this, tyskie, 0.22, 600);
+        tyskie.setTint(COLORS.TYSKIE_GLOW);
         // Golden glow
-        const tGlow = this.add.circle(slotX, tY, 18, 0xffdd00, 0.25).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: tGlow, alpha: 0.1, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        tyskie.on('destroy', () => { this.tweens.killTweensOf(tyskie); this.tweens.killTweensOf(tGlow); tGlow.destroy(); });
+        attachGlow(this, tyskie, 18, COLORS.TYSKIE_GLOW, 0.25, { toAlpha: 0.1, duration: 600 });
       } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
         const appleFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
         const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
         const apple = this.apples.create(slotX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
         apple.setScale(0.15);
-        apple.setDepth(10);
+        apple.setDepth(DEPTH.PICKUPS);
         (apple.body as Phaser.Physics.Arcade.Body).allowGravity = false;
         apple.setImmovable(true);
-        this.tweens.add({
-          targets: apple,
-          y: appleY - 8,
-          duration: 500,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
+        floatUpDown(this, apple, 8, 500);
         // Green glow
-        const aGlow = this.add.circle(slotX, appleY, 16, 0x00ff44, 0.2).setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({ targets: aGlow, alpha: 0.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-        apple.on('destroy', () => { this.tweens.killTweensOf(apple); this.tweens.killTweensOf(aGlow); aGlow.destroy(); });
+        attachGlow(this, apple, 16, COLORS.APPLE_GLOW, 0.2, { toAlpha: 0.08, duration: 500 });
       } else {
         this.obstacleSpawner.spawn(slotX, spawnLevel);
       }

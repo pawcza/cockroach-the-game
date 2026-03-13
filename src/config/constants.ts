@@ -40,8 +40,55 @@ export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
 // Speed per level (added on top of time-based acceleration)
 export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed
 
+// Tyskie pickup
+export const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
+
 // Scoring
 export const APPLE_SCORE = 10;
 export const TYSKIE_SCORE = 25;
 export const PILL_SCORE = 100;
 export const SURVIVAL_SCORE_INTERVAL = 1000;
+
+// ── Color palettes ──────────────────────────────────────────────────
+
+export const COLORS = {
+  /** Neon accent colors */
+  NEON: [0xff00ff, 0x00ffff, 0xffff00, 0x00ff88],
+  /** Full rainbow spectrum */
+  RAINBOW: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x00ffff, 0x0088ff, 0xff00ff],
+  /** Confetti burst colors */
+  CONFETTI: [0xff00ff, 0x00ffff, 0xffff00, 0xff6600, 0x00ff88],
+  /** Apple / generic collect burst */
+  COLLECT: [0xffd700, 0xff6b35, 0xff1493, 0x00ff88, 0xffff00],
+  /** Disco ball ray colors */
+  DISCO: [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff],
+  /** Dash afterimage trail */
+  DASH_TRAIL: [0xffff00, 0xff6600, 0xff00ff, 0x00ffff, 0x00ff00],
+  /** Pill speed-line colors */
+  PILL_LINES: [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88],
+  /** Pill pickup glow */
+  PILL_GLOW: 0xff00ff,
+  /** Tyskie pickup glow */
+  TYSKIE_GLOW: 0xffdd00,
+  /** Apple pickup glow */
+  APPLE_GLOW: 0x00ff44,
+  /** Death particle color */
+  DEATH_PARTICLE: 0xff0000,
+} as const;
+
+// ── Depth layers ────────────────────────────────────────────────────
+
+export const DEPTH = {
+  GLOW: 9,
+  PICKUPS: 10,
+  OBSTACLES: 10,
+  DISCO_STROBE: 90,
+  PILL_SPEED_LINES: 988,
+  PILL_OVERLAY: 989,
+  VFX_TINT: 990,
+  VFX_VIGNETTE: 991,
+  VFX_BORDER: 993,
+  VFX_FLASH: 995,
+  VFX_TEXT: 996,
+  POPUP: 999,
+} as const;
