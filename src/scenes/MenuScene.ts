@@ -263,7 +263,7 @@ export class MenuScene extends Phaser.Scene {
     createBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
 
     // Version
-    const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', {
+    const ver = this.add.text(width - 10, height - 5, 'v0.4.269 THE KARALUCH PROJECT', {
       fontSize: '6px',
       color: '#ffffff',
       fontFamily: '"Press Start 2P", monospace',

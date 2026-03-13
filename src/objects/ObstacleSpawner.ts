@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { SeededRNG } from '../multiplayer/SeededRNG';
 import {
   obstacleRegistry,
   GameSceneAccessor,
