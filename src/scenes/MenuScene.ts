@@ -277,8 +277,34 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
 
-      // Scrollable list container
-      const listTop = 55;
+      // Column layout: rank | name | apple | tyskie | pill | score
+      const colRank = 20;
+      const colName = 65;
+      const colApple = width * 0.52;
+      const colTyskie = width * 0.62;
+      const colPill = width * 0.72;
+      const colScore = width - 20;
+      const iconScale = 0.12;
+
+      // Fixed header row (outside scroll area)
+      const headerY = 60;
+      const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+        fontSize: '8px', color: '#666666', fontFamily: FONT_FAMILY,
+        stroke: '#000000', strokeThickness: 1,
+      };
+      if (this.textures.exists('apple')) {
+        container.add(this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5));
+      }
+      if (this.textures.exists('tyskie')) {
+        container.add(this.add.image(colTyskie, headerY, 'tyskie').setScale(iconScale).setOrigin(0.5, 0.5));
+      }
+      if (this.textures.exists('pill')) {
+        container.add(this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
+      }
+      container.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
+
+      // Scrollable list container (below header)
+      const listTop = 78;
       const listBottom = height - 70;
       const lineHeight = 26;
       const scrollContainer = this.add.container(0, 0);
@@ -289,35 +315,8 @@ export class MenuScene extends Phaser.Scene {
       maskShape.fillRect(0, listTop, width, listBottom - listTop);
       scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
 
-      // Header row with pickup icons
-      const headerY = listTop + 8;
-      const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-        fontSize: '8px', color: '#666666', fontFamily: FONT_FAMILY,
-        stroke: '#000000', strokeThickness: 1,
-      };
-      // Column layout: rank | name | apple | tyskie | pill | score
-      const colRank = 20;
-      const colName = 65;
-      const colApple = width * 0.52;
-      const colTyskie = width * 0.62;
-      const colPill = width * 0.72;
-      const colScore = width - 20;
-      const iconScale = 0.12;
-
-      // Icon headers
-      if (this.textures.exists('apple')) {
-        scrollContainer.add(this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5));
-      }
-      if (this.textures.exists('tyskie')) {
-        scrollContainer.add(this.add.image(colTyskie, headerY, 'tyskie').setScale(iconScale).setOrigin(0.5, 0.5));
-      }
-      if (this.textures.exists('pill')) {
-        scrollContainer.add(this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
-      }
-      scrollContainer.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
-
       const timeEvents: Phaser.Time.TimerEvent[] = [];
-      const dataStartY = listTop + 24;
+      const dataStartY = listTop + 4;
 
       for (let i = 0; i < scores.length; i++) {
         const entry = scores[i];
