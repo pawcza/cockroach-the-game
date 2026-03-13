@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { LevelConfig } from '../config/levels';
+import { FONT_FAMILY, bodyStyle, headingStyle } from '../utils/TextStyles';
+import { DEPTH } from '../config/constants';
 
 export class MilestoneDisplay {
   private scene: Phaser.Scene;
@@ -14,24 +16,17 @@ export class MilestoneDisplay {
     const levelLabel = `POZIOM ${config.level}`;
     const nameLabel = config.name.toUpperCase();
 
-    const levelText = this.scene.add.text(w / 2, 60, levelLabel, {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
+    const levelText = this.scene.add.text(w / 2, 60, levelLabel, bodyStyle({
       color: '#ffff00',
-      stroke: '#000000',
       strokeThickness: 4,
-    });
+    }));
     levelText.setOrigin(0.5);
     levelText.setScrollFactor(0);
-    levelText.setDepth(1000);
+    levelText.setDepth(DEPTH.HUD);
     levelText.setScale(0.5);
     levelText.setAlpha(0);
 
-    const nameText = this.scene.add.text(w / 2, 95, nameLabel, {
-      fontSize: '18px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
+    const nameText = this.scene.add.text(w / 2, 95, nameLabel, headingStyle({
       strokeThickness: 6,
       shadow: {
         offsetX: 2,
@@ -41,10 +36,10 @@ export class MilestoneDisplay {
         fill: true,
         stroke: true,
       },
-    });
+    }));
     nameText.setOrigin(0.5);
     nameText.setScrollFactor(0);
-    nameText.setDepth(1000);
+    nameText.setDepth(DEPTH.HUD);
     nameText.setScale(0.5);
     nameText.setAlpha(0);
 
@@ -90,7 +85,7 @@ export class MilestoneDisplay {
     // Big score number in the center
     const numText = this.scene.add.text(w / 2, h / 2 - 20, String(threshold), {
       fontSize: cfg.numSize,
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: cfg.color,
       stroke: '#000000',
       strokeThickness: cfg.numStroke,
@@ -104,14 +99,14 @@ export class MilestoneDisplay {
     // Subtitle text below the number
     const milestone = this.scene.add.text(w / 2, h / 2 + 25, text, {
       fontSize: cfg.textSize,
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: cfg.color,
       stroke: '#000000',
       strokeThickness: cfg.stroke,
     });
     milestone.setOrigin(0.5);
     milestone.setScrollFactor(0);
-    milestone.setDepth(999);
+    milestone.setDepth(DEPTH.POPUP);
     milestone.setAlpha(0);
     milestone.setScale(0.3);
 

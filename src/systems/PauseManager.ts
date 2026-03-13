@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { GameHUD } from '../ui/GameHUD';
+import { DEPTH } from '../config/constants';
+import { titleStyle } from '../utils/TextStyles';
 
 export class PauseManager {
   private scene: Phaser.Scene;
@@ -50,15 +52,13 @@ export class PauseManager {
       this.unpauseCountdownLastShown = step;
       const text = steps[step];
       const countText = this.scene.add.text(
-        this.scene.cameras.main.width / 2, this.scene.cameras.main.height / 2 - 30, text, {
+        this.scene.cameras.main.width / 2, this.scene.cameras.main.height / 2 - 30, text,
+        titleStyle({
           fontSize: text === 'JAZDA!' ? '24px' : '32px',
-          fontFamily: '"Press Start 2P", monospace',
           color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 6,
-        },
+        }),
       );
-      countText.setOrigin(0.5).setScrollFactor(0).setDepth(4003);
+      countText.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UNPAUSE_COUNTDOWN);
       this.scene.tweens.add({
         targets: countText,
         scale: { from: 2, to: 0.5 },

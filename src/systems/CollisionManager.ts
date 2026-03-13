@@ -4,7 +4,8 @@ import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { GameHUD } from '../ui/GameHUD';
 import { mpClient } from '../multiplayer/MultiplayerClient';
-import { APPLE_SCORE, PILL_SCORE, TYSKIE_SCORE } from '../config/constants';
+import { APPLE_SCORE, PILL_SCORE, TYSKIE_SCORE, DEPTH } from '../config/constants';
+import { popupStyle } from '../utils/TextStyles';
 
 export class CollisionManager {
   private scene: Phaser.Scene;
@@ -188,15 +189,9 @@ export class CollisionManager {
   }
 
   private showPickupPopup(x: number, y: number, text: string, color: string): void {
-    const popup = this.scene.add.text(x, y - 20, text, {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
+    const popup = this.scene.add.text(x, y - 20, text, popupStyle({ color }));
     popup.setOrigin(0.5);
-    popup.setDepth(999);
+    popup.setDepth(DEPTH.POPUP);
     popup.setAlpha(0);
 
     // Phase 1: Slide up + fade in (150ms)

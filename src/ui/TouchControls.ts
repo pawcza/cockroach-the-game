@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { DEPTH } from '../config/constants';
+import { popupStyle } from '../utils/TextStyles';
 
 export interface TouchControlCallbacks {
   onSwap: () => void;
@@ -58,7 +60,7 @@ export class TouchControls {
     const swapZone = this.scene.add.rectangle(0, 0, sw / 2, sh, 0x000000, 0)
       .setOrigin(0, 0)
       .setScrollFactor(0)
-      .setDepth(2999)
+      .setDepth(DEPTH.TOUCH_ZONE)
       .setInteractive();
 
     swapZone.on('pointerdown', () => {
@@ -71,26 +73,21 @@ export class TouchControls {
       btnMargin + btnRadius, btnCenterY, btnRadius, 0xff6600, 0.5,
     )
       .setScrollFactor(0)
-      .setDepth(3000);
+      .setDepth(DEPTH.TOUCH_BUTTON);
 
     this.touchSwapLabel = this.scene.add.text(
-      btnMargin + btnRadius, btnCenterY, '\u21c5', {
-        fontSize: '28px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ff6600',
-        stroke: '#000000',
-        strokeThickness: 4,
-      },
+      btnMargin + btnRadius, btnCenterY, '\u21c5',
+      popupStyle({ fontSize: '28px', color: '#ff6600', strokeThickness: 4 }),
     )
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(3001);
+      .setDepth(DEPTH.TOUCH_LABEL);
 
     // DASH: invisible zone covering right 50% of screen
     const dashZone = this.scene.add.rectangle(sw / 2, 0, sw / 2, sh, 0x000000, 0)
       .setOrigin(0, 0)
       .setScrollFactor(0)
-      .setDepth(2999)
+      .setDepth(DEPTH.TOUCH_ZONE)
       .setInteractive();
 
     dashZone.on('pointerdown', () => {
@@ -105,24 +102,19 @@ export class TouchControls {
       sw - btnMargin - btnRadius, btnCenterY, btnRadius, 0x00ffff, 0.5,
     )
       .setScrollFactor(0)
-      .setDepth(3000);
+      .setDepth(DEPTH.TOUCH_BUTTON);
 
     // Invisible rectangle just to satisfy type for touchDashBtn (used in update loop)
     this.touchDashBtn = this.scene.add.rectangle(0, 0, 1, 1, 0x000000, 0)
       .setVisible(false);
 
     this.touchDashLabel = this.scene.add.text(
-      sw - btnMargin - btnRadius, btnCenterY, '\u25b6', {
-        fontSize: '28px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 4,
-      },
+      sw - btnMargin - btnRadius, btnCenterY, '\u25b6',
+      popupStyle({ fontSize: '28px', color: '#00ffff', strokeThickness: 4 }),
     )
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(3001);
+      .setDepth(DEPTH.TOUCH_LABEL);
 
     // Store circle ref for color updates
     this.touchDashBtn.setData('circle', this.dashCircle);
@@ -136,22 +128,17 @@ export class TouchControls {
       sw - 44, sh - 44, 56, 56, 0x00ffff, 0.4,
     )
       .setScrollFactor(0)
-      .setDepth(3000)
+      .setDepth(DEPTH.TOUCH_BUTTON)
       .setAlpha(0.3)
       .setInteractive();
 
     this.touchDashLabel = this.scene.add.text(
-      sw - 44, sh - 44, 'DASH', {
-        fontSize: '8px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 2,
-      },
+      sw - 44, sh - 44, 'DASH',
+      popupStyle({ fontSize: '8px', color: '#00ffff', strokeThickness: 2 }),
     )
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(3001)
+      .setDepth(DEPTH.TOUCH_LABEL)
       .setAlpha(0.3);
 
     this.touchDashBtn.on('pointerdown', () => {
