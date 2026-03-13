@@ -39,7 +39,6 @@ export class Player {
   private _dashReady = true;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
   private _dashStartTime = 0;
-  private _dashBlinking = false;
 
   // Invulnerability
   private _isInvulnerable = false;
@@ -126,7 +125,7 @@ export class Player {
     this._isDashing = false;
     this._dashCooldown = 0;
     this._dashReady = true;
-    this._dashBlinking = false;
+
     if (this.dashTrailTimer) { this.dashTrailTimer.destroy(); }
     this.dashTrailTimer = null;
     this._isInvulnerable = true;
@@ -228,8 +227,6 @@ export class Player {
         const throb = 0.30 + Math.sin(this.scene.time.now * 0.01) * 0.02;
         this.cockroach.setScale(throb);
       }
-    } else if (this._dashBlinking) {
-      // Don't touch tint/alpha while dash-ready blink is playing
     } else if (this._speedMultiplier >= 3 && !this._isDashing && !this._isInvulnerable) {
       const glowIntensity = Math.min((this._speedMultiplier - 3) / 5, 1);
       const r = Math.floor(255 * glowIntensity);
@@ -310,38 +307,41 @@ export class Player {
       this.cockroach.frame.name,
     );
     afterimage.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
-    afterimage.setAlpha(0.4);
+    afterimage.setAlpha(0.7);
     const trailColors = COLORS.DASH_TRAIL;
     const colorIndex = Math.floor(this._speedMultiplier) % trailColors.length;
     afterimage.setTint(trailColors[colorIndex]);
     afterimage.setFlipY(this.cockroach.flipY);
 
-    fadeAndDestroy(this.scene, afterimage, 200);
+    fadeAndDestroy(this.scene, afterimage, 350);
   }
 
   private playDashReadyEffect(): void {
     if (this._isDead) return;
-    this._dashBlinking = true;
-    this.cockroach.setTint(0x00ffff);
-    this.scene.tweens.add({
-      targets: this.cockroach,
-      alpha: { from: 1, to: 0.4 },
-      duration: 150,
-      yoyo: true,
-      repeat: 2,
-      onComplete: () => {
-        this._dashBlinking = false;
-        this.cockroach.clearTint();
-        this.cockroach.setAlpha(1);
-      },
-    });
 
-    floatingText(
-      this.scene,
-      this.cockroach.x, this.cockroach.y - 50,
-      'Prędkozapierdalacz',
-      popupStyle({ fontSize: '9px' }),
+    this.scene.sound.play('dash-ready', { volume: 0.6 });
+
+    // White flash overlay on top of cockroach
+    const flash = this.scene.add.sprite(
+      this.cockroach.x, this.cockroach.y,
+      this.cockroach.texture.key, this.cockroach.frame.name,
     );
+    flash.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
+    flash.setFlipY(this.cockroach.flipY);
+    flash.setTint(0xffffff);
+    flash.setAlpha(1);
+    flash.setDepth(this.cockroach.depth + 1);
+    flash.setBlendMode(Phaser.BlendModes.ADD);
+
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scaleX: flash.scaleX * 1.3,
+      scaleY: flash.scaleY * 1.3,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => flash.destroy(),
+    });
   }
 
   activatePill(px: number, py: number): void {

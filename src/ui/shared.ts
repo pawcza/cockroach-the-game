@@ -3,9 +3,9 @@ import Phaser from 'phaser';
 /** Shared font family used across all UI scenes. */
 export const FONT_FAMILY = '"Press Start 2P", monospace';
 
-/** Returns a mobile-aware scale factor (1.5x on mobile, 1x on desktop). */
+/** Returns a UI scale factor. */
 export function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
+  return 1;
 }
 
 /** Create a styled button with grimy cockroach aesthetic and scrolling texture. */

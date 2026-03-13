@@ -27,37 +27,26 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [BootScene, MenuScene, MultiplayerMenuScene, LobbyScene, GameScene, MultiplayerGameOverScene, GameOverScene],
   scale: {
-    mode: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-      ? Phaser.Scale.EXPAND
-      : Phaser.Scale.FIT,
+    mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 };
 
-const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
 document.fonts.ready.then(() => {
   const game = new Phaser.Game(config);
 
-  if (isMobile) {
-    // Force Phaser to recalculate on orientation change
-    const handleResize = (): void => {
-      // Small delay to let the browser settle the new dimensions
-      setTimeout(() => {
-        game.scale.resize(window.innerWidth, window.innerHeight);
-        game.scale.refresh();
-        // Restart the active scene so it rebuilds with new dimensions
-        const activeScene = game.scene.getScenes(true)[0];
-        if (activeScene) {
-          activeScene.scene.restart();
-        }
-      }, 200);
-    };
+  const handleResize = (): void => {
+    setTimeout(() => {
+      game.scale.resize(window.innerWidth, window.innerHeight);
+      game.scale.refresh();
+      const activeScene = game.scene.getScenes(true)[0];
+      if (activeScene) {
+        activeScene.scene.restart();
+      }
+    }, 200);
+  };
 
-    window.addEventListener('orientationchange', handleResize);
-    screen.orientation?.addEventListener('change', handleResize);
-
-    // Fullscreen is requested by the portrait overlay tap (index.html)
-    // and by the GRAJ button in MenuScene as backup.
-  }
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
+  screen.orientation?.addEventListener('change', handleResize);
 });

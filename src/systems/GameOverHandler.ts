@@ -1,30 +1,53 @@
 import Phaser from 'phaser';
+import { COCKROACH_START_X, DEPTH } from '../config/constants';
+import { smallStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
-import { DEPTH } from '../config/constants';
-import { smallStyle } from '../utils/TextStyles';
+import { crossfadeTransition } from '../utils/SceneTransition';
+import { GameHUD } from '../ui/GameHUD';
+
+const SCORE_MILESTONES = [
+  { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
+  { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1 },
+  { threshold: 420, text: 'BLAZE IT!', tier: 2 },
+  { threshold: 500, text: 'PIĘĆ DYCH NA BROWARA!', tier: 2 },
+  { threshold: 1000, text: 'GRAJ ZE MNOM W TYSIĄCA', tier: 3 },
+  { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
+  { threshold: 2000, text: 'DWIE BAŃKI, BOSSMAN!', tier: 4 },
+  { threshold: 2137, text: 'KREMÓWKI DLA WSZYSTKICH', tier: 4 },
+  { threshold: 2500, text: 'PYSZNOŚCI DELUXE', tier: 4 },
+  { threshold: 3000, text: 'TRZY KOŁA NA LICZNIKU', tier: 4 },
+  { threshold: 4000, text: 'CZTERY OSIEMNASTKI TYLKO W MOIM SAMOCHODZIE', tier: 5 },
+  { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
+  { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 5 },
+  { threshold: 10000, text: 'KARALUCH JEST BOGIEM!', tier: 5 },
+] as const;
 
 export class GameOverHandler {
   private scene: Phaser.Scene;
   private player: Player;
   private vfx: VisualEffects;
   private audio: AudioManager;
+  private hud: GameHUD;
   private isMultiplayer: boolean;
 
   private _mpGameOverTriggered = false;
   private deathNotificationY = 80;
-  private mpMyName = '';
+  private mpMyName: string;
+  private lastMilestone = 0;
+  private lastSpectatedMilestone = 0;
 
-  // Callbacks to get game state
   private getScore: () => number;
   private getActivePlayTime: () => number;
   private getDistance: () => number;
   private getCurrentLevel: () => number;
   private getGhostManager: () => GhostManager | null;
   private setGhostManager: (gm: GhostManager | null) => void;
+  private setIsDead: () => void;
+  private followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
 
   get mpGameOverTriggered(): boolean { return this._mpGameOverTriggered; }
 
@@ -33,6 +56,7 @@ export class GameOverHandler {
     player: Player,
     vfx: VisualEffects,
     audio: AudioManager,
+    hud: GameHUD,
     isMultiplayer: boolean,
     callbacks: {
       getScore: () => number;
@@ -41,12 +65,15 @@ export class GameOverHandler {
       getCurrentLevel: () => number;
       getGhostManager: () => GhostManager | null;
       setGhostManager: (gm: GhostManager | null) => void;
+      setIsDead: () => void;
+      followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
     },
   ) {
     this.scene = scene;
     this.player = player;
     this.vfx = vfx;
     this.audio = audio;
+    this.hud = hud;
     this.isMultiplayer = isMultiplayer;
     this.getScore = callbacks.getScore;
     this.getActivePlayTime = callbacks.getActivePlayTime;
@@ -54,21 +81,25 @@ export class GameOverHandler {
     this.getCurrentLevel = callbacks.getCurrentLevel;
     this.getGhostManager = callbacks.getGhostManager;
     this.setGhostManager = callbacks.setGhostManager;
+    this.setIsDead = callbacks.setIsDead;
+    this.followSpectateTarget = callbacks.followSpectateTarget;
     this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
   }
 
   reset(): void {
     this._mpGameOverTriggered = false;
     this.deathNotificationY = 80;
+    this.lastMilestone = 0;
+    this.lastSpectatedMilestone = 0;
   }
 
-  /** Handle death — returns true if the player just died, false if already dead. */
-  die(setIsDead: () => void, obstacleType?: string | null): boolean {
+  die(obstacleType?: string | null): void {
+    if (this.player.isDead) return;
+    this.setIsDead();
     this.player.die();
-    setIsDead();
 
     const score = this.getScore();
-    document.title = `ZGNIOT\u0141E\u015a SI\u0118! | ${score} pkt`;
+    document.title = `ZGNIOTŁEŚ SIĘ! | ${score} pkt`;
     this.scene.cameras.main.shake(300, 0.02);
 
     this.scene.sound.play('cockroach-hiss', { volume: 0.7 });
@@ -76,7 +107,6 @@ export class GameOverHandler {
     this.vfx.deathEffect();
     this.audio.playDeath();
 
-    // In multiplayer, start spectating instead of transitioning to GameOverScene
     if (this.isMultiplayer) {
       const stats = {
         timeSurvived: Math.floor(this.getActivePlayTime() / 1000),
@@ -87,17 +117,15 @@ export class GameOverHandler {
       mpClient.sendDeath(score, stats);
 
       const ghostManager = this.getGhostManager();
-      // Start spectating after death animation plays out
       if (ghostManager && !ghostManager.allDead()) {
         this.scene.cameras.main.stopFollow();
         this.scene.time.delayedCall(1000, () => {
           const gm = this.getGhostManager();
           if (gm && !gm.allDead()) {
             gm.startSpectating();
-            // Snap camera to spectate target immediately
             const target = gm.spectateTargetPlayer;
             if (target && target.alive) {
-              this.scene.cameras.main.scrollX = target.sprite.x - 200;
+              this.followSpectateTarget(target.sprite);
             }
           } else {
             this.triggerMultiplayerGameOver();
@@ -106,39 +134,36 @@ export class GameOverHandler {
       } else {
         this.triggerMultiplayerGameOver();
       }
-      return true; // Don't transition to solo GameOverScene
+      return;
     }
 
-    // Increment games played
+    // Solo mode
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
     localStorage.setItem('cockroach-games-played', (gamesPlayed + 1).toString());
 
-    // Persist high score
     const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
     if (score > highScore) {
       localStorage.setItem('cockroach-highscore', score.toString());
     }
 
-    this.scene.time.delayedCall(250, () => {
-      this.vfx.destroy();
-      this.audio.destroy();
-      this.scene.scene.start('GameOverScene', {
-        score,
-        timeSurvived: Math.floor(this.getActivePlayTime() / 1000),
-        topSpeed: this.player.speedMultiplier,
-        distance: this.getDistance(),
-        obstacleType: obstacleType || null,
-        level: this.getCurrentLevel(),
+    // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)
+    window.setTimeout(() => {
+      crossfadeTransition(500, () => {
+        this.vfx.destroy();
+        this.audio.destroy();
+        this.scene.scene.start('GameOverScene', {
+          score,
+          timeSurvived: Math.floor(this.getActivePlayTime() / 1000),
+          topSpeed: this.player.speedMultiplier,
+          distance: this.getDistance(),
+          obstacleType: obstacleType || null,
+          level: this.getCurrentLevel(),
+        });
       });
-    });
-
-    return true;
+    }, 1000);
   }
 
   triggerMultiplayerGameOver(): void {
-    // Server detects all-dead and emits game:over with rankings.
-    // As a safety net, if game:over doesn't arrive within 3s,
-    // build local rankings and transition anyway.
     if (this._mpGameOverTriggered) return;
     this.scene.time.delayedCall(3000, () => {
       if (this._mpGameOverTriggered) return;
@@ -168,10 +193,10 @@ export class GameOverHandler {
   showDeathNotification(name: string, color: number, disconnected = false): void {
     const cam = this.scene.cameras.main;
     const colorStr = '#' + color.toString(16).padStart(6, '0');
-    const label = disconnected ? `${name} uciek\u0142` : `${name} zgin\u0105\u0142!`;
+    const label = disconnected ? `${name} uciekł` : `${name} zginął!`;
 
     const text = this.scene.add.text(cam.width / 2, this.deathNotificationY, label,
-      smallStyle({ fontSize: '10px', color: colorStr }),
+      smallStyle({ color: colorStr }),
     );
     text.setOrigin(0.5, 0);
     text.setScrollFactor(0);
@@ -202,10 +227,29 @@ export class GameOverHandler {
     });
   }
 
-  /** Set up multiplayer event listeners for game:over and game:death. */
-  setupMultiplayerListeners(
-    onSetIsDead: () => boolean,
-  ): void {
+  checkMilestones(score: number): void {
+    for (const m of SCORE_MILESTONES) {
+      if (score >= m.threshold && this.lastMilestone < m.threshold) {
+        this.lastMilestone = m.threshold;
+        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
+        this.scene.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
+        break;
+      }
+    }
+  }
+
+  checkSpectatedMilestones(ghostScore: number): void {
+    for (const m of SCORE_MILESTONES) {
+      if (ghostScore >= m.threshold && this.lastSpectatedMilestone < m.threshold) {
+        this.lastSpectatedMilestone = m.threshold;
+        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
+        this.scene.sound.play(`milestone-${m.threshold}`, { volume: 0.7 });
+        break;
+      }
+    }
+  }
+
+  setupMultiplayerListeners(isDead: () => boolean): void {
     this._mpGameOverTriggered = false;
 
     mpClient.on('game:death', (data: any) => {
@@ -216,13 +260,11 @@ export class GameOverHandler {
       if (name) {
         this.showDeathNotification(name, color ?? 0xffffff);
       }
-      // If I'm spectating and all ghosts are now dead, trigger game over
-      if (onSetIsDead() && ghostManager?.allDead()) {
+      if (isDead() && ghostManager?.allDead()) {
         this.triggerMultiplayerGameOver();
       }
     });
 
-    // Handle player disconnect mid-game — kill their ghost
     mpClient.on('game:player-left', (data: any) => {
       const ghostManager = this.getGhostManager();
       const name = ghostManager?.getGhostName(data.id);
@@ -231,7 +273,7 @@ export class GameOverHandler {
       if (name) {
         this.showDeathNotification(name, color ?? 0xffffff, true);
       }
-      if (onSetIsDead() && ghostManager?.allDead()) {
+      if (isDead() && ghostManager?.allDead()) {
         this.triggerMultiplayerGameOver();
       }
     });
@@ -239,7 +281,6 @@ export class GameOverHandler {
     mpClient.on('game:over', (data: any) => {
       if (this._mpGameOverTriggered) return;
       this._mpGameOverTriggered = true;
-      // Wait for the last death animation to finish before transitioning
       this.scene.time.delayedCall(1200, () => {
         this.audio.destroy();
         this.scene.sound.stopAll();

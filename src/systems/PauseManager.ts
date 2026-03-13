@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { GameHUD } from '../ui/GameHUD';
 import { DEPTH } from '../config/constants';
-import { titleStyle } from '../utils/TextStyles';
+import { popupStyle } from '../utils/TextStyles';
+import { GameHUD } from '../ui/GameHUD';
 
 export class PauseManager {
   private scene: Phaser.Scene;
@@ -22,7 +22,7 @@ export class PauseManager {
     this.isMultiplayer = isMultiplayer;
   }
 
-  togglePause(onResumeTime: () => void): void {
+  toggle(getLastFrameTime: () => number, setLastFrameTime: (t: number) => void): void {
     if (this.isMultiplayer) return;
     if (this._isUnpauseCountdown) return;
 
@@ -31,52 +31,24 @@ export class PauseManager {
       this.scene.physics.pause();
       this.hud.showPauseOverlay();
     } else {
-      // Resume with a brief grace period to absorb the unpause input
       this._isPaused = false;
-      this._isUnpauseCountdown = true; // acts as input guard for one frame
+      this._isUnpauseCountdown = true;
       this.hud.hidePauseOverlay();
       this.scene.physics.resume();
-      onResumeTime();
+      setLastFrameTime(this.scene.time.now);
       this.scene.time.delayedCall(100, () => {
         this._isUnpauseCountdown = false;
       });
     }
   }
 
-  updateUnpauseCountdown(): void {
-    const elapsed = performance.now() - this.unpauseCountdownStart;
-    const steps = ['3', '2', '1', 'JAZDA!'];
-    const step = Math.floor(elapsed / 600);
-
-    if (step < steps.length && step > this.unpauseCountdownLastShown) {
-      this.unpauseCountdownLastShown = step;
-      const text = steps[step];
-      const countText = this.scene.add.text(
-        this.scene.cameras.main.width / 2, this.scene.cameras.main.height / 2 - 30, text,
-        titleStyle({
-          fontSize: text === 'JAZDA!' ? '24px' : '32px',
-          color: text === 'JAZDA!' ? '#00ff00' : '#ffffff',
-        }),
-      );
-      countText.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.UNPAUSE_COUNTDOWN);
-      this.scene.tweens.add({
-        targets: countText,
-        scale: { from: 2, to: 0.5 },
-        alpha: { from: 1, to: 0 },
-        duration: 500,
-        ease: 'Power2',
-        onComplete: () => countText.destroy(),
-      });
+  handlePausedInput(keys: Phaser.Input.Keyboard.Key[], escKeyCode: number, onUnpause: () => void): boolean {
+    for (const key of keys) {
+      if (key && Phaser.Input.Keyboard.JustDown(key) && key.keyCode !== escKeyCode) {
+        onUnpause();
+        return true;
+      }
     }
-
-    if (elapsed >= steps.length * 600) {
-      this._isUnpauseCountdown = false;
-      this.scene.physics.resume();
-    }
-  }
-
-  reset(): void {
-    this._isPaused = false;
-    this._isUnpauseCountdown = false;
+    return false;
   }
 }
