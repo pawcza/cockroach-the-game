@@ -32,3 +32,37 @@ export function createButton(
   bg.on('pointerdown', action);
   return { bg, txt };
 }
+
+/**
+ * Obstacle type to texture key mapping, shared between GameOverScene
+ * and MultiplayerGameOverScene.
+ */
+export const OBSTACLE_TEXTURE: Record<string, string> = {
+  bird: 'bird',
+  cat: 'cat-paw',
+  flipper: 'flipper',
+  newspaper: 'newspaper',
+  onion: 'onion',
+  spray: 'pest-spray',
+  disco: 'disco-ball',
+  jellyfish: 'jellyfish',
+  pope: 'pope',
+  bison: 'bison',
+  blackhole: 'black-hole',
+};
+
+/** Polish death-cause labels used in multiplayer game-over rankings. */
+export const OBSTACLE_LABEL: Record<string, string> = {
+  onion: 'Cebula',
+  spray: 'Spray',
+  flipper: 'Klapek',
+  newspaper: 'Gazeta',
+  bird: 'Ptak',
+  cat: 'Łapa kota',
+  disco: 'Dyskoteka',
+  jellyfish: 'Meduza',
+  pope: 'Papież',
+  bison: 'Żubr',
+  blackhole: 'Czarna dziura',
+  fall: 'Spadł',
+};

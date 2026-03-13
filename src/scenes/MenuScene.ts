@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { fetchScores } from '../ui/Scoreboard';
+import { startFloatingParticles } from '../ui/SceneBackground';
+import { ScorePage } from '../ui/ScorePage';
+import { InfoPage } from '../ui/InfoPage';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
   private menuBg!: Phaser.GameObjects.TileSprite;
   private bgScrollSpeed = 0.05;
-  private scoreCleanups: (() => void)[] = [];
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -41,10 +42,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- FLOATING NEON PARTICLES ---
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff];
-    for (let i = 0; i < 14; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
-    }
+    startFloatingParticles(this, width, height, 14);
 
     // --- PULSING VIGNETTE ---
     const vignette = this.add.graphics();
@@ -212,29 +210,13 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('MultiplayerMenuScene');
     });
 
-    // --- Scoreboard page container (off-screen to the left) ---
-    const scorePage = this.add.container(-width, 0).setDepth(10);
+    // --- Scoreboard page ---
+    const scorePage = new ScorePage(this, width, height);
+
     const showScores = (): void => {
-      // Clean up previous score page resources
-      this.scoreCleanups.forEach(fn => fn());
-      this.scoreCleanups = [];
-      scorePage.removeAll(true);
-      this.buildScorePage(scorePage, width, height);
-      const backBg = this.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
-        .setInteractive({ useHandCursor: true });
-      const backTxt = this.add.text(width / 2, height - 40, 'Powrót →', {
-        fontSize: '10px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5);
-      backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
-      backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
-      backBg.on('pointerdown', hideScores);
-      scorePage.add([backBg, backTxt]);
+      scorePage.rebuild(hideScores);
       this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: scorePage.getContainer(), x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -244,7 +226,7 @@ export class MenuScene extends Phaser.Scene {
 
     const hideScores = (): void => {
       this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: scorePage, x: -width, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: scorePage.getContainer(), x: -width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: 6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -254,31 +236,13 @@ export class MenuScene extends Phaser.Scene {
 
     createBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
 
-    // --- Info page container (off-screen to the right) ---
-    const infoPage = this.add.container(width, 0).setDepth(10);
-    let infoBuilt = false;
+    // --- Info page ---
+    const infoPage = new InfoPage(this, width, height);
 
     const showInfo = (): void => {
-      if (!infoBuilt) {
-        this.buildInfoPage(infoPage, width, height, isMobile);
-        // Back button
-        const backBg = this.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
-          .setInteractive({ useHandCursor: true });
-        const backTxt = this.add.text(width / 2, height - 40, '\u2190 Powr\u00f3t', {
-          fontSize: '10px',
-          fontFamily: '"Press Start 2P", monospace',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 3,
-        }).setOrigin(0.5);
-        backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
-        backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
-        backBg.on('pointerdown', hideInfo);
-        infoPage.add([backBg, backTxt]);
-        infoBuilt = true;
-      }
+      infoPage.ensureBuilt(hideInfo);
       this.tweens.add({ targets: mainPage, x: -width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: infoPage, x: 0, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: infoPage.getContainer(), x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: 6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -288,7 +252,7 @@ export class MenuScene extends Phaser.Scene {
 
     const hideInfo = (): void => {
       this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: infoPage, x: width, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: infoPage.getContainer(), x: width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
         onComplete: () => {
           this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
@@ -310,436 +274,10 @@ export class MenuScene extends Phaser.Scene {
 
     // Keyboard shortcuts
     this.input.keyboard!.once('keydown-SPACE', startGame);
-    this.input.keyboard!.on('keydown-T', () => { scorePage.x === 0 ? hideScores() : showScores(); });
-  }
-
-  private buildScorePage(
-    container: Phaser.GameObjects.Container,
-    width: number,
-    height: number,
-  ): void {
-    const title = this.add.text(width / 2, 30, 'BYCZE KARALUCHY', {
-      fontSize: '16px',
-      color: '#ffff00',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 5,
-    }).setOrigin(0.5);
-    container.add(title);
-
-    this.tweens.add({
-      targets: title,
-      y: title.y - 4,
-      duration: 1200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    const loadingText = this.add.text(width / 2, height / 2, 'Ładowanie...', {
-      fontSize: '12px',
-      color: '#888888',
-      fontFamily: '"Press Start 2P", monospace',
-    }).setOrigin(0.5);
-    container.add(loadingText);
-
-    fetchScores().then((scores) => {
-      loadingText.destroy();
-
-      if (scores.length === 0) {
-        const emptyText = this.add.text(width / 2, height / 2, 'Jeszcze pusto...\nBądź pierwszy!', {
-          fontSize: '14px',
-          color: '#888888',
-          fontFamily: '"Press Start 2P", monospace',
-          align: 'center',
-        }).setOrigin(0.5);
-        container.add(emptyText);
-        return;
-      }
-
-      // Scrollable list container
-      const listTop = 55;
-      const listBottom = height - 70; // room for back button
-      const lineHeight = 26;
-      const scrollContainer = this.add.container(0, 0);
-      container.add(scrollContainer);
-
-      // Mask so entries don't overflow
-      const maskShape = this.make.graphics({});
-      maskShape.fillRect(0, listTop, width, listBottom - listTop);
-      scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
-
-      const font = '"Press Start 2P", monospace';
-      const timeEvents: Phaser.Time.TimerEvent[] = [];
-
-      for (let i = 0; i < scores.length; i++) {
-        const entry = scores[i];
-        const rank = i + 1;
-        const y = listTop + i * lineHeight;
-
-        let color: string;
-        let fontSize: string;
-        let strokeThickness: number;
-
-        if (rank === 1) {
-          color = '#ff0000';
-          fontSize = '16px';
-          strokeThickness = 5;
-        } else if (rank === 2) {
-          color = '#ff6600';
-          fontSize = '14px';
-          strokeThickness = 4;
-        } else if (rank === 3) {
-          color = '#ffdd00';
-          fontSize = '13px';
-          strokeThickness = 3;
-        } else {
-          color = '#cccccc';
-          fontSize = '11px';
-          strokeThickness = 2;
-        }
-
-        const style: Phaser.Types.GameObjects.Text.TextStyle = {
-          fontSize,
-          color,
-          fontFamily: font,
-          stroke: '#000000',
-          strokeThickness,
-        };
-
-        const rankText = this.add.text(20, y, `${rank}.`, style).setOrigin(0, 0);
-        const nameText = this.add.text(70, y, entry.name, style).setOrigin(0, 0);
-        const scoreText = this.add.text(width - 20, y, String(entry.score), style).setOrigin(1, 0);
-        scrollContainer.add([rankText, nameText, scoreText]);
-
-        // Top 3 trippy effects — progressively more intense
-        if (rank === 1) {
-          // #1: color cycling + shake + scale pulse
-          const elements = [rankText, nameText, scoreText];
-          const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
-          let ci = 0;
-          timeEvents.push(this.time.addEvent({
-            delay: 150,
-            loop: true,
-            callback: () => {
-              ci = (ci + 1) % colors.length;
-              elements.forEach(el => el.setColor(colors[ci]));
-            },
-          }));
-          this.tweens.add({
-            targets: elements,
-            scaleX: { from: 1, to: 1.08 },
-            scaleY: { from: 1, to: 1.08 },
-            duration: 400,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
-          timeEvents.push(this.time.addEvent({
-            delay: 80,
-            loop: true,
-            callback: () => {
-              elements.forEach(el => {
-                el.x += Phaser.Math.Between(-1, 1);
-                el.y = y + Phaser.Math.Between(-1, 1);
-              });
-            },
-          }));
-        } else if (rank === 2) {
-          // #2: gentle glow pulse + slight wobble
-          const elements = [rankText, nameText, scoreText];
-          this.tweens.add({
-            targets: elements,
-            alpha: { from: 0.7, to: 1 },
-            duration: 600,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
-          this.tweens.add({
-            targets: elements,
-            angle: { from: -1, to: 1 },
-            duration: 800,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
-        } else if (rank === 3) {
-          // #3: subtle alpha pulse
-          const elements = [rankText, nameText, scoreText];
-          this.tweens.add({
-            targets: elements,
-            alpha: { from: 0.8, to: 1 },
-            duration: 1000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-          });
-        }
-      }
-
-      // Scroll with mouse wheel / touch drag
-      const totalHeight = scores.length * lineHeight;
-      const viewHeight = listBottom - listTop;
-      let scrollY = 0;
-      const maxScroll = Math.max(0, totalHeight - viewHeight);
-
-      // Register cleanups for time events and mask
-      this.scoreCleanups.push(
-        () => timeEvents.forEach(te => te.destroy()),
-        () => maskShape.destroy(),
-      );
-
-      if (maxScroll > 0) {
-        const wheelHandler = (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number): void => {
-          scrollY = Phaser.Math.Clamp(scrollY + dy * 0.5, 0, maxScroll);
-          scrollContainer.y = -scrollY;
-        };
-        this.input.on('wheel', wheelHandler);
-        this.scoreCleanups.push(() => this.input.off('wheel', wheelHandler));
-
-        // Touch drag scrolling
-        let dragStartY = 0;
-        let dragScrollStart = 0;
-        const hitZone = this.add.rectangle(width / 2, listTop + viewHeight / 2, width, viewHeight, 0x000000, 0)
-          .setInteractive();
-        container.add(hitZone);
-
-        hitZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-          dragStartY = pointer.y;
-          dragScrollStart = scrollY;
-        });
-
-        hitZone.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-          if (!pointer.isDown) return;
-          const delta = dragStartY - pointer.y;
-          scrollY = Phaser.Math.Clamp(dragScrollStart + delta, 0, maxScroll);
-          scrollContainer.y = -scrollY;
-        });
-      }
-    });
+    this.input.keyboard!.on('keydown-T', () => { scorePage.getContainer().x === 0 ? hideScores() : showScores(); });
   }
 
   update(): void {
     this.menuBg.tilePositionX += this.bgScrollSpeed;
-  }
-
-  private buildInfoPage(
-    container: Phaser.GameObjects.Container,
-    width: number,
-    height: number,
-    isMobile: boolean,
-  ): void {
-    // 2x2 grid layout
-    const gap = 10;
-    const zoneW = (width - gap * 3) / 2;
-    const zoneH = (height - 80 - gap * 3) / 2; // 80 = back button area
-    const left = gap + zoneW / 2;
-    const right = gap * 2 + zoneW + zoneW / 2;
-    const top = gap + zoneH / 2;
-    const bottom = gap * 2 + zoneH + zoneH / 2;
-
-    const titleStyle = (color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontSize: '20px',
-      color,
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 6,
-    });
-
-    const animateTitle = (t: Phaser.GameObjects.Text): void => {
-      this.tweens.add({
-        targets: t,
-        y: t.y - 4,
-        duration: 1200,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    };
-
-    // --- PYSZNIUTKIE (green, top-left) ---
-    container.add(this.add.rectangle(left, top, zoneW, zoneH, 0x005500, 0.3));
-    const pyszTitle = this.add.text(left, top - 30, 'Pyszniutkie', titleStyle('#00ff44')).setOrigin(0.5);
-    container.add(pyszTitle);
-    animateTitle(pyszTitle);
-
-    const pickups = ['apple', 'tyskie', 'pill'];
-    const pickupSpacing = zoneW / (pickups.length + 1);
-    const pickupY = top + 25;
-    pickups.forEach((key, i) => {
-      const ix = left - zoneW / 2 + pickupSpacing * (i + 1);
-      const icon = this.add.image(ix, pickupY, key).setScale(0.28);
-      container.add(icon);
-      this.tweens.add({
-        targets: icon,
-        y: pickupY - 4,
-        angle: { from: -5, to: 5 },
-        duration: 800 + i * 200,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    });
-
-    // --- FUJKA (red, top-right) ---
-    container.add(this.add.rectangle(right, top, zoneW, zoneH, 0x550000, 0.3));
-    const fujTitle = this.add.text(right, top - 30, 'Fujka', titleStyle('#ff3333')).setOrigin(0.5);
-    container.add(fujTitle);
-    animateTitle(fujTitle);
-
-    const obstacles = ['onion', 'pest-spray', 'newspaper', 'flipper'];
-    const obstSpacing = zoneW / (obstacles.length + 1);
-    const obstY = top + 25;
-    obstacles.forEach((key, i) => {
-      const ix = right - zoneW / 2 + obstSpacing * (i + 1);
-      const icon = this.add.image(ix, obstY, key).setScale(0.25);
-      container.add(icon);
-      this.tweens.add({
-        targets: icon,
-        y: obstY - 4,
-        angle: { from: -5, to: 5 },
-        duration: 800 + i * 150,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    });
-    const iInne = this.add.text(right, top + 60, '...i inne', {
-      fontSize: '14px',
-      color: '#ff6666',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5);
-    container.add(iInne);
-
-    // --- STEROWANIE (cyan, bottom-left) ---
-    container.add(this.add.rectangle(left, bottom, zoneW, zoneH, 0x003344, 0.3));
-    const sterTitle = this.add.text(left, bottom - 30, 'Sterowanie', titleStyle('#00ccff')).setOrigin(0.5);
-    container.add(sterTitle);
-    animateTitle(sterTitle);
-
-    const bindings: [string[], string][] = isMobile
-      ? [
-          [['Lewy ekran'], 'Zmień tor'],
-          [['Prawy ekran'], 'Dash'],
-          [['⏸'], 'Pauzka'],
-        ]
-      : [
-          [['SPACJA', '↑', '↓'], 'Zmiana toru'],
-          [['SHIFT', '↑>rot90'], 'Dash'],
-          [['ESC'], 'Pauzka'],
-        ];
-
-    const rowStartY = bottom - 10;
-    const rowSpacing = 28;
-
-    const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '13px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#111111',
-      backgroundColor: '#e8e8e8',
-      padding: { x: 6, y: 5 },
-    };
-
-    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '10px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#88ccdd',
-      stroke: '#000000',
-      strokeThickness: 3,
-    };
-
-    bindings.forEach(([keys, desc], i) => {
-      const rowY = rowStartY + i * rowSpacing;
-
-      // Keys on the left side of the zone
-      const keyTexts: Phaser.GameObjects.Text[] = [];
-      keys.forEach((k) => {
-        const rotate = k.endsWith('>rot90');
-        const label = rotate ? k.replace('>rot90', '') : k;
-        const kt = this.add.text(0, 0, label, keyStyle);
-        if (rotate) kt.setAngle(90);
-        keyTexts.push(kt);
-        container.add(kt);
-      });
-
-      const keyGap = 4;
-      let keysW = 0;
-      keyTexts.forEach((kt, ki) => {
-        keysW += kt.width;
-        if (ki < keyTexts.length - 1) keysW += keyGap;
-      });
-
-      // Place keys left-aligned within zone
-      let kx = left - zoneW / 2 + 8;
-      keyTexts.forEach((kt) => {
-        if (kt.angle !== 0) {
-          kt.setOrigin(0.5, 0.5);
-          kt.setPosition(kx + kt.width / 2, rowY);
-        } else {
-          kt.setPosition(kx, rowY);
-          kt.setOrigin(0, 0.5);
-        }
-        kx += kt.width + keyGap;
-      });
-
-      // Description right-aligned after keys
-      const descText = this.add.text(left + zoneW / 2 - 8, rowY, desc, descStyle).setOrigin(1, 0.5);
-      container.add(descText);
-    });
-
-    // --- MOJE STATY (purple, bottom-right) ---
-    container.add(this.add.rectangle(right, bottom, zoneW, zoneH, 0x330044, 0.3));
-    const statyTitle = this.add.text(right, bottom - 30, 'Moje Staty', titleStyle('#cc66ff')).setOrigin(0.5);
-    container.add(statyTitle);
-    animateTitle(statyTitle);
-
-    const highScore = localStorage.getItem('cockroach-highscore') || '0';
-    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-
-    const statStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '14px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ddaaff',
-      stroke: '#000000',
-      strokeThickness: 4,
-    };
-
-    const stat1 = this.add.text(right, bottom, `Najlepszy: ${highScore}`, statStyle).setOrigin(0.5);
-    const stat2 = this.add.text(right, bottom + 28, `Giereczki: ${gamesPlayed}`, statStyle).setOrigin(0.5);
-    container.add([stat1, stat2]);
-  }
-
-  private spawnFloatingParticle(
-    sceneWidth: number,
-    sceneHeight: number,
-    colors: number[],
-  ): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    const duration = Phaser.Math.Between(3000, 7000);
-    const targetX = x + Phaser.Math.Between(-100, 100);
-    const targetY = y + Phaser.Math.Between(-150, -50);
-
-    this.tweens.add({
-      targets: particle,
-      x: targetX,
-      y: targetY,
-      alpha: 0,
-      duration,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
-    });
   }
 }
