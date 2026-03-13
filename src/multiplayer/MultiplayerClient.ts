@@ -36,10 +36,27 @@ class MultiplayerClient {
     this.socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
     this.socket.on('connect', () => {
       this._myId = this.socket!.id!;
+      // Re-emit any pending room joins after reconnection
+      for (const handler of this.connectHandlers) handler();
     });
   }
 
+  private connectHandlers: Array<() => void> = [];
+
+  /** Register a callback to run on every (re)connect. */
+  onConnect(handler: () => void): void {
+    this.connectHandlers.push(handler);
+    // If already connected, fire immediately
+    if (this.socket?.connected) handler();
+  }
+
+  /** Remove a connect handler. */
+  offConnect(handler: () => void): void {
+    this.connectHandlers = this.connectHandlers.filter(h => h !== handler);
+  }
+
   disconnect(): void {
+    this.connectHandlers = [];
     this.socket?.disconnect();
     this.socket = null;
   }
@@ -75,6 +92,16 @@ class MultiplayerClient {
 
   async listLobbies(): Promise<MPLobbyListEntry[]> {
     return this.emitWithAck<MPLobbyListEntry[]>('lobby:list');
+  }
+
+  /** Join the lobby-browser room to receive real-time lobby list updates. */
+  startBrowsing(): void {
+    this.socket?.emit('lobby:browse');
+  }
+
+  /** Leave the lobby-browser room. */
+  stopBrowsing(): void {
+    this.socket?.emit('lobby:browse-stop');
   }
 
   async createLobby(): Promise<MPLobbyData> {
@@ -116,7 +143,7 @@ class MultiplayerClient {
   sendPillStart(): void { this.socket?.emit('game:pill-start'); }
   sendPillEnd(): void { this.socket?.emit('game:pill-end'); }
   sendPosition(x: number, lane: string): void { this.socket?.emit('game:position', { x, lane }); }
-  sendPickup(x: number): void { this.socket?.emit('game:pickup', { x }); }
+  sendPickup(x: number, score: number): void { this.socket?.emit('game:pickup', { x, score }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
   sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
 

@@ -5,6 +5,7 @@ import { titleStyle, headingStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMI
 import { floatUpDown } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
+import { crossfadeTransition } from '../utils/SceneTransition';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
@@ -20,7 +21,7 @@ export class MenuScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
 
     // Menu background with dark overlay (scrolling)
-    this.menuBg = this.add.tileSprite(0, 0, width, height, 'menu-bg').setOrigin(0, 0);
+    this.menuBg = this.add.tileSprite(0, 0, width, height, 'menu-bg').setOrigin(0, 0).setTileScale(height / 1024);
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
 
     // --- TRIPPY COLOR-CYCLING OVERLAY ---
@@ -127,15 +128,6 @@ export class MenuScene extends Phaser.Scene {
         document.documentElement.requestFullscreen?.().catch(() => {});
       }
 
-      // HTML overlay for reliable cross-scene fade
-      const fade = document.createElement('div');
-      fade.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;opacity:0;transition:opacity 0.5s;pointer-events:none;';
-      document.body.appendChild(fade);
-
-      // Force reflow then fade in the black overlay
-      fade.offsetHeight;
-      fade.style.opacity = '1';
-
       if (this.menuBgm) {
         this.tweens.add({
           targets: this.menuBgm,
@@ -144,32 +136,26 @@ export class MenuScene extends Phaser.Scene {
         });
       }
 
-      setTimeout(() => {
+      crossfadeTransition(500, () => {
         if (this.menuBgm) {
           this.menuBgm.stop();
           this.menuBgm.destroy();
           this.menuBgm = null;
         }
         this.scene.start('GameScene');
-
-        // Fade out the overlay to reveal the game
-        requestAnimationFrame(() => {
-          fade.style.opacity = '0';
-          fade.addEventListener('transitionend', () => fade.remove());
-        });
-      }, 500);
+      });
     };
 
     // --- BUTTONS vertically stacked ---
-    const btnS = buttonStyle();
-    const btnW = 280;
-    const btnH = 40;
+    const btnS = buttonStyle({ fontSize: '11px', strokeThickness: 3 });
+    const btnW = 260;
+    const btnH = 38;
     const btnStartY = 240;
     const btnSpacing = 46;
 
-    const addBtn = (y: number, label: string, color: number, action: () => void): { bg: Phaser.GameObjects.Rectangle; txt: Phaser.GameObjects.Text } => {
-      const { bg, txt } = createButton(this, width / 2, y, btnW, btnH, label, color, btnS, action);
-      mainPage.add([bg, txt]);
+    const addBtn = (y: number, label: string, color: number, action: () => void): { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text } => {
+      const { bg, txt, all } = createButton(this, width / 2, y, btnW, btnH, label, color, btnS, action);
+      mainPage.add(all);
       return { bg, txt };
     };
 
@@ -186,7 +172,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     addBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
-      this.scene.start('MultiplayerMenuScene');
+      crossfadeTransition(500, () => this.scene.start('MultiplayerMenuScene'));
     });
 
     // --- Scoreboard page container (off-screen to the left) ---
@@ -197,8 +183,8 @@ export class MenuScene extends Phaser.Scene {
       this.scoreCleanups = [];
       scorePage.removeAll(true);
       this.buildScorePage(scorePage, width, height);
-      const { bg: backBg, txt: backTxt } = createButton(this, width / 2, height - 40, 200, 36, 'Powr\u00f3t \u2192', 0x444444, buttonStyle({ fontSize: '10px' }), hideScores);
-      scorePage.add([backBg, backTxt]);
+      const scoreBack = createButton(this, width / 2, height - 40, 200, 36, 'Powr\u00f3t \u2192', 0x444444, buttonStyle({ fontSize: '10px' }), hideScores);
+      scorePage.add(scoreBack.all);
       this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
@@ -228,8 +214,8 @@ export class MenuScene extends Phaser.Scene {
       if (!infoBuilt) {
         this.buildInfoPage(infoPage, width, height, isMobile);
         // Back button
-        const { bg: backBg, txt: backTxt } = createButton(this, width / 2, height - 40, 200, 36, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideInfo);
-        infoPage.add([backBg, backTxt]);
+        const infoBack = createButton(this, width / 2, height - 40, 200, 36, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideInfo);
+        infoPage.add(infoBack.all);
         infoBuilt = true;
       }
       this.tweens.add({ targets: mainPage, x: -width, duration: 400, ease: 'Power2' });

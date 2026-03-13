@@ -77,6 +77,11 @@ export class GhostManager {
     return this.ghosts.get(id)?.color ?? null;
   }
 
+  updateGhostScore(id: string, score: number): void {
+    const ghost = this.ghosts.get(id);
+    if (ghost) ghost.updateLiveScore(score);
+  }
+
   handleDeath(id: string, score: number, stats: Record<string, unknown>): void {
     const ghost = this.ghosts.get(id);
     if (ghost) ghost.die(score, stats);

@@ -10,10 +10,12 @@ import { createButton } from '../ui/shared';
 export class LobbyScene extends Phaser.Scene {
   private lobbyData!: MPLobbyData;
   private playerListContainer!: Phaser.GameObjects.Container;
-  private startBtnBg!: Phaser.GameObjects.Rectangle;
+  private startBtnAll!: Phaser.GameObjects.GameObject[];
   private startBtnTxt!: Phaser.GameObjects.Text;
-  private readyBtnBg!: Phaser.GameObjects.Rectangle;
+  private startBtnHitZone!: Phaser.GameObjects.Rectangle;
+  private readyBtnAll!: Phaser.GameObjects.GameObject[];
   private readyBtnTxt!: Phaser.GameObjects.Text;
+  private readyBtnSetColor!: (c: number) => void;
   private playerCountText!: Phaser.GameObjects.Text;
   private titleText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
@@ -31,8 +33,9 @@ export class LobbyScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Dark background
-    this.cameras.main.setBackgroundColor('#0a0a2e');
+    // Background — scale to cover the canvas
+    const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
+    mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
     // Floating neon particles
@@ -76,17 +79,7 @@ export class LobbyScene extends Phaser.Scene {
     const actionBtnY = height - 63;
 
     // "Gotowy" ready toggle button (non-host only)
-    this.readyBtnBg = this.add.rectangle(width / 2, actionBtnY, 260, 36, 0x886600, 0.9);
-    this.readyBtnTxt = this.add.text(width / 2, actionBtnY, 'Gotowy?', btnS).setOrigin(0.5);
-    this.readyBtnBg.setInteractive({ useHandCursor: true });
-    this.readyBtnBg.on('pointerover', () => {
-      this.readyBtnBg.setAlpha(1);
-      this.readyBtnTxt.setColor('#ffff00');
-    });
-    this.readyBtnBg.on('pointerout', () => {
-      this.updateReadyButton();
-    });
-    this.readyBtnBg.on('pointerdown', () => {
+    const readyBtn = createButton(this, width / 2, actionBtnY, 260, 36, 'Gotowy?', 0x886600, btnS, () => {
       const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
       const newReady = !(me?.ready);
       mpClient.setReady(newReady).then((updatedLobby) => {
@@ -96,21 +89,12 @@ export class LobbyScene extends Phaser.Scene {
         this.updateReadyButton();
       }).catch((err) => { console.error('setReady failed:', err); });
     });
+    this.readyBtnAll = readyBtn.all;
+    this.readyBtnTxt = readyBtn.txt;
+    this.readyBtnSetColor = readyBtn.setColor;
 
     // "Rozpocznij Gre" button (host only, same position)
-    this.startBtnBg = this.add.rectangle(width / 2, actionBtnY, 260, 36, 0x008800, 0.9);
-    this.startBtnTxt = this.add.text(width / 2, actionBtnY, 'Rozpocznij Gr\u0119', btnS).setOrigin(0.5);
-    this.startBtnBg.setInteractive({ useHandCursor: true });
-    this.startBtnBg.on('pointerover', () => {
-      if (this.isStartEnabled()) {
-        this.startBtnBg.setFillStyle(0x00aa00, 1);
-        this.startBtnTxt.setColor('#ffff00');
-      }
-    });
-    this.startBtnBg.on('pointerout', () => {
-      this.updateStartButton();
-    });
-    this.startBtnBg.on('pointerdown', () => {
+    const startBtn = createButton(this, width / 2, actionBtnY, 260, 36, 'Rozpocznij Gr\u0119', 0x008800, btnS, () => {
       if (this.isStartEnabled()) {
         mpClient.startGame().then((res) => {
           this.scene.start('GameScene', {
@@ -122,6 +106,9 @@ export class LobbyScene extends Phaser.Scene {
         }).catch((err) => { console.error('startGame failed:', err); });
       }
     });
+    this.startBtnAll = startBtn.all;
+    this.startBtnTxt = startBtn.txt;
+    this.startBtnHitZone = startBtn.hitZone;
 
     // "Opusc" leave button
     const { bg: leaveBg, txt: leaveTxt } = createButton(this, width / 2, height - 25, 200, 30, 'Opu\u015b\u0107', 0x660000, buttonStyle({ fontSize: '10px' }), () => {
@@ -199,40 +186,36 @@ export class LobbyScene extends Phaser.Scene {
     const isHostPlayer = this.isHost();
     const enabled = this.isStartEnabled();
 
-    this.startBtnBg.setVisible(isHostPlayer);
-    this.startBtnTxt.setVisible(isHostPlayer);
+    for (const obj of this.startBtnAll) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(isHostPlayer);
 
     if (isHostPlayer) {
       if (enabled) {
-        this.startBtnBg.setFillStyle(0x008800, 0.9);
-        this.startBtnTxt.setColor('#ffffff');
-        this.startBtnBg.setAlpha(0.9);
+        this.startBtnTxt.setColor('#dddddd');
+        for (const obj of this.startBtnAll) (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(1);
+        this.startBtnHitZone.setInteractive({ useHandCursor: true });
       } else {
-        this.startBtnBg.setFillStyle(0x333333, 0.5);
         this.startBtnTxt.setColor('#666666');
-        this.startBtnBg.setAlpha(0.5);
+        for (const obj of this.startBtnAll) (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(0.4);
+        this.startBtnHitZone.disableInteractive();
       }
     }
   }
 
   private updateReadyButton(): void {
-    if (this.isHost()) {
-      this.readyBtnBg.setVisible(false);
-      this.readyBtnTxt.setVisible(false);
-      return;
-    }
-    this.readyBtnBg.setVisible(true);
-    this.readyBtnTxt.setVisible(true);
+    const isHost = this.isHost();
+    for (const obj of this.readyBtnAll) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(!isHost);
+    if (isHost) return;
+
     const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
     const isReady = me?.ready ?? false;
     if (isReady) {
-      this.readyBtnBg.setFillStyle(0x008800, 0.9);
+      this.readyBtnSetColor(0x008800);
       this.readyBtnTxt.setText('Gotowy!');
       this.readyBtnTxt.setColor('#00ff00');
     } else {
-      this.readyBtnBg.setFillStyle(0x886600, 0.9);
+      this.readyBtnSetColor(0x886600);
       this.readyBtnTxt.setText('Gotowy?');
-      this.readyBtnTxt.setColor('#ffffff');
+      this.readyBtnTxt.setColor('#dddddd');
     }
   }
 

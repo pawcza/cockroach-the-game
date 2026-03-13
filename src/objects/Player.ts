@@ -39,6 +39,7 @@ export class Player {
   private _dashReady = true;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
   private _dashStartTime = 0;
+  private _dashBlinking = false;
 
   // Invulnerability
   private _isInvulnerable = false;
@@ -125,6 +126,7 @@ export class Player {
     this._isDashing = false;
     this._dashCooldown = 0;
     this._dashReady = true;
+    this._dashBlinking = false;
     if (this.dashTrailTimer) { this.dashTrailTimer.destroy(); }
     this.dashTrailTimer = null;
     this._isInvulnerable = true;
@@ -191,12 +193,16 @@ export class Player {
   updateVisuals(): void {
     // Run animation — swap frames faster at higher speeds
     if (!this._isDead) {
-      const frameInterval = Math.max(60, 200 / this._speedMultiplier);
-      this.runAnimTimer += this.scene.game.loop.delta;
-      if (this.runAnimTimer >= frameInterval) {
-        this.runAnimTimer = 0;
-        this.runAnimFrame = (this.runAnimFrame + 1) % this.runFrames.length;
-        this.cockroach.setTexture(this.runFrames[this.runAnimFrame]);
+      if (this._isDashing) {
+        this.cockroach.setTexture('cockroach-dashing');
+      } else {
+        const frameInterval = Math.max(60, 200 / this._speedMultiplier);
+        this.runAnimTimer += this.scene.game.loop.delta;
+        if (this.runAnimTimer >= frameInterval) {
+          this.runAnimTimer = 0;
+          this.runAnimFrame = (this.runAnimFrame + 1) % this.runFrames.length;
+          this.cockroach.setTexture(this.runFrames[this.runAnimFrame]);
+        }
       }
     }
 
@@ -222,6 +228,8 @@ export class Player {
         const throb = 0.30 + Math.sin(this.scene.time.now * 0.01) * 0.02;
         this.cockroach.setScale(throb);
       }
+    } else if (this._dashBlinking) {
+      // Don't touch tint/alpha while dash-ready blink is playing
     } else if (this._speedMultiplier >= 3 && !this._isDashing && !this._isInvulnerable) {
       const glowIntensity = Math.min((this._speedMultiplier - 3) / 5, 1);
       const r = Math.floor(255 * glowIntensity);
@@ -313,6 +321,7 @@ export class Player {
 
   private playDashReadyEffect(): void {
     if (this._isDead) return;
+    this._dashBlinking = true;
     this.cockroach.setTint(0x00ffff);
     this.scene.tweens.add({
       targets: this.cockroach,
@@ -321,6 +330,7 @@ export class Player {
       yoyo: true,
       repeat: 2,
       onComplete: () => {
+        this._dashBlinking = false;
         this.cockroach.clearTint();
         this.cockroach.setAlpha(1);
       },

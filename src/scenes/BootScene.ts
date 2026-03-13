@@ -54,76 +54,75 @@ export class BootScene extends Phaser.Scene {
       style.remove();
     });
 
-    // --- Sprites (new pixel art assets) ---
-    this.load.image('cockroach', 'assets/cockroach.png');
-    this.load.image('cockroach-idle', 'assets/cockroach-idle.png');
-    this.load.image('cockroach-running', 'assets/cockroach-running.png');
-    this.load.image('apple', 'apple.png');
-    this.load.image('menu-bg', 'bg.png');
-    this.load.image('pest-spray', 'assets/spray.png');
-    this.load.image('newspaper', 'assets/newspaper.png');
-    this.load.image('onion', 'assets/onion.png');
-    this.load.image('flipper', 'assets/flipper.png');
-    this.load.image('bird', 'assets/bird.png');
-    this.load.image('cat-paw', 'assets/cat.png');
-    this.load.image('bird-overlook', 'assets/bird-overlook.png');
-    this.load.image('tyskie', 'assets/tyskie.png');
-    this.load.image('pill', 'assets/pill.png');
-    this.load.image('disco-ball', 'assets/disco.png');
-    this.load.image('jellyfish', 'assets/jellyfish.png');
-    this.load.image('pope', 'assets/pope.png');
-    this.load.image('bison', 'assets/bison.png');
-    this.load.image('black-hole', 'assets/blackhole.png');
-    this.load.image('cupboard', 'assets/cupboard.png');
+    // --- Sprites ---
+    const images: [string, string][] = [
+      ['cockroach', 'assets/cockroach.png'],
+      ['cockroach-idle', 'assets/cockroach-idle.png'],
+      ['cockroach-running', 'assets/cockroach-running.png'],
+      ['cockroach-dashing', 'assets/cockroach-dashing.png'],
+      ['apple', 'assets/apple.png'],
+      ['menu-bg', 'assets/bg.png'],
+      ['menu-bg-multiplayer', 'assets/bg-multiplayer.png'],
+      ['pest-spray', 'assets/spray.png'],
+      ['newspaper', 'assets/newspaper.png'],
+      ['onion', 'assets/onion.png'],
+      ['flipper', 'assets/flipper.png'],
+      ['bird', 'assets/bird.png'],
+      ['cat-paw', 'assets/cat.png'],
+      ['bird-overlook', 'assets/bird-overlook.png'],
+      ['tyskie', 'assets/tyskie.png'],
+      ['pill', 'assets/pill.png'],
+      ['disco-ball', 'assets/disco.png'],
+      ['jellyfish', 'assets/jellyfish.png'],
+      ['pope', 'assets/pope.png'],
+      ['bison', 'assets/bison.png'],
+      ['black-hole', 'assets/blackhole.png'],
+      ['cupboard', 'assets/cupboard.png'],
+      ['btn-bg', 'assets/btn.png'],
+    ];
+    for (const [key, path] of images) this.load.image(key, path);
 
     // --- Level backgrounds, floors, and BGM ---
     for (let i = 1; i <= 10; i++) {
-      this.load.image(`lv${i}-sky`, `levels/sky/lv${i}.png`);
-      this.load.image(`lv${i}-bg`, `levels/mid/lv${i}.png`);
-      this.load.image(`lv${i}-fg`, `levels/fg/lv${i}.png`);
-      this.load.image(`lv${i}-floor`, `levels/floor/lv${i}.png`);
-      this.load.audio(`bgm-lv${i}`, `levels/soundtracks/lv${i}.mp3`);
+      for (const [prefix, dir] of [['sky', 'sky'], ['bg', 'mid'], ['fg', 'fg'], ['floor', 'floor']] as const) {
+        this.load.image(`lv${i}-${prefix}`, `levels/${dir}/lv${i}.png`);
+      }
+      this.load.audio(`bgm-lv${i}`, `levels/soundtracks/lv${i}.ogg`);
     }
 
     // --- Audio ---
-    this.load.audio('jump', 'audio/jump.wav');
-    this.load.audio('apple', 'audio/apple.mp3');
-    this.load.audio('death', 'audio/death.wav');
-    this.load.audio('floor-switch', 'audio/floor-switch.wav');
-    this.load.audio('dash', 'audio/dash.wav');
-    this.load.audio('menu-bgm', 'audio/menu-bgm.wav');
-    this.load.audio('gameover-bgm', 'audio/gameover-bgm.wav');
-    this.load.audio('spray-sfx', 'audio/spray.mp3');
-    this.load.audio('newspaper-sfx', 'audio/newspaper.mp3');
-    this.load.audio('bird-sfx', 'audio/bird.mp3');
-    this.load.audio('cat-sfx', 'audio/cat.mp3');
-    this.load.audio('flipper-sfx', 'audio/flipper.mp3');
-    this.load.audio('huh', 'audio/huh.mp3');
-    this.load.audio('cockroach-hiss', 'audio/cockroach-hiss.mp3');
-    this.load.audio('cockroach-noise', 'audio/cockroach-noise.mp3');
-    this.load.audio('burp', 'audio/burp.mp3');
-    this.load.audio('pill-sfx', 'audio/pill.wav');
-    this.load.audio('disco-sfx', 'audio/disco.mp3');
-    this.load.audio('jellyfish-sfx', 'audio/jellyfish.mp3');
-    this.load.audio('pope-sfx', 'audio/pope.mp3');
-    this.load.audio('bison-sfx', 'audio/bison.ogg');
-    this.load.audio('blackhole-sfx', 'audio/blackhole.mp3');
-    this.load.audio('cricket', 'audio/cricket.mp3');
+    const audio: [string, string][] = [
+      ['jump', 'audio/jump.ogg'],
+      ['apple', 'audio/apple.ogg'],
+      ['death', 'audio/death.ogg'],
+      ['floor-switch', 'audio/floor-switch.ogg'],
+      ['dash', 'audio/dash.ogg'],
+      ['menu-bgm', 'audio/menu-bgm.ogg'],
+      ['gameover-bgm', 'audio/gameover-bgm.ogg'],
+      ['spray-sfx', 'audio/spray.ogg'],
+      ['newspaper-sfx', 'audio/newspaper.ogg'],
+      ['bird-sfx', 'audio/bird.ogg'],
+      ['cat-sfx', 'audio/cat.ogg'],
+      ['flipper-sfx', 'audio/flipper.ogg'],
+      ['huh', 'audio/huh.ogg'],
+      ['cockroach-hiss', 'audio/cockroach-hiss.ogg'],
+      ['cockroach-noise', 'audio/cockroach-noise.ogg'],
+      ['burp', 'audio/burp.ogg'],
+      ['pill-sfx', 'audio/pill.ogg'],
+      ['disco-sfx', 'audio/disco.ogg'],
+      ['jellyfish-sfx', 'audio/jellyfish.ogg'],
+      ['pope-sfx', 'audio/pope.ogg'],
+      ['bison-sfx', 'audio/bison.ogg'],
+      ['blackhole-sfx', 'audio/blackhole.ogg'],
+      ['cricket', 'audio/cricket.ogg'],
+    ];
+    for (const [key, path] of audio) this.load.audio(key, path);
 
     // Score milestone sounds
-    this.load.audio('milestone-100', 'audio/100.ogg');
-    this.load.audio('milestone-250', 'audio/250.ogg');
-    this.load.audio('milestone-420', 'audio/420.mp3');
-    this.load.audio('milestone-500', 'audio/500.ogg');
-    this.load.audio('milestone-1000', 'audio/1000.ogg');
-    this.load.audio('milestone-1500', 'audio/1500.ogg');
-    this.load.audio('milestone-2000', 'audio/2000.ogg');
-    this.load.audio('milestone-2137', 'audio/2137.wav');
-    this.load.audio('milestone-3000', 'audio/3000.ogg');
-    this.load.audio('milestone-4000', 'audio/4000.ogg');
-    this.load.audio('milestone-4200', 'audio/4200.mp3');
-    this.load.audio('milestone-5000', 'audio/5000.ogg');
-    this.load.audio('milestone-10000', 'audio/10000.mp3');
+    const milestones = [100, 250, 420, 500, 1000, 1500, 2000, 2137, 3000, 4000, 4200, 5000, 10000];
+    for (const m of milestones) {
+      this.load.audio(`milestone-${m}`, `audio/${m}.ogg`);
+    }
   }
 
   create(): void {

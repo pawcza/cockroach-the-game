@@ -44,6 +44,8 @@ export class GhostPlayer {
   private startX: number;
   private _alive = true;
   private _score = 0;
+  private _liveScore = 0;
+  private _lastSurvivalTick = 0;
   private _stats: Record<string, unknown> = {};
   private _isSpectated = false;
 
@@ -65,9 +67,14 @@ export class GhostPlayer {
 
   get alive(): boolean { return this._alive; }
   get score(): number { return this._score; }
+  get liveScore(): number { return this._liveScore; }
   get stats(): Record<string, unknown> { return this._stats; }
   get lane(): string { return this.currentFloor; }
   get isDashing(): boolean { return this._isDashing; }
+
+  updateLiveScore(score: number): void {
+    this._liveScore = score;
+  }
 
   setSpectated(spectated: boolean): void {
     this._isSpectated = spectated;
@@ -208,6 +215,13 @@ export class GhostPlayer {
 
     this.activePlayTime += delta;
 
+    // Survival score: +1 per second (mirrors GameScene scoring)
+    this._lastSurvivalTick += delta;
+    if (this._lastSurvivalTick >= 1000) {
+      this._liveScore += 1;
+      this._lastSurvivalTick -= 1000;
+    }
+
     // Move at computed speed — same formula as the real player
     const speed = this.getCurrentSpeed(); // px/s
     this.sprite.x += speed * (delta / 1000);
@@ -215,14 +229,18 @@ export class GhostPlayer {
     // Keep name label above sprite (round to avoid sub-pixel flicker)
     this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
 
-    // Run animation — faster at higher speeds
-    const speedMult = speed / COCKROACH_BASE_SPEED;
-    const frameInterval = Math.max(60, 200 / speedMult);
-    this.animTimer += delta;
-    if (this.animTimer >= frameInterval) {
-      this.animTimer = 0;
-      this.animFrame = (this.animFrame + 1) % this.runFrames.length;
-      this.sprite.setTexture(this.runFrames[this.animFrame]);
+    // Run animation — use dashing texture when dashing, cycle idle/running otherwise
+    if (this._isDashing) {
+      this.sprite.setTexture('cockroach-dashing');
+    } else {
+      const speedMult = speed / COCKROACH_BASE_SPEED;
+      const frameInterval = Math.max(60, 200 / speedMult);
+      this.animTimer += delta;
+      if (this.animTimer >= frameInterval) {
+        this.animTimer = 0;
+        this.animFrame = (this.animFrame + 1) % this.runFrames.length;
+        this.sprite.setTexture(this.runFrames[this.animFrame]);
+      }
     }
   }
 

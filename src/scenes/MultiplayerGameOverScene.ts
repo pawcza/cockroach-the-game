@@ -66,8 +66,9 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     const myId = data.myId;
     const isHost = data.isHost;
 
-    // --- Background ---
-    this.cameras.main.setBackgroundColor('#0a0a0a');
+    // --- Background --- scale to cover the canvas
+    const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
+    mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
     createPulsingOverlay(this, width, height, 0x220044, 0.3, 0.05);
 
     // Floating neon particles
@@ -293,11 +294,13 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
     // Host: Rematch with countdown; Non-host: waiting text
     if (isHost) {
-      const rematchBg = this.add.rectangle(width / 2, topBtnY, btnW, btnH, 0x880000, 0.4);
-      const countdownText = this.add.text(width / 2, topBtnY, 'Rewanzyk (5)', {
-        ...btnS,
-        color: '#888888',
-      }).setOrigin(0.5);
+      const rematch = createButton(this, width / 2, topBtnY, btnW, btnH, 'Rewanżyk (5)', 0x880000, btnS, () => {
+        mpClient.restartLobby();
+      });
+      // Disabled during countdown
+      rematch.hitZone.disableInteractive();
+      for (const obj of rematch.all) (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(0.4);
+      rematch.txt.setColor('#888888');
 
       let countdown = 5;
       this.time.addEvent({
@@ -306,24 +309,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         callback: () => {
           countdown--;
           if (countdown > 0) {
-            countdownText.setText(`Rewanzyk (${countdown})`);
+            rematch.txt.setText(`Rewanżyk (${countdown})`);
           } else {
-            countdownText.setText('Rewanzyk');
-            countdownText.setColor('#ffffff');
-            rematchBg.setAlpha(0.9);
-            rematchBg.setInteractive({ useHandCursor: true });
-
-            rematchBg.on('pointerover', () => {
-              rematchBg.setAlpha(1);
-              countdownText.setColor('#ffff00');
-            });
-            rematchBg.on('pointerout', () => {
-              rematchBg.setAlpha(0.9);
-              countdownText.setColor('#ffffff');
-            });
-            rematchBg.on('pointerdown', () => {
-              mpClient.restartLobby();
-            });
+            rematch.txt.setText('Rewanżyk');
+            rematch.txt.setColor('#dddddd');
+            for (const obj of rematch.all) (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(1);
+            rematch.hitZone.setInteractive({ useHandCursor: true });
           }
         },
       });

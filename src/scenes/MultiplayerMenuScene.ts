@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
-import { COLORS, DEPTH } from '../config/constants';
-import { titleStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { COLORS } from '../config/constants';
+import { titleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
-import { createButton } from '../ui/shared';
+import { createButton, createHtmlButton } from '../ui/shared';
+import { crossfadeTransition } from '../utils/SceneTransition';
 
 const STORAGE_KEY = 'cockroach-mp-name';
 
 export class MultiplayerMenuScene extends Phaser.Scene {
-  private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private lobbyContainer!: Phaser.GameObjects.Container;
   private lobbyMask!: Phaser.Display.Masks.GeometryMask;
   private lobbyMaskGraphics!: Phaser.GameObjects.Graphics;
@@ -16,8 +16,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   private scrollY = 0;
   private maxScroll = 0;
   private lobbies: MPLobbyListEntry[] = [];
-  private loadingSpinner: Phaser.GameObjects.Text | null = null;
-  private isLoading = false;
+  private lobbiesHandler!: (lobbies: MPLobbyListEntry[]) => void;
 
   constructor() {
     super({ key: 'MultiplayerMenuScene' });
@@ -26,8 +25,9 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Dark background
-    this.cameras.main.setBackgroundColor('#0a0a2e');
+    // Background — scale to cover the canvas
+    const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
+    mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
     // Floating neon particles
@@ -72,17 +72,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     })).setOrigin(0.5);
 
     // "Zmien" button next to nickname
-    const changeBg = this.add.rectangle(width / 2 + 140, 120, 80, 24, 0x444444, 0.9)
-      .setInteractive({ useHandCursor: true });
-    const changeTxt = this.add.text(width / 2 + 140, 120, 'Zmie\u0144', smallStyle({
-      fontSize: '8px',
-      color: '#ffffff',
-      stroke: undefined,
-      strokeThickness: 0,
-    })).setOrigin(0.5);
-    changeBg.on('pointerover', () => { changeBg.setFillStyle(0x666666, 1); changeTxt.setColor('#ffff00'); });
-    changeBg.on('pointerout', () => { changeBg.setFillStyle(0x444444, 0.9); changeTxt.setColor('#ffffff'); });
-    changeBg.on('pointerdown', () => this.showNicknameOverlay());
+    createButton(this, width / 2 + 140, 120, 80, 24, 'Zmie\u0144', 0x444444, smallStyle({ fontSize: '8px' }), () => this.showNicknameOverlay());
 
     // --- LOBBY LIST AREA ---
     const listTop = 145;
@@ -91,15 +81,6 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     // List background
     this.add.rectangle(width / 2, listTop + listHeight / 2, width - 40, listHeight, 0x111122, 0.6);
-
-    // Loading spinner (top-left of list)
-    this.loadingSpinner = this.add.text(28, listTop + 8, '/', smallStyle({
-      fontSize: '12px',
-      color: '#00ccff',
-      stroke: undefined,
-      strokeThickness: 0,
-    })).setOrigin(0, 0).setDepth(DEPTH.VIGNETTE_MENU);
-    this.showSpinner();
 
     // Scrollable container for lobby entries
     this.lobbyContainer = this.add.container(0, 0);
@@ -148,10 +129,10 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     // "Powrot" back button
     createButton(this, width / 2, height - 30, 200, 30, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), () => {
       mpClient.disconnect();
-      this.scene.start('MenuScene');
+      crossfadeTransition(500, () => this.scene.start('MenuScene'));
     });
 
-    // --- CONNECT AND START REFRESH ---
+    // --- CONNECT AND LISTEN FOR LOBBY UPDATES ---
     mpClient.connect();
     const name = localStorage.getItem(STORAGE_KEY);
     if (name) {
@@ -160,58 +141,27 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       this.showNicknameOverlay();
     }
 
-    this.refreshLobbies();
-    this.refreshInterval = setInterval(() => this.refreshLobbies(), 3000);
+    // Render initial empty state
+    this.renderLobbies();
+
+    // Listen for real-time lobby list pushes from server
+    this.lobbiesHandler = (lobbies: MPLobbyListEntry[]) => {
+      this.lobbies = lobbies;
+      this.renderLobbies();
+    };
+    mpClient.on('lobbies:updated', this.lobbiesHandler);
+
+    // Join the lobby-browser room on every (re)connect
+    const browseHandler = (): void => { mpClient.startBrowsing(); };
+    mpClient.onConnect(browseHandler);
 
     // Cleanup on scene shutdown
     this.events.on('shutdown', () => {
-      if (this.refreshInterval) {
-        clearInterval(this.refreshInterval);
-        this.refreshInterval = null;
-      }
+      mpClient.off('lobbies:updated', this.lobbiesHandler);
+      mpClient.offConnect(browseHandler);
+      mpClient.stopBrowsing();
       this.lobbyMaskGraphics.destroy();
     });
-  }
-
-  private spinnerFrames = ['/', '-', '\\', '|'];
-  private spinnerIdx = 0;
-  private spinnerTimer: Phaser.Time.TimerEvent | null = null;
-
-  private showSpinner(): void {
-    if (this.loadingSpinner) {
-      this.loadingSpinner.setVisible(true);
-      if (!this.spinnerTimer) {
-        this.spinnerTimer = this.time.addEvent({
-          delay: 100,
-          loop: true,
-          callback: () => {
-            this.spinnerIdx = (this.spinnerIdx + 1) % this.spinnerFrames.length;
-            this.loadingSpinner?.setText(this.spinnerFrames[this.spinnerIdx]);
-          },
-        });
-      }
-    }
-  }
-
-  private hideSpinner(): void {
-    if (this.loadingSpinner) {
-      this.loadingSpinner.setVisible(false);
-    }
-    if (this.spinnerTimer) {
-      this.spinnerTimer.destroy();
-      this.spinnerTimer = null;
-    }
-  }
-
-  private async refreshLobbies(): Promise<void> {
-    this.showSpinner();
-    try {
-      this.lobbies = await mpClient.listLobbies();
-      this.renderLobbies();
-    } catch {
-      // Silently fail
-    }
-    this.hideSpinner();
   }
 
   private renderLobbies(): void {
@@ -226,14 +176,25 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     this.lobbyContainer.y = 0;
 
     if (this.lobbies.length === 0) {
-      const empty = this.add.text(width / 2, listTop + listHeight / 2, 'Brak lobby...\nStw\u00f3rz w\u0142asne!', smallStyle({
-        fontSize: '10px',
-        color: '#666666',
+      const emptyTop = this.add.text(width / 2, listTop + listHeight / 2 - 16, 'Pusto tu...', titleStyle({
+        fontSize: '16px',
         align: 'center',
-        stroke: undefined,
-        strokeThickness: 0,
       })).setOrigin(0.5);
-      this.lobbyContainer.add(empty);
+      const emptyBottom = this.add.text(width / 2, listTop + listHeight / 2 + 16, 'Stw\u00f3rz lobby i zaczynaj imprez\u0119!', bodyStyle({
+        fontSize: '10px',
+        color: '#00ccff',
+        align: 'center',
+        strokeThickness: 3,
+      })).setOrigin(0.5);
+      this.tweens.add({
+        targets: emptyTop,
+        y: emptyTop.y - 4,
+        duration: 1200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.lobbyContainer.add([emptyTop, emptyBottom]);
       this.maxScroll = 0;
       return;
     }
@@ -326,31 +287,26 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
   private showNicknameOverlay(): void {
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:"Press Start 2P",monospace;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;font-family:"Press Start 2P",monospace;';
 
     const label = document.createElement('div');
     label.textContent = 'Tw\u00f3j nick:';
-    label.style.cssText = 'color:#ffff00;font-size:14px;';
+    label.style.cssText = 'color:#ffff00;font-size:24px;text-shadow:0 0 12px #ffff00;';
     overlay.appendChild(label);
 
     const input = document.createElement('input');
     input.type = 'text';
     input.maxLength = 20;
     input.value = localStorage.getItem(STORAGE_KEY) || '';
-    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:18px;padding:8px 12px;background:#111;color:#fff;border:2px solid #006688;outline:none;text-align:center;width:240px;';
+    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:28px;padding:16px 20px;background:#111;color:#fff;border:3px solid #006688;outline:none;text-align:center;width:380px;border-radius:8px;';
     overlay.appendChild(input);
 
     const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:12px;';
+    btnRow.style.cssText = 'display:flex;gap:20px;';
 
-    const submitBtn = document.createElement('button');
-    submitBtn.textContent = 'OK';
-    submitBtn.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:12px;padding:8px 16px;background:#006688;color:#fff;border:none;cursor:pointer;';
+    const submitBtn = createHtmlButton('OK', '#006688');
     btnRow.appendChild(submitBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Anuluj';
-    cancelBtn.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:12px;padding:8px 16px;background:#666;color:#fff;border:none;cursor:pointer;';
+    const cancelBtn = createHtmlButton('Anuluj', '#555');
     btnRow.appendChild(cancelBtn);
 
     overlay.appendChild(btnRow);

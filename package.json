@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n client,server -c cyan,yellow \"vite\" \"tsx watch server/index.ts\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "server:dev": "tsx server/index.ts",
@@ -29,6 +29,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
+    "concurrently": "^9.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
