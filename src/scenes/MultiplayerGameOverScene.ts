@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
+import { FONT_FAMILY, getScale, createButton } from '../ui/shared';
 
 interface MPGameOverRanking {
   id: string;
@@ -15,8 +16,6 @@ interface MPGameOverData {
   myId: string;
   isHost: boolean;
 }
-
-const FONT_FAMILY = '"Press Start 2P", monospace';
 
 // Map obstacle type names to texture keys for the death icon
 const OBSTACLE_TEXTURE: Record<string, string> = {
@@ -48,10 +47,6 @@ const OBSTACLE_LABEL: Record<string, string> = {
   blackhole: 'Czarna dziura',
   fall: 'Spadł',
 };
-
-function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
-}
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((...args: any[]) => void) | null = null;
@@ -309,8 +304,8 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     const topBtnY = bottomBtnY - btnH - btnGap;
 
     // Leave button (everyone)
-    this.createButton(
-      width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnStyle,
+    createButton(
+      this, width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnStyle,
       () => {
         this.cleanupListeners();
         mpClient.leaveLobby();
@@ -377,20 +372,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       this.cleanupListeners();
     });
-  }
-
-  private createButton(
-    x: number, y: number, w: number, h: number,
-    label: string, color: number,
-    style: Phaser.Types.GameObjects.Text.TextStyle,
-    action: () => void,
-  ): void {
-    const bg = this.add.rectangle(x, y, w, h, color, 0.9)
-      .setInteractive({ useHandCursor: true });
-    const txt = this.add.text(x, y, label, style).setOrigin(0.5);
-    bg.on('pointerover', () => { bg.setAlpha(1); txt.setColor('#ffff00'); });
-    bg.on('pointerout', () => { bg.setAlpha(0.9); txt.setColor('#ffffff'); });
-    bg.on('pointerdown', action);
   }
 
   private cleanupListeners(): void {
