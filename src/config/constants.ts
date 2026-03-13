@@ -48,3 +48,57 @@ export const APPLE_SCORE = 10;
 export const TYSKIE_SCORE = 25;
 export const PILL_SCORE = 100;
 export const SURVIVAL_SCORE_INTERVAL = 1000;
+
+// ---------------------------------------------------------------------------
+//  Color palettes
+// ---------------------------------------------------------------------------
+
+export const COLORS = {
+  /** Neon palette used across menu/multiplayer scenes. */
+  NEON: [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff] as const,
+  /** Full rainbow cycle (pill effects, afterimages). */
+  RAINBOW: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x00ffff, 0x0088ff, 0xff00ff] as const,
+  /** Confetti burst colours. */
+  CONFETTI: [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xff6600] as const,
+  /** Warm collect-effect palette. */
+  COLLECT: [0xffd700, 0xff6b35, 0xff1493, 0x00ff88, 0xffff00] as const,
+  /** Disco ball ray colours. */
+  DISCO: [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff] as const,
+  /** Dash trail per-speed colours. */
+  DASH_TRAIL: [0xffff00, 0xff6600, 0xff00ff, 0x00ffff, 0x00ff00] as const,
+  /** Pill speed-line colours. */
+  PILL_LINES: [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88] as const,
+
+  // Single-use named colours
+  PILL_GLOW: 0xff00ff,
+  TYSKIE_GLOW: 0xffdd00,
+  APPLE_GLOW: 0x00ff44,
+  DEATH_PARTICLE: 0xaa0000,
+} as const;
+
+// ---------------------------------------------------------------------------
+//  Depth layers
+// ---------------------------------------------------------------------------
+
+export const DEPTH = {
+  BACKGROUND: 0,
+  PARALLAX_MID: 1,
+  PARALLAX_FG: 2,
+  FLOOR: 3,
+  GLOW: 9,
+  PICKUPS: 10,
+  PLAYER: 50,
+  OBSTACLES: 50,
+  UI_OVERLAY: 100,
+  PILL_SPEED_LINES: 988,
+  PILL_OVERLAY: 989,
+  VFX_TINT: 990,
+  VFX_VIGNETTE: 991,
+  VFX_BORDER: 993,
+  VFX_FLASH: 995,
+  VFX_TEXT: 996,
+  POPUP: 999,
+  HUD: 1000,
+  PAUSE: 4000,
+  SCOREBOARD: 3000,
+} as const;
