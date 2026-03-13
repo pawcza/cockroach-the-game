@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
+import { COLORS } from '../config/constants';
+import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, getScale } from '../utils/TextStyles';
+import { createPulsingOverlay } from '../utils/TweenPatterns';
+import { createButton } from '../ui/shared';
 
 interface GameOverData {
   score: number;
@@ -8,48 +12,6 @@ interface GameOverData {
   distance?: number;
   obstacleType?: string | null;
 }
-
-/** Shared font family used for all text in the scene. */
-const FONT_FAMILY = '"Press Start 2P", monospace';
-
-/** Returns a mobile-aware scale factor. */
-function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
-}
-
-/** Reusable text style presets. */
-const TEXT_STYLES = {
-  title: (message: string): Phaser.Types.GameObjects.Text.TextStyle => {
-    const s = getScale();
-    return {
-      fontSize: `${Math.round((message.length > 15 ? 18 : 28) * s)}px`,
-      color: '#8b0000',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 6 * s,
-    };
-  },
-  score: (): Phaser.Types.GameObjects.Text.TextStyle => ({
-    fontSize: `${Math.round(16 * getScale())}px`,
-    color: '#ffffff',
-    fontFamily: FONT_FAMILY,
-    stroke: '#000000',
-    strokeThickness: 4 * getScale(),
-  }),
-  small: (color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
-    fontSize: `${Math.round(9 * getScale())}px`,
-    color,
-    fontFamily: FONT_FAMILY,
-  }),
-  highScore: (isRecord: boolean): Phaser.Types.GameObjects.Text.TextStyle => ({
-    fontSize: `${Math.round(11 * getScale())}px`,
-    color: isRecord ? '#ffff00' : '#ff8800',
-    fontFamily: FONT_FAMILY,
-    stroke: '#000000',
-    strokeThickness: 3 * getScale(),
-  }),
-} as const;
 
 export class GameOverScene extends Phaser.Scene {
   private gameoverBgm: Phaser.Sound.BaseSound | null = null;
@@ -85,7 +47,6 @@ export class GameOverScene extends Phaser.Scene {
   };
 
   private static readonly DEFAULT_DEATH = 'ZGNIOTŁEŚ SIĘ!';
-  private static readonly CONFETTI_COLORS = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xff6600];
 
   constructor() {
     super({ key: 'GameOverScene' });
@@ -128,20 +89,10 @@ export class GameOverScene extends Phaser.Scene {
     });
   }
 
-  // ── Background & atmosphere ────────────────────────────────────────
+  // -- Background & atmosphere -----------------------------------------------
 
   private setupBackground(width: number, height: number): void {
-    const pulseOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x440000, 0.3);
-    pulseOverlay.setBlendMode(Phaser.BlendModes.ADD);
-
-    this.tweens.add({
-      targets: pulseOverlay,
-      alpha: 0.05,
-      duration: 1500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    createPulsingOverlay(this, width, height, 0x440000, 0.3, 0.05);
 
     this.tweens.add({
       targets: this.cameras.main,
@@ -159,7 +110,7 @@ export class GameOverScene extends Phaser.Scene {
 
   private setupDeathTitle(width: number, height: number, message: string): number {
     const titleText = this.add
-      .text(width / 2, height * 0.12, message, TEXT_STYLES.title(message))
+      .text(width / 2, height * 0.12, message, adaptiveTitleStyle(message))
       .setOrigin(0.5);
 
     const baseX = titleText.x;
@@ -193,7 +144,7 @@ export class GameOverScene extends Phaser.Scene {
     });
   }
 
-  // ── Score display ──────────────────────────────────────────────────
+  // -- Score display ---------------------------------------------------------
 
   private getHighScoreInfo(finalScore: number): { isNewRecord: boolean; highScore: number } {
     const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
@@ -213,7 +164,10 @@ export class GameOverScene extends Phaser.Scene {
     // Animated count-up
     const counter = { value: 0 };
     const scoreText = this.add
-      .text(width / 2, scoreY, 'Punkciory: 0', TEXT_STYLES.score())
+      .text(width / 2, scoreY, 'Punkciory: 0', bodyStyle({
+        fontSize: `${Math.round(16 * s)}px`,
+        strokeThickness: 4 * s,
+      }))
       .setOrigin(0.5);
 
     this.tweens.add({
@@ -229,11 +183,14 @@ export class GameOverScene extends Phaser.Scene {
     // High score line
     const hsY = scoreY + Math.round(28 * s);
     const hsText = this.add
-      .text(width / 2, hsY, `Najlepsiejszy wynik: ${highScore}`, TEXT_STYLES.highScore(isNewRecord))
+      .text(width / 2, hsY, `Najlepsiejszy wynik: ${highScore}`, smallStyle({
+        fontSize: `${Math.round(11 * s)}px`,
+        color: isNewRecord ? '#ffff00' : '#ff8800',
+        strokeThickness: 3 * s,
+      }))
       .setOrigin(0.5);
 
     if (isNewRecord) {
-      // Make it bigger and animate for new records
       hsText.setFontSize(Math.round(16 * s));
       hsText.setColor('#ffff00');
       this.tweens.add({
@@ -252,7 +209,7 @@ export class GameOverScene extends Phaser.Scene {
     const s = getScale();
     const fontSize = `${Math.round(10 * s)}px`;
     const lineHeight = Math.round(20 * s);
-    let startY = height * 0.58;
+    const startY = height * 0.58;
 
     const stats: { label: string; value: string; color: string }[] = [];
     if (data?.timeSurvived !== undefined) stats.push({ label: 'Czas Przeżywalności', value: `${data.timeSurvived}s`, color: '#00ccff' });
@@ -261,26 +218,16 @@ export class GameOverScene extends Phaser.Scene {
 
     stats.forEach((stat, i) => {
       const y = startY + i * lineHeight;
-      this.add.text(width / 2 - 8, y, stat.label, {
-        fontSize,
-        color: '#aaaaaa',
-        fontFamily: FONT_FAMILY,
-      }).setOrigin(1, 0.5);
-      this.add.text(width / 2 + 8, y, stat.value, {
-        fontSize,
-        color: stat.color,
-        fontFamily: FONT_FAMILY,
-        stroke: '#000000',
-        strokeThickness: 2,
-      }).setOrigin(0, 0.5);
+      this.add.text(width / 2 - 8, y, stat.label, smallStyle({ fontSize, color: '#aaaaaa' })).setOrigin(1, 0.5);
+      this.add.text(width / 2 + 8, y, stat.value, smallStyle({ fontSize, color: stat.color, strokeThickness: 2 })).setOrigin(0, 0.5);
     });
   }
 
-  // ── Confetti ───────────────────────────────────────────────────────
+  // -- Confetti ---------------------------------------------------------------
 
   private spawnConfetti(width: number, height: number): void {
     for (let i = 0; i < 40; i++) {
-      const color = GameOverScene.CONFETTI_COLORS[i % GameOverScene.CONFETTI_COLORS.length];
+      const color = COLORS.CONFETTI[i % COLORS.CONFETTI.length];
       const size = Phaser.Math.Between(3, 8);
       const confetti = this.add.rectangle(
         Phaser.Math.Between(0, width), -20,
@@ -301,38 +248,25 @@ export class GameOverScene extends Phaser.Scene {
     }
   }
 
-  // ── Restart / navigation ───────────────────────────────────────────
+  // -- Restart / navigation ---------------------------------------------------
 
   private showDeathButtons(width: number, height: number, isNewRecord: boolean, canSave: boolean, data: GameOverData): void {
     if (this.restartBound) return;
     this.restartBound = true;
 
     const s = getScale();
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    const btnS = buttonStyle({
       fontSize: `${Math.round(12 * s)}px`,
-      fontFamily: FONT_FAMILY,
-      color: '#ffffff',
-      stroke: '#000000',
       strokeThickness: Math.round(3 * s),
-      align: 'center',
-    };
+    });
 
     const btnY = height - Math.round(60 * s);
     const btnW = Math.round(160 * s);
     const btnH = Math.round(44 * s);
     const gap = Math.round(16 * s);
 
-    const createBtn = (x: number, label: string, color: number, action: () => void): void => {
-      const bg = this.add.rectangle(x, btnY, btnW, btnH, color, 0.9)
-        .setInteractive({ useHandCursor: true });
-      const txt = this.add.text(x, btnY, label, btnStyle).setOrigin(0.5);
-      bg.on('pointerover', () => { bg.setAlpha(1); txt.setColor('#ffff00'); });
-      bg.on('pointerout', () => { bg.setAlpha(0.9); txt.setColor('#ffffff'); });
-      bg.on('pointerdown', action);
-    };
-
-    createBtn(width / 2 - btnW / 2 - gap / 2, 'Ekran Główny', 0x666666, () => this.goToMenu());
-    createBtn(width / 2 + btnW / 2 + gap / 2, 'Powtórka', 0x880000, () => this.restartGame());
+    createButton(this, width / 2 - btnW / 2 - gap / 2, btnY, btnW, btnH, 'Ekran Główny', 0x666666, btnS, () => this.goToMenu());
+    createButton(this, width / 2 + btnW / 2 + gap / 2, btnY, btnW, btnH, 'Powtórka', 0x880000, btnS, () => this.restartGame());
 
     // "Zapisz" button below the highscore text when score qualifies for top 100
     if (canSave) {
@@ -342,13 +276,10 @@ export class GameOverScene extends Phaser.Scene {
 
       const saveBg = this.add.rectangle(width / 2, saveY, saveBtnW, saveBtnH, 0x008800, 0.9)
         .setInteractive({ useHandCursor: true });
-      const saveTxt = this.add.text(width / 2, saveY, 'Zapisz', {
+      const saveTxt = this.add.text(width / 2, saveY, 'Zapisz', buttonStyle({
         fontSize: `${Math.round(12 * s)}px`,
-        fontFamily: FONT_FAMILY,
-        color: '#ffffff',
-        stroke: '#000000',
         strokeThickness: 2,
-      }).setOrigin(0.5);
+      })).setOrigin(0.5);
 
       this.tweens.add({
         targets: [saveBg, saveTxt],
@@ -446,7 +377,7 @@ export class GameOverScene extends Phaser.Scene {
     }
   }
 
-  // ── Network ────────────────────────────────────────────────────────
+  // -- Network ----------------------------------------------------------------
 
   private async submitScore(name: string, data: GameOverData): Promise<void> {
     try {
@@ -466,14 +397,14 @@ export class GameOverScene extends Phaser.Scene {
     }
   }
 
-  // ── Particles ──────────────────────────────────────────────────────
+  // -- Particles --------------------------------------------------------------
 
   private spawnDeathParticle(sceneWidth: number, sceneHeight: number): void {
     const size = Phaser.Math.Between(2, 6);
     const x = Phaser.Math.Between(0, sceneWidth);
     const y = Phaser.Math.Between(sceneHeight * 0.5, sceneHeight);
 
-    const particle = this.add.circle(x, y, size, 0xaa0000, 0.5);
+    const particle = this.add.circle(x, y, size, COLORS.DEATH_PARTICLE, 0.5);
     particle.setBlendMode(Phaser.BlendModes.ADD);
 
     this.tweens.add({

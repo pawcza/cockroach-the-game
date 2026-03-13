@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
+import { COLORS } from '../config/constants';
+import { titleStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { floatUpDown, spawnFloatingParticle } from '../utils/TweenPatterns';
+import { createButton } from '../ui/shared';
 
-const FONT_FAMILY = '"Press Start 2P", monospace';
 const STORAGE_KEY = 'cockroach-mp-name';
 
 export class MultiplayerMenuScene extends Phaser.Scene {
@@ -28,21 +31,15 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
     // Floating neon particles
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff];
     for (let i = 0; i < 10; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
+      spawnFloatingParticle(this, width, height, COLORS.NEON);
     }
 
-    // --- TITLE: ZJAZD KARALUCHOW (wobbly, yellow, trippy) ---
-    const title = this.add.text(width / 2, 50, 'ZJAZD\nKARALUCH\u00d3W', {
+    // --- TITLE: ZJAZD KARALUCHOW ---
+    const title = this.add.text(width / 2, 50, 'ZJAZD\nKARALUCH\u00d3W', titleStyle({
       fontSize: '22px',
-      color: '#ffff00',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 6,
       align: 'center',
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
 
     this.tweens.add({
       targets: title,
@@ -68,25 +65,24 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     // --- NICKNAME DISPLAY ---
     const nickname = localStorage.getItem(STORAGE_KEY) || '';
-    this.nicknameText = this.add.text(width / 2, 120, nickname ? `Gracz: ${nickname}` : 'Brak nicku!', {
+    this.nicknameText = this.add.text(width / 2, 120, nickname ? `Gracz: ${nickname}` : 'Brak nicku!', smallStyle({
       fontSize: '10px',
       color: nickname ? '#00ff66' : '#ff4444',
-      fontFamily: FONT_FAMILY,
-      stroke: '#000000',
       strokeThickness: 3,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
 
     // "Zmien" button next to nickname
-    const changeBtnBg = this.add.rectangle(width / 2 + 140, 120, 80, 24, 0x444444, 0.9)
+    const changeBg = this.add.rectangle(width / 2 + 140, 120, 80, 24, 0x444444, 0.9)
       .setInteractive({ useHandCursor: true });
-    const changeBtnTxt = this.add.text(width / 2 + 140, 120, 'Zmie\u0144', {
+    const changeTxt = this.add.text(width / 2 + 140, 120, 'Zmie\u0144', smallStyle({
       fontSize: '8px',
       color: '#ffffff',
-      fontFamily: FONT_FAMILY,
-    }).setOrigin(0.5);
-    changeBtnBg.on('pointerover', () => { changeBtnBg.setFillStyle(0x666666, 1); changeBtnTxt.setColor('#ffff00'); });
-    changeBtnBg.on('pointerout', () => { changeBtnBg.setFillStyle(0x444444, 0.9); changeBtnTxt.setColor('#ffffff'); });
-    changeBtnBg.on('pointerdown', () => this.showNicknameOverlay());
+      stroke: undefined,
+      strokeThickness: 0,
+    })).setOrigin(0.5);
+    changeBg.on('pointerover', () => { changeBg.setFillStyle(0x666666, 1); changeTxt.setColor('#ffff00'); });
+    changeBg.on('pointerout', () => { changeBg.setFillStyle(0x444444, 0.9); changeTxt.setColor('#ffffff'); });
+    changeBg.on('pointerdown', () => this.showNicknameOverlay());
 
     // --- LOBBY LIST AREA ---
     const listTop = 145;
@@ -97,11 +93,12 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     this.add.rectangle(width / 2, listTop + listHeight / 2, width - 40, listHeight, 0x111122, 0.6);
 
     // Loading spinner (top-left of list)
-    this.loadingSpinner = this.add.text(28, listTop + 8, '/', {
+    this.loadingSpinner = this.add.text(28, listTop + 8, '/', smallStyle({
       fontSize: '12px',
       color: '#00ccff',
-      fontFamily: FONT_FAMILY,
-    }).setOrigin(0, 0).setDepth(100);
+      stroke: undefined,
+      strokeThickness: 0,
+    })).setOrigin(0, 0).setDepth(100);
     this.showSpinner();
 
     // Scrollable container for lobby entries
@@ -117,7 +114,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       this.lobbyContainer.y = -this.scrollY;
     });
 
-    // Touch drag scrolling (scene-level so it doesn't steal clicks from lobby entries)
+    // Touch drag scrolling
     let dragStartY = 0;
     let dragScrollStart = 0;
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -134,25 +131,10 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     });
 
     // --- BOTTOM BUTTONS ---
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '11px',
-      fontFamily: FONT_FAMILY,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-    };
-
-    const btnW = 260;
-    const btnH = 36;
+    const btnS = buttonStyle({ fontSize: '11px' });
 
     // "Stworz Lobby" button
-    const createBg = this.add.rectangle(width / 2, height - 72, btnW, btnH, 0x006688, 0.9)
-      .setInteractive({ useHandCursor: true });
-    const createTxt = this.add.text(width / 2, height - 72, 'Stw\u00f3rz Lobby', btnStyle).setOrigin(0.5);
-    createBg.on('pointerover', () => { createBg.setFillStyle(0x008899, 1); createTxt.setColor('#ffff00'); });
-    createBg.on('pointerout', () => { createBg.setFillStyle(0x006688, 0.9); createTxt.setColor('#ffffff'); });
-    createBg.on('pointerdown', () => this.handleCreateLobby());
+    const { bg: createBg } = createButton(this, width / 2, height - 72, 260, 36, 'Stw\u00f3rz Lobby', 0x006688, btnS, () => this.handleCreateLobby());
 
     this.tweens.add({
       targets: createBg,
@@ -164,18 +146,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     });
 
     // "Powrot" back button
-    const backBg = this.add.rectangle(width / 2, height - 30, 200, 30, 0x444444, 0.9)
-      .setInteractive({ useHandCursor: true });
-    const backTxt = this.add.text(width / 2, height - 30, '\u2190 Powr\u00f3t', {
-      fontSize: '10px',
-      fontFamily: FONT_FAMILY,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
-    backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
-    backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
-    backBg.on('pointerdown', () => {
+    createButton(this, width / 2, height - 30, 200, 30, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), () => {
       mpClient.disconnect();
       this.scene.start('MenuScene');
     });
@@ -186,7 +157,6 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     if (name) {
       mpClient.setName(name);
     } else {
-      // No nickname — prompt immediately
       this.showNicknameOverlay();
     }
 
@@ -256,12 +226,13 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     this.lobbyContainer.y = 0;
 
     if (this.lobbies.length === 0) {
-      const empty = this.add.text(width / 2, listTop + listHeight / 2, 'Brak lobby...\nStw\u00f3rz w\u0142asne!', {
+      const empty = this.add.text(width / 2, listTop + listHeight / 2, 'Brak lobby...\nStw\u00f3rz w\u0142asne!', smallStyle({
         fontSize: '10px',
         color: '#666666',
-        fontFamily: FONT_FAMILY,
         align: 'center',
-      }).setOrigin(0.5);
+        stroke: undefined,
+        strokeThickness: 0,
+      })).setOrigin(0.5);
       this.lobbyContainer.add(empty);
       this.maxScroll = 0;
       return;
@@ -289,13 +260,10 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
       // Lobby text
       const lobbyText = this.add.text(40, y + lineHeight / 2 - 4,
-        `${lobby.host}'s Lobby \u2014 ${lobby.playerCount}/16`, {
+        `${lobby.host}'s Lobby \u2014 ${lobby.playerCount}/16`, smallStyle({
           fontSize: '9px',
           color: canJoin ? '#ffffff' : '#888888',
-          fontFamily: FONT_FAMILY,
-          stroke: '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0, 0.5);
+        })).setOrigin(0, 0.5);
 
       // Status badge
       let badgeColor: number;
@@ -314,11 +282,12 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       const badgeX = width - 60;
       const badgeY = y + lineHeight / 2 - 4;
       const badge = this.add.rectangle(badgeX, badgeY, 60, 18, badgeColor, 0.9);
-      const badgeTxt = this.add.text(badgeX, badgeY, badgeLabel, {
+      const badgeTxt = this.add.text(badgeX, badgeY, badgeLabel, smallStyle({
         fontSize: '7px',
         color: '#ffffff',
-        fontFamily: FONT_FAMILY,
-      }).setOrigin(0.5);
+        stroke: undefined,
+        strokeThickness: 0,
+      })).setOrigin(0.5);
 
       this.lobbyContainer.add([entryBg, lobbyText, badge, badgeTxt]);
     }
@@ -337,7 +306,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       const lobbyData = await mpClient.joinLobby(lobbyId);
       this.scene.start('LobbyScene', { lobbyData });
     } catch {
-      // Could show error — for now silently fail
+      // Could show error
     }
   }
 
@@ -351,7 +320,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       const lobbyData = await mpClient.createLobby();
       this.scene.start('LobbyScene', { lobbyData });
     } catch {
-      // Could show error — for now silently fail
+      // Could show error
     }
   }
 
@@ -409,33 +378,6 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submit();
       if (e.key === 'Escape') cleanup();
-    });
-  }
-
-  private spawnFloatingParticle(sceneWidth: number, sceneHeight: number, colors: number[]): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    const duration = Phaser.Math.Between(3000, 7000);
-    const targetX = x + Phaser.Math.Between(-100, 100);
-    const targetY = y + Phaser.Math.Between(-150, -50);
-
-    this.tweens.add({
-      targets: particle,
-      x: targetX,
-      y: targetY,
-      alpha: 0,
-      duration,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
     });
   }
 }
