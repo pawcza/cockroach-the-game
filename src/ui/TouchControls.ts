@@ -120,49 +120,11 @@ export class TouchControls {
     this.touchDashBtn.setData('circle', this.dashCircle);
   }
 
-  private createDesktopUI(sw: number, sh: number): void {
+  private createDesktopUI(_sw: number, _sh: number): void {
     this.touchSwapBtn = this.scene.add.circle(0, 0, 1, 0x000000, 0).setVisible(false) as Phaser.GameObjects.Arc;
     this.touchSwapLabel = this.scene.add.text(0, 0, '').setVisible(false);
-
-    this.touchDashBtn = this.scene.add.rectangle(
-      sw - 44, sh - 44, 56, 56, 0x00ffff, 0.4,
-    )
-      .setScrollFactor(0)
-      .setDepth(DEPTH.TOUCH_BUTTON)
-      .setAlpha(0.3)
-      .setInteractive();
-
-    this.touchDashLabel = this.scene.add.text(
-      sw - 44, sh - 44, 'DASH',
-      popupStyle({ fontSize: '8px', color: '#00ffff', strokeThickness: 2 }),
-    )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(DEPTH.TOUCH_LABEL)
-      .setAlpha(0.3);
-
-    this.touchDashBtn.on('pointerdown', () => {
-      if (this.callbacks.isDisabled()) return;
-      if (this.callbacks.isDashAllowed()) {
-        this.callbacks.onDash();
-      }
-    });
+    this.touchDashBtn = this.scene.add.rectangle(0, 0, 1, 1, 0x000000, 0).setVisible(false);
+    this.touchDashLabel = this.scene.add.text(0, 0, '').setVisible(false);
   }
 
-  updateDashState(dashReady: boolean, isDashing: boolean): void {
-    const circle = this.touchDashBtn.getData('circle') as Phaser.GameObjects.Arc | null;
-    if (dashReady) {
-      this.touchDashBtn.setFillStyle(0x00ffff, 0.4);
-      if (circle) circle.setFillStyle(0x00ffff, 0.5);
-      this.touchDashLabel.setColor('#00ffff');
-    } else if (isDashing) {
-      this.touchDashBtn.setFillStyle(0xffffff, 0.4);
-      if (circle) circle.setFillStyle(0xffffff, 0.5);
-      this.touchDashLabel.setColor('#ffffff');
-    } else {
-      this.touchDashBtn.setFillStyle(0xff6600, 0.4);
-      if (circle) circle.setFillStyle(0xff6600, 0.3);
-      this.touchDashLabel.setColor('#ff6600');
-    }
-  }
 }

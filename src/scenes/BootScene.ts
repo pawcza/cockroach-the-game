@@ -97,6 +97,7 @@ export class BootScene extends Phaser.Scene {
       ['death', 'audio/death.ogg'],
       ['floor-switch', 'audio/floor-switch.ogg'],
       ['dash', 'audio/dash.ogg'],
+      ['dash-ready', 'audio/dash-ready.ogg'],
       ['menu-bgm', 'audio/menu-bgm.ogg'],
       ['gameover-bgm', 'audio/gameover-bgm.ogg'],
       ['spray-sfx', 'audio/spray.ogg'],
