@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
+import { COLORS } from '../config/constants';
+import { titleStyle, bodyStyle, smallStyle, buttonStyle, getScale, FONT_FAMILY } from '../utils/TextStyles';
+import { createPulsingOverlay, spawnFloatingParticle } from '../utils/TweenPatterns';
+import { createButton } from '../ui/shared';
 
 interface MPGameOverRanking {
   id: string;
@@ -15,8 +19,6 @@ interface MPGameOverData {
   myId: string;
   isHost: boolean;
 }
-
-const FONT_FAMILY = '"Press Start 2P", monospace';
 
 // Map obstacle type names to texture keys for the death icon
 const OBSTACLE_TEXTURE: Record<string, string> = {
@@ -49,10 +51,6 @@ const OBSTACLE_LABEL: Record<string, string> = {
   fall: 'Spadł',
 };
 
-function getScale(): number {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 1.5 : 1;
-}
-
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((...args: any[]) => void) | null = null;
 
@@ -69,33 +67,18 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
     // --- Background ---
     this.cameras.main.setBackgroundColor('#0a0a0a');
-
-    const pulseOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x220044, 0.3);
-    pulseOverlay.setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({
-      targets: pulseOverlay,
-      alpha: 0.05,
-      duration: 1500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    createPulsingOverlay(this, width, height, 0x220044, 0.3, 0.05);
 
     // Floating neon particles
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff];
     for (let i = 0; i < 10; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
+      spawnFloatingParticle(this, width, height, COLORS.NEON);
     }
 
     // --- Title: "WYNIKI ZJAZDU" ---
-    const title = this.add.text(width / 2, Math.round(30 * s), 'WYNIKI ZJAZDU', {
+    const title = this.add.text(width / 2, Math.round(30 * s), 'WYNIKI ZJAZDU', titleStyle({
       fontSize: `${Math.round(20 * s)}px`,
-      color: '#ffff00',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      stroke: '#000000',
       strokeThickness: Math.round(6 * s),
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
 
     title.setAngle(-3);
     this.tweens.add({
@@ -120,7 +103,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
     // --- Rankings table ---
     const tableStartY = Math.round(65 * s);
-    const lineHeight = Math.round(58 * s); // more vertical padding
+    const lineHeight = Math.round(58 * s);
     const statFontSize = `${Math.round(7 * s)}px`;
 
     // Column positions
@@ -171,10 +154,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         this.add.rectangle(width / 2, y + Math.round(8 * s), width - Math.round(20 * s), lineHeight - Math.round(6 * s), 0x003322, 0.3);
       }
 
-      // Rank number (stable — never animated)
+      // Rank number (stable -- never animated)
       this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
 
-      // Player color square — bigger
+      // Player color square
       const playerColor = MP_PLAYER_COLORS[entry.color] ?? 0xffffff;
       const sq = Math.round(16 * s);
       this.add.rectangle(colColor, y, sq, sq, playerColor, 1);
@@ -211,23 +194,19 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
       if (stats.maxSpeed !== undefined) statParts.push(`${Number(stats.maxSpeed).toFixed(1)}x`);
 
-      this.add.text(statTextX, statLineY, statParts.join('  '), {
+      this.add.text(statTextX, statLineY, statParts.join('  '), smallStyle({
         fontSize: statFontSize,
         color: '#888888',
-        fontFamily: FONT_FAMILY,
-        stroke: '#000000',
         strokeThickness: 1,
-      }).setOrigin(0, 0.5);
+      })).setOrigin(0, 0.5);
 
       // "NOWY REKORD!" badge
       if (isMe && isNewRecord) {
-        const badge = this.add.text(colScore, y - Math.round(10 * s), 'NOWY REKORD!', {
+        const badge = this.add.text(colScore, y - Math.round(10 * s), 'NOWY REKORD!', smallStyle({
           fontSize: `${Math.round(7 * s)}px`,
           color: '#ffff00',
-          fontFamily: FONT_FAMILY,
-          stroke: '#000000',
           strokeThickness: Math.round(2 * s),
-        }).setOrigin(1, 0.5);
+        })).setOrigin(1, 0.5);
 
         this.tweens.add({
           targets: badge,
@@ -240,11 +219,11 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         });
       }
 
-      // Top 3 effects — only name and score animate (rank stays stable)
+      // Top 3 effects -- only name and score animate (rank stays stable)
       const animElements = [nameText, scoreText];
 
       if (rank === 1) {
-        const colors = ['#ffd700', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
+        const colors = COLORS.RAINBOW;
         let ci = 0;
         this.time.addEvent({
           delay: 150,
@@ -293,14 +272,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     }
 
     // --- Buttons ---
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    const btnS = buttonStyle({
       fontSize: `${Math.round(11 * s)}px`,
-      fontFamily: FONT_FAMILY,
-      color: '#ffffff',
-      stroke: '#000000',
       strokeThickness: Math.round(3 * s),
-      align: 'center',
-    };
+    });
 
     const btnW = Math.round(200 * s);
     const btnH = Math.round(38 * s);
@@ -309,20 +284,17 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     const topBtnY = bottomBtnY - btnH - btnGap;
 
     // Leave button (everyone)
-    this.createButton(
-      width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnStyle,
-      () => {
-        this.cleanupListeners();
-        mpClient.leaveLobby();
-        this.scene.start('MultiplayerMenuScene');
-      },
-    );
+    createButton(this, width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnS, () => {
+      this.cleanupListeners();
+      mpClient.leaveLobby();
+      this.scene.start('MultiplayerMenuScene');
+    });
 
     // Host: Rematch with countdown; Non-host: waiting text
     if (isHost) {
       const rematchBg = this.add.rectangle(width / 2, topBtnY, btnW, btnH, 0x880000, 0.4);
       const countdownText = this.add.text(width / 2, topBtnY, 'Rewanzyk (5)', {
-        ...btnStyle,
+        ...btnS,
         color: '#888888',
       }).setOrigin(0.5);
 
@@ -355,14 +327,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         },
       });
     } else {
-      this.add.text(width / 2, topBtnY, 'Oczekiwanie na\nkaralucha gospodarza...', {
+      this.add.text(width / 2, topBtnY, 'Oczekiwanie na\nkaralucha gospodarza...', smallStyle({
         fontSize: `${Math.round(8 * s)}px`,
-        fontFamily: FONT_FAMILY,
         color: '#888888',
-        stroke: '#000000',
         strokeThickness: Math.round(2 * s),
         align: 'center',
-      }).setOrigin(0.5);
+      })).setOrigin(0.5);
     }
 
     // --- Socket listeners ---
@@ -379,51 +349,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     });
   }
 
-  private createButton(
-    x: number, y: number, w: number, h: number,
-    label: string, color: number,
-    style: Phaser.Types.GameObjects.Text.TextStyle,
-    action: () => void,
-  ): void {
-    const bg = this.add.rectangle(x, y, w, h, color, 0.9)
-      .setInteractive({ useHandCursor: true });
-    const txt = this.add.text(x, y, label, style).setOrigin(0.5);
-    bg.on('pointerover', () => { bg.setAlpha(1); txt.setColor('#ffff00'); });
-    bg.on('pointerout', () => { bg.setAlpha(0.9); txt.setColor('#ffffff'); });
-    bg.on('pointerdown', action);
-  }
-
   private cleanupListeners(): void {
     if (this.lobbyUpdatedHandler) {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       this.lobbyUpdatedHandler = null;
     }
-  }
-
-  private spawnFloatingParticle(
-    sceneWidth: number,
-    sceneHeight: number,
-    colors: number[],
-  ): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    this.tweens.add({
-      targets: particle,
-      x: x + Phaser.Math.Between(-100, 100),
-      y: y + Phaser.Math.Between(-150, -50),
-      alpha: 0,
-      duration: Phaser.Math.Between(3000, 7000),
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
-    });
   }
 }

@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
+import { COLORS } from '../config/constants';
+import { titleStyle, headingStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { floatUpDown, spawnFloatingParticle } from '../utils/TweenPatterns';
+import { createButton } from '../ui/shared';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
@@ -41,9 +45,8 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- FLOATING NEON PARTICLES ---
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00, 0xff0088, 0x8800ff];
     for (let i = 0; i < 14; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
+      spawnFloatingParticle(this, width, height, COLORS.NEON);
     }
 
     // --- PULSING VIGNETTE ---
@@ -81,32 +84,19 @@ export class MenuScene extends Phaser.Scene {
     const mainPage = this.add.container(0, 0).setDepth(10);
 
     // --- TITLE ---
-    const title = this.add.text(width / 2, 140, 'KARALUCH', {
+    const title = this.add.text(width / 2, 140, 'KARALUCH', titleStyle({
       fontSize: '32px',
       color: '#8b0000',
-      fontFamily: '"Press Start 2P", monospace',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 6,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     mainPage.add(title);
 
-    this.tweens.add({
-      targets: title,
-      y: title.y - 10,
-      duration: 1500,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    floatUpDown(this, title, 10, 1500);
 
-    const subtitle = this.add.text(width / 2, 185, 'Gra przegra\u0144c\u00f3w', {
+    const subtitle = this.add.text(width / 2, 185, 'Gra przegra\u0144c\u00f3w', bodyStyle({
       fontSize: '14px',
       color: '#ff6600',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
       strokeThickness: 4,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     mainPage.add(subtitle);
 
     this.tweens.add({
@@ -169,36 +159,22 @@ export class MenuScene extends Phaser.Scene {
       }, 500);
     };
 
-    // --- 3 BUTTONS vertically stacked ---
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-    };
-
+    // --- BUTTONS vertically stacked ---
+    const btnS = buttonStyle();
     const btnW = 280;
     const btnH = 40;
     const btnStartY = 240;
     const btnSpacing = 46;
 
-    const createBtn = (y: number, label: string, color: number, action: () => void): void => {
-      const bg = this.add.rectangle(width / 2, y, btnW, btnH, color, 0.9)
-        .setInteractive({ useHandCursor: true });
-      const txt = this.add.text(width / 2, y, label, btnStyle).setOrigin(0.5);
-      bg.on('pointerover', () => { bg.setFillStyle(color, 1); txt.setColor('#ffff00'); });
-      bg.on('pointerout', () => { bg.setFillStyle(color, 0.9); txt.setColor('#ffffff'); });
-      bg.on('pointerdown', action);
+    const addBtn = (y: number, label: string, color: number, action: () => void): { bg: Phaser.GameObjects.Rectangle; txt: Phaser.GameObjects.Text } => {
+      const { bg, txt } = createButton(this, width / 2, y, btnW, btnH, label, color, btnS, action);
       mainPage.add([bg, txt]);
-      return;
+      return { bg, txt };
     };
 
-    createBtn(btnStartY, 'Jeden Karaluch', 0x880000, startGame);
+    const { bg: soloBtn } = addBtn(btnStartY, 'Jeden Karaluch', 0x880000, startGame);
 
     // Pulsing on "Jeden Karaluch" button
-    const soloBtn = mainPage.list[mainPage.list.length - 2] as Phaser.GameObjects.Rectangle;
     this.tweens.add({
       targets: soloBtn,
       alpha: { from: 0.85, to: 1 },
@@ -208,7 +184,7 @@ export class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    createBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
+    addBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
       this.scene.start('MultiplayerMenuScene');
     });
 
@@ -220,18 +196,7 @@ export class MenuScene extends Phaser.Scene {
       this.scoreCleanups = [];
       scorePage.removeAll(true);
       this.buildScorePage(scorePage, width, height);
-      const backBg = this.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
-        .setInteractive({ useHandCursor: true });
-      const backTxt = this.add.text(width / 2, height - 40, 'Powrót →', {
-        fontSize: '10px',
-        fontFamily: '"Press Start 2P", monospace',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5);
-      backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
-      backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
-      backBg.on('pointerdown', hideScores);
+      const { bg: backBg, txt: backTxt } = createButton(this, width / 2, height - 40, 200, 36, 'Powr\u00f3t \u2192', 0x444444, buttonStyle({ fontSize: '10px' }), hideScores);
       scorePage.add([backBg, backTxt]);
       this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
@@ -252,7 +217,7 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    createBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
+    addBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
 
     // --- Info page container (off-screen to the right) ---
     const infoPage = this.add.container(width, 0).setDepth(10);
@@ -262,18 +227,7 @@ export class MenuScene extends Phaser.Scene {
       if (!infoBuilt) {
         this.buildInfoPage(infoPage, width, height, isMobile);
         // Back button
-        const backBg = this.add.rectangle(width / 2, height - 40, 200, 36, 0x444444, 0.9)
-          .setInteractive({ useHandCursor: true });
-        const backTxt = this.add.text(width / 2, height - 40, '\u2190 Powr\u00f3t', {
-          fontSize: '10px',
-          fontFamily: '"Press Start 2P", monospace',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 3,
-        }).setOrigin(0.5);
-        backBg.on('pointerover', () => { backBg.setFillStyle(0x666666, 1); backTxt.setColor('#ffff00'); });
-        backBg.on('pointerout', () => { backBg.setFillStyle(0x444444, 0.9); backTxt.setColor('#ffffff'); });
-        backBg.on('pointerdown', hideInfo);
+        const { bg: backBg, txt: backTxt } = createButton(this, width / 2, height - 40, 200, 36, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideInfo);
         infoPage.add([backBg, backTxt]);
         infoBuilt = true;
       }
@@ -296,16 +250,13 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    createBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
+    addBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
 
     // Version
-    const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', {
+    const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', smallStyle({
       fontSize: '6px',
       color: '#ffffff',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(1, 1);
+    })).setOrigin(1, 1);
     mainPage.add(ver);
 
     // Keyboard shortcuts
@@ -318,48 +269,30 @@ export class MenuScene extends Phaser.Scene {
     width: number,
     height: number,
   ): void {
-    const title = this.add.text(width / 2, 30, 'BYCZE KARALUCHY', {
-      fontSize: '16px',
-      color: '#ffff00',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
-      strokeThickness: 5,
-    }).setOrigin(0.5);
+    const title = this.add.text(width / 2, 30, 'BYCZE KARALUCHY', headingStyle()).setOrigin(0.5);
     container.add(title);
 
-    this.tweens.add({
-      targets: title,
-      y: title.y - 4,
-      duration: 1200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    floatUpDown(this, title, 4, 1200);
 
-    const loadingText = this.add.text(width / 2, height / 2, 'Ładowanie...', {
-      fontSize: '12px',
-      color: '#888888',
-      fontFamily: '"Press Start 2P", monospace',
-    }).setOrigin(0.5);
+    const loadingText = this.add.text(width / 2, height / 2, '\u0141adowanie...', bodyStyle({ color: '#888888' })).setOrigin(0.5);
     container.add(loadingText);
 
     fetchScores().then((scores) => {
       loadingText.destroy();
 
       if (scores.length === 0) {
-        const emptyText = this.add.text(width / 2, height / 2, 'Jeszcze pusto...\nBądź pierwszy!', {
+        const emptyText = this.add.text(width / 2, height / 2, 'Jeszcze pusto...\nB\u0105d\u017a pierwszy!', bodyStyle({
           fontSize: '14px',
           color: '#888888',
-          fontFamily: '"Press Start 2P", monospace',
           align: 'center',
-        }).setOrigin(0.5);
+        })).setOrigin(0.5);
         container.add(emptyText);
         return;
       }
 
       // Scrollable list container
       const listTop = 55;
-      const listBottom = height - 70; // room for back button
+      const listBottom = height - 70;
       const lineHeight = 26;
       const scrollContainer = this.add.container(0, 0);
       container.add(scrollContainer);
@@ -369,7 +302,6 @@ export class MenuScene extends Phaser.Scene {
       maskShape.fillRect(0, listTop, width, listBottom - listTop);
       scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
 
-      const font = '"Press Start 2P", monospace';
       const timeEvents: Phaser.Time.TimerEvent[] = [];
 
       for (let i = 0; i < scores.length; i++) {
@@ -402,7 +334,7 @@ export class MenuScene extends Phaser.Scene {
         const style: Phaser.Types.GameObjects.Text.TextStyle = {
           fontSize,
           color,
-          fontFamily: font,
+          fontFamily: FONT_FAMILY,
           stroke: '#000000',
           strokeThickness,
         };
@@ -412,9 +344,8 @@ export class MenuScene extends Phaser.Scene {
         const scoreText = this.add.text(width - 20, y, String(entry.score), style).setOrigin(1, 0);
         scrollContainer.add([rankText, nameText, scoreText]);
 
-        // Top 3 trippy effects — progressively more intense
+        // Top 3 trippy effects
         if (rank === 1) {
-          // #1: color cycling + shake + scale pulse
           const elements = [rankText, nameText, scoreText];
           const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
           let ci = 0;
@@ -446,7 +377,6 @@ export class MenuScene extends Phaser.Scene {
             },
           }));
         } else if (rank === 2) {
-          // #2: gentle glow pulse + slight wobble
           const elements = [rankText, nameText, scoreText];
           this.tweens.add({
             targets: elements,
@@ -465,7 +395,6 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 3) {
-          // #3: subtle alpha pulse
           const elements = [rankText, nameText, scoreText];
           this.tweens.add({
             targets: elements,
@@ -533,34 +462,25 @@ export class MenuScene extends Phaser.Scene {
     // 2x2 grid layout
     const gap = 10;
     const zoneW = (width - gap * 3) / 2;
-    const zoneH = (height - 80 - gap * 3) / 2; // 80 = back button area
+    const zoneH = (height - 80 - gap * 3) / 2;
     const left = gap + zoneW / 2;
     const right = gap * 2 + zoneW + zoneW / 2;
     const top = gap + zoneH / 2;
     const bottom = gap * 2 + zoneH + zoneH / 2;
 
-    const titleStyle = (color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
+    const zoneTitleStyle = (color: string): Phaser.Types.GameObjects.Text.TextStyle => headingStyle({
       fontSize: '20px',
       color,
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
       strokeThickness: 6,
     });
 
     const animateTitle = (t: Phaser.GameObjects.Text): void => {
-      this.tweens.add({
-        targets: t,
-        y: t.y - 4,
-        duration: 1200,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
+      floatUpDown(this, t, 4, 1200);
     };
 
     // --- PYSZNIUTKIE (green, top-left) ---
     container.add(this.add.rectangle(left, top, zoneW, zoneH, 0x005500, 0.3));
-    const pyszTitle = this.add.text(left, top - 30, 'Pyszniutkie', titleStyle('#00ff44')).setOrigin(0.5);
+    const pyszTitle = this.add.text(left, top - 30, 'Pyszniutkie', zoneTitleStyle('#00ff44')).setOrigin(0.5);
     container.add(pyszTitle);
     animateTitle(pyszTitle);
 
@@ -584,7 +504,7 @@ export class MenuScene extends Phaser.Scene {
 
     // --- FUJKA (red, top-right) ---
     container.add(this.add.rectangle(right, top, zoneW, zoneH, 0x550000, 0.3));
-    const fujTitle = this.add.text(right, top - 30, 'Fujka', titleStyle('#ff3333')).setOrigin(0.5);
+    const fujTitle = this.add.text(right, top - 30, 'Fujka', zoneTitleStyle('#ff3333')).setOrigin(0.5);
     container.add(fujTitle);
     animateTitle(fujTitle);
 
@@ -605,30 +525,28 @@ export class MenuScene extends Phaser.Scene {
         ease: 'Sine.easeInOut',
       });
     });
-    const iInne = this.add.text(right, top + 60, '...i inne', {
+    const iInne = this.add.text(right, top + 60, '...i inne', bodyStyle({
       fontSize: '14px',
       color: '#ff6666',
-      fontFamily: '"Press Start 2P", monospace',
-      stroke: '#000000',
       strokeThickness: 4,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
     container.add(iInne);
 
     // --- STEROWANIE (cyan, bottom-left) ---
     container.add(this.add.rectangle(left, bottom, zoneW, zoneH, 0x003344, 0.3));
-    const sterTitle = this.add.text(left, bottom - 30, 'Sterowanie', titleStyle('#00ccff')).setOrigin(0.5);
+    const sterTitle = this.add.text(left, bottom - 30, 'Sterowanie', zoneTitleStyle('#00ccff')).setOrigin(0.5);
     container.add(sterTitle);
     animateTitle(sterTitle);
 
     const bindings: [string[], string][] = isMobile
       ? [
-          [['Lewy ekran'], 'Zmień tor'],
+          [['Lewy ekran'], 'Zmie\u0144 tor'],
           [['Prawy ekran'], 'Dash'],
-          [['⏸'], 'Pauzka'],
+          [['\u23f8'], 'Pauzka'],
         ]
       : [
-          [['SPACJA', '↑', '↓'], 'Zmiana toru'],
-          [['SHIFT', '↑>rot90'], 'Dash'],
+          [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
+          [['SHIFT', '\u2191>rot90'], 'Dash'],
           [['ESC'], 'Pauzka'],
         ];
 
@@ -637,24 +555,21 @@ export class MenuScene extends Phaser.Scene {
 
     const keyStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '13px',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: '#111111',
       backgroundColor: '#e8e8e8',
       padding: { x: 6, y: 5 },
     };
 
-    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    const descStyle: Phaser.Types.GameObjects.Text.TextStyle = smallStyle({
       fontSize: '10px',
-      fontFamily: '"Press Start 2P", monospace',
       color: '#88ccdd',
-      stroke: '#000000',
       strokeThickness: 3,
-    };
+    });
 
     bindings.forEach(([keys, desc], i) => {
       const rowY = rowStartY + i * rowSpacing;
 
-      // Keys on the left side of the zone
       const keyTexts: Phaser.GameObjects.Text[] = [];
       keys.forEach((k) => {
         const rotate = k.endsWith('>rot90');
@@ -666,13 +581,6 @@ export class MenuScene extends Phaser.Scene {
       });
 
       const keyGap = 4;
-      let keysW = 0;
-      keyTexts.forEach((kt, ki) => {
-        keysW += kt.width;
-        if (ki < keyTexts.length - 1) keysW += keyGap;
-      });
-
-      // Place keys left-aligned within zone
       let kx = left - zoneW / 2 + 8;
       keyTexts.forEach((kt) => {
         if (kt.angle !== 0) {
@@ -685,61 +593,27 @@ export class MenuScene extends Phaser.Scene {
         kx += kt.width + keyGap;
       });
 
-      // Description right-aligned after keys
       const descText = this.add.text(left + zoneW / 2 - 8, rowY, desc, descStyle).setOrigin(1, 0.5);
       container.add(descText);
     });
 
     // --- MOJE STATY (purple, bottom-right) ---
     container.add(this.add.rectangle(right, bottom, zoneW, zoneH, 0x330044, 0.3));
-    const statyTitle = this.add.text(right, bottom - 30, 'Moje Staty', titleStyle('#cc66ff')).setOrigin(0.5);
+    const statyTitle = this.add.text(right, bottom - 30, 'Moje Staty', zoneTitleStyle('#cc66ff')).setOrigin(0.5);
     container.add(statyTitle);
     animateTitle(statyTitle);
 
     const highScore = localStorage.getItem('cockroach-highscore') || '0';
     const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
 
-    const statStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+    const statStyle = bodyStyle({
       fontSize: '14px',
-      fontFamily: '"Press Start 2P", monospace',
       color: '#ddaaff',
-      stroke: '#000000',
       strokeThickness: 4,
-    };
+    });
 
     const stat1 = this.add.text(right, bottom, `Najlepszy: ${highScore}`, statStyle).setOrigin(0.5);
     const stat2 = this.add.text(right, bottom + 28, `Giereczki: ${gamesPlayed}`, statStyle).setOrigin(0.5);
     container.add([stat1, stat2]);
-  }
-
-  private spawnFloatingParticle(
-    sceneWidth: number,
-    sceneHeight: number,
-    colors: number[],
-  ): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    const duration = Phaser.Math.Between(3000, 7000);
-    const targetX = x + Phaser.Math.Between(-100, 100);
-    const targetY = y + Phaser.Math.Between(-150, -50);
-
-    this.tweens.add({
-      targets: particle,
-      x: targetX,
-      y: targetY,
-      alpha: 0,
-      duration,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
-    });
   }
 }

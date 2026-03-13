@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { DASH_DURATION, DASH_COOLDOWN } from '../config/constants';
+import { DASH_DURATION, DASH_COOLDOWN, DEPTH } from '../config/constants';
 import { getLevelForDistance, getLevelProgress, LevelConfig, LEVELS } from '../config/levels';
+import { hudStyle, hudSmallStyle, smallStyle, popupStyle, FONT_FAMILY } from '../utils/TextStyles';
 
 export interface HUDUpdateData {
   score: number;
@@ -68,102 +69,56 @@ export class GameHUD {
 
     // Score UI
     this.scoreText = this.scene.add
-      .text(16, 16, 'Punkciory: 0', {
-        fontSize: m ? '14px' : '11px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 3,
-      })
+      .text(16, 16, 'Punkciory: 0', hudStyle(m))
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(DEPTH.HUD);
 
     // Level progress bar
     const barY = m ? 48 : 44;
-    this.levelBarBg = this.scene.add.rectangle(16, barY, 150, 12, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.levelBarFill = this.scene.add.rectangle(16, barY, 0, 12, 0xff6600, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+    this.levelBarBg = this.scene.add.rectangle(16, barY, 150, 12, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.HUD);
+    this.levelBarFill = this.scene.add.rectangle(16, barY, 0, 12, 0xff6600, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.HUD_FILL);
     this.levelNameText = this.scene.add
-      .text(16, barY + 14, 'Lv1 Zwyk\u0142a Kuchnia', {
-        fontSize: m ? '9px' : '7px',
-        color: '#cccccc',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
+      .text(16, barY + 14, 'Lv1 Zwyk\u0142a Kuchnia', smallStyle({ fontSize: m ? '9px' : '7px', color: '#cccccc' }))
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(DEPTH.HUD);
     this.speedText = this.scene.add
-      .text(170, barY, '1.0x', {
-        fontSize: m ? '10px' : '8px',
-        color: '#ff6600',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
+      .text(170, barY, '1.0x', hudSmallStyle(m, { color: '#ff6600' }))
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(DEPTH.HUD);
 
     this.floorIndicator = this.scene.add
-      .text(w - 16, h / 2, '\u25bc', {
-        fontSize: m ? '18px' : '12px',
-        color: '#ffffff',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: m ? 3 : 2,
-      })
+      .text(w - 16, h / 2, '\u25bc', hudStyle(m, { fontSize: m ? '18px' : '12px' }))
       .setOrigin(1, 0.5)
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(DEPTH.HUD);
 
     // Dash cooldown bar
     const dashBarY = barY + 34;
-    this.dashBarBg = this.scene.add.rectangle(16, dashBarY, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.dashBarFill = this.scene.add.rectangle(16, dashBarY, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+    this.dashBarBg = this.scene.add.rectangle(16, dashBarY, 100, 8, 0x333333, 0.8).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.HUD);
+    this.dashBarFill = this.scene.add.rectangle(16, dashBarY, 100, 8, 0x00ffff, 1).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.HUD_FILL);
 
     this.distanceText = this.scene.add
-      .text(16, dashBarY + 16, 'Dystansik: 0m', {
-        fontSize: m ? '10px' : '8px',
-        color: '#aaaaaa',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
+      .text(16, dashBarY + 16, 'Dystansik: 0m', hudSmallStyle(m))
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(DEPTH.HUD);
 
     this.comboText = this.scene.add
-      .text(w - 16, m ? 48 : 44, '', {
-        fontSize: m ? '12px' : '10px',
-        color: '#ffff00',
-        fontFamily: '"Press Start 2P", monospace',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
+      .text(w - 16, m ? 48 : 44, '', hudSmallStyle(m, { fontSize: m ? '12px' : '10px', color: '#ffff00' }))
       .setOrigin(1, 0)
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(DEPTH.HUD);
 
-    // Pause UI — depth above touch controls (3000) so overlay covers buttons
+    // Pause UI
     this.pauseOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.6)
-      .setScrollFactor(0).setDepth(4001).setVisible(false)
+      .setScrollFactor(0).setDepth(DEPTH.PAUSE).setVisible(false)
       .setInteractive();
     this.pauseOverlay.on('pointerdown', () => {
       this.onTogglePause();
     });
-    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', {
-      fontSize: m ? '28px' : '24px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
-    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wci\u015bnij cokolwiek, po to by gra\u0107 dalej', {
-      fontSize: m ? '9px' : '7px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#aaaaaa',
-      stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(4002).setVisible(false);
+    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', popupStyle({ fontSize: m ? '28px' : '24px' }))
+      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
+    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wci\u015bnij cokolwiek, po to by gra\u0107 dalej', smallStyle({ fontSize: m ? '9px' : '7px' }))
+      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
 
     // Pause button -- circular, top-right
     const pauseR = m ? 30 : 18;
@@ -171,19 +126,13 @@ export class GameHUD {
     const pauseY = pauseR + 12;
     this.touchPauseBtn = this.scene.add.circle(pauseX, pauseY, pauseR, 0x888888, m ? 0.35 : 0.2)
       .setScrollFactor(0)
-      .setDepth(5000)
+      .setDepth(DEPTH.PAUSE_BTN)
       .setInteractive();
 
-    this.touchPauseBtnLabel = this.scene.add.text(pauseX, pauseY, '\u23f8', {
-      fontSize: m ? '18px' : '12px',
-      fontFamily: '"Press Start 2P", monospace',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-    })
+    this.touchPauseBtnLabel = this.scene.add.text(pauseX, pauseY, '\u23f8', hudStyle(m, { fontSize: m ? '18px' : '12px' }))
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(5001)
+      .setDepth(DEPTH.PAUSE_BTN_LABEL)
       .setAlpha(m ? 0.7 : 0.4);
 
     this.touchPauseBtn.on('pointerdown', () => {
@@ -364,22 +313,20 @@ export class GameHUD {
     const levelLabel = `POZIOM ${config.level}`;
     const nameLabel = config.name.toUpperCase();
 
-    const levelText = this.scene.add.text(w / 2, 60, levelLabel, {
+    const levelText = this.scene.add.text(w / 2, 60, levelLabel, smallStyle({
       fontSize: '12px',
-      fontFamily: '"Press Start 2P", monospace',
       color: '#ffff00',
-      stroke: '#000000',
       strokeThickness: 4,
-    });
+    }));
     levelText.setOrigin(0.5);
     levelText.setScrollFactor(0);
-    levelText.setDepth(1000);
+    levelText.setDepth(DEPTH.ANNOUNCEMENT);
     levelText.setScale(0.5);
     levelText.setAlpha(0);
 
     const nameText = this.scene.add.text(w / 2, 95, nameLabel, {
       fontSize: '18px',
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 6,
@@ -394,7 +341,7 @@ export class GameHUD {
     });
     nameText.setOrigin(0.5);
     nameText.setScrollFactor(0);
-    nameText.setDepth(1000);
+    nameText.setDepth(DEPTH.ANNOUNCEMENT);
     nameText.setScale(0.5);
     nameText.setAlpha(0);
 
@@ -440,7 +387,7 @@ export class GameHUD {
     // Big score number in the center
     const numText = this.scene.add.text(w / 2, h / 2 - 20, String(threshold), {
       fontSize: cfg.numSize,
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: cfg.color,
       stroke: '#000000',
       strokeThickness: cfg.numStroke,
@@ -454,7 +401,7 @@ export class GameHUD {
     // Subtitle text below the number
     const milestone = this.scene.add.text(w / 2, h / 2 + 25, text, {
       fontSize: cfg.textSize,
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: FONT_FAMILY,
       color: cfg.color,
       stroke: '#000000',
       strokeThickness: cfg.stroke,
@@ -465,7 +412,7 @@ export class GameHUD {
     milestone.setAlpha(0);
     milestone.setScale(0.3);
 
-    // Number slam in (big → normal with overshoot)
+    // Number slam in (big -> normal with overshoot)
     this.scene.tweens.add({
       targets: numText,
       alpha: { from: 0, to: 0.4 + tier * 0.12 },

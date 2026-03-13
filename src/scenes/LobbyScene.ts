@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyData, MPPlayer } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
-
-const FONT_FAMILY = '"Press Start 2P", monospace';
+import { COLORS } from '../config/constants';
+import { neonStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { floatUpDown, spawnFloatingParticle } from '../utils/TweenPatterns';
+import { createButton } from '../ui/shared';
 
 export class LobbyScene extends Phaser.Scene {
   private lobbyData!: MPLobbyData;
@@ -33,39 +35,24 @@ export class LobbyScene extends Phaser.Scene {
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
     // Floating neon particles
-    const neonColors = [0xff00ff, 0x00ffff, 0xff6600, 0x00ff66, 0xffff00];
     for (let i = 0; i < 8; i++) {
-      this.spawnFloatingParticle(width, height, neonColors);
+      spawnFloatingParticle(this, width, height, COLORS.NEON);
     }
 
     // --- TITLE ---
-    this.titleText = this.add.text(width / 2, 40, `${this.getHostName()}'s Lobby`, {
+    this.titleText = this.add.text(width / 2, 40, `${this.getHostName()}'s Lobby`, neonStyle({
       fontSize: '18px',
       color: '#00ccff',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 5,
       align: 'center',
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
 
-    this.tweens.add({
-      targets: this.titleText,
-      y: this.titleText.y - 4,
-      duration: 1200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    floatUpDown(this, this.titleText, 4, 1200);
 
     // --- PLAYER COUNT ---
-    this.playerCountText = this.add.text(width / 2, 70, '', {
+    this.playerCountText = this.add.text(width / 2, 70, '', smallStyle({
       fontSize: '10px',
-      color: '#aaaaaa',
-      fontFamily: FONT_FAMILY,
-      stroke: '#000000',
       strokeThickness: 3,
-    }).setOrigin(0.5);
+    })).setOrigin(0.5);
 
     // --- PLAYER LIST ---
     const listTop = 90;
@@ -82,21 +69,14 @@ export class LobbyScene extends Phaser.Scene {
     this.playerListContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskGraphics));
 
     // --- BUTTONS ---
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '11px',
-      fontFamily: FONT_FAMILY,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-      align: 'center',
-    };
+    const btnS = buttonStyle({ fontSize: '11px' });
 
-    // Main action button position — shared between ready (non-host) and start (host)
+    // Main action button position
     const actionBtnY = height - 63;
 
     // "Gotowy" ready toggle button (non-host only)
     this.readyBtnBg = this.add.rectangle(width / 2, actionBtnY, 260, 36, 0x886600, 0.9);
-    this.readyBtnTxt = this.add.text(width / 2, actionBtnY, 'Gotowy?', btnStyle).setOrigin(0.5);
+    this.readyBtnTxt = this.add.text(width / 2, actionBtnY, 'Gotowy?', btnS).setOrigin(0.5);
     this.readyBtnBg.setInteractive({ useHandCursor: true });
     this.readyBtnBg.on('pointerover', () => {
       this.readyBtnBg.setAlpha(1);
@@ -118,7 +98,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // "Rozpocznij Gre" button (host only, same position)
     this.startBtnBg = this.add.rectangle(width / 2, actionBtnY, 260, 36, 0x008800, 0.9);
-    this.startBtnTxt = this.add.text(width / 2, actionBtnY, 'Rozpocznij Gr\u0119', btnStyle).setOrigin(0.5);
+    this.startBtnTxt = this.add.text(width / 2, actionBtnY, 'Rozpocznij Gr\u0119', btnS).setOrigin(0.5);
     this.startBtnBg.setInteractive({ useHandCursor: true });
     this.startBtnBg.on('pointerover', () => {
       if (this.isStartEnabled()) {
@@ -143,23 +123,12 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     // "Opusc" leave button
-    const leaveBg = this.add.rectangle(width / 2, height - 25, 200, 30, 0x660000, 0.9)
-      .setInteractive({ useHandCursor: true });
-    const leaveTxt = this.add.text(width / 2, height - 25, 'Opu\u015b\u0107', {
-      fontSize: '10px',
-      fontFamily: FONT_FAMILY,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5);
-    leaveBg.on('pointerover', () => { leaveBg.setFillStyle(0x880000, 1); leaveTxt.setColor('#ffff00'); });
-    leaveBg.on('pointerout', () => { leaveBg.setFillStyle(0x660000, 0.9); leaveTxt.setColor('#ffffff'); });
-    leaveBg.on('pointerdown', () => {
+    const { bg: leaveBg, txt: leaveTxt } = createButton(this, width / 2, height - 25, 200, 30, 'Opu\u015b\u0107', 0x660000, buttonStyle({ fontSize: '10px' }), () => {
       mpClient.leaveLobby();
       this.scene.start('MultiplayerMenuScene');
     });
 
-    // --- VISIBILITY CHANGE — unready when tab loses focus ---
+    // --- VISIBILITY CHANGE ---
     this.visibilityHandler = () => {
       if (document.hidden && !this.isHost()) {
         const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
@@ -286,7 +255,6 @@ export class LobbyScene extends Phaser.Scene {
       const swatch = this.add.rectangle(50, y + lineHeight / 2 - 4, 24, 24, swatchColor, 1);
 
       if (isMe) {
-        // Own color swatch is clickable — cycles to next available color
         swatch.setInteractive({ useHandCursor: true });
         swatch.setStrokeStyle(2, 0xffffff);
         swatch.on('pointerdown', () => {
@@ -297,7 +265,7 @@ export class LobbyScene extends Phaser.Scene {
           const start = next;
           while (usedColors.has(next)) {
             next = (next + 1) % MP_PLAYER_COLORS.length;
-            if (next === start) return; // all taken
+            if (next === start) return;
           }
           mpClient.changeColor(next).then((updatedLobby) => {
             this.lobbyData = updatedLobby;
@@ -310,24 +278,18 @@ export class LobbyScene extends Phaser.Scene {
       // Player name
       const nameColor = isMe ? '#00ff66' : '#ffffff';
       const suffix = player.isHost ? ' (host)' : '';
-      const nameText = this.add.text(80, y + lineHeight / 2 - 4, player.name + suffix, {
+      const nameText = this.add.text(80, y + lineHeight / 2 - 4, player.name + suffix, smallStyle({
         fontSize: '10px',
         color: nameColor,
-        fontFamily: FONT_FAMILY,
-        stroke: '#000000',
-        strokeThickness: 2,
-      }).setOrigin(0, 0.5);
+      })).setOrigin(0, 0.5);
 
       // Ready indicator on the right (skip for host)
       let readyText: Phaser.GameObjects.Text | null = null;
       if (!player.isHost) {
-        readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', {
+        readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', smallStyle({
           fontSize: player.ready ? '14px' : '10px',
           color: player.ready ? '#00ff00' : '#666666',
-          fontFamily: FONT_FAMILY,
-          stroke: '#000000',
-          strokeThickness: 2,
-        }).setOrigin(0.5, 0.5);
+        })).setOrigin(0.5, 0.5);
       }
 
       // Row background highlight for self
@@ -340,32 +302,5 @@ export class LobbyScene extends Phaser.Scene {
       if (readyText) items.push(readyText);
       this.playerListContainer.add(items);
     }
-  }
-
-  private spawnFloatingParticle(sceneWidth: number, sceneHeight: number, colors: number[]): void {
-    const color = Phaser.Utils.Array.GetRandom(colors);
-    const size = Phaser.Math.Between(2, 8);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(0, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, color, 0.6);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    const duration = Phaser.Math.Between(3000, 7000);
-    const targetX = x + Phaser.Math.Between(-100, 100);
-    const targetY = y + Phaser.Math.Between(-150, -50);
-
-    this.tweens.add({
-      targets: particle,
-      x: targetX,
-      y: targetY,
-      alpha: 0,
-      duration,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnFloatingParticle(sceneWidth, sceneHeight, colors);
-      },
-    });
   }
 }
