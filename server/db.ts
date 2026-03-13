@@ -37,9 +37,6 @@ for (const col of ['apples_collected', 'tyskies_collected', 'pills_collected']) 
   }
 }
 
-// Clear old scores — game rebalanced, old entries no longer comparable
-db.exec('DELETE FROM scores');
-
 export interface ScoreEntry {
   id: number;
   name: string;
