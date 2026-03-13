@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
-import { COLORS } from '../config/constants';
+import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, getScale, FONT_FAMILY } from '../utils/TextStyles';
 import { createPulsingOverlay } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
@@ -185,7 +185,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         const icon = this.add.image(colName, statLineY, deathTexture);
         icon.setScale(Math.round(12 * s) / Math.max(icon.width, icon.height));
         icon.setOrigin(0, 0.5);
-        icon.setDepth(10);
+        icon.setDepth(DEPTH.PICKUPS);
         statTextX = colName + Math.round(18 * s);
       }
 

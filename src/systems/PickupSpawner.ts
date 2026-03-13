@@ -7,6 +7,7 @@ import {
   APPLE_SPAWN_CHANCE,
   PILL_SPAWN_CHANCE,
   SPEED_BOOST_PER_LEVEL,
+  DEPTH,
 } from '../config/constants';
 import { Floor } from '../objects/Player';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
@@ -101,7 +102,7 @@ export class PickupSpawner {
         : { group: this.apples, tex: 'apple', scale: 0.15, bob: 8, bobDur: 500 };
 
     const sprite = config.group.create(slotX, baseY, config.tex) as Phaser.Physics.Arcade.Sprite;
-    sprite.setScale(config.scale).setDepth(10);
+    sprite.setScale(config.scale).setDepth(DEPTH.PICKUPS);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     sprite.setImmovable(true);
     this.scene.tweens.add({ targets: sprite, y: baseY - config.bob, duration: config.bobDur, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
