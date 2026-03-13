@@ -408,7 +408,7 @@ export class GameHUD {
     });
     milestone.setOrigin(0.5);
     milestone.setScrollFactor(0);
-    milestone.setDepth(999);
+    milestone.setDepth(DEPTH.POPUP);
     milestone.setAlpha(0);
     milestone.setScale(0.3);
 

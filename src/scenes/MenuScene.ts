@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
-import { COLORS } from '../config/constants';
+import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, headingStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
 import { floatUpDown } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
@@ -52,7 +52,7 @@ export class MenuScene extends Phaser.Scene {
 
     // --- PULSING VIGNETTE ---
     const vignette = this.add.graphics();
-    vignette.setDepth(100);
+    vignette.setDepth(DEPTH.VIGNETTE_MENU);
     const drawVignette = (alpha: number): void => {
       vignette.clear();
       for (let i = 5; i >= 0; i--) {

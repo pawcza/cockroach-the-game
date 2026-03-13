@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH } from '../config/constants';
+import { GAME_WIDTH, DEPTH } from '../config/constants';
 
 /**
  * Properties we need from GameScene without importing it directly.
@@ -79,7 +79,7 @@ function createSprite(
   const sprite = ctx.obstacles.create(x, y, texture) as Phaser.Physics.Arcade.Sprite;
   sprite.setOrigin(0.5, 0.5);
   sprite.setScale(scale);
-  sprite.setDepth(10);
+  sprite.setDepth(DEPTH.OBSTACLES);
   sprite.setImmovable(true);
   sprite.setData('floor', floor);
   sprite.setData('type', type);
@@ -166,7 +166,7 @@ function spawnOnion(ctx: SpawnContext, x: number): void {
     const offsetX = rngBetween(ctx.rng, -8, 8);
     const stink = ctx.scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
     stink.setScale(0.5 + i * 0.15);
-    stink.setDepth(10);
+    stink.setDepth(DEPTH.OBSTACLES);
 
     tweens.push(ctx.scene.tweens.add({
       targets: stink,
@@ -199,7 +199,7 @@ function spawnOnion(ctx: SpawnContext, x: number): void {
         0x4488ff,
         0.7,
       );
-      tear.setDepth(10);
+      tear.setDepth(DEPTH.OBSTACLES);
       ctx.scene.tweens.add({
         targets: tear,
         y: tearEndY,
@@ -245,7 +245,7 @@ function spawnPestSpray(ctx: SpawnContext, x: number): void {
         0x88dd44,
         Math.random() * (0.35 - 0.15) + 0.15,
       );
-      droplet.setDepth(10);
+      droplet.setDepth(DEPTH.OBSTACLES);
       const driftX = Phaser.Math.Between(-30, 30);
       const driftY = Phaser.Math.Between(-35, -15);
       ctx.scene.tweens.add({
@@ -428,7 +428,7 @@ function spawnDiscoBall(ctx: SpawnContext, x: number): void {
   const strobeOverlay = ctx.scene.add
     .rectangle(GAME_WIDTH / 2, ctx.scene.cameras.main.height / 2, GAME_WIDTH, ctx.scene.cameras.main.height, 0xffffff, 0)
     .setScrollFactor(0)
-    .setDepth(90);
+    .setDepth(DEPTH.DISCO_STROBE);
 
   let strobePhase = 0;
   const strobeUpdate = (): void => {

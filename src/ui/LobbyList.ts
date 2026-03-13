@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
 import { FONT_FAMILY } from './shared';
+import { DEPTH } from '../config/constants';
 
 export interface LobbyListConfig {
   listTop: number;
@@ -42,7 +43,7 @@ export class LobbyList {
       fontSize: '12px',
       color: '#00ccff',
       fontFamily: FONT_FAMILY,
-    }).setOrigin(0, 0).setDepth(100);
+    }).setOrigin(0, 0).setDepth(DEPTH.HUD);
 
     // Scrollable container
     this.container = scene.add.container(0, 0);

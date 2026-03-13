@@ -102,7 +102,7 @@ export class Player {
     this.cockroach.setCollideWorldBounds(false);
     this.cockroach.setFlipY(false);
     this.cockroach.setScale(0.30);
-    this.cockroach.setDepth(10);
+    this.cockroach.setDepth(DEPTH.PICKUPS);
     this.cockroach.body!.setSize(200, 200);
     this.cockroach.body!.setOffset(100, 0);
     this.cockroachOffset = this.cockroach.displayHeight / 2;

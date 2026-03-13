@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
-import { COLORS } from '../config/constants';
+import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
@@ -98,7 +98,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       color: '#00ccff',
       stroke: undefined,
       strokeThickness: 0,
-    })).setOrigin(0, 0).setDepth(100);
+    })).setOrigin(0, 0).setDepth(DEPTH.VIGNETTE_MENU);
     this.showSpinner();
 
     // Scrollable container for lobby entries
