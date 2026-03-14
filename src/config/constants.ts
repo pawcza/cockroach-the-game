@@ -84,6 +84,7 @@ export const DEPTH = {
   FG_BG: 2,
   FLOOR_HIGHLIGHT: 2,
   FLOOR: 3,
+  GODRAY: 8,
   GLOW: 9,
   PICKUPS: 10,
   OBSTACLES: 10,

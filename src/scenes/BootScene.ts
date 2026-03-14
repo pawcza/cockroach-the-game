@@ -60,6 +60,7 @@ export class BootScene extends Phaser.Scene {
       ['cockroach-idle', 'assets/cockroach-idle.png'],
       ['cockroach-running', 'assets/cockroach-running.png'],
       ['cockroach-dashing', 'assets/cockroach-dashing.png'],
+      ['cockroach-standing', 'assets/cockroach-standing.png'],
       ['apple', 'assets/apple.png'],
       ['menu-bg', 'assets/bg.png'],
       ['menu-bg-multiplayer', 'assets/bg-multiplayer.png'],
@@ -81,6 +82,22 @@ export class BootScene extends Phaser.Scene {
       ['btn-bg', 'assets/btn.png'],
     ];
     for (const [key, path] of images) this.load.image(key, path);
+
+    // --- Boss fight assets ---
+    const bossImages: [string, string][] = [
+      ['boss-gun', 'boss/gun.png'],
+      ['boss-shell', 'boss/shell.png'],
+      ['boss-bomb', 'boss/bomb.png'],
+      ['boss-creamcake', 'boss/creamcake.png'],
+      ['boss-dollar', 'boss/dollar.png'],
+      ['boss-explosion1', 'boss/explosion1.png'],
+      ['boss-explosion2', 'boss/explosion2.png'],
+      ['boss-explosion3', 'boss/explosion3.png'],
+      ['boss-face1', 'boss/face1.png'],
+      ['boss-face2', 'boss/face2.png'],
+      ['boss-face3', 'boss/face3.png'],
+    ];
+    for (const [key, path] of bossImages) this.load.image(key, path);
 
     // --- Level backgrounds, floors, and BGM ---
     for (let i = 1; i <= 10; i++) {
@@ -116,9 +133,25 @@ export class BootScene extends Phaser.Scene {
       ['bison-sfx', 'audio/bison.ogg'],
       ['blackhole-sfx', 'audio/blackhole.ogg'],
       ['cricket', 'audio/cricket.ogg'],
-      ['combo-lost', 'audio/combo-lost.mp3'],
+      ['combo-lost', 'audio/combo-lost.ogg'],
     ];
     for (const [key, path] of audio) this.load.audio(key, path);
+
+    // Boss fight audio
+    const bossAudio: [string, string][] = [
+      ['boss-choir', 'boss/choir.ogg'],
+      ['boss-pistol', 'boss/pistol.ogg'],
+      ['boss-bomb-shot', 'boss/bomb-shot.ogg'],
+      ['boss-creamcake-shot', 'boss/creamcake-shot.ogg'],
+      ['boss-dollar-shot', 'boss/dollar-shot.ogg'],
+      ['boss-explosion', 'boss/explosion.ogg'],
+      ['boss-victory', 'boss/victory.ogg'],
+      ['boss-bgm', 'boss/boss-bgm.ogg'],
+      ['boss-beast-ambient', 'boss/beast-ambient.ogg'],
+    ];
+    for (const [key, path] of bossAudio) this.load.audio(key, path);
+    for (let i = 1; i <= 6; i++) this.load.audio(`boss-hurt-${i}`, `boss/hurt-${i}.ogg`);
+    for (let i = 1; i <= 7; i++) this.load.audio(`boss-cue-${i}`, `boss/boss-cue-${i}.ogg`);
 
     // Score milestone sounds
     const milestones = [100, 250, 420, 500, 1000, 1500, 2000, 2137, 3000, 4000, 4200, 5000, 10000];
