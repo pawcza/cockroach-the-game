@@ -116,6 +116,7 @@ export class BootScene extends Phaser.Scene {
       ['bison-sfx', 'audio/bison.ogg'],
       ['blackhole-sfx', 'audio/blackhole.ogg'],
       ['cricket', 'audio/cricket.ogg'],
+      ['combo-lost', 'audio/combo-lost.mp3'],
     ];
     for (const [key, path] of audio) this.load.audio(key, path);
 

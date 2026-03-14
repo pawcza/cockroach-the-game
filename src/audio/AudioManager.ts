@@ -88,6 +88,10 @@ export class AudioManager {
     this.scene.sound.play('pill-sfx', { volume: 0.8 });
   }
 
+  playComboLost(): void {
+    this.scene.sound.play('combo-lost', { volume: 0.6 });
+  }
+
   updatePitch(speedMultiplier: number): void {
     if (!this.bgm) return;
     const rate = Phaser.Math.Clamp(1 + (speedMultiplier - 1) * 0.3, 0.5, 3.0);

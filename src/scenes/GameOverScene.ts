@@ -3,8 +3,10 @@ import { fetchScores } from '../ui/Scoreboard';
 import { COLORS } from '../config/constants';
 import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, getScale } from '../utils/TextStyles';
 import { createPulsingOverlay } from '../utils/TweenPatterns';
-import { createButton, createHtmlButton } from '../ui/shared';
+import { createButton } from '../ui/shared';
 import { crossfadeTransition } from '../utils/SceneTransition';
+import { getHighScore } from '../utils/Storage';
+import { showNameInput } from '../ui/NameInputOverlay';
 
 interface GameOverData {
   score: number;
@@ -12,6 +14,8 @@ interface GameOverData {
   topSpeed?: number;
   distance?: number;
   obstacleType?: string | null;
+  level?: number;
+  maxCombo?: number;
   pickupCounts?: { apples: number; tyskies: number; pills: number };
 }
 
@@ -149,7 +153,7 @@ export class GameOverScene extends Phaser.Scene {
   // -- Score display ---------------------------------------------------------
 
   private getHighScoreInfo(finalScore: number): { isNewRecord: boolean; highScore: number } {
-    const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
+    const highScore = getHighScore();
     return {
       isNewRecord: finalScore > 0 && finalScore >= highScore,
       highScore,
@@ -216,7 +220,9 @@ export class GameOverScene extends Phaser.Scene {
     const stats: { label: string; value: string; color: string }[] = [];
     if (data?.timeSurvived !== undefined) stats.push({ label: 'Czas Przeżywalności', value: `${data.timeSurvived}s`, color: '#00ccff' });
     if (data?.distance !== undefined) stats.push({ label: 'Dystansik', value: `${Math.floor(data.distance)}m`, color: '#ff6600' });
+    if (data?.level !== undefined) stats.push({ label: 'Poziom', value: `${data.level}`, color: '#ffff00' });
     if (data?.topSpeed !== undefined) stats.push({ label: 'Maks Szybkóść', value: `${data.topSpeed.toFixed(1)}x`, color: '#cc66ff' });
+    if (data?.maxCombo !== undefined && data.maxCombo > 0) stats.push({ label: 'Maks Kombo', value: `x${data.maxCombo}`, color: '#ff00ff' });
     if (data?.pickupCounts) {
       const p = data.pickupCounts;
       stats.push({ label: 'Jabłka / Tyskie / Pigułki', value: `${p.apples} / ${p.tyskies} / ${p.pills}`, color: '#44ff44' });
@@ -285,7 +291,9 @@ export class GameOverScene extends Phaser.Scene {
         strokeThickness: 2,
       }), () => {
         for (const obj of saveBtn.all) obj.destroy();
-        this.showNameInputOverlay(width, height, data);
+        showNameInput(this, (name) => {
+          this.submitScore(name, data);
+        });
       });
 
       this.tweens.add({
@@ -302,54 +310,6 @@ export class GameOverScene extends Phaser.Scene {
     this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
     this.input.keyboard!.once('keydown-R', () => this.restartGame());
     this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
-  }
-
-  private showNameInputOverlay(width: number, height: number, data: GameOverData): void {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;font-family:"Press Start 2P",monospace;';
-
-    const label = document.createElement('div');
-    label.textContent = 'Wpisz swoje imi\u0119:';
-    label.style.cssText = 'color:#ffff00;font-size:24px;text-shadow:0 0 12px #ffff00;';
-    overlay.appendChild(label);
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 20;
-    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:28px;padding:16px 20px;background:#111;color:#fff;border:3px solid #8b0000;outline:none;text-align:center;width:380px;border-radius:8px;';
-    overlay.appendChild(input);
-
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:20px;';
-
-    const submitBtn = createHtmlButton('Zapisz', '#008800');
-    btnRow.appendChild(submitBtn);
-    const cancelBtn = createHtmlButton('Anuluj', '#555');
-    btnRow.appendChild(cancelBtn);
-
-    overlay.appendChild(btnRow);
-    document.body.appendChild(overlay);
-
-    input.focus();
-
-    const cleanup = (): void => {
-      overlay.remove();
-    };
-
-    const submit = (): void => {
-      const name = input.value.trim().slice(0, 20);
-      if (name.length > 0) {
-        cleanup();
-        this.submitScore(name, data);
-      }
-    };
-
-    submitBtn.addEventListener('click', submit);
-    cancelBtn.addEventListener('click', cleanup);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submit();
-      if (e.key === 'Escape') cleanup();
-    });
   }
 
   private restartGame(): void {
@@ -390,6 +350,8 @@ export class GameOverScene extends Phaser.Scene {
           applesCollected: data.pickupCounts?.apples ?? null,
           tyskiesCollected: data.pickupCounts?.tyskies ?? null,
           pillsCollected: data.pickupCounts?.pills ?? null,
+          maxLevel: data.level ?? null,
+          maxCombo: data.maxCombo ?? null,
         }),
       });
     } catch {

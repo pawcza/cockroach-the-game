@@ -8,6 +8,7 @@ import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { crossfadeTransition } from '../utils/SceneTransition';
 import { GameHUD } from '../ui/GameHUD';
+import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed } from '../utils/Storage';
 
 const SCORE_MILESTONES = [
   { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
@@ -44,6 +45,7 @@ export class GameOverHandler {
   private getDistance: () => number;
   private getCurrentLevel: () => number;
   private getPickupCounts: () => { apples: number; tyskies: number; pills: number };
+  private getMaxCombo: () => number;
   private getGhostManager: () => GhostManager | null;
   private setGhostManager: (gm: GhostManager | null) => void;
   private setIsDead: () => void;
@@ -64,6 +66,7 @@ export class GameOverHandler {
       getDistance: () => number;
       getCurrentLevel: () => number;
       getPickupCounts: () => { apples: number; tyskies: number; pills: number };
+      getMaxCombo: () => number;
       getGhostManager: () => GhostManager | null;
       setGhostManager: (gm: GhostManager | null) => void;
       setIsDead: () => void;
@@ -81,11 +84,12 @@ export class GameOverHandler {
     this.getDistance = callbacks.getDistance;
     this.getCurrentLevel = callbacks.getCurrentLevel;
     this.getPickupCounts = callbacks.getPickupCounts;
+    this.getMaxCombo = callbacks.getMaxCombo;
     this.getGhostManager = callbacks.getGhostManager;
     this.setGhostManager = callbacks.setGhostManager;
     this.setIsDead = callbacks.setIsDead;
     this.followSpectateTarget = callbacks.followSpectateTarget;
-    this.mpMyName = localStorage.getItem('cockroach-mp-name') || 'Karaluch';
+    this.mpMyName = getPlayerNameOrDefault();
   }
 
   reset(): void {
@@ -119,6 +123,8 @@ export class GameOverHandler {
         applesCollected: pickups.apples,
         tyskiesCollected: pickups.tyskies,
         pillsCollected: pickups.pills,
+        maxCombo: this.getMaxCombo(),
+        maxLevel: this.getCurrentLevel(),
       };
       mpClient.sendDeath(score, stats);
 
@@ -144,13 +150,8 @@ export class GameOverHandler {
     }
 
     // Solo mode
-    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
-    localStorage.setItem('cockroach-games-played', (gamesPlayed + 1).toString());
-
-    const highScore = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
-    if (score > highScore) {
-      localStorage.setItem('cockroach-highscore', score.toString());
-    }
+    incrementGamesPlayed();
+    updateHighScoreIfBetter(score);
 
     // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)
     window.setTimeout(() => {
@@ -164,6 +165,7 @@ export class GameOverHandler {
           distance: this.getDistance(),
           obstacleType: obstacleType || null,
           level: this.getCurrentLevel(),
+          maxCombo: this.getMaxCombo(),
           pickupCounts: this.getPickupCounts(),
         });
       });

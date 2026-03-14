@@ -7,6 +7,7 @@ import { createPulsingOverlay } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
 import { fetchScores } from '../ui/Scoreboard';
+import { updateHighScoreIfBetter } from '../utils/Storage';
 
 interface MPGameOverRanking {
   id: string;
@@ -97,11 +98,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     let isNewRecord = false;
     const myRanking = rankings.find(r => r.id === myId);
     if (myRanking) {
-      const currentHigh = parseInt(localStorage.getItem('cockroach-highscore') || '0', 10);
-      if (myRanking.score > currentHigh) {
-        localStorage.setItem('cockroach-highscore', String(myRanking.score));
-        isNewRecord = true;
-      }
+      isNewRecord = updateHighScoreIfBetter(myRanking.score);
 
       // Auto-submit to leaderboard if qualifies for top 100
       if (isNewRecord && myRanking.score > 0) {
@@ -121,6 +118,8 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
                 applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
                 tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
                 pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
+                maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
+                maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
               }),
             }).catch(() => { /* offline is fine */ });
           }
@@ -220,6 +219,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
       if (stats.maxSpeed !== undefined) statParts.push(`${Number(stats.maxSpeed).toFixed(1)}x`);
+      if (typeof stats.maxCombo === 'number' && stats.maxCombo > 0) statParts.push(`x${stats.maxCombo}kmb`);
 
       this.add.text(statTextX, statLineY, statParts.join('  '), smallStyle({
         fontSize: statFontSize,

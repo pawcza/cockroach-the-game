@@ -114,6 +114,7 @@ export class GameScene extends Phaser.Scene {
 
   // Pickup combo & collection counts
   private pickupCombo = 0;
+  private maxCombo = 0;
   private applesCollected = 0;
   private tyskiesCollected = 0;
   private pillsCollected = 0;
@@ -153,6 +154,7 @@ export class GameScene extends Phaser.Scene {
     this.cockroachNoiseTimer = 0;
     this.nextNoiseTime = 20000 + Math.random() * 15000;
     this.pickupCombo = 0;
+    this.maxCombo = 0;
     this.applesCollected = 0;
     this.tyskiesCollected = 0;
     this.pillsCollected = 0;
@@ -220,7 +222,7 @@ export class GameScene extends Phaser.Scene {
       getScore: () => this.score,
       addScore: (points) => { this.score += points; this.hud.updateScore(this.score); },
       getPickupCombo: () => this.pickupCombo,
-      incrementCombo: () => { this.pickupCombo++; },
+      incrementCombo: () => { this.pickupCombo++; if (this.pickupCombo > this.maxCombo) this.maxCombo = this.pickupCombo; },
       getComboMultiplier: () => this.getComboMultiplier(),
       onAppleCollected: () => { this.applesCollected++; },
       onTyskieCollected: () => { this.tyskiesCollected++; },
@@ -247,6 +249,7 @@ export class GameScene extends Phaser.Scene {
       getDistance: () => this.getDistance(),
       getCurrentLevel: () => this.currentLevel,
       getPickupCounts: () => ({ apples: this.applesCollected, tyskies: this.tyskiesCollected, pills: this.pillsCollected }),
+      getMaxCombo: () => this.maxCombo,
       getGhostManager: () => this.ghostManager,
       setGhostManager: (gm) => { this.ghostManager = gm; },
       setIsDead: () => { this.isDead = true; },
@@ -391,7 +394,11 @@ export class GameScene extends Phaser.Scene {
         this.updateParallax();
         this.updateFloors();
         this.spawnManager.handleSpawning(this.cameras.main.scrollX + this.cameras.main.width);
-        this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX - 200, () => { this.pickupCombo = 0; });
+        this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX, (comboLost: number) => {
+      this.vfx.comboLostEffect(comboLost);
+      this.audio.playComboLost();
+      this.pickupCombo = 0;
+    }, this.pickupCombo);
 
         if (target && !target.alive) {
           const next = this.ghostManager.cycleSpectate(1);
@@ -522,7 +529,11 @@ export class GameScene extends Phaser.Scene {
     const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
     this.spawnManager.handleSpawning(cameraRight);
     this.spawnManager.showObstacleWarnings(cameraRight, this.player.currentFloor);
-    this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX - 200, () => { this.pickupCombo = 0; });
+    this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX, (comboLost: number) => {
+      this.vfx.comboLostEffect(comboLost);
+      this.audio.playComboLost();
+      this.pickupCombo = 0;
+    }, this.pickupCombo);
 
     // Visual effects & audio
     this.vfx.update(this.player.speedMultiplier);
