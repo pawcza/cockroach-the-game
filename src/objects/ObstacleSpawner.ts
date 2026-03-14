@@ -34,6 +34,7 @@ const DEFAULT_HITBOX = { w: 0.6, h: 0.7 };
 interface ObstacleEntry {
   minLevel: number;
   fn: SpawnFn;
+  basic: boolean;
 }
 
 export class ObstacleSpawner {
@@ -41,6 +42,7 @@ export class ObstacleSpawner {
   private obstacles: Phaser.Physics.Arcade.Group;
   private forcedFloor: Floor | null = null;
   private rng: RNGSource = null;
+  private lastSpawnedIndex = -1;
 
   setRNG(rng: RNGSource): void { this.rng = rng; }
 
@@ -53,17 +55,17 @@ export class ObstacleSpawner {
     this.obstacles = obstacles;
 
     this.registry = [
-      { minLevel: 1, fn: this.spawnOnion },
-      { minLevel: 2, fn: this.spawnPestSpray },
-      { minLevel: 2, fn: this.spawnFlipper },
-      { minLevel: 3, fn: this.spawnNewspaper },
-      { minLevel: 4, fn: this.spawnBird },
-      { minLevel: 5, fn: this.spawnCatPaw },
-      { minLevel: 6, fn: this.spawnDiscoBall },
-      { minLevel: 7, fn: this.spawnJellyfish },
-      { minLevel: 8, fn: this.spawnPope },
-      { minLevel: 9, fn: this.spawnBison },
-      { minLevel: 10, fn: this.spawnBlackHole },
+      { minLevel: 1, fn: this.spawnOnion, basic: true },
+      { minLevel: 2, fn: this.spawnPestSpray, basic: true },
+      { minLevel: 2, fn: this.spawnFlipper, basic: true },
+      { minLevel: 3, fn: this.spawnNewspaper, basic: false },
+      { minLevel: 4, fn: this.spawnBird, basic: false },
+      { minLevel: 5, fn: this.spawnCatPaw, basic: false },
+      { minLevel: 6, fn: this.spawnDiscoBall, basic: false },
+      { minLevel: 7, fn: this.spawnJellyfish, basic: false },
+      { minLevel: 8, fn: this.spawnPope, basic: false },
+      { minLevel: 9, fn: this.spawnBison, basic: false },
+      { minLevel: 10, fn: this.spawnBlackHole, basic: false },
     ];
   }
 
@@ -195,10 +197,54 @@ export class ObstacleSpawner {
   // ── Public API ─────────────────────────────────────────────────────
 
   spawn(x: number, level: number = 1): void {
-    const lvl = level;
-    const available = this.registry.filter((e) => e.minLevel <= lvl);
-    const pick = rngBetween(this.rng, 0, available.length - 1);
-    available[pick].fn.call(this, x);
+    const available = this.registry.filter((e) => e.minLevel <= level);
+    const basics = available.filter((e) => e.basic);
+    const hards = available.filter((e) => !e.basic);
+
+    let chosen: ObstacleEntry;
+
+    if (hards.length === 0) {
+      // Only basic obstacles available (level 1)
+      chosen = basics[rngBetween(this.rng, 0, basics.length - 1)];
+    } else {
+      const roll = rngRandom(this.rng);
+      if (roll < 0.7) {
+        // 70% basic
+        chosen = basics[rngBetween(this.rng, 0, basics.length - 1)];
+      } else {
+        // 30% hard — 50% newly unlocked on their level, 50% other hards
+        const newlyUnlocked = hards.filter((e) => e.minLevel === level);
+        const others = hards.filter((e) => e.minLevel !== level);
+
+        if (newlyUnlocked.length > 0 && (others.length === 0 || rngRandom(this.rng) < 0.5)) {
+          chosen = newlyUnlocked[rngBetween(this.rng, 0, newlyUnlocked.length - 1)];
+        } else if (others.length > 0) {
+          chosen = others[rngBetween(this.rng, 0, others.length - 1)];
+        } else {
+          chosen = hards[rngBetween(this.rng, 0, hards.length - 1)];
+        }
+      }
+    }
+
+    // Prevent consecutive duplicates (when more than 1 type available)
+    const chosenIndex = this.registry.indexOf(chosen);
+    if (available.length > 1 && chosenIndex === this.lastSpawnedIndex) {
+      const pool = (chosen.basic ? basics : hards).filter(
+        (e) => this.registry.indexOf(e) !== this.lastSpawnedIndex,
+      );
+      if (pool.length > 0) {
+        chosen = pool[rngBetween(this.rng, 0, pool.length - 1)];
+      } else {
+        // Fallback: pick from all available excluding last
+        const fallback = available.filter((e) => this.registry.indexOf(e) !== this.lastSpawnedIndex);
+        if (fallback.length > 0) {
+          chosen = fallback[rngBetween(this.rng, 0, fallback.length - 1)];
+        }
+      }
+    }
+
+    this.lastSpawnedIndex = this.registry.indexOf(chosen);
+    chosen.fn.call(this, x);
   }
 
   // ── 1. ONION (Lv1) ────────────────────────────────────────────────

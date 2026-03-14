@@ -6,6 +6,9 @@ import { floatUpDown } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
 import { crossfadeTransition } from '../utils/SceneTransition';
+import { getHighScore, getGamesPlayed, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
+import { getLevelForDistance } from '../config/levels';
+import { showNameInput } from '../ui/NameInputOverlay';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
@@ -146,11 +149,53 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
+    // --- COCKROACH + PLAYER NAME (centered) ---
+    const cockroachImg = this.add.image(width / 2, 225, 'cockroach-idle');
+    cockroachImg.setScale(0.35).setOrigin(0.5);
+    mainPage.add(cockroachImg);
+
+    // Walking animation — alternate idle/running frames
+    let cockroachFrame = false;
+    this.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        cockroachFrame = !cockroachFrame;
+        cockroachImg.setTexture(cockroachFrame ? 'cockroach-running' : 'cockroach-idle');
+      },
+    });
+
+    const playerName = getPlayerNameOrDefault();
+    const nameText = this.add.text(width / 2, 255, playerName, bodyStyle({
+      fontSize: '12px',
+      color: isPlayerNameCustom() ? '#00ff66' : '#ffffff',
+      strokeThickness: 3,
+    })).setOrigin(0.5);
+    mainPage.add(nameText);
+
+    // Hint when name is not customized
+    const hintText = this.add.text(width / 2, 272, 'Nazwij mnie', smallStyle({
+      fontSize: '7px',
+      color: '#888888',
+      strokeThickness: 2,
+    })).setOrigin(0.5).setVisible(!isPlayerNameCustom());
+    mainPage.add(hintText);
+
+    // "Zmień" button — positioned to the right of the centered block
+    const changeNameBtn = createButton(this, width / 2 + 120, 255, 80, 22, 'Zmień', 0x444444, smallStyle({ fontSize: '7px' }), () => {
+      showNameInput(this, (newName) => {
+        nameText.setText(newName);
+        nameText.setColor('#00ff66');
+        hintText.setVisible(false);
+      });
+    });
+    mainPage.add(changeNameBtn.all);
+
     // --- BUTTONS vertically stacked ---
     const btnS = buttonStyle({ fontSize: '11px', strokeThickness: 3 });
     const btnW = 260;
     const btnH = 38;
-    const btnStartY = 240;
+    const btnStartY = 310;
     const btnSpacing = 46;
 
     const addBtn = (y: number, label: string, color: number, action: () => void): { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text } => {
@@ -277,21 +322,27 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
 
-      // Column layout: rank | name | apple | tyskie | pill | score
-      const colRank = 20;
-      const colName = 65;
-      const colApple = width * 0.52;
-      const colTyskie = width * 0.62;
-      const colPill = width * 0.72;
-      const colScore = width - 20;
-      const iconScale = 0.12;
+      // Column layout: rank | name | lv | dist | combo | apple | tyskie | pill | score
+      const colRank = 15;
+      const colName = 50;
+      const colLv = width * 0.36;
+      const colDist = width * 0.44;
+      const colCombo = width * 0.52;
+      const colApple = width * 0.60;
+      const colTyskie = width * 0.68;
+      const colPill = width * 0.76;
+      const colScore = width - 15;
+      const iconScale = 0.10;
 
       // Fixed header row (outside scroll area)
       const headerY = 60;
       const headerStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-        fontSize: '8px', color: '#666666', fontFamily: FONT_FAMILY,
+        fontSize: '7px', color: '#666666', fontFamily: FONT_FAMILY,
         stroke: '#000000', strokeThickness: 1,
       };
+      container.add(this.add.text(colLv, headerY, 'Lv', headerStyle).setOrigin(0.5, 0.5));
+      container.add(this.add.text(colDist, headerY, 'Dyst', headerStyle).setOrigin(0.5, 0.5));
+      container.add(this.add.text(colCombo, headerY, 'Kmb', headerStyle).setOrigin(0.5, 0.5));
       if (this.textures.exists('apple')) {
         container.add(this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5));
       }
@@ -301,7 +352,7 @@ export class MenuScene extends Phaser.Scene {
       if (this.textures.exists('pill')) {
         container.add(this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
       }
-      container.add(this.add.text(colScore, headerY, 'Punkciory', headerStyle).setOrigin(1, 0.5));
+      container.add(this.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
 
       // Scrollable list container (below header)
       const listTop = 78;
@@ -363,15 +414,19 @@ export class MenuScene extends Phaser.Scene {
 
         const rankText = this.add.text(colRank, y, `${rank}.`, style).setOrigin(0, 0);
         const nameText = this.add.text(colName, y, entry.name, style).setOrigin(0, 0);
+        const displayLevel = entry.max_level ?? (entry.distance != null ? getLevelForDistance(entry.distance).level : null);
+        const lvText = this.add.text(colLv, y, displayLevel != null ? String(displayLevel) : '-', smallStatStyle).setOrigin(0.5, 0);
+        const distText = this.add.text(colDist, y, entry.distance != null ? `${Math.floor(entry.distance)}` : '-', smallStatStyle).setOrigin(0.5, 0);
+        const comboText = this.add.text(colCombo, y, entry.max_combo != null ? `x${entry.max_combo}` : '-', smallStatStyle).setOrigin(0.5, 0);
         const appleText = this.add.text(colApple, y, entry.apples_collected != null ? String(entry.apples_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const tyskieText = this.add.text(colTyskie, y, entry.tyskies_collected != null ? String(entry.tyskies_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const pillText = this.add.text(colPill, y, entry.pills_collected != null ? String(entry.pills_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const scoreText = this.add.text(colScore, y, String(entry.score), style).setOrigin(1, 0);
-        scrollContainer.add([rankText, nameText, appleText, tyskieText, pillText, scoreText]);
+        scrollContainer.add([rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText]);
 
         // Top 3 effects — constrained wobble for rank 1
         if (rank === 1) {
-          const elements = [rankText, nameText, appleText, tyskieText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText];
           const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
           let ci = 0;
           timeEvents.push(this.time.addEvent({
@@ -392,7 +447,7 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 2) {
-          const elements = [rankText, nameText, appleText, tyskieText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.7, to: 1 },
@@ -402,7 +457,7 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 3) {
-          const elements = [rankText, nameText, appleText, tyskieText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.8, to: 1 },
@@ -549,12 +604,12 @@ export class MenuScene extends Phaser.Scene {
       ? [
           [['Lewy ekran'], 'Zmie\u0144 tor'],
           [['Prawy ekran'], 'Dash'],
-          [['\u23f8'], 'Pauzka'],
+          [['\u23f8'], 'Pauza'],
         ]
       : [
           [['SPACJA', '\u2191', '\u2193'], 'Zmiana toru'],
           [['SHIFT', '\u2191>rot90'], 'Dash'],
-          [['ESC'], 'Pauzka'],
+          [['ESC'], 'Pauza'],
         ];
 
     const rowStartY = bottom - 10;
@@ -610,8 +665,8 @@ export class MenuScene extends Phaser.Scene {
     container.add(statyTitle);
     animateTitle(statyTitle);
 
-    const highScore = localStorage.getItem('cockroach-highscore') || '0';
-    const gamesPlayed = parseInt(localStorage.getItem('cockroach-games-played') || '0', 10);
+    const highScore = String(getHighScore());
+    const gamesPlayed = getGamesPlayed();
 
     const statStyle = bodyStyle({
       fontSize: '14px',

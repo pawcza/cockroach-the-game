@@ -86,18 +86,22 @@ export class SpawnManager {
     }
   }
 
-  cleanupOffscreen(cameraLeft: number, onPickupMissed: () => void): void {
+  cleanupOffscreen(cameraLeft: number, onPickupMissed: (comboLost: number) => void, currentCombo: number): void {
     this.obstacles.getChildren().forEach((obj) => {
       const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (sprite.x < cameraLeft) sprite.destroy();
+      if (sprite.x < cameraLeft - 200) sprite.destroy();
     });
 
+    let comboWasLost = false;
     const groups = [this.apples, this.tyskies, this.pills];
     for (const group of groups) {
       group.getChildren().forEach((obj) => {
         const sprite = obj as Phaser.Physics.Arcade.Sprite;
         if (sprite.x < cameraLeft) {
-          onPickupMissed();
+          if (!comboWasLost && currentCombo > 0) {
+            comboWasLost = true;
+            onPickupMissed(currentCombo);
+          }
           sprite.destroy();
         }
       });

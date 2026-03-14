@@ -3,10 +3,10 @@ import { mpClient, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
 import { COLORS } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
-import { createButton, createHtmlButton } from '../ui/shared';
+import { createButton } from '../ui/shared';
 import { crossfadeTransition } from '../utils/SceneTransition';
-
-const STORAGE_KEY = 'cockroach-mp-name';
+import { getPlayerName, getPlayerNameOrDefault } from '../utils/Storage';
+import { showNameInput } from '../ui/NameInputOverlay';
 
 export class MultiplayerMenuScene extends Phaser.Scene {
   private lobbyContainer!: Phaser.GameObjects.Container;
@@ -64,15 +64,21 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     });
 
     // --- NICKNAME DISPLAY ---
-    const nickname = localStorage.getItem(STORAGE_KEY) || '';
-    this.nicknameText = this.add.text(width / 2, 120, nickname ? `Gracz: ${nickname}` : 'Brak nicku!', smallStyle({
+    const nickname = getPlayerName();
+    this.nicknameText = this.add.text(width / 2, 120, nickname ? `Gracz: ${nickname}` : `Gracz: ${getPlayerNameOrDefault()}`, smallStyle({
       fontSize: '10px',
-      color: nickname ? '#00ff66' : '#ff4444',
+      color: nickname ? '#00ff66' : '#ffffff',
       strokeThickness: 3,
     })).setOrigin(0.5);
 
     // "Zmien" button next to nickname
-    createButton(this, width / 2 + 140, 120, 80, 24, 'Zmie\u0144', 0x444444, smallStyle({ fontSize: '8px' }), () => this.showNicknameOverlay());
+    createButton(this, width / 2 + 140, 120, 80, 24, 'Zmień', 0x444444, smallStyle({ fontSize: '8px' }), () => {
+      showNameInput(this, (newName) => {
+        mpClient.setName(newName);
+        this.nicknameText.setText(`Gracz: ${newName}`);
+        this.nicknameText.setColor('#00ff66');
+      });
+    });
 
     // --- LOBBY LIST AREA ---
     const listTop = 145;
@@ -134,11 +140,11 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     // --- CONNECT AND LISTEN FOR LOBBY UPDATES ---
     mpClient.connect();
-    const name = localStorage.getItem(STORAGE_KEY);
+    const name = getPlayerName();
     if (name) {
       mpClient.setName(name);
     } else {
-      this.showNicknameOverlay();
+      mpClient.setName(getPlayerNameOrDefault());
     }
 
     // Render initial empty state
@@ -258,11 +264,8 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   }
 
   private async handleJoinLobby(lobbyId: string): Promise<void> {
-    const name = localStorage.getItem(STORAGE_KEY);
-    if (!name) {
-      this.showNicknameOverlay();
-      return;
-    }
+    const name = getPlayerName() || getPlayerNameOrDefault();
+    mpClient.setName(name);
     try {
       const lobbyData = await mpClient.joinLobby(lobbyId);
       this.scene.start('LobbyScene', { lobbyData });
@@ -272,11 +275,8 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   }
 
   private async handleCreateLobby(): Promise<void> {
-    const name = localStorage.getItem(STORAGE_KEY);
-    if (!name) {
-      this.showNicknameOverlay();
-      return;
-    }
+    const name = getPlayerName() || getPlayerNameOrDefault();
+    mpClient.setName(name);
     try {
       const lobbyData = await mpClient.createLobby();
       this.scene.start('LobbyScene', { lobbyData });
@@ -285,55 +285,4 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     }
   }
 
-  private showNicknameOverlay(): void {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;font-family:"Press Start 2P",monospace;';
-
-    const label = document.createElement('div');
-    label.textContent = 'Tw\u00f3j nick:';
-    label.style.cssText = 'color:#ffff00;font-size:24px;text-shadow:0 0 12px #ffff00;';
-    overlay.appendChild(label);
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 20;
-    input.value = localStorage.getItem(STORAGE_KEY) || '';
-    input.style.cssText = 'font-family:"Press Start 2P",monospace;font-size:28px;padding:16px 20px;background:#111;color:#fff;border:3px solid #006688;outline:none;text-align:center;width:380px;border-radius:8px;';
-    overlay.appendChild(input);
-
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:20px;';
-
-    const submitBtn = createHtmlButton('OK', '#006688');
-    btnRow.appendChild(submitBtn);
-    const cancelBtn = createHtmlButton('Anuluj', '#555');
-    btnRow.appendChild(cancelBtn);
-
-    overlay.appendChild(btnRow);
-    document.body.appendChild(overlay);
-
-    input.focus();
-
-    const cleanup = (): void => {
-      overlay.remove();
-    };
-
-    const submit = (): void => {
-      const name = input.value.trim().slice(0, 20);
-      if (name.length > 0) {
-        localStorage.setItem(STORAGE_KEY, name);
-        mpClient.setName(name);
-        this.nicknameText.setText(`Gracz: ${name}`);
-        this.nicknameText.setColor('#00ff66');
-        cleanup();
-      }
-    };
-
-    submitBtn.addEventListener('click', submit);
-    cancelBtn.addEventListener('click', cleanup);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submit();
-      if (e.key === 'Escape') cleanup();
-    });
-  }
 }

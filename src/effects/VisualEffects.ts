@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS, DEPTH } from '../config/constants';
 import { burstParticles } from '../utils/TweenPatterns';
+import { popupStyle } from '../utils/TextStyles';
 
 export class VisualEffects {
   private scene: Phaser.Scene;
@@ -218,6 +219,40 @@ export class VisualEffects {
       ease: 'Quad.easeOut',
       yoyo: true,
       onComplete: () => { camera.zoom = 1.0; },
+    });
+  }
+
+  comboLostEffect(comboLost: number): void {
+    if (!this.initialized || comboLost <= 0) return;
+
+    const camera = this.scene.cameras.main;
+
+    // Brief red flash
+    this.flashOverlay.setBlendMode(Phaser.BlendModes.NORMAL);
+    this.flashOverlay.setFillStyle(0xff0000, 0.3);
+    this.scene.time.delayedCall(120, () => {
+      this.flashOverlay.setFillStyle(0xff0000, 0);
+    });
+
+    // Small screen shake
+    camera.shake(150, 0.008);
+
+    // Text at top of screen
+    const w = camera.width;
+    const text = this.scene.add.text(w / 2, 80, `${comboLost} kombo w dupę`, popupStyle({
+      fontSize: '12px',
+      color: '#ff4444',
+      strokeThickness: 4,
+    }));
+    text.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP);
+
+    this.scene.tweens.add({
+      targets: text,
+      alpha: { from: 1, to: 0 },
+      y: text.y - 20,
+      duration: 3000,
+      ease: 'Power2',
+      onComplete: () => text.destroy(),
     });
   }
 

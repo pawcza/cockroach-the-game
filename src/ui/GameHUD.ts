@@ -115,7 +115,7 @@ export class GameHUD {
       .setInteractive();
     this.pauseOverlay.on('pointerdown', () => { this.onTogglePause(); });
 
-    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZKA!', popupStyle({ fontSize: '24px' }))
+    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZA!', popupStyle({ fontSize: '24px' }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
     this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wciśnij cokolwiek, po to by grać dalej', smallStyle({ fontSize: '7px' }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);

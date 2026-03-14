@@ -6,6 +6,8 @@ export interface ScoreEntry {
   apples_collected: number | null;
   tyskies_collected: number | null;
   pills_collected: number | null;
+  max_level: number | null;
+  max_combo: number | null;
 }
 
 export async function fetchScores(): Promise<ScoreEntry[]> {

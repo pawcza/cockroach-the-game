@@ -29,7 +29,7 @@ db.exec(`
 `);
 
 // Add new columns if missing (existing DBs)
-for (const col of ['apples_collected', 'tyskies_collected', 'pills_collected']) {
+for (const col of ['apples_collected', 'tyskies_collected', 'pills_collected', 'max_level', 'max_combo']) {
   try {
     db.exec(`ALTER TABLE scores ADD COLUMN ${col} INTEGER`);
   } catch {
@@ -47,6 +47,8 @@ export interface ScoreEntry {
   apples_collected: number | null;
   tyskies_collected: number | null;
   pills_collected: number | null;
+  max_level: number | null;
+  max_combo: number | null;
   created_at: string;
 }
 
@@ -74,11 +76,13 @@ export function insertScore(
   applesCollected: number | null,
   tyskiesCollected: number | null,
   pillsCollected: number | null,
+  maxLevel: number | null = null,
+  maxCombo: number | null = null,
 ): ScoreEntry {
   const stmt = db.prepare(
-    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
-  const info = stmt.run(name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected);
+  const info = stmt.run(name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected, maxLevel, maxCombo);
   const inserted = db.prepare('SELECT * FROM scores WHERE id = ?').get(info.lastInsertRowid) as ScoreEntry;
   return inserted;
 }
@@ -92,13 +96,15 @@ export function insertScores(entries: Array<{
   applesCollected?: number | null;
   tyskiesCollected?: number | null;
   pillsCollected?: number | null;
+  maxLevel?: number | null;
+  maxCombo?: number | null;
 }>): void {
   const stmt = db.prepare(
-    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
   const insertMany = db.transaction((rows: typeof entries) => {
     for (const e of rows) {
-      stmt.run(e.name, e.score, e.deathCause ?? null, e.distance ?? null, e.timeSurvived ?? null, e.applesCollected ?? null, e.tyskiesCollected ?? null, e.pillsCollected ?? null);
+      stmt.run(e.name, e.score, e.deathCause ?? null, e.distance ?? null, e.timeSurvived ?? null, e.applesCollected ?? null, e.tyskiesCollected ?? null, e.pillsCollected ?? null, e.maxLevel ?? null, e.maxCombo ?? null);
     }
   });
   insertMany(entries);
