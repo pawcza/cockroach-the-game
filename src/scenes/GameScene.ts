@@ -23,6 +23,9 @@ import { SpawnManager } from '../systems/SpawnManager';
 import { CollisionManager } from '../systems/CollisionManager';
 import { PauseManager } from '../systems/PauseManager';
 import { GameOverHandler } from '../systems/GameOverHandler';
+import { BossFight } from '../systems/BossFight';
+
+const BOSS_TRIGGER_DISTANCE = 450; // Testing: 450 (after lv3). Production: 2600
 
 export class GameScene extends Phaser.Scene {
   // Floor positions
@@ -76,6 +79,9 @@ export class GameScene extends Phaser.Scene {
   private collisionManager!: CollisionManager;
   private pauseManager!: PauseManager;
   private gameOverHandler!: GameOverHandler;
+  private bossFight: BossFight | null = null;
+  private isBossFight = false;
+  private bossDefeated = false;
 
   // Scoring
   private score = 0;
@@ -138,6 +144,7 @@ export class GameScene extends Phaser.Scene {
     this.rng = (this.isMultiplayer && data?.seed != null) ? new SeededRNG(data.seed) : null;
 
     // Reset state
+    this.time.timeScale = 1.0;
     this.ghostManager = null;
     this._wasDashing = false;
     this._wasPillActive = false;
@@ -161,6 +168,9 @@ export class GameScene extends Phaser.Scene {
     this.currentLevel = 1;
     this.isCountingDown = true;
     this.bgTransitioning = false;
+    this.bossFight = null;
+    this.isBossFight = false;
+    this.bossDefeated = false;
 
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
@@ -273,11 +283,18 @@ export class GameScene extends Phaser.Scene {
         if (this.isMultiplayer) mpClient.sendSwap(this.player.currentFloor);
       },
       onDash: () => {
+        if (this.isBossFight && this.bossFight) {
+          this.bossFight.shoot();
+          return;
+        }
         this.player.startDash();
         if (this.isMultiplayer) mpClient.sendDashStart();
       },
       isDisabled: () => this.isDead || this.pauseManager.isPaused || this.isCountingDown || this.pauseManager.isUnpauseCountdown,
-      isDashAllowed: () => this.player.dashReady && !this.player.isDashing,
+      isDashAllowed: () => {
+        if (this.isBossFight) return true;
+        return this.player.dashReady && !this.player.isDashing;
+      },
     });
     this.touchControls.create();
 
@@ -447,6 +464,36 @@ export class GameScene extends Phaser.Scene {
     this.activePlayTime += this.time.now - this.lastFrameTime;
     this.lastFrameTime = this.time.now;
 
+    // Boss fight mode — delegate to BossFight
+    if (this.isBossFight && this.bossFight) {
+      // Lane swap input
+      const jumpPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.cursors.up);
+      const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
+      if (jumpPressed || dropPressed) {
+        this.player.swapLane();
+      }
+      // Shoot input
+      const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);
+      if (dashPressed) {
+        this.bossFight.shoot();
+      }
+
+      this.bossFight.update(this.game.loop.delta);
+      this.updateParallax();
+      this.updateFloors();
+      const hudData: HUDUpdateData = {
+        score: this.score,
+        distance: this.getDistance(),
+        speedMultiplier: this.player.speedMultiplier,
+        currentFloor: this.player.currentFloor,
+        pickupCombo: this.pickupCombo,
+        comboMultiplier: this.getComboMultiplier(),
+        timeNow: this.time.now,
+      };
+      this.hud.update(hudData);
+      return;
+    }
+
     // Update player
     this.player.updateSpeed(this.activePlayTime, this.currentLevel);
 
@@ -478,9 +525,11 @@ export class GameScene extends Phaser.Scene {
       if (this.isMultiplayer) mpClient.sendSwap(this.player.currentFloor);
     }
 
-    // Input — dash
+    // Input — dash / shoot
     const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);
-    if (dashPressed && this.player.dashReady && !this.player.isDashing) {
+    if (dashPressed && this.isBossFight && this.bossFight) {
+      this.bossFight.shoot();
+    } else if (dashPressed && this.player.dashReady && !this.player.isDashing) {
       this.player.startDash();
       if (this.isMultiplayer) mpClient.sendDashStart();
     }
@@ -511,6 +560,50 @@ export class GameScene extends Phaser.Scene {
     if (newLevelConfig.level !== this.currentLevel) {
       this.currentLevel = newLevelConfig.level;
       this.switchLevel(newLevelConfig);
+    }
+
+    // Boss fight trigger
+    if (!this.isBossFight && !this.bossDefeated && distance >= BOSS_TRIGGER_DISTANCE && !this.isDead) {
+      this.isBossFight = true;
+      this.bossFight = new BossFight(
+        this, this.player, this.audio, this.vfx, this.hud,
+        this.floorTopY, this.floorBottomY,
+        {
+          onComplete: () => {
+            this.score += this.bossFight!.victoryBonus;
+            this.hud.updateScore(this.score);
+            this.bossFight?.destroy();
+            this.bossFight = null;
+            this.isBossFight = false;
+            this.bossDefeated = true;
+            this.player.startRunning();
+            this.player.updateSpeed(this.activePlayTime, this.currentLevel);
+            const blinkTween = this.player.startInvulnerabilityBlink();
+            this.time.delayedCall(1500, () => this.player.endInvulnerability(blinkTween));
+            const lvlConfig = getLevelForDistance(this.getDistance());
+            this.audio.switchBGM(lvlConfig.bgmKey);
+          },
+          onDie: (type) => {
+            this.bossFight?.destroy();
+            this.bossFight = null;
+            this.isBossFight = false;
+            this.gameOverHandler.die(type);
+          },
+          clearScreen: () => {
+            // Explode all obstacles and pickups
+            const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
+            for (const group of groups) {
+              const children = group.getChildren().slice();
+              for (const obj of children) {
+                const sprite = obj as Phaser.Physics.Arcade.Sprite;
+                this.vfx.appleCollectEffect(sprite.x, sprite.y);
+                sprite.destroy();
+              }
+            }
+          },
+        },
+      );
+      return;
     }
 
     // Update HUD

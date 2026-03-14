@@ -38,6 +38,12 @@ export class GameHUD {
   private lastTitleScore = -1;
   private lastTitleSpeed = -1;
 
+  // Boss HP bar
+  private bossMode = false;
+  private bossHP = 0;
+  private bossMaxHP = 0;
+  private bossName = '';
+
   // Level bar dimensions
   private barX = 0;
   private barY = 0;
@@ -183,6 +189,55 @@ export class GameHUD {
   }
 
   private drawLevelBar(distance: number): void {
+    // Boss HP mode — repurpose the level bar
+    if (this.bossMode) {
+      const bx = this.barX - this.barW / 2;
+      const by = this.barY;
+      const bw = this.barW;
+      const bh = this.barH;
+      const r = this.barRadius;
+      const progress = this.bossHP / this.bossMaxHP;
+      const fillW = Math.max(0, bw * progress);
+
+      this.levelBarGfx.clear();
+      this.levelBarGfx.fillStyle(0x000000, 0.5);
+      this.levelBarGfx.fillRoundedRect(bx + 2, by + 2, bw, bh, r);
+      this.levelBarGfx.fillStyle(0x330000, 1);
+      this.levelBarGfx.fillRoundedRect(bx - 1, by - 1, bw + 2, bh + 2, r + 1);
+      this.levelBarGfx.fillStyle(0x111111, 0.9);
+      this.levelBarGfx.fillRoundedRect(bx, by, bw, bh, r);
+
+      this.levelBarFillGfx.clear();
+      if (fillW > 2) {
+        const fillR = {
+          tl: r, bl: r,
+          tr: fillW >= bw - r ? r : 0,
+          br: fillW >= bw - r ? r : 0,
+        };
+        this.levelBarFillGfx.fillStyle(0xcc0000, 0.85);
+        this.levelBarFillGfx.fillRoundedRect(bx, by, fillW, bh, fillR);
+
+        this.fillScrollX += 0.5;
+        const stripeW = 12;
+        const stripeGap = 8;
+        const stripeStep = stripeW + stripeGap;
+        this.levelBarFillGfx.fillStyle(0xff0000, 0.15);
+        for (let sx = -stripeStep + (this.fillScrollX % stripeStep); sx < fillW + stripeStep; sx += stripeStep) {
+          const clampL = Math.max(bx, Math.min(bx + sx, bx + fillW));
+          const clampR = Math.max(bx, Math.min(bx + sx + stripeW, bx + fillW));
+          if (clampR > clampL) {
+            this.levelBarFillGfx.fillRect(clampL, by + 1, clampR - clampL, bh - 2);
+          }
+        }
+      }
+
+      this.levelBarText.setText(`${this.bossName} (${this.bossHP}/${this.bossMaxHP})`);
+      this.speedText.setVisible(false);
+      return;
+    }
+
+    this.speedText.setVisible(true);
+
     const levelConfig = getLevelForDistance(distance);
     const levelProgress = getLevelProgress(distance);
     const { inLevel, levelSpan } = getLevelDistances(distance);
@@ -412,5 +467,20 @@ export class GameHUD {
     });
 
     this.scene.cameras.main.shake(300, cfg.shake);
+  }
+
+  showBossHP(name: string, hp: number, maxHP: number): void {
+    this.bossMode = true;
+    this.bossName = name;
+    this.bossHP = hp;
+    this.bossMaxHP = maxHP;
+  }
+
+  updateBossHP(hp: number): void {
+    this.bossHP = hp;
+  }
+
+  hideBossHP(): void {
+    this.bossMode = false;
   }
 }

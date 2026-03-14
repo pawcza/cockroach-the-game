@@ -36,6 +36,7 @@ export class GameOverScene extends Phaser.Scene {
     pope: 'OKADZONY PRZEZ PAPIEŻA!',
     bison: 'ŻUBR CIĘ STRATOWAŁ!',
     blackhole: 'WCIĄGNIĘTY W NICOŚĆ!',
+    boss: 'BESTIA CIĘ DOPADŁA!',
   };
 
   private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
@@ -50,6 +51,7 @@ export class GameOverScene extends Phaser.Scene {
     pope: 'pope',
     bison: 'bison',
     blackhole: 'black-hole',
+    boss: 'boss-face2',
   };
 
   private static readonly DEFAULT_DEATH = 'ZGNIOTŁEŚ SIĘ!';
