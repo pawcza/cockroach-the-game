@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../config/constants';
+import { popupStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { AudioManager } from '../audio/AudioManager';
 import { VisualEffects } from '../effects/VisualEffects';
@@ -9,12 +10,36 @@ type BossState = 'intro' | 'fighting' | 'victory' | 'resuming' | 'done';
 
 const BOSS_MAX_HP = 50;
 const BULLET_SPEED = 600;
-const PROJECTILE_SPEED = 300;
-const SHOOT_COOLDOWN = 200;
-const FIRE_RATE_MAX = 1200;
-const FIRE_RATE_MIN = 400;
+const SHOOT_COOLDOWN = 250;
 const OBSTACLE_OFFSET = 25;
 const VICTORY_BONUS = 500;
+const PROJECTILE_SCORE = 5;
+
+// Time-based difficulty constants
+const FIRE_RATE_START = 1200;
+const FIRE_RATE_MIN = 350;
+const PROJECTILE_SPEED_START = 300;
+const PROJECTILE_SPEED_MAX = 500;
+const DIFFICULTY_RAMP_TIME = 60000; // 60 seconds to reach max difficulty
+
+// Rage phase constants
+const RAGE_HP_PERCENTAGES = [0.5, 0.25]; // 50% and 25% HP
+const RAGE_SHOT_COUNT = 6;
+const RAGE_SHOT_DELAY = 550; // ms between rage shots — dodgeable
+const RAGE_WINDUP_DELAY = 800; // delay before rage shots start
+
+// Indestructible projectile chance during normal phase (increases with time)
+const INDESTRUCTIBLE_BASE_CHANCE = 0.03;
+const INDESTRUCTIBLE_MAX_CHANCE = 0.12;
+
+// Boss charge constants
+const CHARGE_HP_THRESHOLD = 8; // last ~15% of 50
+const CHARGE_SPEED = 15; // px/s advance toward player
+
+// Multi-volley: chance increases with time
+const VOLLEY_BASE_CHANCE = 0;
+const VOLLEY_MAX_CHANCE = 0.35;
+const VOLLEY_OFFSET_X = 60; // px gap between paired projectiles
 
 interface FaceConfig {
   key: string;
@@ -43,9 +68,11 @@ export class BossFight {
   private onComplete: () => void;
   private onDie: (type: string) => void;
   private clearScreen: () => void;
+  private addScore: (points: number) => void;
 
   private state: BossState = 'intro';
   private stateTime = 0;
+  private fightTime = 0; // time spent in fighting state
 
   // Boss
   private bossContainer!: Phaser.GameObjects.Container;
@@ -63,7 +90,13 @@ export class BossFight {
   private projectiles!: Phaser.Physics.Arcade.Group;
   private shootCooldown = 0;
   private fireTimer = 0;
-  private nextFireInterval = FIRE_RATE_MAX;
+  private nextFireInterval = FIRE_RATE_START;
+
+  // Rage phase
+  private rageTriggered: boolean[] = [];
+  private isRaging = false;
+  private rageShots = 0;
+  private rageLastLane: 'top' | 'bottom' = 'top';
 
   // Boss cue easter egg
   private cueTimer = 0;
@@ -84,7 +117,12 @@ export class BossFight {
     hud: GameHUD,
     floorTopY: number,
     floorBottomY: number,
-    callbacks: { onComplete: () => void; onDie: (type: string) => void; clearScreen: () => void },
+    callbacks: {
+      onComplete: () => void;
+      onDie: (type: string) => void;
+      clearScreen: () => void;
+      addScore: (points: number) => void;
+    },
   ) {
     this.scene = scene;
     this.player = player;
@@ -96,6 +134,7 @@ export class BossFight {
     this.onComplete = callbacks.onComplete;
     this.onDie = callbacks.onDie;
     this.clearScreen = callbacks.clearScreen;
+    this.addScore = callbacks.addScore;
 
     this.playerFixedX = player.x;
     this.bossX = this.scene.cameras.main.scrollX + this.scene.cameras.main.width - 80;
@@ -105,6 +144,7 @@ export class BossFight {
     this.projectiles = this.scene.physics.add.group();
 
     this.nextCueTime = 5000 + Math.random() * 5000;
+    this.rageTriggered = RAGE_HP_PERCENTAGES.map(() => false);
 
     this.startIntro();
   }
@@ -117,25 +157,23 @@ export class BossFight {
   private startIntro(): void {
     this.state = 'intro';
     this.stateTime = 0;
-
-    // Explode all visible obstacles and pickups
     this.clearScreen();
+
+    // Force-end any active pill/dash effects
+    this.player.forceEndEffects();
 
     const sprite = this.player.sprite;
 
-    // Decelerate cockroach
     this.scene.tweens.add({
       targets: sprite.body!.velocity,
       x: 0,
       duration: 1000,
       ease: 'Power2',
       onComplete: () => {
-        (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
         sprite.setVelocity(0, 0);
-        this.playerFixedX = sprite.x; // capture position after deceleration
+        this.playerFixedX = sprite.x;
         this.scene.cameras.main.stopFollow();
 
-        // Rotate cockroach (stand up), then switch to standing sprite
         this.scene.tweens.add({
           targets: sprite,
           angle: -90,
@@ -154,7 +192,6 @@ export class BossFight {
     const sprite = this.player.sprite;
     const cam = this.scene.cameras.main;
 
-    // Godray effect
     this.godrayGraphics = this.scene.add.graphics();
     this.godrayGraphics.setScrollFactor(0);
     this.godrayGraphics.setDepth(DEPTH.GODRAY);
@@ -165,32 +202,22 @@ export class BossFight {
 
     this.glockSprite = this.scene.add.image(glockScreenX, -50, 'boss-gun');
     this.glockSprite.setScale(0.3).setDepth(DEPTH.OBSTACLES - 1).setScrollFactor(0);
-    this.glockSprite.setOrigin(0, 0.5); // left-center origin for recoil rotation
+    this.glockSprite.setOrigin(0, 0.5);
 
     this.scene.sound.play('boss-choir', { volume: 0.7 });
 
-    // Fade in godray
-    this.scene.tweens.add({
-      targets: this.godrayGraphics,
-      alpha: 0.6,
-      duration: 500,
-    });
+    this.scene.tweens.add({ targets: this.godrayGraphics, alpha: 0.6, duration: 500 });
 
-    // Descend glock
     this.scene.tweens.add({
       targets: this.glockSprite,
       y: glockScreenY,
       duration: 1500,
       ease: 'Sine.easeOut',
       onComplete: () => {
-        // Gun cock sound
         this.scene.sound.play('dash-ready', { volume: 0.7 });
-
-        // Flash on cockroach
         sprite.setTint(0xffffff);
         this.delay(150, () => sprite.clearTint());
 
-        // Fade out godray
         this.scene.tweens.add({
           targets: this.godrayGraphics,
           alpha: 0,
@@ -206,10 +233,7 @@ export class BossFight {
   private startBossEntrance(): void {
     const cam = this.scene.cameras.main;
 
-    this.bossContainer = this.scene.add.container(
-      cam.scrollX + cam.width + 100,
-      this.bossY,
-    );
+    this.bossContainer = this.scene.add.container(cam.scrollX + cam.width + 100, this.bossY);
     this.bossContainer.setDepth(DEPTH.OBSTACLES);
 
     for (const face of FACES) {
@@ -222,7 +246,6 @@ export class BossFight {
     this.beastAmbientSound = this.scene.sound.add('boss-beast-ambient', { volume: 0.5, loop: true });
     this.beastAmbientSound.play();
 
-    // Slide boss in
     this.scene.tweens.add({
       targets: this.bossContainer,
       x: this.bossX,
@@ -235,10 +258,10 @@ export class BossFight {
   private startFighting(): void {
     this.state = 'fighting';
     this.stateTime = 0;
+    this.fightTime = 0;
     this.fireTimer = 0;
-    this.nextFireInterval = FIRE_RATE_MAX;
+    this.nextFireInterval = FIRE_RATE_START;
 
-    // Stop beast ambient entrance sound
     if (this.beastAmbientSound) {
       this.beastAmbientSound.stop();
       this.beastAmbientSound.destroy();
@@ -247,8 +270,6 @@ export class BossFight {
 
     this.audio.switchBGM('boss-bgm');
     this.hud.showBossHP('Bestia z Wadowic', this.bossHP, BOSS_MAX_HP);
-
-    // Collisions handled manually in updateFighting()
   }
 
   // ── Update ────────────────────────────────────────────────────────
@@ -266,13 +287,33 @@ export class BossFight {
     }
   }
 
+  private getDifficultyProgress(): number {
+    return Math.min(this.fightTime / DIFFICULTY_RAMP_TIME, 1);
+  }
+
+  private getCurrentFireRate(): number {
+    const t = this.getDifficultyProgress();
+    return FIRE_RATE_START - (FIRE_RATE_START - FIRE_RATE_MIN) * t;
+  }
+
+  private getCurrentProjectileSpeed(): number {
+    const t = this.getDifficultyProgress();
+    return PROJECTILE_SPEED_START + (PROJECTILE_SPEED_MAX - PROJECTILE_SPEED_START) * t;
+  }
+
+  private getVolleyChance(): number {
+    const t = this.getDifficultyProgress();
+    return VOLLEY_BASE_CHANCE + (VOLLEY_MAX_CHANCE - VOLLEY_BASE_CHANCE) * t;
+  }
+
   private updateFighting(delta: number): void {
+    this.fightTime += delta;
+
     // Keep player at fixed X
     this.player.sprite.x = this.playerFixedX;
     this.player.sprite.setVelocityX(0);
 
     // Glock follows cockroach Y
-    const cam = this.scene.cameras.main;
     this.glockSprite.y = this.player.sprite.y;
 
     // Wobble boss faces
@@ -287,12 +328,31 @@ export class BossFight {
     // Shoot cooldown
     if (this.shootCooldown > 0) this.shootCooldown -= delta;
 
-    // Boss fire timer
-    this.fireTimer += delta;
-    if (this.fireTimer >= this.nextFireInterval) {
-      this.fireTimer = 0;
-      this.bossFireProjectile();
-      this.nextFireInterval = FIRE_RATE_MIN + (FIRE_RATE_MAX - FIRE_RATE_MIN) * (this.bossHP / BOSS_MAX_HP);
+    // Rage phase check
+    if (!this.isRaging) {
+      for (let i = 0; i < RAGE_HP_PERCENTAGES.length; i++) {
+        const threshold = Math.floor(BOSS_MAX_HP * RAGE_HP_PERCENTAGES[i]);
+        if (!this.rageTriggered[i] && this.bossHP <= threshold) {
+          this.rageTriggered[i] = true;
+          this.startRagePhase();
+          break;
+        }
+      }
+    }
+
+    // Boss fire timer (skip during rage — rage has its own firing)
+    if (!this.isRaging) {
+      this.fireTimer += delta;
+      if (this.fireTimer >= this.nextFireInterval) {
+        this.fireTimer = 0;
+        this.bossFireProjectile();
+        this.nextFireInterval = this.getCurrentFireRate();
+      }
+    }
+
+    // Boss charge at low HP
+    if (this.bossHP <= CHARGE_HP_THRESHOLD && this.bossContainer.active) {
+      this.bossContainer.x -= CHARGE_SPEED * (delta / 1000);
     }
 
     // Boss cue sounds
@@ -307,16 +367,16 @@ export class BossFight {
     // Cleanup off-screen
     const camLeft = this.scene.cameras.main.scrollX - 50;
     const camRight = this.scene.cameras.main.scrollX + this.scene.cameras.main.width + 50;
-    this.bullets.getChildren().forEach((obj) => {
+    this.bullets.getChildren().slice().forEach((obj) => {
       const s = obj as Phaser.Physics.Arcade.Sprite;
       if (s.x > camRight) s.destroy();
     });
-    this.projectiles.getChildren().forEach((obj) => {
+    this.projectiles.getChildren().slice().forEach((obj) => {
       const s = obj as Phaser.Physics.Arcade.Sprite;
       if (s.x < camLeft) s.destroy();
     });
 
-    // Bullet-projectile collision (manual check)
+    // Bullet-projectile collision
     const bulletsArr = this.bullets.getChildren().slice();
     const projsArr = this.projectiles.getChildren().slice();
     for (const bObj of bulletsArr) {
@@ -325,6 +385,8 @@ export class BossFight {
       for (const pObj of projsArr) {
         const proj = pObj as Phaser.Physics.Arcade.Sprite;
         if (!proj.active) continue;
+        // Skip indestructible projectiles
+        if (proj.getData('indestructible')) continue;
         const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, proj.x, proj.y);
         if (dist < 30) {
           const px = proj.x;
@@ -332,14 +394,15 @@ export class BossFight {
           bullet.destroy();
           proj.destroy();
           this.spawnExplosion(px, py);
+          this.showProjectileScore(px, py);
           break;
         }
       }
     }
 
-    // Projectile-cockroach collision (manual check)
+    // Projectile-cockroach collision
     const cockroach = this.player.sprite;
-    this.projectiles.getChildren().forEach((obj) => {
+    this.projectiles.getChildren().slice().forEach((obj) => {
       const proj = obj as Phaser.Physics.Arcade.Sprite;
       if (!proj.active) return;
       const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, proj.x, proj.y);
@@ -348,16 +411,18 @@ export class BossFight {
       }
     });
 
-    // Bullet-boss collision (manual since container isn't a physics body)
-    this.bullets.getChildren().forEach((obj) => {
-      const bullet = obj as Phaser.Physics.Arcade.Sprite;
-      if (!bullet.active) return;
-      if (bullet.x >= this.bossContainer.x - 60 && bullet.x <= this.bossContainer.x + 60 &&
-          bullet.y >= this.bossContainer.y - 80 && bullet.y <= this.bossContainer.y + 80) {
-        bullet.destroy();
-        this.onBulletHitsBoss();
-      }
-    });
+    // Bullet-boss collision (skip during rage — boss is invulnerable)
+    if (!this.isRaging) {
+      this.bullets.getChildren().slice().forEach((obj) => {
+        const bullet = obj as Phaser.Physics.Arcade.Sprite;
+        if (!bullet.active) return;
+        if (bullet.x >= this.bossContainer.x - 60 && bullet.x <= this.bossContainer.x + 60 &&
+            bullet.y >= this.bossContainer.y - 80 && bullet.y <= this.bossContainer.y + 80) {
+          bullet.destroy();
+          this.onBulletHitsBoss();
+        }
+      });
+    }
   }
 
   private updateGodray(): void {
@@ -386,7 +451,6 @@ export class BossFight {
 
     this.shootCooldown = SHOOT_COOLDOWN;
 
-    // Spawn bullet at the glock's world position (glock is scrollFactor 0, so convert)
     const cam = this.scene.cameras.main;
     const gunWorldX = this.glockSprite.x + cam.scrollX + this.glockSprite.displayWidth * 0.8;
     const gunWorldY = this.glockSprite.y + cam.scrollY - this.glockSprite.displayHeight / 2 + 28;
@@ -398,7 +462,6 @@ export class BossFight {
 
     this.scene.sound.play('boss-pistol', { volume: 0.5 });
 
-    // Gun recoil — quick rotate up and back
     this.scene.tweens.add({
       targets: this.glockSprite,
       angle: -15,
@@ -408,53 +471,130 @@ export class BossFight {
     });
   }
 
-  private bossFireProjectile(): void {
+  private bossFireProjectile(overrideLane?: 'top' | 'bottom'): void {
     const faceIdx = Phaser.Math.Between(0, 2);
     const face = FACES[faceIdx];
-    const lane = face.lane === 'both'
+    const lane = overrideLane ?? (face.lane === 'both'
       ? (Math.random() < 0.5 ? 'top' : 'bottom')
-      : face.lane;
+      : face.lane);
+
+    // Chance to fire indestructible projectile instead
+    const indestructibleChance = INDESTRUCTIBLE_BASE_CHANCE + (INDESTRUCTIBLE_MAX_CHANCE - INDESTRUCTIBLE_BASE_CHANCE) * this.getDifficultyProgress();
+    if (!overrideLane && Math.random() < indestructibleChance) {
+      this.fireIndestructible(lane);
+      return;
+    }
+
     const y = (lane === 'top' ? this.floorTopY : this.floorBottomY) - OBSTACLE_OFFSET;
+    const speed = this.getCurrentProjectileSpeed();
 
     const proj = this.projectiles.create(this.bossContainer.x, y, face.projectileKey) as Phaser.Physics.Arcade.Sprite;
     proj.setScale(0.3);
     proj.setDepth(DEPTH.GODRAY);
     (proj.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    proj.setVelocityX(-PROJECTILE_SPEED);
+    proj.setVelocityX(-speed);
 
     this.scene.sound.play(face.shotSound, { volume: 0.4 });
+
+    // Multi-volley: chance to fire a second projectile on same lane
+    if (!overrideLane && Math.random() < this.getVolleyChance()) {
+      const proj2 = this.projectiles.create(this.bossContainer.x + VOLLEY_OFFSET_X, y, face.projectileKey) as Phaser.Physics.Arcade.Sprite;
+      proj2.setScale(0.3);
+      proj2.setDepth(DEPTH.GODRAY);
+      (proj2.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+      proj2.setVelocityX(-speed);
+    }
+  }
+
+  private fireIndestructible(lane: 'top' | 'bottom'): void {
+    const y = (lane === 'top' ? this.floorTopY : this.floorBottomY) - OBSTACLE_OFFSET;
+    const speed = this.getCurrentProjectileSpeed() * 0.8;
+
+    const container = this.scene.add.container(this.bossContainer.x, y);
+    container.setDepth(DEPTH.OBSTACLES);
+    for (const face of FACES) {
+      const img = this.scene.add.image(0, 0, face.projectileKey);
+      img.setScale(0.6);
+      container.add(img);
+    }
+    // Rotate
+    this.scene.tweens.add({ targets: container, angle: 360, duration: 1000, repeat: -1, ease: 'Linear' });
+    // Wobble Y
+    this.scene.tweens.add({ targets: container, y: y - 8, duration: 200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    const hitbox = this.projectiles.create(this.bossContainer.x, y, FACES[0].projectileKey) as Phaser.Physics.Arcade.Sprite;
+    hitbox.setAlpha(0).setScale(0.6);
+    hitbox.setData('indestructible', true);
+    (hitbox.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    hitbox.setVelocityX(-speed);
+
+    const updateFn = (): void => {
+      if (!hitbox.active) { container.destroy(); this.scene.events.off('update', updateFn); return; }
+      container.x = hitbox.x;
+      container.y = hitbox.y;
+    };
+    this.scene.events.on('update', updateFn);
+
+    // Play all 3 shot sounds at once
+    for (const face of FACES) {
+      this.scene.sound.play(face.shotSound, { volume: 0.3 });
+    }
+  }
+
+  // ── Rage Phase ────────────────────────────────────────────────────
+
+  private startRagePhase(): void {
+    this.isRaging = true;
+    this.rageShots = 0;
+    this.rageLastLane = Math.random() < 0.5 ? 'top' : 'bottom';
+
+    // Flash boss red + shake as warning
+    this.faceSprites.forEach(f => f.setTint(0xff0000));
+    this.scene.cameras.main.shake(300, 0.02);
+
+    // Windup delay before rage shots begin
+    this.delay(RAGE_WINDUP_DELAY, () => this.fireRageShot());
+  }
+
+  private fireRageShot(): void {
+    if (this.state !== 'fighting' || this.rageShots >= RAGE_SHOT_COUNT) {
+      this.endRagePhase();
+      return;
+    }
+
+    // Strong bias to alternate lanes (80% chance to switch)
+    const switchLane = Math.random() < 0.8;
+    const lane: 'top' | 'bottom' = switchLane
+      ? (this.rageLastLane === 'top' ? 'bottom' : 'top')
+      : this.rageLastLane;
+    this.rageLastLane = lane;
+
+    this.fireIndestructible(lane);
+
+    this.rageShots++;
+    this.delay(RAGE_SHOT_DELAY, () => this.fireRageShot());
+  }
+
+  private endRagePhase(): void {
+    this.isRaging = false;
+    this.faceSprites.forEach(f => f.clearTint());
   }
 
   // ── Collisions ────────────────────────────────────────────────────
-
-  private onBulletHitsProjectile(
-    bulletObj: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-    projObj: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-  ): void {
-    const bullet = bulletObj as Phaser.Physics.Arcade.Sprite;
-    const proj = projObj as Phaser.Physics.Arcade.Sprite;
-    const x = proj.x;
-    const y = proj.y;
-    bullet.destroy();
-    proj.destroy();
-    this.spawnExplosion(x, y);
-  }
 
   private onBulletHitsBoss(): void {
     this.bossHP--;
     this.hud.updateBossHP(this.bossHP);
 
-    // Hurt sound
     const hurtIdx = Phaser.Math.Between(1, 6);
     this.scene.sound.play(`boss-hurt-${hurtIdx}`, { volume: 0.5 });
 
-    // Flash boss white
-    this.faceSprites.forEach(f => f.setTint(0xffffff));
+    this.faceSprites.forEach(f => f.setTint(this.isRaging ? 0xff0000 : 0xffffff));
     this.delay(100, () => {
-      this.faceSprites.forEach(f => f.clearTint());
+      if (!this.isRaging) this.faceSprites.forEach(f => f.clearTint());
+      else this.faceSprites.forEach(f => f.setTint(0xff0000));
     });
 
-    // Small explosion on boss
     this.spawnExplosion(
       this.bossContainer.x + Phaser.Math.Between(-40, 40),
       this.bossContainer.y + Phaser.Math.Between(-40, 40),
@@ -484,9 +624,25 @@ export class BossFight {
     });
   }
 
+  private showProjectileScore(x: number, y: number): void {
+    this.addScore(PROJECTILE_SCORE);
+    const popup = this.scene.add.text(x, y - 15, `+${PROJECTILE_SCORE}`, popupStyle({
+      fontSize: '8px',
+      color: '#ffdd00',
+    }));
+    popup.setOrigin(0.5).setDepth(DEPTH.POPUP);
+    this.scene.tweens.add({
+      targets: popup,
+      y: popup.y - 20,
+      alpha: { from: 1, to: 0 },
+      duration: 600,
+      ease: 'Power2',
+      onComplete: () => popup.destroy(),
+    });
+  }
+
   // ── Victory ───────────────────────────────────────────────────────
 
-  /** Schedule a delayed call using real time (immune to timeScale). */
   private delay(ms: number, fn: () => void): void {
     const id = window.setTimeout(() => {
       const idx = this.pendingTimeoutIds.indexOf(id);
@@ -500,14 +656,11 @@ export class BossFight {
     this.state = 'victory';
     this.stateTime = 0;
 
-    // Destroy remaining combat objects
     this.projectiles.clear(true, true);
     this.bullets.clear(true, true);
 
-    // Heavy screen shake
     this.scene.cameras.main.shake(500, 0.04);
 
-    // Explosion chain on boss
     this.scene.sound.play('boss-explosion', { volume: 0.7 });
     for (let i = 0; i < 10; i++) {
       this.delay(i * 150, () => {
@@ -519,7 +672,6 @@ export class BossFight {
       });
     }
 
-    // Boss fade out after explosions
     this.delay(1500, () => {
       if (this.bossContainer && this.bossContainer.active) {
         this.scene.tweens.add({
@@ -530,10 +682,8 @@ export class BossFight {
         });
       }
 
-      // Victory fanfare
       this.scene.sound.play('boss-victory', { volume: 0.7 });
 
-      // +2137 score text
       const cam = this.scene.cameras.main;
       const bonusText = this.scene.add.text(cam.width / 2, cam.height / 2, `+${VICTORY_BONUS}`, {
         fontSize: '32px',
@@ -553,7 +703,6 @@ export class BossFight {
         onComplete: () => bonusText.destroy(),
       });
 
-      // Glock flies away spinning
       this.scene.tweens.add({
         targets: this.glockSprite,
         x: this.glockSprite.x + 200,
@@ -565,7 +714,6 @@ export class BossFight {
         onComplete: () => { if (this.glockSprite?.active) this.glockSprite.destroy(); },
       });
 
-      // Resume after short fanfare
       this.delay(1500, () => this.startResume());
     });
   }
@@ -575,14 +723,9 @@ export class BossFight {
 
     this.hud.hideBossHP();
 
-    // Switch back to running sprite and reset angle
-    this.player.sprite.setTexture('cockroach-idle');
-    this.player.sprite.setAngle(0);
+    // Fully reset cockroach state — handles texture, angle, physics body, floor position
+    this.player.resumeAfterBossFight();
 
-    // Restore player physics
-    (this.player.sprite.body as Phaser.Physics.Arcade.Body).allowGravity = true;
-
-    // Resume camera follow
     this.scene.cameras.main.startFollow(this.player.sprite, true, 1, 0);
     this.scene.cameras.main.setFollowOffset(-200, 0);
 
@@ -593,7 +736,6 @@ export class BossFight {
   // ── Cleanup ───────────────────────────────────────────────────────
 
   private cleanup(): void {
-    // Cancel all pending timers
     for (const id of this.pendingTimeoutIds) window.clearTimeout(id);
     this.pendingTimeoutIds = [];
 

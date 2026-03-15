@@ -25,7 +25,7 @@ import { PauseManager } from '../systems/PauseManager';
 import { GameOverHandler } from '../systems/GameOverHandler';
 import { BossFight } from '../systems/BossFight';
 
-const BOSS_TRIGGER_DISTANCE = 450; // Testing: 450 (after lv3). Production: 2600
+const BOSS_TRIGGER_DISTANCE = 450; // After lv3. Production: 2600
 
 export class GameScene extends Phaser.Scene {
   // Floor positions
@@ -576,7 +576,7 @@ export class GameScene extends Phaser.Scene {
             this.bossFight = null;
             this.isBossFight = false;
             this.bossDefeated = true;
-            this.player.startRunning();
+            this.player.resumeAfterBossFight();
             this.player.updateSpeed(this.activePlayTime, this.currentLevel);
             const blinkTween = this.player.startInvulnerabilityBlink();
             this.time.delayedCall(1500, () => this.player.endInvulnerability(blinkTween));
@@ -590,7 +590,6 @@ export class GameScene extends Phaser.Scene {
             this.gameOverHandler.die(type);
           },
           clearScreen: () => {
-            // Explode all obstacles and pickups
             const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
             for (const group of groups) {
               const children = group.getChildren().slice();
@@ -600,6 +599,10 @@ export class GameScene extends Phaser.Scene {
                 sprite.destroy();
               }
             }
+          },
+          addScore: (points) => {
+            this.score += points;
+            this.hud.updateScore(this.score);
           },
         },
       );
