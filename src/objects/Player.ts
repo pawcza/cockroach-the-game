@@ -552,6 +552,22 @@ export class Player {
     (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = true;
   }
 
+  /** Reset cockroach after boss fight. Only undoes texture and angle. */
+  resumeAfterBossFight(): void {
+    this.cockroach.setTexture('cockroach-idle');
+    this.cockroach.setAngle(0);
+  }
+
+  /** Force-end pill and dash effects immediately. */
+  forceEndEffects(): void {
+    if (this._isPillActive) {
+      this.endPillEffect();
+    }
+    if (this._isDashing) {
+      this.endDash();
+    }
+  }
+
   startInvulnerabilityBlink(): Phaser.Tweens.Tween {
     return this.scene.tweens.add({
       targets: this.cockroach,

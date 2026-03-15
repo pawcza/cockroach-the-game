@@ -237,29 +237,36 @@ export class GameOverHandler {
   }
 
   checkMilestones(score: number): void {
+    // Find the highest milestone just crossed
+    let highest: typeof SCORE_MILESTONES[number] | null = null;
     for (const m of SCORE_MILESTONES) {
       if (score >= m.threshold && this.lastMilestone < m.threshold) {
-        this.lastMilestone = m.threshold;
-        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
-        const key = `milestone-${m.threshold}`;
-        if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
-          this.scene.sound.play(key, { volume: 0.7 });
-        }
-        break;
+        highest = m;
+      }
+    }
+    if (highest) {
+      this.lastMilestone = highest.threshold;
+      this.hud.showScoreMilestone(highest.text, highest.tier, highest.threshold);
+      const key = `milestone-${highest.threshold}`;
+      if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
+        this.scene.sound.play(key, { volume: 0.7 });
       }
     }
   }
 
   checkSpectatedMilestones(ghostScore: number): void {
+    let highest: typeof SCORE_MILESTONES[number] | null = null;
     for (const m of SCORE_MILESTONES) {
       if (ghostScore >= m.threshold && this.lastSpectatedMilestone < m.threshold) {
-        this.lastSpectatedMilestone = m.threshold;
-        this.hud.showScoreMilestone(m.text, m.tier, m.threshold);
-        const key = `milestone-${m.threshold}`;
-        if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
-          this.scene.sound.play(key, { volume: 0.7 });
-        }
-        break;
+        highest = m;
+      }
+    }
+    if (highest) {
+      this.lastSpectatedMilestone = highest.threshold;
+      this.hud.showScoreMilestone(highest.text, highest.tier, highest.threshold);
+      const key = `milestone-${highest.threshold}`;
+      if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
+        this.scene.sound.play(key, { volume: 0.7 });
       }
     }
   }

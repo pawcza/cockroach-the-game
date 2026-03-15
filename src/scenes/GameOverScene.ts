@@ -138,6 +138,27 @@ export class GameOverScene extends Phaser.Scene {
   private setupObstacleImage(width: number, titleY: number, data: GameOverData): void {
     if (!data?.obstacleType || !GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) return;
 
+    if (data.obstacleType === 'boss') {
+      const faces = ['boss-face1', 'boss-face2', 'boss-face3'];
+      const spacing = 60;
+      const startX = width / 2 - (faces.length - 1) * spacing / 2;
+      const imgs: Phaser.GameObjects.Image[] = [];
+      faces.forEach((key, i) => {
+        const img = this.add.image(startX + i * spacing, titleY + 30, key);
+        img.setScale(0.2).setOrigin(0.5, 0);
+        imgs.push(img);
+      });
+      this.tweens.add({
+        targets: imgs,
+        y: '-=5',
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      return;
+    }
+
     const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
     const img = this.add.image(width / 2, titleY + 30, textureKey);
     img.setScale(0.25).setOrigin(0.5, 0);
