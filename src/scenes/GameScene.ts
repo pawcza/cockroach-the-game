@@ -765,10 +765,10 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Multiplayer position sync — broadcast at ~5Hz for entity interpolation
+    // Multiplayer position sync — broadcast at ~10Hz for smooth ghost correction
     if (this.isMultiplayer && !this.isBossFight) {
       this.positionSyncTimer += this.game.loop.delta;
-      if (this.positionSyncTimer >= 200) {
+      if (this.positionSyncTimer >= 100) {
         this.positionSyncTimer = 0;
         this.eventBridge.onPosition(this.player.x, this.player.currentFloor);
       }
