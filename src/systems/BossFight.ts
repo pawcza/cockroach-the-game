@@ -111,6 +111,7 @@ export class BossFight {
   // Tracked sounds and timers for cleanup
   private beastAmbientSound: Phaser.Sound.BaseSound | null = null;
   private pendingTimers: Phaser.Time.TimerEvent[] = [];
+  private pendingUpdateFns: Array<() => void> = [];
 
   // Player fixed position during fight
   private playerFixedX = 0;
@@ -408,28 +409,25 @@ export class BossFight {
       this.scene.sound.play(`boss-cue-${cueIdx}`, { volume: 0.5 });
     }
 
+    // Cache children arrays once (sliced because destroy() modifies underlying array)
+    const bullets = this.bullets.getChildren().slice() as Phaser.Physics.Arcade.Sprite[];
+    const projectiles = this.projectiles.getChildren().slice() as Phaser.Physics.Arcade.Sprite[];
+
     // Cleanup off-screen
     const camLeft = this.scene.cameras.main.scrollX - 50;
     const camRight = this.scene.cameras.main.scrollX + this.scene.cameras.main.width + 50;
-    this.bullets.getChildren().slice().forEach((obj) => {
-      const s = obj as Phaser.Physics.Arcade.Sprite;
+    for (const s of bullets) {
       if (s.x > camRight) s.destroy();
-    });
-    this.projectiles.getChildren().slice().forEach((obj) => {
-      const s = obj as Phaser.Physics.Arcade.Sprite;
+    }
+    for (const s of projectiles) {
       if (s.x < camLeft) s.destroy();
-    });
+    }
 
     // Bullet-projectile collision
-    const bulletsArr = this.bullets.getChildren().slice();
-    const projsArr = this.projectiles.getChildren().slice();
-    for (const bObj of bulletsArr) {
-      const bullet = bObj as Phaser.Physics.Arcade.Sprite;
+    for (const bullet of bullets) {
       if (!bullet.active) continue;
-      for (const pObj of projsArr) {
-        const proj = pObj as Phaser.Physics.Arcade.Sprite;
+      for (const proj of projectiles) {
         if (!proj.active) continue;
-        // Skip indestructible projectiles
         if (proj.getData('indestructible')) continue;
         const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, proj.x, proj.y);
         if (dist < 30) {
@@ -446,26 +444,24 @@ export class BossFight {
 
     // Projectile-cockroach collision
     const cockroach = this.player.sprite;
-    this.projectiles.getChildren().slice().forEach((obj) => {
-      const proj = obj as Phaser.Physics.Arcade.Sprite;
-      if (!proj.active) return;
+    for (const proj of projectiles) {
+      if (!proj.active) continue;
       const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, proj.x, proj.y);
       if (dist < 25) {
         this.onProjectileHitsPlayer();
       }
-    });
+    }
 
     // Bullet-boss collision (skip during rage — boss is invulnerable)
     if (!this.isRaging) {
-      this.bullets.getChildren().slice().forEach((obj) => {
-        const bullet = obj as Phaser.Physics.Arcade.Sprite;
-        if (!bullet.active) return;
+      for (const bullet of bullets) {
+        if (!bullet.active) continue;
         if (bullet.x >= this.bossContainer.x - 60 && bullet.x <= this.bossContainer.x + 60 &&
             bullet.y >= this.bossContainer.y - 80 && bullet.y <= this.bossContainer.y + 80) {
           bullet.destroy();
           this.onBulletHitsBoss();
         }
-      });
+      }
     }
   }
 
@@ -591,6 +587,7 @@ export class BossFight {
       container.y = hitbox.y;
     };
     this.scene.events.on('update', updateFn);
+    this.pendingUpdateFns.push(updateFn);
 
     // Play all 3 shot sounds at once
     for (const face of FACES) {
@@ -807,6 +804,8 @@ export class BossFight {
   private cleanup(): void {
     for (const timer of this.pendingTimers) timer.destroy();
     this.pendingTimers = [];
+    for (const fn of this.pendingUpdateFns) this.scene.events.off('update', fn);
+    this.pendingUpdateFns = [];
 
     this.projectiles?.clear(true, true);
     this.bullets?.clear(true, true);
