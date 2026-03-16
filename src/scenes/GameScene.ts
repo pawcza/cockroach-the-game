@@ -658,17 +658,24 @@ export class GameScene extends Phaser.Scene {
       const pullSpeed = Math.max(800, playerSpeed * 2.5);
       const groups = [this.apples, this.beers, this.pills];
       const delta = this.game.loop.delta / 1000;
+      const px = this.player.x;
+      const py = this.player.y;
       for (const group of groups) {
         group.getChildren().slice().forEach((obj) => {
           const pickup = obj as Phaser.Physics.Arcade.Sprite;
-          const dx = this.player.x - pickup.x;
-          const dy = this.player.y - pickup.y;
+          const dx = px - pickup.x;
+          const dy = py - pickup.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < magnetRange && dist > 1) {
             const strength = pullSpeed * (1 + (magnetRange - dist) / magnetRange);
-            const angle = Math.atan2(dy, dx);
-            pickup.x += Math.cos(angle) * strength * delta;
-            pickup.y += Math.sin(angle) * strength * delta;
+            // Pull X toward player
+            pickup.x += Math.sign(dx) * strength * delta;
+            // Pull Y aggressively — snap to player lane when close in X
+            if (Math.abs(dx) < 150) {
+              pickup.y += (dy > 0 ? 1 : -1) * Math.min(Math.abs(dy), strength * 2 * delta);
+            } else {
+              pickup.y += Math.sign(dy) * strength * 0.5 * delta;
+            }
           }
         });
       }
