@@ -35,6 +35,8 @@ export class GameHUD {
   private cricketSound: Phaser.Sound.BaseSound | null = null;
 
   private onTogglePause: () => void;
+  private onRestart: (() => void) | null;
+  private restartBtn!: Phaser.GameObjects.Text;
   private lastTitleScore = -1;
   private lastTitleSpeed = -1;
 
@@ -54,9 +56,10 @@ export class GameHUD {
   // Scroll offset for fill texture animation
   private fillScrollX = 0;
 
-  constructor(scene: Phaser.Scene, onTogglePause: () => void) {
+  constructor(scene: Phaser.Scene, onTogglePause: () => void, onRestart?: () => void) {
     this.scene = scene;
     this.onTogglePause = onTogglePause;
+    this.onRestart = onRestart ?? null;
   }
 
   get pauseButton(): Phaser.GameObjects.Arc {
@@ -125,6 +128,13 @@ export class GameHUD {
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
     this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wciśnij cokolwiek, po to by grać dalej', smallStyle({ fontSize: '7px' }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
+
+    this.restartBtn = this.scene.add.text(w / 2, h / 2 + 55, 'Od nowa', smallStyle({ fontSize: '10px', color: '#ff4444' }))
+      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.restartBtn.on('pointerover', () => this.restartBtn.setColor('#ff8888'));
+    this.restartBtn.on('pointerout', () => this.restartBtn.setColor('#ff4444'));
+    this.restartBtn.on('pointerdown', () => { if (this.onRestart) this.onRestart(); });
 
     // Pause button — circular, top-right
     const pauseR = 18;
@@ -323,6 +333,7 @@ export class GameHUD {
     this.pauseOverlay.setVisible(true);
     this.pauseText.setVisible(true);
     this.pauseSubtext.setVisible(true);
+    if (this.onRestart) this.restartBtn.setVisible(true);
 
     this.pauseText.setScale(0).setAlpha(0);
     this.pauseTweens.push(
@@ -378,6 +389,7 @@ export class GameHUD {
     this.pauseOverlay.setVisible(false);
     this.pauseText.setVisible(false).setY(h / 2 - 15).setScale(1).setAlpha(1);
     this.pauseSubtext.setVisible(false).setAngle(0).setAlpha(1);
+    this.restartBtn.setVisible(false);
 
     if (this.cricketSound) this.cricketSound.stop();
   }

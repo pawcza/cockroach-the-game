@@ -232,6 +232,8 @@ export class GameScene extends Phaser.Scene {
         () => this.lastFrameTime,
         (t) => { this.lastFrameTime = t; },
       );
+    }, this.isMultiplayer ? undefined : () => {
+      this.scene.start('GameScene', { multiplayer: false });
     });
     this.hud.create();
 
