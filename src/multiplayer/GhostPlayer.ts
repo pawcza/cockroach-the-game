@@ -57,7 +57,8 @@ export class GhostPlayer {
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
-  // Server-authoritative time — ghost derives speed from real player's time
+  // Server-authoritative time — uses Date.now() (wall clock) to match
+  // the real player's GameClock.activePlayTime which also uses Date.now()
   private serverTime = 0;           // last received activePlayTime (ms)
   private serverTimeLocal = 0;      // Date.now() when serverTime was received
   private hasServerTime = false;    // don't move until first position event
