@@ -5,7 +5,7 @@ import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, getScale } from
 import { createPulsingOverlay } from '../utils/TweenPatterns';
 import { createButton } from '../ui/shared';
 import { crossfadeTransition } from '../utils/SceneTransition';
-import { getHighScore } from '../utils/Storage';
+import { getHighScore, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 
 interface GameOverData {
@@ -314,9 +314,13 @@ export class GameOverScene extends Phaser.Scene {
         strokeThickness: 2,
       }), () => {
         for (const obj of saveBtn.all) obj.destroy();
-        showNameInput(this, (name) => {
-          this.submitScore(name, data);
-        });
+        if (!isPlayerNameCustom()) {
+          showNameInput(this, (name) => {
+            this.submitScore(name, data);
+          });
+        } else {
+          this.submitScore(getPlayerNameOrDefault(), data);
+        }
       });
 
       this.tweens.add({
