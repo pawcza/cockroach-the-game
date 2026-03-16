@@ -350,9 +350,10 @@ export class BossFight {
       }
     }
 
-    // Boss charge at low HP
+    // Boss charge at low HP — cap at 200px from player
     if (this.bossHP <= CHARGE_HP_THRESHOLD && this.bossContainer.active) {
-      this.bossContainer.x -= CHARGE_SPEED * (delta / 1000);
+      const minBossX = this.playerFixedX + 200;
+      this.bossContainer.x = Math.max(minBossX, this.bossContainer.x - CHARGE_SPEED * (delta / 1000));
     }
 
     // Boss cue sounds
