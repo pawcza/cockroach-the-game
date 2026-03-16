@@ -604,6 +604,7 @@ export class GameScene extends Phaser.Scene {
       const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
       if (jumpPressed || dropPressed) {
         this.player.swapLane();
+        this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
       }
       // Shoot input
       const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);

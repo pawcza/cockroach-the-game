@@ -47,7 +47,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setLane(lane, this.floorTopY, this.floorBottomY);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
+      if (x != null && ghost.alive) ghost.pushPosition(x);
     }
   }
 
@@ -55,7 +55,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setDashing(true);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
+      if (x != null && ghost.alive) ghost.pushPosition(x);
     }
   }
 
@@ -63,7 +63,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setDashing(false);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
+      if (x != null && ghost.alive) ghost.pushPosition(x);
     }
   }
 
@@ -71,7 +71,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setPill(true);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
+      if (x != null && ghost.alive) ghost.pushPosition(x);
     }
   }
 
@@ -79,7 +79,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setPill(false);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
+      if (x != null && ghost.alive) ghost.pushPosition(x);
     }
   }
 
@@ -98,7 +98,7 @@ export class GhostManager {
       console.warn(`[Ghost] Position event for unknown ID ${id.slice(0, 8)}, known IDs: ${[...this.ghosts.keys()].map(k => k.slice(0, 8)).join(', ')}`);
       return;
     }
-    if (ghost.alive && !ghost.inBossFight) {
+    if (ghost.alive) {
       ghost.pushPosition(x, t);
     }
   }
