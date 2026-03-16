@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { APPLE_SCORE, PILL_SCORE, TYSKIE_SCORE, DEPTH } from '../config/constants';
+import { APPLE_SCORE, PILL_SCORE, BEER_SCORE, DEPTH } from '../config/constants';
 import { popupStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
@@ -11,7 +11,7 @@ export interface CollisionCallbacks {
   incrementCombo: () => void;
   getComboMultiplier: () => number;
   onAppleCollected: () => void;
-  onTyskieCollected: () => void;
+  onBeerCollected: () => void;
   onPillCollected: () => void;
   onPickup: (x: number, score: number) => void;
   onPillStart: () => void;
@@ -41,7 +41,7 @@ export class CollisionManager {
 
   setupOverlaps(
     apples: Phaser.Physics.Arcade.Group,
-    tyskies: Phaser.Physics.Arcade.Group,
+    beers: Phaser.Physics.Arcade.Group,
     pills: Phaser.Physics.Arcade.Group,
     obstacles: Phaser.Physics.Arcade.Group,
   ): void {
@@ -51,8 +51,8 @@ export class CollisionManager {
       undefined, this,
     );
     this.scene.physics.add.overlap(
-      this.player.sprite, tyskies,
-      this.collectTyskie as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      this.player.sprite, beers,
+      this.collectBeer as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
       undefined, this,
     );
     this.scene.physics.add.overlap(
@@ -105,19 +105,19 @@ export class CollisionManager {
     this.showPickupPopup(sprite.x, sprite.y, `+${points}`, comboColor);
   }
 
-  private collectTyskie(
+  private collectBeer(
     _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
-    tyskie: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    beer: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
-    const sprite = tyskie as Phaser.Physics.Arcade.Sprite;
+    const sprite = beer as Phaser.Physics.Arcade.Sprite;
     this.vfx.appleCollectEffect(sprite.x, sprite.y);
     this.scene.sound.play('burp', { volume: 0.8 });
     sprite.destroy();
 
     this.callbacks.incrementCombo();
-    this.callbacks.onTyskieCollected();
+    this.callbacks.onBeerCollected();
     const multiplier = this.callbacks.getComboMultiplier();
-    const points = Math.round(TYSKIE_SCORE * multiplier);
+    const points = Math.round(BEER_SCORE * multiplier);
     this.callbacks.addScore(points);
     this.callbacks.onPickup(sprite.x, this.callbacks.getScore());
 

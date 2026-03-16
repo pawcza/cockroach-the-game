@@ -4,7 +4,7 @@ import {
   COCKROACH_BASE_SPEED,
   APPLE_SPAWN_CHANCE,
   PILL_SPAWN_CHANCE,
-  TYSKIE_SPAWN_CHANCE,
+  BEER_SPAWN_CHANCE,
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
   SPEED_BOOST_PER_LEVEL,
@@ -22,7 +22,7 @@ export class SpawnManager {
   private scene: Phaser.Scene;
   private obstacles: Phaser.Physics.Arcade.Group;
   private apples: Phaser.Physics.Arcade.Group;
-  private tyskies: Phaser.Physics.Arcade.Group;
+  private beers: Phaser.Physics.Arcade.Group;
   private pills: Phaser.Physics.Arcade.Group;
   private obstacleSpawner: ObstacleSpawner;
   private rng: SeededRNG | null;
@@ -36,7 +36,7 @@ export class SpawnManager {
     scene: Phaser.Scene,
     obstacles: Phaser.Physics.Arcade.Group,
     apples: Phaser.Physics.Arcade.Group,
-    tyskies: Phaser.Physics.Arcade.Group,
+    beers: Phaser.Physics.Arcade.Group,
     pills: Phaser.Physics.Arcade.Group,
     obstacleSpawner: ObstacleSpawner,
     rng: SeededRNG | null,
@@ -46,7 +46,7 @@ export class SpawnManager {
     this.scene = scene;
     this.obstacles = obstacles;
     this.apples = apples;
-    this.tyskies = tyskies;
+    this.beers = beers;
     this.pills = pills;
     this.obstacleSpawner = obstacleSpawner;
     this.rng = rng;
@@ -74,9 +74,9 @@ export class SpawnManager {
       const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {
         this.spawnPill(slotX);
-      } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE) {
-        this.spawnTyskie(slotX);
-      } else if (roll < PILL_SPAWN_CHANCE + TYSKIE_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
+      } else if (roll < PILL_SPAWN_CHANCE + BEER_SPAWN_CHANCE) {
+        this.spawnBeer(slotX);
+      } else if (roll < PILL_SPAWN_CHANCE + BEER_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
         this.spawnApple(slotX);
       } else {
         this.obstacleSpawner.spawn(slotX, spawnLevel);
@@ -97,7 +97,7 @@ export class SpawnManager {
     });
 
     let comboWasLost = false;
-    const groups = [this.apples, this.tyskies, this.pills];
+    const groups = [this.apples, this.beers, this.pills];
     for (const group of groups) {
       group.getChildren().forEach((obj) => {
         const sprite = obj as Phaser.Physics.Arcade.Sprite;
@@ -145,7 +145,7 @@ export class SpawnManager {
 
   destroyPickupNear(x: number): boolean {
     const tolerance = 30;
-    const groups = [this.apples, this.tyskies, this.pills];
+    const groups = [this.apples, this.beers, this.pills];
     for (const group of groups) {
       for (const obj of group.getChildren()) {
         const sprite = obj as Phaser.Physics.Arcade.Sprite;
@@ -191,17 +191,18 @@ export class SpawnManager {
     pulse(this.scene, pill, 0.18, 300);
   }
 
-  private spawnTyskie(slotX: number): void {
+  private spawnBeer(slotX: number): void {
     const tFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
     const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-    const tyskie = this.tyskies.create(slotX, tY, 'tyskie') as Phaser.Physics.Arcade.Sprite;
-    tyskie.setScale(0.18);
-    tyskie.setDepth(DEPTH.PICKUPS);
-    (tyskie.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    tyskie.setImmovable(true);
-    floatUpDown(this.scene, tyskie, 8, 400);
-    pulse(this.scene, tyskie, 0.22, 600);
-    attachGlow(this.scene, tyskie, 24, COLORS.TYSKIE_GLOW, 0.4, { toAlpha: 0.15, duration: 600 });
+    const beerKey = `beer-${Phaser.Math.Between(1, 6)}`;
+    const beer = this.beers.create(slotX, tY, beerKey) as Phaser.Physics.Arcade.Sprite;
+    beer.setScale(0.18);
+    beer.setDepth(DEPTH.PICKUPS);
+    (beer.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    beer.setImmovable(true);
+    floatUpDown(this.scene, beer, 8, 400);
+    pulse(this.scene, beer, 0.22, 600);
+    attachGlow(this.scene, beer, 24, COLORS.BEER_GLOW, 0.4, { toAlpha: 0.15, duration: 600 });
   }
 
   private spawnApple(slotX: number): void {

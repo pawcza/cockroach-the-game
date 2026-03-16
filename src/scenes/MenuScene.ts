@@ -329,7 +329,7 @@ export class MenuScene extends Phaser.Scene {
       const colDist = width * 0.44;
       const colCombo = width * 0.52;
       const colApple = width * 0.60;
-      const colTyskie = width * 0.68;
+      const colBeer = width * 0.68;
       const colPill = width * 0.76;
       const colScore = width - 15;
       const iconScale = 0.10;
@@ -346,8 +346,8 @@ export class MenuScene extends Phaser.Scene {
       if (this.textures.exists('apple')) {
         container.add(this.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5));
       }
-      if (this.textures.exists('tyskie')) {
-        container.add(this.add.image(colTyskie, headerY, 'tyskie').setScale(iconScale).setOrigin(0.5, 0.5));
+      if (this.textures.exists('beer-1')) {
+        container.add(this.add.image(colBeer, headerY, 'beer-1').setScale(iconScale).setOrigin(0.5, 0.5));
       }
       if (this.textures.exists('pill')) {
         container.add(this.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
@@ -419,14 +419,14 @@ export class MenuScene extends Phaser.Scene {
         const distText = this.add.text(colDist, y, entry.distance != null ? `${Math.floor(entry.distance)}` : '-', smallStatStyle).setOrigin(0.5, 0);
         const comboText = this.add.text(colCombo, y, entry.max_combo != null ? `x${entry.max_combo}` : '-', smallStatStyle).setOrigin(0.5, 0);
         const appleText = this.add.text(colApple, y, entry.apples_collected != null ? String(entry.apples_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
-        const tyskieText = this.add.text(colTyskie, y, entry.tyskies_collected != null ? String(entry.tyskies_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
+        const beerText = this.add.text(colBeer, y, entry.tyskies_collected != null ? String(entry.tyskies_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const pillText = this.add.text(colPill, y, entry.pills_collected != null ? String(entry.pills_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const scoreText = this.add.text(colScore, y, String(entry.score), style).setOrigin(1, 0);
-        scrollContainer.add([rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText]);
+        scrollContainer.add([rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText]);
 
         // Top 3 effects — constrained wobble for rank 1
         if (rank === 1) {
-          const elements = [rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText];
           const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
           let ci = 0;
           timeEvents.push(this.time.addEvent({
@@ -447,7 +447,7 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 2) {
-          const elements = [rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.7, to: 1 },
@@ -457,7 +457,7 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 3) {
-          const elements = [rankText, nameText, lvText, distText, comboText, appleText, tyskieText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.8, to: 1 },
@@ -546,7 +546,7 @@ export class MenuScene extends Phaser.Scene {
     container.add(pyszTitle);
     animateTitle(pyszTitle);
 
-    const pickups = ['apple', 'tyskie', 'pill'];
+    const pickups = ['apple', 'beer-1', 'pill'];
     const pickupSpacing = zoneW / (pickups.length + 1);
     const pickupY = top + 25;
     pickups.forEach((key, i) => {

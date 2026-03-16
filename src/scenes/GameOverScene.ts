@@ -16,7 +16,7 @@ interface GameOverData {
   obstacleType?: string | null;
   level?: number;
   maxCombo?: number;
-  pickupCounts?: { apples: number; tyskies: number; pills: number };
+  pickupCounts?: { apples: number; beers: number; pills: number };
 }
 
 export class GameOverScene extends Phaser.Scene {
@@ -248,7 +248,7 @@ export class GameOverScene extends Phaser.Scene {
     if (data?.maxCombo !== undefined && data.maxCombo > 0) stats.push({ label: 'Maks Kombo', value: `x${data.maxCombo}`, color: '#ff00ff' });
     if (data?.pickupCounts) {
       const p = data.pickupCounts;
-      stats.push({ label: 'Jabłka / Tyskie / Pigułki', value: `${p.apples} / ${p.tyskies} / ${p.pills}`, color: '#44ff44' });
+      stats.push({ label: 'Jabłka / Piwa / Pigułki', value: `${p.apples} / ${p.beers} / ${p.pills}`, color: '#44ff44' });
     }
 
     stats.forEach((stat, i) => {
@@ -371,7 +371,7 @@ export class GameOverScene extends Phaser.Scene {
           distance: data.distance || null,
           timeSurvived: data.timeSurvived || null,
           applesCollected: data.pickupCounts?.apples ?? null,
-          tyskiesCollected: data.pickupCounts?.tyskies ?? null,
+          tyskiesCollected: data.pickupCounts?.beers ?? null,
           pillsCollected: data.pickupCounts?.pills ?? null,
           maxLevel: data.level ?? null,
           maxCombo: data.maxCombo ?? null,
