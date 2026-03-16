@@ -273,14 +273,16 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       }
     }
 
-    // --- "Zapisz" button for leaderboard ---
+    // --- "Zapisz" button next to player's score ---
     if (myRanking && myRanking.score > 0) {
+      const myIndex = rankings.findIndex(r => r.id === myId);
+      const myRowY = tableStartY + myIndex * lineHeight;
+
       fetchScores().then((scores) => {
         const inTop100 = scores.length < 100 || myRanking.score > scores[scores.length - 1].score;
         if (inTop100) {
-          const saveY = height - Math.round(100 * s);
-          const saveBtnW = Math.round(120 * s);
-          const saveBtnH = Math.round(30 * s);
+          const saveBtnX = colScore - Math.round(60 * s);
+          const saveBtnY = myRowY - Math.round(12 * s);
 
           const doSave = (name: string): void => {
             const stats = myRanking.stats || {};
@@ -301,22 +303,14 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
               }),
             }).catch(() => { /* offline is fine */ });
 
-            const saved = this.add.text(width / 2, saveY, 'Zapisano!', smallStyle({
-              fontSize: `${Math.round(10 * s)}px`,
+            this.add.text(saveBtnX, saveBtnY, 'OK!', smallStyle({
+              fontSize: `${Math.round(8 * s)}px`,
               color: '#00ff00',
             })).setOrigin(0.5);
-            this.tweens.add({
-              targets: saved,
-              alpha: { from: 1, to: 0.6 },
-              duration: 800,
-              yoyo: true,
-              repeat: -1,
-              ease: 'Sine.easeInOut',
-            });
           };
 
-          const saveBtn = createButton(this, width / 2, saveY, saveBtnW, saveBtnH, 'Zapisz', 0x008800, buttonStyle({
-            fontSize: `${Math.round(10 * s)}px`,
+          const saveBtn = createButton(this, saveBtnX, saveBtnY, Math.round(70 * s), Math.round(22 * s), 'Zapisz', 0x008800, buttonStyle({
+            fontSize: `${Math.round(8 * s)}px`,
             strokeThickness: 2,
           }), () => {
             for (const obj of saveBtn.all) obj.destroy();
