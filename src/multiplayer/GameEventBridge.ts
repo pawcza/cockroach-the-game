@@ -14,6 +14,7 @@ export interface GameEventCallbacks {
   onGhostDashEnd: (id: string, x?: number) => void;
   onGhostPillStart: (id: string, x?: number) => void;
   onGhostPillEnd: (id: string, x?: number) => void;
+  onGhostPosition: (id: string, x: number, lane: string) => void;
   onGhostPickup: (id: string, x: number, score: number, combo?: number) => void;
   onGhostDeath: (id: string, score: number, stats: Record<string, unknown>) => void;
   onPlayerLeft: (id: string) => void;
@@ -55,6 +56,10 @@ export class GameEventBridge {
 
   onPillEnd(x?: number): void {
     if (this.multiplayer) mpClient.sendPillEnd(x);
+  }
+
+  onPosition(x: number, lane: string): void {
+    if (this.multiplayer) mpClient.sendPosition(x, lane);
   }
 
   onPickup(x: number, score: number, combo?: number): void {
@@ -100,6 +105,7 @@ export class GameEventBridge {
     listen('game:dash-end', (data: any) => callbacks.onGhostDashEnd(data.id, data.x));
     listen('game:pill-start', (data: any) => callbacks.onGhostPillStart(data.id, data.x));
     listen('game:pill-end', (data: any) => callbacks.onGhostPillEnd(data.id, data.x));
+    listen('game:position', (data: any) => callbacks.onGhostPosition(data.id, data.x, data.lane));
     listen('game:pickup', (data: any) => callbacks.onGhostPickup(data.id, data.x, data.score, data.combo));
     listen('game:death', (data: any) => callbacks.onGhostDeath(data.id, data.score, data.stats));
     listen('game:player-left', (data: any) => callbacks.onPlayerLeft(data.id));

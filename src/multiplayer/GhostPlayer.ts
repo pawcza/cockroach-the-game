@@ -1,18 +1,12 @@
 import Phaser from 'phaser';
 import {
   COCKROACH_BASE_SPEED,
-  COCKROACH_SPEED_MAX_BOOST,
-  COCKROACH_SPEED_TAU,
-  DASH_SPEED_BOOST,
   DASH_DURATION,
-  DASH_COOLDOWN,
   PILL_SPEED_MULTIPLIER,
   PILL_DURATION,
-  SPEED_BOOST_PER_LEVEL,
   DEPTH,
 } from '../config/constants';
 import { smallStyle } from '../utils/TextStyles';
-import { getLevelForDistance } from '../config/levels';
 
 // Re-export for convenience — must match server/lobby.ts PLAYER_COLORS exactly
 export const MP_PLAYER_COLORS = [
@@ -51,19 +45,17 @@ export class GhostPlayer {
   private _stats: Record<string, unknown> = {};
   private _isSpectated = false;
 
-  // Simulated physics — mirrors Player.ts logic exactly
-  private activePlayTime = 0; // ms
+  // Movement state
   private currentFloor: string = 'bottom';
   private _isDashing = false;
-  private dashStartTime = 0;
-  private dashReady = true;
   private _isPillActive = false;
-  private pillStartTime = 0;
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
-  // Interpolation — smooth toward authoritative position
-  private targetX: number | null = null;
+  // Entity interpolation — server-authoritative position
+  private posBuffer: Array<{ x: number; t: number }> = [];
+  private lastKnownSpeed = COCKROACH_BASE_SPEED; // for extrapolation
+
   private _inBossFight = false;
   private bossGlockSprite: Phaser.GameObjects.Image | null = null;
 
@@ -81,11 +73,22 @@ export class GhostPlayer {
   get isDashing(): boolean { return this._isDashing; }
   get inBossFight(): boolean { return this._inBossFight; }
   get speedMultiplier(): number {
-    return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
+    return Math.max(1, this.lastKnownSpeed / COCKROACH_BASE_SPEED);
   }
 
-  setTargetX(x: number): void {
-    this.targetX = x;
+  /** Push an authoritative position snapshot from the server */
+  pushPosition(x: number): void {
+    const now = performance.now();
+    this.posBuffer.push({ x, t: now });
+    // Keep only last 10 snapshots
+    if (this.posBuffer.length > 10) this.posBuffer.shift();
+    // Update speed estimate from last two snapshots
+    if (this.posBuffer.length >= 2) {
+      const a = this.posBuffer[this.posBuffer.length - 2];
+      const b = this.posBuffer[this.posBuffer.length - 1];
+      const dt = (b.t - a.t) / 1000;
+      if (dt > 0) this.lastKnownSpeed = (b.x - a.x) / dt;
+    }
   }
 
   updateLiveScore(score: number, combo?: number): void {
@@ -119,16 +122,31 @@ export class GhostPlayer {
     this.nameLabel.setDepth(DEPTH.GHOST_LABEL);
   }
 
-  /** Compute current speed using the same formula as Player.updateSpeed */
-  private getCurrentSpeed(): number {
-    const elapsedSeconds = this.activePlayTime / 1000;
-    const distance = Math.floor((this.sprite.x - this.startX) / 50);
-    const level = getLevelForDistance(distance).level;
-    const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
-    const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
-    const baseSpeed = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
-    const dashBoost = this._isDashing ? DASH_SPEED_BOOST : 0;
-    return (baseSpeed + dashBoost) * this.pillSpeedBoost;
+  /** Get interpolated X position from the position buffer */
+  private getInterpolatedX(): number {
+    const now = performance.now();
+    const INTERP_DELAY = 100; // render 100ms behind for smooth interpolation
+    const renderTime = now - INTERP_DELAY;
+
+    const buf = this.posBuffer;
+    if (buf.length === 0) return this.sprite.x;
+
+    // Find the two snapshots surrounding renderTime
+    if (renderTime <= buf[0].t) return buf[0].x;
+
+    for (let i = 0; i < buf.length - 1; i++) {
+      const a = buf[i];
+      const b = buf[i + 1];
+      if (renderTime >= a.t && renderTime <= b.t) {
+        const t = (renderTime - a.t) / (b.t - a.t);
+        return a.x + (b.x - a.x) * t;
+      }
+    }
+
+    // Extrapolate beyond last snapshot using estimated speed
+    const last = buf[buf.length - 1];
+    const elapsed = (renderTime - last.t) / 1000;
+    return last.x + this.lastKnownSpeed * elapsed;
   }
 
   enterBossFight(targetX: number, floorTopY: number, floorBottomY: number): void {
@@ -188,8 +206,6 @@ export class GhostPlayer {
     this.updateAlpha();
 
     if (active) {
-      this.dashReady = false;
-      this.dashStartTime = this.activePlayTime;
       this.sprite.setTint(this.color);
       this.dashTrailTimer = this.scene.time.addEvent({
         delay: 80,
@@ -222,7 +238,6 @@ export class GhostPlayer {
     this._isPillActive = active;
     if (active) {
       this.pillSpeedBoost = PILL_SPEED_MULTIPLIER;
-      this.pillStartTime = this.activePlayTime;
       this.sprite.setTint(0xff00ff);
     } else {
       this.pillSpeedBoost = 1;
@@ -296,39 +311,26 @@ export class GhostPlayer {
       return;
     }
 
-    this.activePlayTime += delta;
-
-    // Survival score: +1 per second (mirrors GameScene scoring)
+    // Survival score: +1 per second
     this._lastSurvivalTick += delta;
     if (this._lastSurvivalTick >= 1000) {
       this._liveScore += 1;
       this._lastSurvivalTick -= 1000;
     }
 
-    // Move at computed speed with interpolation toward authoritative position
-    const speed = this.getCurrentSpeed(); // px/s
-    const moveX = speed * (delta / 1000);
-    this.sprite.x += moveX;
-
-    // Interpolate toward server-authoritative position if available
-    if (this.targetX !== null) {
-      const drift = this.targetX - this.sprite.x;
-      if (Math.abs(drift) > 1) {
-        // Blend toward target: 10% per frame for smooth correction
-        this.sprite.x += drift * 0.1;
-      }
-      // Advance target at same speed so it stays ahead
-      this.targetX += moveX;
+    // Entity interpolation — position is driven entirely by server snapshots
+    if (this.posBuffer.length > 0) {
+      this.sprite.x = this.getInterpolatedX();
     }
 
-    // Keep name label above sprite (round to avoid sub-pixel flicker)
+    // Keep name label above sprite
     this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
 
-    // Run animation — use dashing texture when dashing, cycle idle/running otherwise
+    // Run animation
     if (this._isDashing) {
       this.sprite.setTexture('cockroach-dashing');
     } else {
-      const speedMult = speed / COCKROACH_BASE_SPEED;
+      const speedMult = this.speedMultiplier;
       const frameInterval = Math.max(60, 200 / speedMult);
       this.animTimer += delta;
       if (this.animTimer >= frameInterval) {
