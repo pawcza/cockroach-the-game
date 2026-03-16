@@ -131,6 +131,9 @@ export class GameScene extends Phaser.Scene {
   // Mobile detection (input only — not scaling)
   private isMobile = false;
 
+  // Multiplayer position sync
+  private positionSyncTimer = 0;
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -296,6 +299,7 @@ export class GameScene extends Phaser.Scene {
         onGhostDashEnd: (id, x) => this.ghostManager?.handleDashEnd(id, x),
         onGhostPillStart: (id, x) => this.ghostManager?.handlePillStart(id, x),
         onGhostPillEnd: (id, x) => this.ghostManager?.handlePillEnd(id, x),
+        onGhostPosition: (id, x) => this.ghostManager?.handlePosition(id, x),
         onGhostPickup: (id, x, score, combo) => {
           this.ghostManager?.updateGhostScore(id, score, x, combo);
           if (this.isDead) {
@@ -758,6 +762,15 @@ export class GameScene extends Phaser.Scene {
       if (!this.cockroachNoiseSound || !this.cockroachNoiseSound.isPlaying) {
         this.cockroachNoiseSound = this.sound.add('cockroach-noise', { volume: 0.3 });
         this.cockroachNoiseSound.play();
+      }
+    }
+
+    // Multiplayer position sync — broadcast at ~5Hz for entity interpolation
+    if (this.isMultiplayer && !this.isBossFight) {
+      this.positionSyncTimer += this.game.loop.delta;
+      if (this.positionSyncTimer >= 200) {
+        this.positionSyncTimer = 0;
+        this.eventBridge.onPosition(this.player.x, this.player.currentFloor);
       }
     }
 

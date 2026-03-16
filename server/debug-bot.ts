@@ -131,9 +131,9 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
         bot.emit('game:pickup', { x: x - 20, score, combo });
       }
 
-      // Send position with swap events periodically for sync (~every 2s)
-      if (Math.random() < 0.05) {
-        bot.emit('game:swap', { lane, x });
+      // Position sync at ~5Hz (every 200ms = every 2nd tick)
+      if (Math.random() < 0.5) {
+        bot.emit('game:position', { x, lane });
       }
     }, TICK_MS);
 

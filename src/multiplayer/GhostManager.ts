@@ -45,7 +45,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setLane(lane, this.floorTopY, this.floorBottomY);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
     }
   }
 
@@ -53,7 +53,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setDashing(true);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
     }
   }
 
@@ -61,7 +61,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setDashing(false);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
     }
   }
 
@@ -69,7 +69,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setPill(true);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
     }
   }
 
@@ -77,7 +77,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setPill(false);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.pushPosition(x);
     }
   }
 
@@ -90,12 +90,19 @@ export class GhostManager {
     return this.ghosts.get(id)?.color ?? null;
   }
 
+  handlePosition(id: string, x: number): void {
+    const ghost = this.ghosts.get(id);
+    if (ghost && ghost.alive && !ghost.inBossFight) {
+      ghost.pushPosition(x);
+    }
+  }
+
   updateGhostScore(id: string, score: number, pickupX?: number, combo?: number): void {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.updateLiveScore(score, combo);
       if (pickupX != null && ghost.alive && !ghost.inBossFight) {
-        ghost.setTargetX(pickupX);
+        ghost.pushPosition(pickupX);
       }
     }
   }
