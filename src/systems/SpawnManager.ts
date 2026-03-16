@@ -183,7 +183,7 @@ export class SpawnManager {
       },
     });
     pill.setData('glowTween', pillGlowTween);
-    attachGlow(this.scene, pill, 20, COLORS.PILL_GLOW, 0.3, { toAlpha: 0.1, toScale: 1.3, duration: 400 });
+    attachGlow(this.scene, pill, 28, COLORS.PILL_GLOW, 0.5, { toAlpha: 0.18, toScale: 1.3, duration: 400 });
     pulse(this.scene, pill, 0.18, 300);
   }
 
@@ -197,8 +197,7 @@ export class SpawnManager {
     tyskie.setImmovable(true);
     floatUpDown(this.scene, tyskie, 8, 400);
     pulse(this.scene, tyskie, 0.22, 600);
-    tyskie.setTint(COLORS.TYSKIE_GLOW);
-    attachGlow(this.scene, tyskie, 18, COLORS.TYSKIE_GLOW, 0.25, { toAlpha: 0.1, duration: 600 });
+    attachGlow(this.scene, tyskie, 24, COLORS.TYSKIE_GLOW, 0.4, { toAlpha: 0.15, duration: 600 });
   }
 
   private spawnApple(slotX: number): void {
@@ -210,6 +209,6 @@ export class SpawnManager {
     (apple.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     apple.setImmovable(true);
     floatUpDown(this.scene, apple, 8, 500);
-    attachGlow(this.scene, apple, 16, COLORS.APPLE_GLOW, 0.2, { toAlpha: 0.08, duration: 500 });
+    attachGlow(this.scene, apple, 22, COLORS.APPLE_GLOW, 0.35, { toAlpha: 0.12, duration: 500 });
   }
 }
