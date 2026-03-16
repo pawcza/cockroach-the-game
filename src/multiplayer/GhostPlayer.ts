@@ -71,6 +71,9 @@ export class GhostPlayer {
   get stats(): Record<string, unknown> { return this._stats; }
   get lane(): string { return this.currentFloor; }
   get isDashing(): boolean { return this._isDashing; }
+  get speedMultiplier(): number {
+    return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
+  }
 
   updateLiveScore(score: number): void {
     this._liveScore = score;
@@ -245,6 +248,8 @@ export class GhostPlayer {
   }
 
   destroy(): void {
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.scene.tweens.killTweensOf(this.nameLabel);
     if (this.dashTrailTimer) {
       this.dashTrailTimer.destroy();
       this.dashTrailTimer = null;
