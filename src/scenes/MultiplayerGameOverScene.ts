@@ -182,7 +182,19 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
       // Show obstacle sprite if texture exists
       let statTextX = colName;
-      if (deathTexture && this.textures.exists(deathTexture)) {
+      if (obstacleType === 'boss') {
+        const faces = ['boss-face1', 'boss-face2', 'boss-face3'];
+        const faceSpacing = Math.round(14 * s);
+        faces.forEach((key, fi) => {
+          if (this.textures.exists(key)) {
+            const faceIcon = this.add.image(colName + fi * faceSpacing, statLineY, key);
+            faceIcon.setScale(Math.round(12 * s) / Math.max(faceIcon.width, faceIcon.height));
+            faceIcon.setOrigin(0, 0.5);
+            faceIcon.setDepth(DEPTH.PICKUPS);
+          }
+        });
+        statTextX = colName + faces.length * faceSpacing + Math.round(4 * s);
+      } else if (deathTexture && this.textures.exists(deathTexture)) {
         const icon = this.add.image(colName, statLineY, deathTexture);
         icon.setScale(Math.round(12 * s) / Math.max(icon.width, icon.height));
         icon.setOrigin(0, 0.5);
