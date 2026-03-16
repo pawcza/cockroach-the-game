@@ -185,10 +185,10 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:pill-end', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:position', (data: { x: number; lane: string }) => {
+    socket.on('game:position', (data: { x: number; lane: string; t?: number }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane });
+      socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane, t: data.t });
     });
 
     socket.on('game:pickup', (data: { x: number; score: number; combo?: number }) => {

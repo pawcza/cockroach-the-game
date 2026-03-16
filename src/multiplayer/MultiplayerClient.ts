@@ -142,7 +142,7 @@ class MultiplayerClient {
   sendDashEnd(x?: number): void { this.socket?.emit('game:dash-end', { x }); }
   sendPillStart(x?: number): void { this.socket?.emit('game:pill-start', { x }); }
   sendPillEnd(x?: number): void { this.socket?.emit('game:pill-end', { x }); }
-  sendPosition(x: number, lane: string): void { this.socket?.emit('game:position', { x, lane }); }
+  sendPosition(x: number, lane: string, t?: number): void { this.socket?.emit('game:position', { x, lane, t }); }
   sendPickup(x: number, score: number, combo?: number): void { this.socket?.emit('game:pickup', { x, score, combo }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
   sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
