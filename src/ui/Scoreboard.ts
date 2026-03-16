@@ -3,6 +3,7 @@ export interface ScoreEntry {
   score: number;
   death_cause: string | null;
   distance: number | null;
+  time_survived: number | null;
   apples_collected: number | null;
   tyskies_collected: number | null;
   pills_collected: number | null;

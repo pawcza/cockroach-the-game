@@ -322,15 +322,16 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
 
-      // Column layout: rank | name | lv | dist | combo | apple | tyskie | pill | score
+      // Column layout: rank | name | lv | time | dist | combo | apple | beer | pill | score
       const colRank = 15;
       const colName = 50;
-      const colLv = width * 0.36;
-      const colDist = width * 0.44;
-      const colCombo = width * 0.52;
+      const colLv = width * 0.32;
+      const colTime = width * 0.39;
+      const colDist = width * 0.46;
+      const colCombo = width * 0.53;
       const colApple = width * 0.60;
-      const colBeer = width * 0.68;
-      const colPill = width * 0.76;
+      const colBeer = width * 0.67;
+      const colPill = width * 0.74;
       const colScore = width - 15;
       const iconScale = 0.10;
 
@@ -341,6 +342,7 @@ export class MenuScene extends Phaser.Scene {
         stroke: '#000000', strokeThickness: 1,
       };
       container.add(this.add.text(colLv, headerY, 'Lv', headerStyle).setOrigin(0.5, 0.5));
+      container.add(this.add.text(colTime, headerY, 'Czas', headerStyle).setOrigin(0.5, 0.5));
       container.add(this.add.text(colDist, headerY, 'Dyst', headerStyle).setOrigin(0.5, 0.5));
       container.add(this.add.text(colCombo, headerY, 'Kmb', headerStyle).setOrigin(0.5, 0.5));
       if (this.textures.exists('apple')) {
@@ -416,17 +418,18 @@ export class MenuScene extends Phaser.Scene {
         const nameText = this.add.text(colName, y, entry.name, style).setOrigin(0, 0);
         const displayLevel = entry.max_level ?? (entry.distance != null ? getLevelForDistance(entry.distance).level : null);
         const lvText = this.add.text(colLv, y, displayLevel != null ? String(displayLevel) : '-', smallStatStyle).setOrigin(0.5, 0);
+        const timeText = this.add.text(colTime, y, entry.time_survived != null ? `${entry.time_survived}s` : '-', smallStatStyle).setOrigin(0.5, 0);
         const distText = this.add.text(colDist, y, entry.distance != null ? `${Math.floor(entry.distance)}` : '-', smallStatStyle).setOrigin(0.5, 0);
         const comboText = this.add.text(colCombo, y, entry.max_combo != null ? `x${entry.max_combo}` : '-', smallStatStyle).setOrigin(0.5, 0);
         const appleText = this.add.text(colApple, y, entry.apples_collected != null ? String(entry.apples_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const beerText = this.add.text(colBeer, y, entry.tyskies_collected != null ? String(entry.tyskies_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const pillText = this.add.text(colPill, y, entry.pills_collected != null ? String(entry.pills_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
         const scoreText = this.add.text(colScore, y, String(entry.score), style).setOrigin(1, 0);
-        scrollContainer.add([rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText]);
+        scrollContainer.add([rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText]);
 
         // Top 3 effects — constrained wobble for rank 1
         if (rank === 1) {
-          const elements = [rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText];
           const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
           let ci = 0;
           timeEvents.push(this.time.addEvent({
@@ -447,7 +450,7 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 2) {
-          const elements = [rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.7, to: 1 },
@@ -457,7 +460,7 @@ export class MenuScene extends Phaser.Scene {
             ease: 'Sine.easeInOut',
           });
         } else if (rank === 3) {
-          const elements = [rankText, nameText, lvText, distText, comboText, appleText, beerText, pillText, scoreText];
+          const elements = [rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText];
           this.tweens.add({
             targets: elements,
             alpha: { from: 0.8, to: 1 },
