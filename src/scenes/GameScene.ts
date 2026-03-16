@@ -586,7 +586,8 @@ export class GameScene extends Phaser.Scene {
     // Pill magnet — vacuum pickups toward player during pill effect
     if (this.player.isPillActive) {
       const magnetRange = 600;
-      const pullSpeed = 800;
+      const playerSpeed = this.player.sprite.body!.velocity.x;
+      const pullSpeed = Math.max(800, playerSpeed * 2.5);
       const groups = [this.apples, this.tyskies, this.pills];
       const delta = this.game.loop.delta / 1000;
       for (const group of groups) {
