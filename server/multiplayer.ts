@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { LobbyManager } from './lobby';
+import { spawnBotForLobby } from './debug-bot';
 
 function serializeLobby(lobbies: LobbyManager, lobbyId: string) {
   const lobby = lobbies.getLobby(lobbyId);
@@ -68,6 +69,11 @@ export function setupMultiplayer(io: Server): void {
         },
       });
       broadcastLobbyList();
+
+      // Auto-spawn debug bot when "debug" player creates a lobby
+      if (playerName === 'debug') {
+        setTimeout(() => spawnBotForLobby(io, lobby.id), 500);
+      }
     });
 
     socket.on('lobby:join', (lobbyId: string, callback: Function) => {
@@ -139,6 +145,7 @@ export function setupMultiplayer(io: Server): void {
       const players = lobbies.serializePlayers(lobby);
       // Clear any stale death data for this lobby
       lobbyDeathData.set(lobby.id, new Map());
+
       callback({ ok: true, seed: lobby.seed, players });
       socket.to(lobby.id).emit('game:start', {
         seed: lobby.seed,
