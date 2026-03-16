@@ -72,7 +72,7 @@ export function setupMultiplayer(io: Server): void {
 
       // Auto-spawn debug bot when "debug" player creates a lobby
       if (playerName === 'debug') {
-        setTimeout(() => spawnBotForLobby(io, lobby.id), 500);
+        setTimeout(() => spawnBotForLobby(io, lobby.id, socket), 500);
       }
     });
 

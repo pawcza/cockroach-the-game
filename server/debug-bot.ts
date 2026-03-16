@@ -28,7 +28,7 @@ export function setupDebugBot(_io: Server): void {
   // Placeholder — bot spawning is triggered from multiplayer.ts
 }
 
-export function spawnBotForLobby(io: Server, lobbyId: string): void {
+export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any): void {
   const { io: ioClient } = require('socket.io-client');
 
   const port = process.env.PORT || 3000;
@@ -57,6 +57,17 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
       }
       console.log('[DebugBot] Joined lobby', lobbyId);
       bot.emit('lobby:ready', true, () => {});
+    });
+
+    // If the debug player leaves, bot becomes host of an empty lobby — disconnect
+    bot.on('lobby:updated', (lobbyData: any) => {
+      if (!lobbyData) return;
+      const players = lobbyData.players || [];
+      const botPlayer = players.find((p: any) => p.name === 'DebugBot');
+      if (players.length <= 1 && botPlayer) {
+        console.log('[DebugBot] Alone in lobby, disconnecting');
+        bot.disconnect();
+      }
     });
   });
 
@@ -159,7 +170,8 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
 
   bot.on('game:over', () => {
     gameStarted = false;
-    console.log('[DebugBot] Game over');
+    console.log('[DebugBot] Game over, disconnecting');
+    setTimeout(() => bot.disconnect(), 2000);
   });
 
   bot.on('game:boss-start', (data: any) => {
