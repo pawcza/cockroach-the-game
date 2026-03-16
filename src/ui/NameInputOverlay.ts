@@ -65,10 +65,11 @@ export function showNameInput(
     input.style.left = `${centerX - input.offsetWidth / 2}px`;
     input.style.top = `${centerY - input.offsetHeight / 2}px`;
   };
-  // Position after a frame so offsetWidth is computed
-  requestAnimationFrame(positionInput);
-
-  input.focus();
+  // Position after a frame so offsetWidth is computed, then focus
+  requestAnimationFrame(() => {
+    positionInput();
+    input.focus();
+  });
 
   // Phaser "Zapisz" button
   const btnY = height * 0.58;
@@ -98,16 +99,23 @@ export function showNameInput(
     }
   };
 
-  // Dismiss on backdrop click
-  backdrop.on('pointerdown', () => cleanup());
+  // Dismiss on backdrop click — delayed to prevent virtual keyboard popup from triggering it
+  let backdropReady = false;
+  setTimeout(() => { backdropReady = true; }, 500);
+  backdrop.on('pointerdown', (_pointer: Phaser.Input.Pointer) => {
+    if (backdropReady) cleanup();
+  });
+
+  // Prevent touch on the input area from reaching the Phaser backdrop
+  input.addEventListener('touchstart', (e) => e.stopPropagation());
+  input.addEventListener('mousedown', (e) => e.stopPropagation());
 
   input.addEventListener('keydown', (e) => {
-    e.stopPropagation(); // prevent Phaser from seeing key events
+    e.stopPropagation();
     if (e.key === 'Enter') doSubmit();
     if (e.key === 'Escape') cleanup();
   });
 
-  // Block keyboard events from reaching Phaser while input is focused
   input.addEventListener('keyup', (e) => e.stopPropagation());
   input.addEventListener('keypress', (e) => e.stopPropagation());
 
