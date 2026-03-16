@@ -50,15 +50,19 @@ export class GhostPlayer {
   private _stats: Record<string, unknown> = {};
   private _isSpectated = false;
 
-  // Local simulation — mirrors Player.ts speed formula
-  private activePlayTime = 0;
+  // Movement state
   private currentFloor: string = 'bottom';
   private _isDashing = false;
   private _isPillActive = false;
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
-  // Smooth error correction — drift from server position
+  // Server-authoritative time — ghost derives speed from real player's time
+  private serverTime = 0;           // last received activePlayTime (ms)
+  private serverTimeLocal = 0;      // performance.now() when serverTime was received
+  private hasServerTime = false;    // don't move until first position event
+
+  // Smooth error correction
   private correctionX = 0;
 
   private _inBossFight = false;
@@ -81,12 +85,12 @@ export class GhostPlayer {
     return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
   }
 
-  /** Receive authoritative position — calculate error for smooth correction */
+  /** Receive authoritative position + time from real player */
   pushPosition(x: number, activePlayTimeMs?: number): void {
-    // Only sync activePlayTime for large drifts (>1s) — prevents oscillation
-    // from small frame-timing differences that cause speed jitter
-    if (activePlayTimeMs != null && Math.abs(activePlayTimeMs - this.activePlayTime) > 1000) {
-      this.activePlayTime = activePlayTimeMs;
+    if (activePlayTimeMs != null) {
+      this.serverTime = activePlayTimeMs;
+      this.serverTimeLocal = performance.now();
+      this.hasServerTime = true;
     }
     this.correctionX = x - this.sprite.x;
   }
@@ -122,9 +126,13 @@ export class GhostPlayer {
     this.nameLabel.setDepth(DEPTH.GHOST_LABEL);
   }
 
-  /** Compute current speed using the same formula as Player.updateSpeed */
+  /** Compute current speed using server-authoritative time extrapolated to now */
   private getCurrentSpeed(): number {
-    const elapsedSeconds = this.activePlayTime / 1000;
+    // Extrapolate server time forward using local wall clock
+    const timeSinceUpdate = this.hasServerTime ? performance.now() - this.serverTimeLocal : 0;
+    const effectiveTime = this.serverTime + timeSinceUpdate;
+    const elapsedSeconds = effectiveTime / 1000;
+
     const distance = Math.floor((this.sprite.x - this.startX) / 50);
     const level = getLevelForDistance(distance).level;
     const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
@@ -296,8 +304,6 @@ export class GhostPlayer {
       return;
     }
 
-    this.activePlayTime += delta;
-
     // Survival score: +1 per second
     this._lastSurvivalTick += delta;
     if (this._lastSurvivalTick >= 1000) {
@@ -305,11 +311,14 @@ export class GhostPlayer {
       this._lastSurvivalTick -= 1000;
     }
 
-    // Local speed simulation (same formula as the real player)
+    // Don't move until we receive the first position event
+    if (!this.hasServerTime) return;
+
+    // Speed from server-authoritative time (extrapolated to now)
     const speed = this.getCurrentSpeed();
     this.sprite.x += speed * (delta / 1000);
 
-    // Smooth error correction — 50% per frame = 98% corrected in 6 frames (one 10Hz tick)
+    // Smooth error correction — 50% per frame = 98% corrected in 6 frames
     if (Math.abs(this.correctionX) > 0.5) {
       const correction = this.correctionX * 0.5;
       this.sprite.x += correction;
