@@ -583,10 +583,10 @@ export class GameScene extends Phaser.Scene {
     this.player.updateDash();
     this.player.updatePill();
 
-    // Pill magnet — pull pickups toward player during pill effect
+    // Pill magnet — vacuum pickups toward player during pill effect
     if (this.player.isPillActive) {
-      const magnetRange = 300;
-      const pullSpeed = 200;
+      const magnetRange = 600;
+      const pullSpeed = 800;
       const groups = [this.apples, this.tyskies, this.pills];
       const delta = this.game.loop.delta / 1000;
       for (const group of groups) {
@@ -596,9 +596,10 @@ export class GameScene extends Phaser.Scene {
           const dy = this.player.y - pickup.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < magnetRange && dist > 1) {
+            const strength = pullSpeed * (1 + (magnetRange - dist) / magnetRange);
             const angle = Math.atan2(dy, dx);
-            pickup.x += Math.cos(angle) * pullSpeed * delta;
-            pickup.y += Math.sin(angle) * pullSpeed * delta;
+            pickup.x += Math.cos(angle) * strength * delta;
+            pickup.y += Math.sin(angle) * strength * delta;
           }
         });
       }
