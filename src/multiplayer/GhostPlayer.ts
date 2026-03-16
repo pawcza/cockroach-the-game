@@ -59,6 +59,8 @@ export class GhostPlayer {
   private pillStartTime = 0;
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
+  private _inBossFight = false;
+  private bossGlockSprite: Phaser.GameObjects.Image | null = null;
 
   // Animation
   private runFrames = ['cockroach-idle', 'cockroach-running'];
@@ -117,6 +119,31 @@ export class GhostPlayer {
     const baseSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION + levelBonus;
     const dashBoost = this._isDashing ? DASH_SPEED_BOOST : 0;
     return (baseSpeed + dashBoost) * this.pillSpeedBoost;
+  }
+
+  enterBossFight(targetX: number, floorTopY: number, floorBottomY: number): void {
+    this._inBossFight = true;
+
+    const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - 20;
+    this.scene.tweens.add({
+      targets: this.sprite,
+      x: targetX,
+      y: targetY,
+      duration: 500,
+      ease: 'Power2',
+    });
+
+    this.bossGlockSprite = this.scene.add.image(0, 0, 'boss-gun');
+    this.bossGlockSprite.setScale(0.25).setDepth(this.sprite.depth - 1);
+    this.bossGlockSprite.setOrigin(0, 0.5);
+  }
+
+  leaveBossFight(): void {
+    this._inBossFight = false;
+    if (this.bossGlockSprite) {
+      this.bossGlockSprite.destroy();
+      this.bossGlockSprite = null;
+    }
   }
 
   setLane(lane: string, floorTopY: number, floorBottomY: number): void {
@@ -240,8 +267,27 @@ export class GhostPlayer {
     });
   }
 
+  playShootAnimation(): void {
+    if (!this.bossGlockSprite) return;
+    this.scene.tweens.add({
+      targets: this.bossGlockSprite,
+      angle: -15,
+      duration: 50,
+      ease: 'Power2',
+      yoyo: true,
+    });
+  }
+
   update(delta: number): void {
     if (!this._alive) return;
+
+    if (this._inBossFight) {
+      this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
+      if (this.bossGlockSprite) {
+        this.bossGlockSprite.setPosition(this.sprite.x + 15, this.sprite.y);
+      }
+      return;
+    }
 
     this.activePlayTime += delta;
 
@@ -281,6 +327,10 @@ export class GhostPlayer {
   }
 
   destroy(): void {
+    if (this.bossGlockSprite) {
+      this.bossGlockSprite.destroy();
+      this.bossGlockSprite = null;
+    }
     this.scene.tweens.killTweensOf(this.sprite);
     this.scene.tweens.killTweensOf(this.nameLabel);
     if (this.dashTrailTimer) {
