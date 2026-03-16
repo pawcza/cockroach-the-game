@@ -8,6 +8,7 @@ import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
 import { fetchScores } from '../ui/Scoreboard';
 import { updateHighScoreIfBetter } from '../utils/Storage';
+import { showNameInput } from '../ui/NameInputOverlay';
 
 interface MPGameOverRanking {
   id: string;
@@ -94,37 +95,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // --- Auto-save highscore ---
-    let isNewRecord = false;
+    // --- Update local highscore ---
     const myRanking = rankings.find(r => r.id === myId);
     if (myRanking) {
-      isNewRecord = updateHighScoreIfBetter(myRanking.score);
-
-      // Auto-submit to leaderboard if qualifies for top 100
-      if (isNewRecord && myRanking.score > 0) {
-        fetchScores().then((scores) => {
-          const inTop100 = scores.length < 100 || myRanking.score > scores[scores.length - 1].score;
-          if (inTop100) {
-            const stats = myRanking.stats || {};
-            fetch('/api/scores', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: myRanking.name,
-                score: myRanking.score,
-                deathCause: stats.obstacleType || null,
-                distance: typeof stats.distance === 'number' ? stats.distance : null,
-                timeSurvived: typeof stats.timeSurvived === 'number' ? stats.timeSurvived : null,
-                applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
-                tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
-                pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
-                maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
-                maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
-              }),
-            }).catch(() => { /* offline is fine */ });
-          }
-        }).catch(() => { /* offline is fine */ });
-      }
+      updateHighScoreIfBetter(myRanking.score);
     }
 
     // --- Rankings table ---
@@ -227,25 +201,6 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         strokeThickness: 1,
       })).setOrigin(0, 0.5);
 
-      // "NOWY REKORD!" badge
-      if (isMe && isNewRecord) {
-        const badge = this.add.text(colScore, y - Math.round(10 * s), 'NOWY REKORD!', smallStyle({
-          fontSize: `${Math.round(7 * s)}px`,
-          color: '#ffff00',
-          strokeThickness: Math.round(2 * s),
-        })).setOrigin(1, 0.5);
-
-        this.tweens.add({
-          targets: badge,
-          scaleX: { from: 1, to: 1.15 },
-          scaleY: { from: 1, to: 1.15 },
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      }
-
       // Top 3 effects -- only name and score animate (rank stays stable)
       const animElements = [nameText, scoreText];
 
@@ -296,6 +251,66 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           ease: 'Sine.easeInOut',
         });
       }
+    }
+
+    // --- "Zapisz" button for leaderboard ---
+    if (myRanking && myRanking.score > 0) {
+      fetchScores().then((scores) => {
+        const inTop100 = scores.length < 100 || myRanking.score > scores[scores.length - 1].score;
+        if (inTop100) {
+          const saveY = height - Math.round(100 * s);
+          const saveBtnW = Math.round(120 * s);
+          const saveBtnH = Math.round(30 * s);
+
+          const saveBtn = createButton(this, width / 2, saveY, saveBtnW, saveBtnH, 'Zapisz', 0x008800, buttonStyle({
+            fontSize: `${Math.round(10 * s)}px`,
+            strokeThickness: 2,
+          }), () => {
+            for (const obj of saveBtn.all) obj.destroy();
+            showNameInput(this, (name) => {
+              const stats = myRanking.stats || {};
+              fetch('/api/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name,
+                  score: myRanking.score,
+                  deathCause: stats.obstacleType || null,
+                  distance: typeof stats.distance === 'number' ? stats.distance : null,
+                  timeSurvived: typeof stats.timeSurvived === 'number' ? stats.timeSurvived : null,
+                  applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
+                  tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
+                  pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
+                  maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
+                  maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
+                }),
+              }).catch(() => { /* offline is fine */ });
+
+              const saved = this.add.text(width / 2, saveY, 'Zapisano!', smallStyle({
+                fontSize: `${Math.round(10 * s)}px`,
+                color: '#00ff00',
+              })).setOrigin(0.5);
+              this.tweens.add({
+                targets: saved,
+                alpha: { from: 1, to: 0.6 },
+                duration: 800,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut',
+              });
+            }, myRanking.name);
+          });
+
+          this.tweens.add({
+            targets: saveBtn.all,
+            alpha: { from: 0.7, to: 1 },
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
+      }).catch(() => { /* offline is fine */ });
     }
 
     // --- Buttons ---
