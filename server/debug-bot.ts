@@ -108,33 +108,14 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
       // Advance position
       x += speed * dt;
 
-      // Random swap (~every 3-5s on average)
-      if (Math.random() < 0.03) {
+      // Swap lanes every ~4s
+      if (Math.random() < 0.025) {
         lane = lane === 'top' ? 'bottom' : 'top';
         bot.emit('game:swap', { lane, x });
       }
 
-      // Random dash (~every 8-12s on average, only when not dashing)
-      if (!isDashing && Math.random() < 0.01) {
-        isDashing = true;
-        bot.emit('game:dash-start', { x });
-        setTimeout(() => {
-          isDashing = false;
-          bot.emit('game:dash-end', { x });
-        }, DASH_DURATION);
-      }
-
-      // Simulate pickup collection (~every 2-3s)
-      if (Math.random() < 0.05) {
-        score += 10;
-        combo++;
-        bot.emit('game:pickup', { x: x - 20, score, combo });
-      }
-
-      // Position sync at ~5Hz (every 200ms = every 2nd tick)
-      if (Math.random() < 0.5) {
-        bot.emit('game:position', { x, lane });
-      }
+      // Position sync every tick
+      bot.emit('game:position', { x, lane });
     }, TICK_MS);
 
     // Die 5-15 seconds after another player dies, or after 120s max
