@@ -24,6 +24,21 @@ function getSpeed(elapsedSeconds: number, level: number, isDashing: boolean): nu
   return base + (isDashing ? DASH_SPEED_BOOST : 0);
 }
 
+/**
+ * Compute position analytically from the integral of the speed formula.
+ * Ignores level bonus (small, corrected by position events).
+ *
+ * speed(t) = BASE + MAX_BOOST * (1 - exp(-t/TAU))
+ * ∫speed dt = BASE*t + MAX_BOOST*(t + TAU*exp(-t/TAU) - TAU) + C
+ * At t=0: position = startX, so C = startX + MAX_BOOST * TAU
+ */
+function getPositionAtTime(elapsedSeconds: number, startX: number): number {
+  const B = COCKROACH_BASE_SPEED;
+  const M = COCKROACH_SPEED_MAX_BOOST;
+  const T = COCKROACH_SPEED_TAU;
+  return startX + B * elapsedSeconds + M * (elapsedSeconds + T * Math.exp(-elapsedSeconds / T) - T);
+}
+
 export function setupDebugBot(_io: Server): void {
   // Placeholder — bot spawning is triggered from multiplayer.ts
 }
@@ -107,19 +122,13 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
         return;
       }
 
-      const dt = (now - lastTick) / 1000;
       lastTick = now;
 
       // Use wall clock for activePlayTime (same as GameClock.activePlayTime)
       activePlayTime = now - gameplayStartWallClock;
 
-      const elapsedSeconds = activePlayTime / 1000;
-      const distance = Math.floor((x - 150) / 50);
-      const level = getLevelForDistance(distance);
-      const speed = getSpeed(elapsedSeconds, level, isDashing);
-
-      // Advance position
-      x += speed * dt;
+      // Compute position analytically — no accumulation, no drift
+      x = getPositionAtTime(activePlayTime / 1000, 150);
 
       // Swap lanes every ~4s
       if (Math.random() < 0.025) {
