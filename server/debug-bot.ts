@@ -87,19 +87,27 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
   });
 
   bot.on('game:start', () => {
-    console.log('[DebugBot] Game started');
+    console.log('[DebugBot] Game started, waiting for countdown...');
     gameStarted = true;
     alive = true;
     x = 150;
     score = 0;
     lane = 'bottom';
 
-    // Auto-play loop
+    // Wait for countdown (4 steps × 600ms = 2400ms)
+    setTimeout(() => {
+      console.log('[DebugBot] Playing');
+    }, 2500);
+
+    const countdownEnd = Date.now() + 2500;
+
+    // Auto-play loop (waits for countdown)
     const playInterval = setInterval(() => {
       if (!alive || !gameStarted) {
         clearInterval(playInterval);
         return;
       }
+      if (Date.now() < countdownEnd) return;
 
       // Advance X (approximate speed)
       x += 200 * 0.5; // ~half second intervals at base speed
