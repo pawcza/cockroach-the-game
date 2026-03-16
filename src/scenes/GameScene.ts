@@ -538,6 +538,27 @@ export class GameScene extends Phaser.Scene {
     this.player.updateDash();
     this.player.updatePill();
 
+    // Pill magnet — pull pickups toward player during pill effect
+    if (this.player.isPillActive) {
+      const magnetRange = 300;
+      const pullSpeed = 200;
+      const groups = [this.apples, this.tyskies, this.pills];
+      const delta = this.game.loop.delta / 1000;
+      for (const group of groups) {
+        group.getChildren().slice().forEach((obj) => {
+          const pickup = obj as Phaser.Physics.Arcade.Sprite;
+          const dx = this.player.x - pickup.x;
+          const dy = this.player.y - pickup.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < magnetRange && dist > 1) {
+            const angle = Math.atan2(dy, dx);
+            pickup.x += Math.cos(angle) * pullSpeed * delta;
+            pickup.y += Math.sin(angle) * pullSpeed * delta;
+          }
+        });
+      }
+    }
+
     // Multiplayer sync
     if (this.isMultiplayer && this._wasDashing && !this.player.isDashing) mpClient.sendDashEnd();
     this._wasDashing = this.player.isDashing;
