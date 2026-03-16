@@ -59,7 +59,7 @@ export class GhostPlayer {
 
   // Server-authoritative time — ghost derives speed from real player's time
   private serverTime = 0;           // last received activePlayTime (ms)
-  private serverTimeLocal = 0;      // performance.now() when serverTime was received
+  private serverTimeLocal = 0;      // Date.now() when serverTime was received
   private hasServerTime = false;    // don't move until first position event
 
   // Smooth error correction
@@ -89,7 +89,7 @@ export class GhostPlayer {
   pushPosition(x: number, activePlayTimeMs?: number): void {
     if (activePlayTimeMs != null) {
       this.serverTime = activePlayTimeMs;
-      this.serverTimeLocal = performance.now();
+      this.serverTimeLocal = Date.now();
       this.hasServerTime = true;
     }
     this.correctionX = x - this.sprite.x;
@@ -128,8 +128,8 @@ export class GhostPlayer {
 
   /** Compute current speed using server-authoritative time extrapolated to now */
   private getCurrentSpeed(): number {
-    // Extrapolate server time forward using local wall clock
-    const timeSinceUpdate = this.hasServerTime ? performance.now() - this.serverTimeLocal : 0;
+    // Extrapolate server time forward using wall clock (same clock player uses)
+    const timeSinceUpdate = this.hasServerTime ? Date.now() - this.serverTimeLocal : 0;
     const effectiveTime = this.serverTime + timeSinceUpdate;
     const elapsedSeconds = effectiveTime / 1000;
 

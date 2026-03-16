@@ -90,6 +90,9 @@ export class GameScene extends Phaser.Scene {
   private score = 0;
   private startTime = 0;
   private activePlayTime = 0;
+  private gameStartWallClock = 0;  // Date.now() when gameplay begins
+  private bossTimeOffset = 0;     // accumulated time paused during boss fights
+  private bossStartWallClock = 0; // Date.now() when boss fight began
   private lastFrameTime = 0;
   private lastScoreTime = 0;
 
@@ -466,7 +469,13 @@ export class GameScene extends Phaser.Scene {
       this.startTime = this.time.now;
       this.lastFrameTime = this.time.now;
       this.activePlayTime = 0;
+      this.gameStartWallClock = Date.now();
       this.lastScoreTime = this.time.now;
+
+      // Send immediate position event so ghosts can start moving without delay
+      if (this.isMultiplayer) {
+        this.eventBridge.onPosition(this.player.x, this.player.currentFloor, 0);
+      }
     }
   }
 
@@ -575,9 +584,9 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Accumulate active play time (paused during boss fight)
+    // Active play time from wall clock (paused during boss fight)
     if (!this.isBossFight) {
-      this.activePlayTime += this.time.now - this.lastFrameTime;
+      this.activePlayTime = Date.now() - this.gameStartWallClock - this.bossTimeOffset;
     }
     this.lastFrameTime = this.time.now;
 
@@ -795,6 +804,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isBossFight = true;
+    this.bossStartWallClock = Date.now();
     this.bossFight = new BossFight(
       this, this.player, this.audio, this.vfx, this.hud,
       this.floorTopY, this.floorBottomY,
@@ -804,6 +814,7 @@ export class GameScene extends Phaser.Scene {
           this.hud.updateScore(this.score);
           this.bossFight?.destroy();
           this.bossFight = null;
+          this.bossTimeOffset += Date.now() - this.bossStartWallClock;
           this.isBossFight = false;
           this.bossDefeated = true;
           this.player.resumeAfterBossFight();

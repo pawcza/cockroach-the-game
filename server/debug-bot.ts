@@ -83,9 +83,10 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
     lane = 'bottom';
     startTime = Date.now();
 
-    const countdownEnd = Date.now() + 2500;
-    const TICK_MS = 100; // 10 ticks per second for smooth movement
+    const countdownEnd = Date.now() + 2400;
+    const TICK_MS = 100;
     let lastTick = Date.now();
+    let sentInitialPos = false;
 
     const playInterval = setInterval(() => {
       if (!alive || !gameStarted) {
@@ -95,6 +96,14 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
 
       const now = Date.now();
       if (now < countdownEnd) { lastTick = now; return; }
+
+      // Send initial position immediately at countdown end
+      if (!sentInitialPos) {
+        sentInitialPos = true;
+        lastTick = now;
+        bot.emit('game:position', { x, lane, t: 0 });
+        return;
+      }
 
       const dt = (now - lastTick) / 1000;
       lastTick = now;
