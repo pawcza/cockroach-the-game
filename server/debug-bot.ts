@@ -115,7 +115,7 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
       }
 
       // Position sync every tick
-      bot.emit('game:position', { x, lane });
+      bot.emit('game:position', { x, lane, t: activePlayTime });
     }, TICK_MS);
 
     // Die 5-15 seconds after another player dies, or after 120s max

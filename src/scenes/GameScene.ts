@@ -299,7 +299,7 @@ export class GameScene extends Phaser.Scene {
         onGhostDashEnd: (id, x) => this.ghostManager?.handleDashEnd(id, x),
         onGhostPillStart: (id, x) => this.ghostManager?.handlePillStart(id, x),
         onGhostPillEnd: (id, x) => this.ghostManager?.handlePillEnd(id, x),
-        onGhostPosition: (id, x) => this.ghostManager?.handlePosition(id, x),
+        onGhostPosition: (id, x, _lane, t) => this.ghostManager?.handlePosition(id, x, t),
         onGhostPickup: (id, x, score, combo) => {
           this.ghostManager?.updateGhostScore(id, score, x, combo);
           if (this.isDead) {
@@ -770,7 +770,7 @@ export class GameScene extends Phaser.Scene {
       this.positionSyncTimer += this.game.loop.delta;
       if (this.positionSyncTimer >= 100) {
         this.positionSyncTimer = 0;
-        this.eventBridge.onPosition(this.player.x, this.player.currentFloor);
+        this.eventBridge.onPosition(this.player.x, this.player.currentFloor, this.activePlayTime);
       }
     }
 

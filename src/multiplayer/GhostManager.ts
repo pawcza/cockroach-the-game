@@ -90,10 +90,10 @@ export class GhostManager {
     return this.ghosts.get(id)?.color ?? null;
   }
 
-  handlePosition(id: string, x: number): void {
+  handlePosition(id: string, x: number, t?: number): void {
     const ghost = this.ghosts.get(id);
     if (ghost && ghost.alive && !ghost.inBossFight) {
-      ghost.pushPosition(x);
+      ghost.pushPosition(x, t);
     }
   }
 
