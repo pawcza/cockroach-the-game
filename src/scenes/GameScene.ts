@@ -406,6 +406,16 @@ export class GameScene extends Phaser.Scene {
             this.switchLevel(newLevelConfig);
           }
           this.gameOverHandler.checkSpectatedMilestones(target.liveScore);
+          const hudData: HUDUpdateData = {
+            score: target.liveScore,
+            distance: ghostDistance,
+            speedMultiplier: target.speedMultiplier,
+            currentFloor: target.lane as 'top' | 'bottom',
+            pickupCombo: 0,
+            comboMultiplier: 1.0,
+            timeNow: this.time.now,
+          };
+          this.hud.update(hudData);
         }
 
         this.updateParallax();
@@ -695,6 +705,8 @@ export class GameScene extends Phaser.Scene {
         mpClient.off('game:player-left');
         mpClient.off('game:over');
       }
+      this.bossFight?.destroy();
+      this.bossFight = null;
       this.ghostManager?.destroy();
       this.ghostManager = null;
     });
