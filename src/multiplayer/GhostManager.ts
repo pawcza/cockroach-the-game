@@ -41,10 +41,13 @@ export class GhostManager {
     }
   }
 
-  handleSwap(id: string, lane: string): void {
+  handleSwap(id: string, lane: string, x?: number): void {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setLane(lane, this.floorTopY, this.floorBottomY);
+      if (x != null && ghost.alive && !ghost.inBossFight) {
+        ghost.sprite.x = x;
+      }
     }
   }
 

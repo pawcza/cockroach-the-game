@@ -219,7 +219,17 @@ export class MenuScene extends Phaser.Scene {
     });
 
     addBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
-      crossfadeTransition(500, () => this.scene.start('MultiplayerMenuScene'));
+      if (this.menuBgm) {
+        this.tweens.add({ targets: this.menuBgm, volume: 0, duration: 500 });
+      }
+      crossfadeTransition(500, () => {
+        if (this.menuBgm) {
+          this.menuBgm.stop();
+          this.menuBgm.destroy();
+          this.menuBgm = null;
+        }
+        this.scene.start('MultiplayerMenuScene');
+      });
     });
 
     // --- Scoreboard page container (off-screen to the left) ---

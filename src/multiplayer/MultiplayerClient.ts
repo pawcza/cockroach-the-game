@@ -137,7 +137,7 @@ class MultiplayerClient {
   }
 
   // Game events — send
-  sendSwap(lane: string): void { this.socket?.emit('game:swap', lane); }
+  sendSwap(lane: string, x?: number): void { this.socket?.emit('game:swap', { lane, x }); }
   sendDashStart(): void { this.socket?.emit('game:dash-start'); }
   sendDashEnd(): void { this.socket?.emit('game:dash-end'); }
   sendPillStart(): void { this.socket?.emit('game:pill-start'); }
