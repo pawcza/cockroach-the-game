@@ -68,7 +68,7 @@ export class GameScene extends Phaser.Scene {
   // Physics groups
   private obstacles!: Phaser.Physics.Arcade.Group;
   private apples!: Phaser.Physics.Arcade.Group;
-  private tyskies!: Phaser.Physics.Arcade.Group;
+  private beers!: Phaser.Physics.Arcade.Group;
   private pills!: Phaser.Physics.Arcade.Group;
 
   // Systems
@@ -125,7 +125,7 @@ export class GameScene extends Phaser.Scene {
   private pickupCombo = 0;
   private maxCombo = 0;
   private applesCollected = 0;
-  private tyskiesCollected = 0;
+  private beersCollected = 0;
   private pillsCollected = 0;
 
   // Mobile detection (input only — not scaling)
@@ -168,7 +168,7 @@ export class GameScene extends Phaser.Scene {
     this.pickupCombo = 0;
     this.maxCombo = 0;
     this.applesCollected = 0;
-    this.tyskiesCollected = 0;
+    this.beersCollected = 0;
     this.pillsCollected = 0;
     this.currentLevel = 1;
     this.isCountingDown = true;
@@ -211,7 +211,7 @@ export class GameScene extends Phaser.Scene {
     this.obstacles = this.physics.add.group();
     this.data.set('obstacles', this.obstacles);
     this.apples = this.physics.add.group();
-    this.tyskies = this.physics.add.group();
+    this.beers = this.physics.add.group();
     this.pills = this.physics.add.group();
 
     // Obstacle spawner
@@ -240,18 +240,18 @@ export class GameScene extends Phaser.Scene {
       incrementCombo: () => { this.pickupCombo++; if (this.pickupCombo > this.maxCombo) this.maxCombo = this.pickupCombo; },
       getComboMultiplier: () => this.getComboMultiplier(),
       onAppleCollected: () => { this.applesCollected++; },
-      onTyskieCollected: () => { this.tyskiesCollected++; },
+      onBeerCollected: () => { this.beersCollected++; },
       onPillCollected: () => { this.pillsCollected++; },
       onPickup: (x, score) => this.eventBridge.onPickup(x, score),
       onPillStart: () => this.eventBridge.onPillStart(),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
     });
     this.collisionManager.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
-    this.collisionManager.setupOverlaps(this.apples, this.tyskies, this.pills, this.obstacles);
+    this.collisionManager.setupOverlaps(this.apples, this.beers, this.pills, this.obstacles);
 
     // Spawn manager
     this.spawnManager = new SpawnManager(
-      this, this.obstacles, this.apples, this.tyskies, this.pills,
+      this, this.obstacles, this.apples, this.beers, this.pills,
       this.obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
     );
 
@@ -264,7 +264,7 @@ export class GameScene extends Phaser.Scene {
       getActivePlayTime: () => this.activePlayTime,
       getDistance: () => this.getDistance(),
       getCurrentLevel: () => this.currentLevel,
-      getPickupCounts: () => ({ apples: this.applesCollected, tyskies: this.tyskiesCollected, pills: this.pillsCollected }),
+      getPickupCounts: () => ({ apples: this.applesCollected, beers: this.beersCollected, pills: this.pillsCollected }),
       getMaxCombo: () => this.maxCombo,
       getGhostManager: () => this.ghostManager,
       setGhostManager: (gm) => { this.ghostManager = gm; },
@@ -298,7 +298,7 @@ export class GameScene extends Phaser.Scene {
 
           this.player.forceEndEffects();
 
-          const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
+          const groups = [this.obstacles, this.apples, this.beers, this.pills];
           for (const group of groups) {
             const children = group.getChildren().slice();
             for (const obj of children) {
@@ -631,7 +631,7 @@ export class GameScene extends Phaser.Scene {
       const magnetRange = 600;
       const playerSpeed = this.player.sprite.body!.velocity.x;
       const pullSpeed = Math.max(800, playerSpeed * 2.5);
-      const groups = [this.apples, this.tyskies, this.pills];
+      const groups = [this.apples, this.beers, this.pills];
       const delta = this.game.loop.delta / 1000;
       for (const group of groups) {
         group.getChildren().slice().forEach((obj) => {
@@ -740,7 +740,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createBossFight(role: 'solo' | 'host' | 'client', overrideHp?: number): void {
-    const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
+    const groups = [this.obstacles, this.apples, this.beers, this.pills];
     for (const group of groups) {
       const children = group.getChildren().slice();
       for (const obj of children) {

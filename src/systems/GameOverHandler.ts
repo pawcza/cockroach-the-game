@@ -44,7 +44,7 @@ export class GameOverHandler {
   private getActivePlayTime: () => number;
   private getDistance: () => number;
   private getCurrentLevel: () => number;
-  private getPickupCounts: () => { apples: number; tyskies: number; pills: number };
+  private getPickupCounts: () => { apples: number; beers: number; pills: number };
   private getMaxCombo: () => number;
   private getGhostManager: () => GhostManager | null;
   private setGhostManager: (gm: GhostManager | null) => void;
@@ -66,7 +66,7 @@ export class GameOverHandler {
       getActivePlayTime: () => number;
       getDistance: () => number;
       getCurrentLevel: () => number;
-      getPickupCounts: () => { apples: number; tyskies: number; pills: number };
+      getPickupCounts: () => { apples: number; beers: number; pills: number };
       getMaxCombo: () => number;
       getGhostManager: () => GhostManager | null;
       setGhostManager: (gm: GhostManager | null) => void;
@@ -124,7 +124,7 @@ export class GameOverHandler {
         maxSpeed: this.player.speedMultiplier,
         obstacleType: obstacleType || 'fall',
         applesCollected: pickups.apples,
-        tyskiesCollected: pickups.tyskies,
+        tyskiesCollected: pickups.beers,
         pillsCollected: pickups.pills,
         maxCombo: this.getMaxCombo(),
         maxLevel: this.getCurrentLevel(),

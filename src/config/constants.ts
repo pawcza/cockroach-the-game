@@ -40,12 +40,12 @@ export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
 // Speed per level (added on top of time-based acceleration)
 export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed
 
-// Tyskie pickup
-export const TYSKIE_SPAWN_CHANCE = 0.05; // 5% of slots get a Tyskie
+// Beer pickup
+export const BEER_SPAWN_CHANCE = 0.05; // 5% of slots get a beer
 
 // Scoring
 export const APPLE_SCORE = 10;
-export const TYSKIE_SCORE = 25;
+export const BEER_SCORE = 25;
 export const PILL_SCORE = 100;
 export const SURVIVAL_SCORE_INTERVAL = 1000;
 
@@ -68,8 +68,8 @@ export const COLORS = {
   PILL_LINES: [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88],
   /** Pill pickup glow */
   PILL_GLOW: 0xff00ff,
-  /** Tyskie pickup glow */
-  TYSKIE_GLOW: 0xffdd00,
+  /** Beer pickup glow */
+  BEER_GLOW: 0xffdd00,
   /** Apple pickup glow */
   APPLE_GLOW: 0x00ff44,
   /** Death particle color */
