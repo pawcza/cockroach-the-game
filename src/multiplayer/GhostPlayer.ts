@@ -57,14 +57,13 @@ export class GhostPlayer {
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
-  // Server-authoritative time — uses Date.now() (wall clock) to match
-  // the real player's GameClock.activePlayTime which also uses Date.now()
-  private serverTime = 0;           // last received activePlayTime (ms)
-  private serverTimeLocal = 0;      // Date.now() when serverTime was received
-  private hasServerTime = false;    // don't move until first position event
-
-  // Smooth error correction
-  private correctionX = 0;
+  // Dead reckoning — position recalculated each frame from last server snapshot
+  // No accumulation = no drift
+  private lastServerX = 0;         // X from last position event
+  private serverTime = 0;          // activePlayTime (ms) from last event
+  private serverTimeLocal = 0;     // Date.now() when event was received
+  private hasServerTime = false;   // don't move until first position event
+  private visualOffset = 0;        // smooth visual transition (decays to 0)
 
   private _inBossFight = false;
   private bossGlockSprite: Phaser.GameObjects.Image | null = null;
@@ -89,11 +88,16 @@ export class GhostPlayer {
   /** Receive authoritative position + time from real player */
   pushPosition(x: number, activePlayTimeMs?: number): void {
     if (activePlayTimeMs != null) {
+      // Visual offset = how far the sprite is from the new server position
+      // This decays smoothly so we don't snap
+      if (this.hasServerTime) {
+        this.visualOffset = this.sprite.x - x;
+      }
+      this.lastServerX = x;
       this.serverTime = activePlayTimeMs;
       this.serverTimeLocal = Date.now();
       this.hasServerTime = true;
     }
-    this.correctionX = x - this.sprite.x;
   }
 
   updateLiveScore(score: number, combo?: number): void {
@@ -315,18 +319,17 @@ export class GhostPlayer {
     // Don't move until we receive the first position event
     if (!this.hasServerTime) return;
 
-    // Speed from server-authoritative time (extrapolated to now)
+    // Dead reckoning: position = lastServerX + speed * elapsed
+    // Recalculated from scratch each frame — no accumulation, no drift
     const speed = this.getCurrentSpeed();
-    this.sprite.x += speed * (delta / 1000);
+    const elapsed = (Date.now() - this.serverTimeLocal) / 1000;
+    const predictedX = this.lastServerX + speed * elapsed;
 
-    // Smooth error correction — 50% per frame = 98% corrected in 6 frames
-    if (Math.abs(this.correctionX) > 0.5) {
-      const correction = this.correctionX * 0.5;
-      this.sprite.x += correction;
-      this.correctionX -= correction;
-    } else {
-      this.correctionX = 0;
-    }
+    // Smooth visual transition (decays offset from prediction snap)
+    this.visualOffset *= 0.5;
+    if (Math.abs(this.visualOffset) < 0.5) this.visualOffset = 0;
+
+    this.sprite.x = predictedX + this.visualOffset;
 
     // Keep name label above sprite
     this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
