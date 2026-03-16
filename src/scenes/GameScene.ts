@@ -546,8 +546,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Accumulate active play time
-    this.activePlayTime += this.time.now - this.lastFrameTime;
+    // Accumulate active play time (paused during boss fight)
+    if (!this.isBossFight) {
+      this.activePlayTime += this.time.now - this.lastFrameTime;
+    }
     this.lastFrameTime = this.time.now;
 
     // Boss fight mode — delegate to BossFight

@@ -72,8 +72,6 @@ export class GhostPlayer {
   get liveScore(): number { return this._liveScore; }
   get stats(): Record<string, unknown> { return this._stats; }
   get lane(): string { return this.currentFloor; }
-  private _inBossFight = false;
-
   get isDashing(): boolean { return this._isDashing; }
   get inBossFight(): boolean { return this._inBossFight; }
   get speedMultiplier(): number {
@@ -216,30 +214,6 @@ export class GhostPlayer {
     }
   }
 
-  enterBossFight(triggerX: number, floorTopY: number, floorBottomY: number): void {
-    this._inBossFight = true;
-    const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - 20;
-    this.sprite.x = triggerX;
-    this.sprite.y = targetY;
-    this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
-  }
-
-  leaveBossFight(): void {
-    this._inBossFight = false;
-  }
-
-  playShootAnimation(): void {
-    if (!this._alive) return;
-    this.scene.tweens.add({
-      targets: this.sprite,
-      scaleX: 0.35,
-      scaleY: 0.25,
-      duration: 80,
-      yoyo: true,
-      ease: 'Power2',
-    });
-  }
-
   die(score: number, stats: Record<string, unknown>): void {
     this._alive = false;
     this._score = score;
@@ -296,12 +270,6 @@ export class GhostPlayer {
     if (this._lastSurvivalTick >= 1000) {
       this._liveScore += 1;
       this._lastSurvivalTick -= 1000;
-    }
-
-    // During boss fight, ghosts stay in place
-    if (this._inBossFight) {
-      this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
-      return;
     }
 
     // Move at computed speed — same formula as the real player
