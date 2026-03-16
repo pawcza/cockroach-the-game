@@ -90,6 +90,9 @@ export class GameScene extends Phaser.Scene {
   // Clock
   private clock!: GameClock;
 
+  // Lighting
+  private cockroachLight: Phaser.GameObjects.Light | null = null;
+
   // Scoring
   private score = 0;
   private startTime = 0;
@@ -192,11 +195,16 @@ export class GameScene extends Phaser.Scene {
     this.floorBottomY = FLOOR_BOTTOM_Y;
     this.floorTopY = FLOOR_TOP_Y;
 
-    // Parallax backgrounds
+    // Enable lighting system
+    this.lights.enable().setAmbientColor(0x808080);
+
+    // Parallax backgrounds (lit by normal maps when available)
     this.skyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(0.8);
+    (this.skyBg as any).setPipeline?.('Light2D');
     this.midBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
       .setDepth(DEPTH.MID_BG).setAlpha(0.15).setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
     this.fgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FG_BG);
+    (this.fgBg as any).setPipeline?.('Light2D');
 
     this.nextSkyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
     this.nextMidBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
@@ -215,6 +223,9 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, this.audio, this.floorManager.topColliderY, this.floorManager.bottomColliderY);
     this.player.create();
     this.player.resetState();
+
+    // Cockroach light — warm white glow
+    this.cockroachLight = this.lights.addLight(this.player.x, this.player.y, 300, 0xfff0dd, 1.5);
 
     // Physics groups
     this.obstacles = this.physics.add.group();
@@ -780,6 +791,12 @@ export class GameScene extends Phaser.Scene {
         this.cockroachNoiseSound = this.sound.add('cockroach-noise', { volume: 0.3 });
         this.cockroachNoiseSound.play();
       }
+    }
+
+    // Update cockroach light position
+    if (this.cockroachLight) {
+      this.cockroachLight.x = this.player.x;
+      this.cockroachLight.y = this.player.y;
     }
 
     // Ghost manager update
