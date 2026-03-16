@@ -338,7 +338,7 @@ export class GameOverScene extends Phaser.Scene {
   private restartGame(): void {
     crossfadeTransition(500, () => {
       this.stopMusic();
-      this.scene.start('GameScene');
+      this.scene.start('GameScene', { multiplayer: false });
     });
   }
 
