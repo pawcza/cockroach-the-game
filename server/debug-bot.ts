@@ -87,6 +87,7 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
     const TICK_MS = 100;
     let lastTick = Date.now();
     let sentInitialPos = false;
+    let gameplayStartWallClock = 0;
 
     const playInterval = setInterval(() => {
       if (!alive || !gameStarted) {
@@ -100,6 +101,7 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
       // Send initial position immediately at countdown end
       if (!sentInitialPos) {
         sentInitialPos = true;
+        gameplayStartWallClock = now;
         lastTick = now;
         bot.emit('game:position', { x, lane, t: 0 });
         return;
@@ -107,7 +109,9 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
 
       const dt = (now - lastTick) / 1000;
       lastTick = now;
-      activePlayTime += dt * 1000;
+
+      // Use wall clock for activePlayTime (same as GameClock.activePlayTime)
+      activePlayTime = now - gameplayStartWallClock;
 
       const elapsedSeconds = activePlayTime / 1000;
       const distance = Math.floor((x - 150) / 50);
