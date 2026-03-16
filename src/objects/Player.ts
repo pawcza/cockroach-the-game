@@ -556,6 +556,7 @@ export class Player {
   resumeAfterBossFight(): void {
     this.cockroach.setTexture('cockroach-idle');
     this.cockroach.setAngle(0);
+    this.cockroach.clearTint();
   }
 
   /** Force-end pill and dash effects immediately. */
