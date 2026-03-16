@@ -37,6 +37,7 @@ const OBSTACLE_TEXTURE: Record<string, string> = {
   pope: 'pope',
   bison: 'bison',
   blackhole: 'black-hole',
+  boss: 'boss-face2',
 };
 
 // Polish death cause labels
@@ -52,6 +53,7 @@ const OBSTACLE_LABEL: Record<string, string> = {
   pope: 'Papież',
   bison: 'Żubr',
   blackhole: 'Czarna dziura',
+  boss: 'Bestia z Wadowic',
   fall: 'Spadł',
 };
 
