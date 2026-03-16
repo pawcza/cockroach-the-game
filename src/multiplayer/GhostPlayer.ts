@@ -309,12 +309,9 @@ export class GhostPlayer {
     const speed = this.getCurrentSpeed();
     this.sprite.x += speed * (delta / 1000);
 
-    // Smooth error correction — adaptive rate based on error magnitude
-    const absCorrection = Math.abs(this.correctionX);
-    if (absCorrection > 0.5) {
-      // Small drift (<5px): gentle 15%. Medium (<30px): moderate 30%. Large (>100px): snap.
-      const rate = absCorrection > 100 ? 1.0 : absCorrection > 30 ? 0.3 : 0.15;
-      const correction = this.correctionX * rate;
+    // Smooth error correction — 50% per frame = 98% corrected in 6 frames (one 10Hz tick)
+    if (Math.abs(this.correctionX) > 0.5) {
+      const correction = this.correctionX * 0.5;
       this.sprite.x += correction;
       this.correctionX -= correction;
     } else {
