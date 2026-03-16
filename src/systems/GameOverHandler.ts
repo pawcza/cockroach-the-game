@@ -50,6 +50,7 @@ export class GameOverHandler {
   private setGhostManager: (gm: GhostManager | null) => void;
   private setIsDead: () => void;
   private followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
+  private cleanupBossFight: () => void;
   private onDeath: (score: number, stats: Record<string, unknown>) => void;
 
   get mpGameOverTriggered(): boolean { return this._mpGameOverTriggered; }
@@ -73,6 +74,7 @@ export class GameOverHandler {
       setIsDead: () => void;
       followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
       onDeath: (score: number, stats: Record<string, unknown>) => void;
+      cleanupBossFight: () => void;
     },
   ) {
     this.scene = scene;
@@ -92,6 +94,7 @@ export class GameOverHandler {
     this.setIsDead = callbacks.setIsDead;
     this.followSpectateTarget = callbacks.followSpectateTarget;
     this.onDeath = callbacks.onDeath;
+    this.cleanupBossFight = callbacks.cleanupBossFight;
     this.mpMyName = getPlayerNameOrDefault();
   }
 
@@ -177,6 +180,7 @@ export class GameOverHandler {
 
   triggerMultiplayerGameOver(): void {
     if (this._mpGameOverTriggered) return;
+    this.cleanupBossFight();
     this.scene.time.delayedCall(3000, () => {
       if (this._mpGameOverTriggered) return;
       this._mpGameOverTriggered = true;
@@ -303,6 +307,7 @@ export class GameOverHandler {
   handleServerGameOver(data: { rankings: any[]; hostId: string }): void {
     if (this._mpGameOverTriggered) return;
     this._mpGameOverTriggered = true;
+    this.cleanupBossFight();
     this.scene.time.delayedCall(1200, () => {
       this.audio.destroy();
       this.scene.sound.stopAll();

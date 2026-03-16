@@ -264,10 +264,10 @@ export class GhostPlayer {
     bullet.setAlpha(this.sprite.alpha);
     this.scene.tweens.add({
       targets: bullet,
-      x: bulletX + 300,
-      alpha: 0,
-      duration: 400,
-      ease: 'Power2',
+      x: bulletX + 600,
+      alpha: { from: this.sprite.alpha, to: 0 },
+      duration: 800,
+      ease: 'Linear',
       onComplete: () => bullet.destroy(),
     });
   }

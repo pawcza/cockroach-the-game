@@ -274,6 +274,11 @@ export class GameScene extends Phaser.Scene {
       setIsDead: () => { this.isDead = true; },
       followSpectateTarget: (sprite) => this.followSpectateTarget(sprite),
       onDeath: (score, stats) => this.eventBridge.onDeath(score, stats),
+      cleanupBossFight: () => {
+        this.bossFight?.destroy();
+        this.bossFight = null;
+        this.isBossFight = false;
+      },
     });
 
     // Ghost manager for multiplayer
@@ -290,8 +295,11 @@ export class GameScene extends Phaser.Scene {
         onGhostPillStart: (id) => this.ghostManager?.handlePillStart(id),
         onGhostPillEnd: (id) => this.ghostManager?.handlePillEnd(id),
         onGhostPickup: (id, x, score) => {
-          this.ghostManager?.updateGhostScore(id, score);
-          if (this.isDead) this.spawnManager.queuePickupDestruction(x);
+          this.ghostManager?.updateGhostScore(id, score, x);
+          if (this.isDead) {
+            this.spawnManager.queuePickupDestruction(x);
+            this.audio.playApple();
+          }
         },
         onGhostDeath: (id, score, stats) => this.gameOverHandler.handleGhostDeath(id, score, stats, () => this.isDead),
         onPlayerLeft: (id) => this.gameOverHandler.handlePlayerLeft(id, () => this.isDead),
