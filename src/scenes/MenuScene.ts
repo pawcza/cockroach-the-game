@@ -147,7 +147,7 @@ export class MenuScene extends Phaser.Scene {
           this.menuBgm = null;
         }
         mpClient.disconnect();
-        this.scene.start('GameScene');
+        this.scene.start('GameScene', { multiplayer: false });
       });
     };
 
