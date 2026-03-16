@@ -55,6 +55,10 @@ export class SpawnManager {
     this.nextSpawnX = COCKROACH_START_X + 400;
   }
 
+  advanceSpawnX(x: number): void {
+    if (x > this.nextSpawnX) this.nextSpawnX = x;
+  }
+
   handleSpawning(cameraRight: number): void {
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 

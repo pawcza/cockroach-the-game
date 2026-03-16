@@ -78,19 +78,28 @@ export function showNameInput(
   for (const obj of btn.all) (obj as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor(0);
   container.add(btn.all);
 
+  let submitted = false;
+
   const cleanup = (): void => {
-    input.remove();
-    container.destroy();
+    if (input.parentNode) input.remove();
+    if (container.active) container.destroy();
   };
 
   const doSubmit = (): void => {
+    if (submitted) return;
+    submitted = true;
     const name = input.value.trim().slice(0, 20);
     if (name.length > 0) {
       setPlayerName(name);
       cleanup();
       onSubmit(name);
+    } else {
+      submitted = false;
     }
   };
+
+  // Dismiss on backdrop click
+  backdrop.on('pointerdown', () => cleanup());
 
   input.addEventListener('keydown', (e) => {
     e.stopPropagation(); // prevent Phaser from seeing key events
@@ -101,4 +110,7 @@ export function showNameInput(
   // Block keyboard events from reaching Phaser while input is focused
   input.addEventListener('keyup', (e) => e.stopPropagation());
   input.addEventListener('keypress', (e) => e.stopPropagation());
+
+  // Cleanup on scene shutdown (e.g. game starts while overlay is open)
+  scene.events.once('shutdown', cleanup);
 }
