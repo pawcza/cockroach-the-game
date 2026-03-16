@@ -355,12 +355,12 @@ export class GameScene extends Phaser.Scene {
               this.hud.updateScore(this.score);
             }
           }
-          if (this.isDead && this.bossFight) {
+          this.ghostManager?.leaveBossFight();
+          if (this.bossFight) {
             this.bossFight.destroy();
             this.bossFight = null;
-            this.isBossFight = false;
-            this.ghostManager?.leaveBossFight();
           }
+          this.isBossFight = false;
         },
         onBossHostTransfer: (data) => {
           if (data.newHostId === mpClient.myId) {
@@ -890,7 +890,9 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.audio.switchBGM(config.bgmKey);
-    this.hud.showLevelAnnouncement(config);
+    if (!this.isDead) {
+      this.hud.showLevelAnnouncement(config);
+    }
   }
 
   private updateParallax(): void {
