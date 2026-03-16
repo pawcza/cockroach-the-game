@@ -10,11 +10,11 @@ export interface BossProjectileData {
 
 export interface GameEventCallbacks {
   onGhostSwap: (id: string, lane: string, x?: number) => void;
-  onGhostDashStart: (id: string) => void;
-  onGhostDashEnd: (id: string) => void;
-  onGhostPillStart: (id: string) => void;
-  onGhostPillEnd: (id: string) => void;
-  onGhostPickup: (id: string, x: number, score: number) => void;
+  onGhostDashStart: (id: string, x?: number) => void;
+  onGhostDashEnd: (id: string, x?: number) => void;
+  onGhostPillStart: (id: string, x?: number) => void;
+  onGhostPillEnd: (id: string, x?: number) => void;
+  onGhostPickup: (id: string, x: number, score: number, combo?: number) => void;
   onGhostDeath: (id: string, score: number, stats: Record<string, unknown>) => void;
   onPlayerLeft: (id: string) => void;
   onGameOver: (data: { rankings: any[]; hostId: string }) => void;
@@ -41,24 +41,24 @@ export class GameEventBridge {
     if (this.multiplayer) mpClient.sendSwap(lane, x);
   }
 
-  onDashStart(): void {
-    if (this.multiplayer) mpClient.sendDashStart();
+  onDashStart(x?: number): void {
+    if (this.multiplayer) mpClient.sendDashStart(x);
   }
 
-  onDashEnd(): void {
-    if (this.multiplayer) mpClient.sendDashEnd();
+  onDashEnd(x?: number): void {
+    if (this.multiplayer) mpClient.sendDashEnd(x);
   }
 
-  onPillStart(): void {
-    if (this.multiplayer) mpClient.sendPillStart();
+  onPillStart(x?: number): void {
+    if (this.multiplayer) mpClient.sendPillStart(x);
   }
 
-  onPillEnd(): void {
-    if (this.multiplayer) mpClient.sendPillEnd();
+  onPillEnd(x?: number): void {
+    if (this.multiplayer) mpClient.sendPillEnd(x);
   }
 
-  onPickup(x: number, score: number): void {
-    if (this.multiplayer) mpClient.sendPickup(x, score);
+  onPickup(x: number, score: number, combo?: number): void {
+    if (this.multiplayer) mpClient.sendPickup(x, score, combo);
   }
 
   onDeath(score: number, stats: Record<string, unknown>): void {
@@ -96,11 +96,11 @@ export class GameEventBridge {
     };
 
     listen('game:swap', (data: any) => callbacks.onGhostSwap(data.id, data.lane, data.x));
-    listen('game:dash-start', (data: any) => callbacks.onGhostDashStart(data.id));
-    listen('game:dash-end', (data: any) => callbacks.onGhostDashEnd(data.id));
-    listen('game:pill-start', (data: any) => callbacks.onGhostPillStart(data.id));
-    listen('game:pill-end', (data: any) => callbacks.onGhostPillEnd(data.id));
-    listen('game:pickup', (data: any) => callbacks.onGhostPickup(data.id, data.x, data.score));
+    listen('game:dash-start', (data: any) => callbacks.onGhostDashStart(data.id, data.x));
+    listen('game:dash-end', (data: any) => callbacks.onGhostDashEnd(data.id, data.x));
+    listen('game:pill-start', (data: any) => callbacks.onGhostPillStart(data.id, data.x));
+    listen('game:pill-end', (data: any) => callbacks.onGhostPillEnd(data.id, data.x));
+    listen('game:pickup', (data: any) => callbacks.onGhostPickup(data.id, data.x, data.score, data.combo));
     listen('game:death', (data: any) => callbacks.onGhostDeath(data.id, data.score, data.stats));
     listen('game:player-left', (data: any) => callbacks.onPlayerLeft(data.id));
     listen('game:over', (data: any) => callbacks.onGameOver(data));

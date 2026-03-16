@@ -138,12 +138,12 @@ class MultiplayerClient {
 
   // Game events — send
   sendSwap(lane: string, x?: number): void { this.socket?.emit('game:swap', { lane, x }); }
-  sendDashStart(): void { this.socket?.emit('game:dash-start'); }
-  sendDashEnd(): void { this.socket?.emit('game:dash-end'); }
-  sendPillStart(): void { this.socket?.emit('game:pill-start'); }
-  sendPillEnd(): void { this.socket?.emit('game:pill-end'); }
+  sendDashStart(x?: number): void { this.socket?.emit('game:dash-start', { x }); }
+  sendDashEnd(x?: number): void { this.socket?.emit('game:dash-end', { x }); }
+  sendPillStart(x?: number): void { this.socket?.emit('game:pill-start', { x }); }
+  sendPillEnd(x?: number): void { this.socket?.emit('game:pill-end', { x }); }
   sendPosition(x: number, lane: string): void { this.socket?.emit('game:position', { x, lane }); }
-  sendPickup(x: number, score: number): void { this.socket?.emit('game:pickup', { x, score }); }
+  sendPickup(x: number, score: number, combo?: number): void { this.socket?.emit('game:pickup', { x, score, combo }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
   sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
   sendBossStart(triggerX: number, hp: number): void { this.socket?.emit('game:boss-start', { triggerX, hp }); }

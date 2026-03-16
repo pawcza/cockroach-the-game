@@ -51,24 +51,36 @@ export class GhostManager {
     }
   }
 
-  handleDashStart(id: string): void {
+  handleDashStart(id: string, x?: number): void {
     const ghost = this.ghosts.get(id);
-    if (ghost) ghost.setDashing(true);
+    if (ghost) {
+      ghost.setDashing(true);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+    }
   }
 
-  handleDashEnd(id: string): void {
+  handleDashEnd(id: string, x?: number): void {
     const ghost = this.ghosts.get(id);
-    if (ghost) ghost.setDashing(false);
+    if (ghost) {
+      ghost.setDashing(false);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+    }
   }
 
-  handlePillStart(id: string): void {
+  handlePillStart(id: string, x?: number): void {
     const ghost = this.ghosts.get(id);
-    if (ghost) ghost.setPill(true);
+    if (ghost) {
+      ghost.setPill(true);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+    }
   }
 
-  handlePillEnd(id: string): void {
+  handlePillEnd(id: string, x?: number): void {
     const ghost = this.ghosts.get(id);
-    if (ghost) ghost.setPill(false);
+    if (ghost) {
+      ghost.setPill(false);
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+    }
   }
 
 
@@ -80,10 +92,10 @@ export class GhostManager {
     return this.ghosts.get(id)?.color ?? null;
   }
 
-  updateGhostScore(id: string, score: number, pickupX?: number): void {
+  updateGhostScore(id: string, score: number, pickupX?: number, combo?: number): void {
     const ghost = this.ghosts.get(id);
     if (ghost) {
-      ghost.updateLiveScore(score);
+      ghost.updateLiveScore(score, combo);
       if (pickupX != null && ghost.alive && !ghost.inBossFight) {
         const drift = ghost.sprite.x - pickupX;
         if (Math.abs(drift) > 50) {

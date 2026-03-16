@@ -46,6 +46,7 @@ export class GhostPlayer {
   private _alive = true;
   private _score = 0;
   private _liveScore = 0;
+  private _combo = 0;
   private _lastSurvivalTick = 0;
   private _stats: Record<string, unknown> = {};
   private _isSpectated = false;
@@ -71,6 +72,7 @@ export class GhostPlayer {
   get alive(): boolean { return this._alive; }
   get score(): number { return this._score; }
   get liveScore(): number { return this._liveScore; }
+  get combo(): number { return this._combo; }
   get stats(): Record<string, unknown> { return this._stats; }
   get lane(): string { return this.currentFloor; }
   get isDashing(): boolean { return this._isDashing; }
@@ -79,8 +81,9 @@ export class GhostPlayer {
     return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
   }
 
-  updateLiveScore(score: number): void {
+  updateLiveScore(score: number, combo?: number): void {
     this._liveScore = score;
+    if (combo != null) this._combo = combo;
   }
 
   setSpectated(spectated: boolean): void {
