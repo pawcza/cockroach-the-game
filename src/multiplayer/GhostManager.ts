@@ -219,6 +219,25 @@ export class GhostManager {
     return this.spectateTarget;
   }
 
+  enterBossFight(triggerX: number, floorTopY: number, floorBottomY: number): void {
+    for (const ghost of this.ghosts.values()) {
+      if (ghost.alive) {
+        ghost.enterBossFight(triggerX, floorTopY, floorBottomY);
+      }
+    }
+  }
+
+  leaveBossFight(): void {
+    for (const ghost of this.ghosts.values()) {
+      ghost.leaveBossFight();
+    }
+  }
+
+  handleBossShoot(id: string): void {
+    const ghost = this.ghosts.get(id);
+    if (ghost) ghost.playShootAnimation();
+  }
+
   allDead(): boolean {
     for (const ghost of this.ghosts.values()) {
       if (ghost.alive) return false;

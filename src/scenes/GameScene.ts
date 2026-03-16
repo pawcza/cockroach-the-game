@@ -24,7 +24,8 @@ import { SpawnManager } from '../systems/SpawnManager';
 import { CollisionManager } from '../systems/CollisionManager';
 import { PauseManager } from '../systems/PauseManager';
 import { GameOverHandler } from '../systems/GameOverHandler';
-import { BossFight } from '../systems/BossFight';
+import { BossFight, BOSS_MAX_HP } from '../systems/BossFight';
+import { mpClient } from '../multiplayer/MultiplayerClient';
 
 const BOSS_TRIGGER_DISTANCE = 450; // After lv3. Production: 2600
 
@@ -292,13 +293,53 @@ export class GameScene extends Phaser.Scene {
         onGhostDeath: (id, score, stats) => this.gameOverHandler.handleGhostDeath(id, score, stats, () => this.isDead),
         onPlayerLeft: (id) => this.gameOverHandler.handlePlayerLeft(id, () => this.isDead),
         onGameOver: (data) => this.gameOverHandler.handleServerGameOver(data),
-        onBossStart: (_data) => { /* TODO: co-op boss fight */ },
-        onBossProjectile: (_data) => { /* TODO: co-op boss fight */ },
-        onBossShoot: (_id) => { /* TODO: co-op boss fight */ },
-        onBossHit: (_data) => { /* TODO: co-op boss fight */ },
-        onBossRage: () => { /* TODO: co-op boss fight */ },
-        onBossEnd: (_data) => { /* TODO: co-op boss fight */ },
-        onBossHostTransfer: (_data) => { /* TODO: co-op boss fight */ },
+        onBossStart: (data) => {
+          if (this.isBossFight) return;
+
+          this.player.forceEndEffects();
+
+          const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
+          for (const group of groups) {
+            const children = group.getChildren().slice();
+            for (const obj of children) {
+              (obj as Phaser.Physics.Arcade.Sprite).destroy();
+            }
+          }
+
+          const isHost = Math.abs(this.player.x - data.triggerX) < 100;
+          const role = isHost ? 'host' : 'client';
+
+          if (!isHost) {
+            this.player.sprite.x = data.triggerX;
+            this.cameras.main.scrollX = data.triggerX - 200;
+          }
+
+          this.createBossFight(role, data.hp);
+          this.ghostManager?.enterBossFight(data.triggerX, this.floorTopY, this.floorBottomY);
+        },
+        onBossProjectile: (data) => {
+          this.bossFight?.spawnExternalProjectile(data);
+        },
+        onBossShoot: (id) => {
+          this.ghostManager?.handleBossShoot(id);
+        },
+        onBossHit: (data) => {
+          this.bossFight?.updateHP(data.hp);
+        },
+        onBossRage: () => {
+          this.bossFight?.triggerExternalRage();
+        },
+        onBossEnd: (data) => {
+          if (data.result === 'victory' && this.bossFight) {
+            this.score += data.bonus;
+            this.hud.updateScore(this.score);
+          }
+        },
+        onBossHostTransfer: (data) => {
+          if (data.newHostId === mpClient.myId) {
+            this.bossFight?.promoteToHost();
+          }
+        },
       });
       this.gameOverHandler.resetMpState();
     }
@@ -632,49 +673,11 @@ export class GameScene extends Phaser.Scene {
 
     // Boss fight trigger
     if (!this.isBossFight && !this.bossDefeated && distance >= BOSS_TRIGGER_DISTANCE && !this.isDead) {
-      this.isBossFight = true;
-      this.bossFight = new BossFight(
-        this, this.player, this.audio, this.vfx, this.hud,
-        this.floorTopY, this.floorBottomY,
-        {
-          onComplete: () => {
-            this.score += this.bossFight!.victoryBonus;
-            this.hud.updateScore(this.score);
-            this.bossFight?.destroy();
-            this.bossFight = null;
-            this.isBossFight = false;
-            this.bossDefeated = true;
-            this.player.resumeAfterBossFight();
-            this.player.updateSpeed(this.activePlayTime, this.currentLevel);
-            const blinkTween = this.player.startInvulnerabilityBlink();
-            this.time.delayedCall(1500, () => this.player.endInvulnerability(blinkTween));
-            const lvlConfig = getLevelForDistance(this.getDistance());
-            this.audio.switchBGM(lvlConfig.bgmKey);
-            this.spawnManager.advanceSpawnX(this.player.x + 400);
-          },
-          onDie: (type) => {
-            this.bossFight?.destroy();
-            this.bossFight = null;
-            this.isBossFight = false;
-            this.gameOverHandler.die(type);
-          },
-          clearScreen: () => {
-            const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
-            for (const group of groups) {
-              const children = group.getChildren().slice();
-              for (const obj of children) {
-                const sprite = obj as Phaser.Physics.Arcade.Sprite;
-                this.vfx.appleCollectEffect(sprite.x, sprite.y);
-                sprite.destroy();
-              }
-            }
-          },
-          addScore: (points) => {
-            this.score += points;
-            this.hud.updateScore(this.score);
-          },
-        },
-      );
+      if (this.isMultiplayer) {
+        this.eventBridge.onBossStart(this.player.x, BOSS_MAX_HP);
+      } else {
+        this.createBossFight('solo');
+      }
       return;
     }
 
@@ -731,6 +734,57 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.width,
         this.cameras.main.height,
       );
+    }
+  }
+
+  private createBossFight(role: 'solo' | 'host' | 'client', overrideHp?: number): void {
+    const groups = [this.obstacles, this.apples, this.tyskies, this.pills];
+    for (const group of groups) {
+      const children = group.getChildren().slice();
+      for (const obj of children) {
+        (obj as Phaser.Physics.Arcade.Sprite).destroy();
+      }
+    }
+
+    this.isBossFight = true;
+    this.bossFight = new BossFight(
+      this, this.player, this.audio, this.vfx, this.hud,
+      this.floorTopY, this.floorBottomY,
+      {
+        onComplete: () => {
+          this.score += this.bossFight!.victoryBonus;
+          this.hud.updateScore(this.score);
+          this.bossFight?.destroy();
+          this.bossFight = null;
+          this.isBossFight = false;
+          this.bossDefeated = true;
+          this.player.resumeAfterBossFight();
+          this.player.updateSpeed(this.activePlayTime, this.currentLevel);
+          const blinkTween = this.player.startInvulnerabilityBlink();
+          this.time.delayedCall(1500, () => this.player.endInvulnerability(blinkTween));
+          const lvlConfig = getLevelForDistance(this.getDistance());
+          this.audio.switchBGM(lvlConfig.bgmKey);
+          this.spawnManager.advanceSpawnX(this.player.x + 400);
+          this.ghostManager?.leaveBossFight();
+        },
+        onDie: (type) => {
+          this.bossFight?.destroy();
+          this.bossFight = null;
+          this.isBossFight = false;
+          this.gameOverHandler.die(type);
+        },
+        clearScreen: () => { /* already cleared above */ },
+        addScore: (points) => {
+          this.score += points;
+          this.hud.updateScore(this.score);
+        },
+      },
+      role,
+      this.isMultiplayer ? this.eventBridge : undefined,
+    );
+
+    if (overrideHp != null && overrideHp !== BOSS_MAX_HP) {
+      this.bossFight.updateHP(overrideHp);
     }
   }
 
