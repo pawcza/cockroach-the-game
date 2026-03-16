@@ -16,6 +16,14 @@ export function setupMultiplayer(io: Server): void {
   // Track death data server-side per lobby
   const lobbyDeathData = new Map<string, Map<string, { score: number; stats: Record<string, unknown> }>>();
 
+  interface LobbyBossState {
+    active: boolean;
+    hp: number;
+    maxHp: number;
+    hostId: string;
+  }
+  const lobbyBossState = new Map<string, LobbyBossState>();
+
   /** Broadcast the current lobby list to everyone in the lobby-browser room. */
   function broadcastLobbyList(): void {
     io.to('lobby-browser').emit('lobbies:updated', lobbies.listLobbies());
@@ -182,6 +190,65 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:pickup', { id: socket.id, x: data.x, score: data.score });
     });
 
+    socket.on('game:boss-start', (data: { triggerX: number; hp: number }) => {
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      if (!lobbyId) return;
+      if (lobbyBossState.has(lobbyId)) return;
+
+      const lobby = lobbies.getLobby(lobbyId);
+      if (!lobby) return;
+
+      const deathData = lobbyDeathData.get(lobbyId);
+      const aliveCount = [...lobby.players.keys()].filter(pid => !deathData?.has(pid)).length;
+      const scaledHp = data.hp * aliveCount;
+
+      lobbyBossState.set(lobbyId, {
+        active: true,
+        hp: scaledHp,
+        maxHp: scaledHp,
+        hostId: socket.id,
+      });
+
+      io.to(lobbyId).emit('game:boss-start', { triggerX: data.triggerX, hp: scaledHp });
+    });
+
+    socket.on('game:boss-projectile', (data: any) => {
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      if (!lobbyId) return;
+      const bossState = lobbyBossState.get(lobbyId);
+      if (!bossState?.active || bossState.hostId !== socket.id) return;
+      socket.to(lobbyId).emit('game:boss-projectile', data);
+    });
+
+    socket.on('game:boss-shoot', () => {
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      if (!lobbyId) return;
+      socket.to(lobbyId).emit('game:boss-shoot', { id: socket.id });
+    });
+
+    socket.on('game:boss-rage', () => {
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      if (!lobbyId) return;
+      const bossState = lobbyBossState.get(lobbyId);
+      if (!bossState?.active || bossState.hostId !== socket.id) return;
+      socket.to(lobbyId).emit('game:boss-rage');
+    });
+
+    socket.on('game:boss-hit', () => {
+      const lobbyId = lobbies.getPlayerLobbyId(socket.id);
+      if (!lobbyId) return;
+      const bossState = lobbyBossState.get(lobbyId);
+      if (!bossState?.active) return;
+
+      bossState.hp--;
+      io.to(lobbyId).emit('game:boss-hit', { id: socket.id, hp: bossState.hp });
+
+      if (bossState.hp <= 0) {
+        io.to(lobbyId).emit('game:boss-end', { result: 'victory', bonus: 500 });
+        lobbyBossState.delete(lobbyId);
+      }
+    });
+
     socket.on('game:death', (data: { score: number; stats: Record<string, unknown> }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
@@ -196,6 +263,19 @@ export function setupMultiplayer(io: Server): void {
 
       // Relay to others
       socket.to(lobbyId).emit('game:death', { id: socket.id, score: data.score, stats: data.stats });
+
+      const bossState = lobbyBossState.get(lobbyId);
+      if (bossState?.active && bossState.hostId === socket.id) {
+        const deathData2 = lobbyDeathData.get(lobbyId);
+        const lobby2 = lobbies.getLobby(lobbyId);
+        if (lobby2) {
+          const newHost = [...lobby2.players.keys()].find(pid => !deathData2?.has(pid));
+          if (newHost) {
+            bossState.hostId = newHost;
+            io.to(lobbyId).emit('game:boss-host-transfer', { newHostId: newHost });
+          }
+        }
+      }
 
       // Check if all players in lobby are dead
       const lobby = lobbies.getLobby(lobbyId);
@@ -213,6 +293,7 @@ export function setupMultiplayer(io: Server): void {
 
           lobbies.endGame(lobbyId);
           io.to(lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
+          lobbyBossState.delete(lobbyId);
           lobbyDeathData.delete(lobbyId);
           broadcastLobbyList();
         }
@@ -260,6 +341,19 @@ export function setupMultiplayer(io: Server): void {
         if (wasIngame) {
           io.to(result.lobbyId).emit('game:player-left', { id: socket.id });
 
+          const bossState = lobbyBossState.get(result.lobbyId);
+          if (bossState?.active && bossState.hostId === socket.id) {
+            const deathData2 = lobbyDeathData.get(result.lobbyId);
+            const lobby2 = lobbies.getLobby(result.lobbyId);
+            if (lobby2) {
+              const newHost = [...lobby2.players.keys()].find(pid => !deathData2?.has(pid));
+              if (newHost) {
+                bossState.hostId = newHost;
+                io.to(result.lobbyId).emit('game:boss-host-transfer', { newHostId: newHost });
+              }
+            }
+          }
+
           // Remove disconnected player from death data and check if all remaining are dead
           const deathData = lobbyDeathData.get(result.lobbyId);
           if (deathData) {
@@ -278,6 +372,7 @@ export function setupMultiplayer(io: Server): void {
 
                 lobbies.endGame(result.lobbyId);
                 io.to(result.lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
+                lobbyBossState.delete(result.lobbyId);
                 lobbyDeathData.delete(result.lobbyId);
               }
             }
