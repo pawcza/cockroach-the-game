@@ -81,10 +81,11 @@ export class GhostPlayer {
     return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
   }
 
-  /** Receive authoritative position — sync time + calculate error for smooth correction */
+  /** Receive authoritative position — calculate error for smooth correction */
   pushPosition(x: number, activePlayTimeMs?: number): void {
-    // Sync activePlayTime to match the real player's — eliminates speed drift
-    if (activePlayTimeMs != null) {
+    // Only sync activePlayTime for large drifts (>1s) — prevents oscillation
+    // from small frame-timing differences that cause speed jitter
+    if (activePlayTimeMs != null && Math.abs(activePlayTimeMs - this.activePlayTime) > 1000) {
       this.activePlayTime = activePlayTimeMs;
     }
     this.correctionX = x - this.sprite.x;
@@ -311,8 +312,8 @@ export class GhostPlayer {
     // Smooth error correction — adaptive rate based on error magnitude
     const absCorrection = Math.abs(this.correctionX);
     if (absCorrection > 0.5) {
-      // Small drift (<10px): gentle 30%. Medium (<50px): aggressive 50%. Large: snap.
-      const rate = absCorrection > 50 ? 1.0 : absCorrection > 10 ? 0.5 : 0.3;
+      // Small drift (<5px): gentle 15%. Medium (<30px): moderate 30%. Large (>100px): snap.
+      const rate = absCorrection > 100 ? 1.0 : absCorrection > 30 ? 0.3 : 0.15;
       const correction = this.correctionX * rate;
       this.sprite.x += correction;
       this.correctionX -= correction;
