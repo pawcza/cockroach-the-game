@@ -5,10 +5,13 @@ import { Player } from '../objects/Player';
 import { AudioManager } from '../audio/AudioManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { GameHUD } from '../ui/GameHUD';
+import { GameEventBridge, BossProjectileData } from '../multiplayer/GameEventBridge';
 
 type BossState = 'intro' | 'fighting' | 'victory' | 'resuming' | 'done';
 
-const BOSS_MAX_HP = 50;
+export type BossFightRole = 'host' | 'client' | 'solo';
+
+export const BOSS_MAX_HP = 50;
 const BULLET_SPEED = 600;
 const SHOOT_COOLDOWN = 250;
 const OBSTACLE_OFFSET = 25;
@@ -109,6 +112,10 @@ export class BossFight {
   // Player fixed position during fight
   private playerFixedX = 0;
 
+  // Multiplayer role
+  private role: BossFightRole;
+  private eventBridge: GameEventBridge | null;
+
   constructor(
     scene: Phaser.Scene,
     player: Player,
@@ -123,6 +130,8 @@ export class BossFight {
       clearScreen: () => void;
       addScore: (points: number) => void;
     },
+    role: BossFightRole = 'solo',
+    eventBridge?: GameEventBridge,
   ) {
     this.scene = scene;
     this.player = player;
@@ -135,6 +144,8 @@ export class BossFight {
     this.onDie = callbacks.onDie;
     this.clearScreen = callbacks.clearScreen;
     this.addScore = callbacks.addScore;
+    this.role = role;
+    this.eventBridge = eventBridge ?? null;
 
     this.playerFixedX = player.x;
     const cam = this.scene.cameras.main;
@@ -330,24 +341,28 @@ export class BossFight {
     if (this.shootCooldown > 0) this.shootCooldown -= delta;
 
     // Rage phase check
-    if (!this.isRaging) {
-      for (let i = 0; i < RAGE_HP_PERCENTAGES.length; i++) {
-        const threshold = Math.floor(BOSS_MAX_HP * RAGE_HP_PERCENTAGES[i]);
-        if (!this.rageTriggered[i] && this.bossHP <= threshold) {
-          this.rageTriggered[i] = true;
-          this.startRagePhase();
-          break;
+    if (this.role !== 'client') {
+      if (!this.isRaging) {
+        for (let i = 0; i < RAGE_HP_PERCENTAGES.length; i++) {
+          const threshold = Math.floor(BOSS_MAX_HP * RAGE_HP_PERCENTAGES[i]);
+          if (!this.rageTriggered[i] && this.bossHP <= threshold) {
+            this.rageTriggered[i] = true;
+            this.startRagePhase();
+            break;
+          }
         }
       }
     }
 
     // Boss fire timer (skip during rage — rage has its own firing)
-    if (!this.isRaging) {
-      this.fireTimer += delta;
-      if (this.fireTimer >= this.nextFireInterval) {
-        this.fireTimer = 0;
-        this.bossFireProjectile();
-        this.nextFireInterval = this.getCurrentFireRate();
+    if (this.role !== 'client') {
+      if (!this.isRaging) {
+        this.fireTimer += delta;
+        if (this.fireTimer >= this.nextFireInterval) {
+          this.fireTimer = 0;
+          this.bossFireProjectile();
+          this.nextFireInterval = this.getCurrentFireRate();
+        }
       }
     }
 
@@ -463,6 +478,7 @@ export class BossFight {
     bullet.setVelocityX(BULLET_SPEED);
 
     this.scene.sound.play('boss-pistol', { volume: 0.5 });
+    this.eventBridge?.onBossShoot();
 
     this.scene.tweens.add({
       targets: this.glockSprite,
@@ -496,6 +512,10 @@ export class BossFight {
     (proj.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     proj.setVelocityX(-speed);
 
+    if (this.role === 'host') {
+      this.eventBridge?.onBossProjectile({ lane: lane as 'top' | 'bottom', speed, faceIdx, indestructible: false, volley: false });
+    }
+
     this.scene.sound.play(face.shotSound, { volume: 0.4 });
 
     // Multi-volley: chance to fire a second projectile on same lane
@@ -505,6 +525,10 @@ export class BossFight {
       proj2.setDepth(DEPTH.GODRAY);
       (proj2.body as Phaser.Physics.Arcade.Body).allowGravity = false;
       proj2.setVelocityX(-speed);
+
+      if (this.role === 'host') {
+        this.eventBridge?.onBossProjectile({ lane: lane as 'top' | 'bottom', speed, faceIdx, indestructible: false, volley: true });
+      }
     }
   }
 
@@ -530,6 +554,10 @@ export class BossFight {
     (hitbox.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     hitbox.setVelocityX(-speed);
 
+    if (this.role === 'host') {
+      this.eventBridge?.onBossProjectile({ lane, speed, faceIdx: -1, indestructible: true, volley: false });
+    }
+
     const updateFn = (): void => {
       if (!hitbox.active) { container.destroy(); this.scene.events.off('update', updateFn); return; }
       container.x = hitbox.x;
@@ -546,6 +574,10 @@ export class BossFight {
   // ── Rage Phase ────────────────────────────────────────────────────
 
   private startRagePhase(): void {
+    if (this.role === 'host') {
+      this.eventBridge?.onBossRage();
+    }
+
     this.isRaging = true;
     this.rageShots = 0;
     this.rageLastLane = Math.random() < 0.5 ? 'top' : 'bottom';
@@ -585,8 +617,15 @@ export class BossFight {
   // ── Collisions ────────────────────────────────────────────────────
 
   private onBulletHitsBoss(): void {
-    this.bossHP--;
-    this.hud.updateBossHP(this.bossHP);
+    if (this.role === 'solo') {
+      this.bossHP--;
+      this.hud.updateBossHP(this.bossHP);
+      if (this.bossHP <= 0) {
+        this.startVictory();
+      }
+    } else {
+      this.eventBridge?.onBossHit();
+    }
 
     const hurtIdx = Phaser.Math.Between(1, 6);
     this.scene.sound.play(`boss-hurt-${hurtIdx}`, { volume: 0.5 });
@@ -601,10 +640,6 @@ export class BossFight {
       this.bossContainer.x + Phaser.Math.Between(-40, 40),
       this.bossContainer.y + Phaser.Math.Between(-40, 40),
     );
-
-    if (this.bossHP <= 0) {
-      this.startVictory();
-    }
   }
 
   private onProjectileHitsPlayer(): void {
@@ -752,6 +787,32 @@ export class BossFight {
       this.beastAmbientSound = null;
     }
     this.hud.hideBossHP();
+  }
+
+  spawnExternalProjectile(data: BossProjectileData): void {
+    if (data.indestructible) {
+      this.fireIndestructible(data.lane);
+    } else {
+      this.bossFireProjectile(data.lane);
+    }
+  }
+
+  updateHP(hp: number): void {
+    this.bossHP = hp;
+    this.hud.updateBossHP(this.bossHP);
+    if (this.bossHP <= 0) {
+      this.startVictory();
+    }
+  }
+
+  triggerExternalRage(): void {
+    if (!this.isRaging) {
+      this.startRagePhase();
+    }
+  }
+
+  promoteToHost(): void {
+    this.role = 'host';
   }
 
   destroy(): void {
