@@ -87,17 +87,24 @@ export class GhostPlayer {
 
   /** Receive authoritative position + time from real player */
   pushPosition(x: number, activePlayTimeMs?: number): void {
-    if (activePlayTimeMs != null) {
-      // Visual offset = how far the sprite is from the new server position
-      // This decays smoothly so we don't snap
-      if (this.hasServerTime) {
-        this.visualOffset = this.sprite.x - x;
-      }
-      this.lastServerX = x;
-      this.serverTime = activePlayTimeMs;
-      this.serverTimeLocal = Date.now();
-      this.hasServerTime = true;
+    const now = Date.now();
+
+    if (this.hasServerTime) {
+      this.visualOffset = this.sprite.x - x;
     }
+
+    this.lastServerX = x;
+    this.serverTimeLocal = now;
+
+    if (activePlayTimeMs != null) {
+      this.serverTime = activePlayTimeMs;
+    } else if (!this.hasServerTime) {
+      // First event without t — assume t=0 so ghost can start moving
+      this.serverTime = 0;
+    }
+    // else: keep serverTime as-is, it gets extrapolated forward
+
+    this.hasServerTime = true;
   }
 
   updateLiveScore(score: number, combo?: number): void {
