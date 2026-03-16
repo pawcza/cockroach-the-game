@@ -151,8 +151,7 @@ export class BossFight {
     this.eventBridge = eventBridge ?? null;
 
     this.playerFixedX = player.x;
-    const cam = this.scene.cameras.main;
-    this.bossX = cam.scrollX + cam.width - 95;
+    this.bossX = 0; // calculated in startBossEntrance after player stops
     this.bossY = (floorTopY + floorBottomY) / 2 - OBSTACLE_OFFSET;
 
     this.bullets = this.scene.physics.add.group();
@@ -247,6 +246,7 @@ export class BossFight {
 
   private startBossEntrance(): void {
     const cam = this.scene.cameras.main;
+    this.bossX = cam.scrollX + cam.width - 95;
 
     this.bossContainer = this.scene.add.container(cam.scrollX + cam.width + 100, this.bossY);
     this.bossContainer.setDepth(DEPTH.OBSTACLES);
