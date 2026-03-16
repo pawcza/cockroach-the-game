@@ -12,6 +12,7 @@ import { getPlayerName, setPlayerName } from '../utils/Storage';
 export function showNameInput(
   scene: Phaser.Scene,
   onSubmit: (name: string) => void,
+  defaultName?: string,
 ): void {
   const { width, height } = scene.cameras.main;
   const container = scene.add.container(0, 0).setDepth(DEPTH.PAUSE + 100).setScrollFactor(0);
@@ -35,7 +36,7 @@ export function showNameInput(
   const input = document.createElement('input');
   input.type = 'text';
   input.maxLength = 20;
-  input.value = getPlayerName();
+  input.value = defaultName ?? getPlayerName();
   input.style.cssText = [
     'position:fixed',
     'font-family:"Press Start 2P",monospace',
