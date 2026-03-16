@@ -24,6 +24,7 @@ export function setupMultiplayer(io: Server): void {
     hostId: string;
   }
   const lobbyBossState = new Map<string, LobbyBossState>();
+  const lobbyBossDefeated = new Set<string>();
 
   /** Broadcast the current lobby list to everyone in the lobby-browser room. */
   function broadcastLobbyList(): void {
@@ -205,6 +206,7 @@ export function setupMultiplayer(io: Server): void {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
       if (lobbyBossState.has(lobbyId)) return;
+      if (lobbyBossDefeated.has(lobbyId)) return;
 
       const lobby = lobbies.getLobby(lobbyId);
       if (!lobby) return;
@@ -257,6 +259,7 @@ export function setupMultiplayer(io: Server): void {
       if (bossState.hp <= 0) {
         io.to(lobbyId).emit('game:boss-end', { result: 'victory', bonus: 500 });
         lobbyBossState.delete(lobbyId);
+        lobbyBossDefeated.add(lobbyId);
       }
     });
 
@@ -305,6 +308,7 @@ export function setupMultiplayer(io: Server): void {
           lobbies.endGame(lobbyId);
           io.to(lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
           lobbyBossState.delete(lobbyId);
+          lobbyBossDefeated.delete(lobbyId);
           lobbyDeathData.delete(lobbyId);
           broadcastLobbyList();
         }
@@ -337,9 +341,11 @@ export function setupMultiplayer(io: Server): void {
 
       const result = lobbies.leaveLobby(socket.id);
       if (!result || result.disbanded) {
-        // Clean up death data for disbanded lobbies
+        // Clean up data for disbanded lobbies
         if (result?.disbanded && lobbyId) {
           lobbyDeathData.delete(lobbyId);
+          lobbyBossState.delete(lobbyId);
+          lobbyBossDefeated.delete(lobbyId);
         }
         broadcastLobbyList();
         return;
@@ -384,6 +390,7 @@ export function setupMultiplayer(io: Server): void {
                 lobbies.endGame(result.lobbyId);
                 io.to(result.lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
                 lobbyBossState.delete(result.lobbyId);
+                lobbyBossDefeated.delete(result.lobbyId);
                 lobbyDeathData.delete(result.lobbyId);
               }
             }
