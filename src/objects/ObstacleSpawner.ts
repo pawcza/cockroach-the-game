@@ -331,6 +331,24 @@ export class ObstacleSpawner {
     const spray = this.createSprite(x, centerY, 'pest-spray', 'spray', floor);
     this.playSoundOnVisible(spray, 'spray-sfx', 0.3);
 
+    // Persistent green haze behind spray
+    const haze = this.scene.add.circle(x, centerY, 30, 0x88dd44, 0.15);
+    haze.setDepth(DEPTH.OBSTACLES - 1);
+    haze.setBlendMode(Phaser.BlendModes.ADD);
+    this.scene.tweens.add({
+      targets: haze,
+      alpha: { from: 0.15, to: 0.3 },
+      scale: { from: 1, to: 1.2 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    spray.on('destroy', () => {
+      this.scene.tweens.killTweensOf(haze);
+      haze.destroy();
+    });
+
     // Vibration
     const vibrationTween = this.scene.tweens.add({
       targets: spray,
@@ -345,14 +363,14 @@ export class ObstacleSpawner {
     const nozzleY = centerY - spray.displayHeight * 0.45;
     const sprayMist = (): void => {
       if (!spray.active) return;
-      for (let i = 0; i < 4; i++) {
-        const radius = Phaser.Math.Between(2, 5);
+      for (let i = 0; i < 7; i++) {
+        const radius = Phaser.Math.Between(3, 8);
         const droplet = this.scene.add.circle(
           spray.x + Phaser.Math.Between(-3, 3),
           nozzleY + Phaser.Math.Between(-2, 2),
           radius,
           0x88dd44,
-          Math.random() * (0.35 - 0.15) + 0.15,
+          Math.random() * (0.6 - 0.3) + 0.3,
         );
         droplet.setDepth(DEPTH.OBSTACLES);
         const driftX = Phaser.Math.Between(-30, 30);
@@ -397,7 +415,13 @@ export class ObstacleSpawner {
     whooshGfx.setDepth(DEPTH.GLOW);
     const arcRadius = flipper.displayHeight * 0.8;
     const whooshUpdate = (): void => {
-      if (!flipper.active) { whooshGfx.destroy(); return; }
+      if (!flipper.active) { whooshGfx.clear(); whooshGfx.destroy(); return; }
+      const camLeft = this.scene.cameras.main.scrollX;
+      if (flipper.x < camLeft - 500) {
+        whooshGfx.clear();
+        whooshGfx.destroy();
+        return;
+      }
       whooshGfx.clear();
       const currentAngle = flipper.angle;
       const arcSpan = 25;
@@ -413,6 +437,10 @@ export class ObstacleSpawner {
       whooshGfx.strokePath();
     };
     this.scene.events.on('update', whooshUpdate);
+    flipper.on('destroy', () => {
+      whooshGfx.clear();
+      whooshGfx.destroy();
+    });
 
     this.trackOnSprite(flipper, [rotationTween], [], [whooshUpdate]);
   }
