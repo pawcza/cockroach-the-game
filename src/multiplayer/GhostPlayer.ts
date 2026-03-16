@@ -61,6 +61,9 @@ export class GhostPlayer {
   private pillStartTime = 0;
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
+
+  // Interpolation — smooth toward authoritative position
+  private targetX: number | null = null;
   private _inBossFight = false;
   private bossGlockSprite: Phaser.GameObjects.Image | null = null;
 
@@ -79,6 +82,10 @@ export class GhostPlayer {
   get inBossFight(): boolean { return this._inBossFight; }
   get speedMultiplier(): number {
     return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
+  }
+
+  setTargetX(x: number): void {
+    this.targetX = x;
   }
 
   updateLiveScore(score: number, combo?: number): void {
@@ -298,9 +305,21 @@ export class GhostPlayer {
       this._lastSurvivalTick -= 1000;
     }
 
-    // Move at computed speed — same formula as the real player
+    // Move at computed speed with interpolation toward authoritative position
     const speed = this.getCurrentSpeed(); // px/s
-    this.sprite.x += speed * (delta / 1000);
+    const moveX = speed * (delta / 1000);
+    this.sprite.x += moveX;
+
+    // Interpolate toward server-authoritative position if available
+    if (this.targetX !== null) {
+      const drift = this.targetX - this.sprite.x;
+      if (Math.abs(drift) > 1) {
+        // Blend toward target: 10% per frame for smooth correction
+        this.sprite.x += drift * 0.1;
+      }
+      // Advance target at same speed so it stays ahead
+      this.targetX += moveX;
+    }
 
     // Keep name label above sprite (round to avoid sub-pixel flicker)
     this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);

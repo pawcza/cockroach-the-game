@@ -45,9 +45,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setLane(lane, this.floorTopY, this.floorBottomY);
-      if (x != null && ghost.alive && !ghost.inBossFight) {
-        ghost.sprite.x = x;
-      }
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
     }
   }
 
@@ -55,7 +53,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setDashing(true);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
     }
   }
 
@@ -63,7 +61,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setDashing(false);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
     }
   }
 
@@ -71,7 +69,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setPill(true);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
     }
   }
 
@@ -79,7 +77,7 @@ export class GhostManager {
     const ghost = this.ghosts.get(id);
     if (ghost) {
       ghost.setPill(false);
-      if (x != null && ghost.alive && !ghost.inBossFight) ghost.sprite.x = x;
+      if (x != null && ghost.alive && !ghost.inBossFight) ghost.setTargetX(x);
     }
   }
 
@@ -97,10 +95,7 @@ export class GhostManager {
     if (ghost) {
       ghost.updateLiveScore(score, combo);
       if (pickupX != null && ghost.alive && !ghost.inBossFight) {
-        const drift = ghost.sprite.x - pickupX;
-        if (Math.abs(drift) > 50) {
-          ghost.sprite.x = pickupX;
-        }
+        ghost.setTargetX(pickupX);
       }
     }
   }
