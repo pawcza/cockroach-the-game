@@ -127,17 +127,14 @@ export class GhostPlayer {
     const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - 20;
     this.sprite.setTexture('cockroach-standing');
     this.sprite.setAngle(-90);
-    this.scene.tweens.add({
-      targets: this.sprite,
-      x: targetX,
-      y: targetY,
-      duration: 500,
-      ease: 'Power2',
-    });
+    this.sprite.x = targetX;
+    this.sprite.y = targetY;
 
     this.bossGlockSprite = this.scene.add.image(targetX + 15, targetY, 'boss-gun');
     this.bossGlockSprite.setScale(0.25).setDepth(this.sprite.depth + 1);
     this.bossGlockSprite.setOrigin(0, 0.5);
+    this.bossGlockSprite.setTint(this.color);
+    this.bossGlockSprite.setAlpha(this.sprite.alpha);
   }
 
   leaveBossFight(): void {
@@ -153,8 +150,10 @@ export class GhostPlayer {
   setLane(lane: string, floorTopY: number, floorBottomY: number): void {
     this.currentFloor = lane;
     const targetY = (lane === 'top' ? floorTopY : floorBottomY) - 20;
+    const targets: object[] = [this.sprite];
+    if (this._inBossFight && this.bossGlockSprite) targets.push(this.bossGlockSprite);
     this.scene.tweens.add({
-      targets: this.sprite,
+      targets,
       y: targetY,
       duration: 120,
       ease: 'Power2',
@@ -255,6 +254,21 @@ export class GhostPlayer {
       duration: 50,
       ease: 'Power2',
       yoyo: true,
+    });
+
+    const bulletX = this.sprite.x + 30;
+    const bulletY = this.sprite.y;
+    const bullet = this.scene.add.image(bulletX, bulletY, 'boss-shell');
+    bullet.setScale(0.3).setDepth(this.sprite.depth + 1);
+    bullet.setTint(this.color);
+    bullet.setAlpha(this.sprite.alpha);
+    this.scene.tweens.add({
+      targets: bullet,
+      x: bulletX + 300,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power2',
+      onComplete: () => bullet.destroy(),
     });
   }
 
