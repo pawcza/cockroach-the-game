@@ -546,58 +546,64 @@ export class ObstacleSpawner {
       ease: 'Sine.easeInOut',
     }));
 
-    // Rhythmic floor-swap every 1s: pink warm-up glow → jump
-    const warmupDuration = 400; // pink silhouette builds over 400ms
+    // Rhythmic floor-swap: warmup (400ms) → jump (100ms) → wait (500ms) → repeat
+    const warmupDuration = 400;
     const jumpDuration = 100;
-    const jumpTimer = this.scene.time.addEvent({
-      delay: 1000,
-      loop: true,
-      callback: () => {
-        if (!disco.active) return;
-        const targetFloor: Floor = currentFloor === 'top' ? 'bottom' : 'top';
-        const targetY = targetFloor === 'top' ? topY : bottomY;
+    const waitDuration = 500;
 
-        // Show pink silhouette at destination before jumping
-        const silhouette = this.scene.add.circle(disco.x, targetY, 20, 0xff00ff, 0);
-        silhouette.setDepth(DEPTH.GLOW);
-        silhouette.setBlendMode(Phaser.BlendModes.ADD);
+    const doSwapCycle = (): void => {
+      if (!disco.active) return;
+      const targetFloor: Floor = currentFloor === 'top' ? 'bottom' : 'top';
+      const targetY = targetFloor === 'top' ? topY : bottomY;
 
-        // Warm up: silhouette fades in over 400ms
-        this.scene.tweens.add({
-          targets: silhouette,
-          alpha: 0.6,
-          scaleX: 1.5,
-          scaleY: 1.5,
-          duration: warmupDuration,
-          ease: 'Quad.easeIn',
-          onComplete: () => {
-            // Jump happens
-            currentFloor = targetFloor;
-            disco.setData('floor', currentFloor);
-            this.scene.tweens.add({
-              targets: disco,
-              y: targetY,
-              duration: jumpDuration,
-              ease: 'Power2',
-              onComplete: () => { if (disco.active) disco.clearTint(); },
-            });
-            // Silhouette pops and fades out
-            this.scene.tweens.add({
-              targets: silhouette,
-              alpha: 0,
-              scaleX: 2.5,
-              scaleY: 2.5,
-              duration: 200,
-              ease: 'Quad.easeOut',
-              onComplete: () => silhouette.destroy(),
-            });
-          },
-        });
+      // Phase 1: Warmup — pink tint + silhouette at destination
+      disco.setTint(0xff00ff);
+      const silhouette = this.scene.add.circle(disco.x, targetY, 20, 0xff00ff, 0);
+      silhouette.setDepth(DEPTH.GLOW);
+      silhouette.setBlendMode(Phaser.BlendModes.ADD);
 
-        // Tint pink during warmup + jump (cleared in jump onComplete above)
-        disco.setTint(0xff00ff);
-      },
-    });
+      this.scene.tweens.add({
+        targets: silhouette,
+        alpha: 0.6,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        duration: warmupDuration,
+        ease: 'Quad.easeIn',
+        onComplete: () => {
+          if (!disco.active) { silhouette.destroy(); return; }
+
+          // Phase 2: Jump
+          currentFloor = targetFloor;
+          disco.setData('floor', currentFloor);
+          this.scene.tweens.add({
+            targets: disco,
+            y: targetY,
+            duration: jumpDuration,
+            ease: 'Power2',
+            onComplete: () => {
+              if (disco.active) disco.clearTint();
+
+              // Phase 3: Wait, then repeat
+              this.scene.time.delayedCall(waitDuration, doSwapCycle);
+            },
+          });
+
+          // Silhouette pops and fades out
+          this.scene.tweens.add({
+            targets: silhouette,
+            alpha: 0,
+            scaleX: 2.5,
+            scaleY: 2.5,
+            duration: 200,
+            ease: 'Quad.easeOut',
+            onComplete: () => silhouette.destroy(),
+          });
+        },
+      });
+    };
+
+    // Start first cycle after initial wait
+    const jumpTimer = this.scene.time.delayedCall(waitDuration, doSwapCycle);
 
     // Rainbow light ray particles (cosmetic — use Math.random to avoid desyncing seeded RNG)
     const rayColors = COLORS.DISCO;
