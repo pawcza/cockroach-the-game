@@ -298,6 +298,8 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!onion.active) return;
+        const cam = this.scene.cameras.main;
+        if (onion.x < cam.scrollX - 100 || onion.x > cam.scrollX + cam.width + 100) return;
         const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
         const tear = this.scene.add.circle(
           x + side * Phaser.Math.Between(4, 10),
@@ -363,6 +365,8 @@ export class ObstacleSpawner {
     const nozzleY = centerY - spray.displayHeight * 0.45;
     const sprayMist = (): void => {
       if (!spray.active) return;
+      const cam = this.scene.cameras.main;
+      if (spray.x < cam.scrollX - 100 || spray.x > cam.scrollX + cam.width + 100) return;
       for (let i = 0; i < 7; i++) {
         const radius = Phaser.Math.Between(3, 8);
         const droplet = this.scene.add.circle(
@@ -417,9 +421,9 @@ export class ObstacleSpawner {
     const whooshUpdate = (): void => {
       if (!flipper.active) { whooshGfx.clear(); whooshGfx.destroy(); return; }
       const camLeft = this.scene.cameras.main.scrollX;
-      if (flipper.x < camLeft - 500) {
+      const camRight = camLeft + this.scene.cameras.main.width;
+      if (flipper.x < camLeft - 200 || flipper.x > camRight + 200) {
         whooshGfx.clear();
-        whooshGfx.destroy();
         return;
       }
       whooshGfx.clear();
@@ -612,6 +616,8 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!disco.active) return;
+        const cam = this.scene.cameras.main;
+        if (disco.x < cam.scrollX - 100 || disco.x > cam.scrollX + cam.width + 100) return;
         const angle = Math.random() * Math.PI * 2;
         const color = rayColors[Phaser.Math.Between(0, rayColors.length - 1)];
         const ray = this.scene.add.rectangle(
@@ -643,6 +649,9 @@ export class ObstacleSpawner {
     let strobePhase = 0;
     const strobeUpdate = (): void => {
       if (!disco.active) { strobeOverlay.destroy(); return; }
+      const camLeft = this.scene.cameras.main.scrollX;
+      const camRight = camLeft + this.scene.cameras.main.width;
+      if (disco.x < camLeft - 200 || disco.x > camRight + 200) { strobeOverlay.setAlpha(0); return; }
       const cockroach = this.scene.cockroach;
       if (!cockroach) return;
       const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, disco.x, disco.y);
@@ -682,6 +691,8 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!jelly.active) return;
+        const cam = this.scene.cameras.main;
+        if (jelly.x < cam.scrollX - 100 || jelly.x > cam.scrollX + cam.width + 100) return;
         const particle = this.scene.add.circle(
           jelly.x + Phaser.Math.Between(-10, 10),
           jelly.y + jelly.displayHeight * 0.3,
@@ -725,6 +736,8 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!pope.active) return;
+        const cam = this.scene.cameras.main;
+        if (pope.x < cam.scrollX - 100 || pope.x > cam.scrollX + cam.width + 100) return;
         const smoke = this.scene.add.circle(
           pope.x + Phaser.Math.Between(-5, 5),
           pope.y + Phaser.Math.Between(-5, 5),
@@ -782,6 +795,8 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!bison.active) return;
+        const cam = this.scene.cameras.main;
+        if (bison.x < cam.scrollX - 100 || bison.x > cam.scrollX + cam.width + 100) return;
         const dust = this.scene.add.circle(
           bison.x + (bison.flipX ? 15 : -15),
           centerY + 10,
@@ -841,6 +856,9 @@ export class ObstacleSpawner {
     const PULL_STRENGTH = 80;
     const gravityUpdate = (): void => {
       if (!hole.active) return;
+      const camLeft = this.scene.cameras.main.scrollX;
+      const camRight = camLeft + this.scene.cameras.main.width;
+      if (hole.x < camLeft - 200 || hole.x > camRight + 200) return;
       const cockroach = this.scene.cockroach;
       if (!cockroach || this.scene.isDead) return;
       const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, hole.x, hole.y);
@@ -860,6 +878,8 @@ export class ObstacleSpawner {
       loop: true,
       callback: () => {
         if (!hole.active) return;
+        const cam = this.scene.cameras.main;
+        if (hole.x < cam.scrollX - 100 || hole.x > cam.scrollX + cam.width + 100) return;
         const angle = Math.random() * Math.PI * 2;
         const dist = 30 + Math.random() * 40;
         const px = hole.x + Math.cos(angle) * dist;
