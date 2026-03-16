@@ -126,15 +126,15 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
       }
     }, 500);
 
-    // Die after 60-120 seconds
-    const deathTime = 60000 + Math.random() * 60000;
-    setTimeout(() => {
+    // Die 5-15 seconds after another player dies (to test spectate flow)
+    const dieNow = (): void => {
       if (!alive || !gameStarted) return;
       alive = false;
+      const timeSurvived = Math.floor((Date.now() - startTime) / 1000);
       bot.emit('game:death', {
         score,
         stats: {
-          timeSurvived: Math.floor(deathTime / 1000),
+          timeSurvived,
           distance: Math.floor(x / 50),
           maxSpeed: 2.0,
           obstacleType: 'onion',
@@ -146,7 +146,17 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
         },
       });
       console.log('[DebugBot] Died with score', score);
-    }, deathTime);
+    };
+
+    const startTime = Date.now();
+
+    // Die after host dies (5-15s delay) or after 120s max
+    bot.on('game:death', () => {
+      if (!alive) return;
+      const delay = 5000 + Math.random() * 10000;
+      setTimeout(dieNow, delay);
+    });
+    setTimeout(dieNow, 120000);
   });
 
   // Handle game over
