@@ -361,6 +361,7 @@ export class GameScene extends Phaser.Scene {
             this.bossFight = null;
           }
           this.isBossFight = false;
+          this.bossDefeated = true;
         },
         onBossHostTransfer: (data) => {
           if (data.newHostId === mpClient.myId) {
