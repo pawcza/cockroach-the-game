@@ -297,7 +297,7 @@ export class GameScene extends Phaser.Scene {
         onPlayerLeft: (id) => this.gameOverHandler.handlePlayerLeft(id, () => this.isDead),
         onGameOver: (data) => this.gameOverHandler.handleServerGameOver(data),
         onBossStart: (data) => {
-          if (this.isBossFight) return;
+          if (this.bossFight) return;
 
           this.player.forceEndEffects();
 
@@ -313,6 +313,7 @@ export class GameScene extends Phaser.Scene {
           const role = isHost ? 'host' : 'client';
 
           if (!isHost) {
+            this.isBossFight = true;
             this.player.sprite.x = data.triggerX;
             this.cameras.main.scrollX = data.triggerX - 200;
           }
@@ -691,6 +692,7 @@ export class GameScene extends Phaser.Scene {
 
     // Boss fight trigger
     if (!this.isBossFight && !this.bossDefeated && distance >= BOSS_TRIGGER_DISTANCE && !this.isDead) {
+      this.isBossFight = true;
       if (this.isMultiplayer) {
         this.eventBridge.onBossStart(this.player.x, BOSS_MAX_HP);
       } else {
