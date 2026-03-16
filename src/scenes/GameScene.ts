@@ -648,6 +648,7 @@ export class GameScene extends Phaser.Scene {
             this.time.delayedCall(1500, () => this.player.endInvulnerability(blinkTween));
             const lvlConfig = getLevelForDistance(this.getDistance());
             this.audio.switchBGM(lvlConfig.bgmKey);
+            this.spawnManager.advanceSpawnX(this.player.x + 400);
           },
           onDie: (type) => {
             this.bossFight?.destroy();

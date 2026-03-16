@@ -137,7 +137,7 @@ export class BossFight {
     this.addScore = callbacks.addScore;
 
     this.playerFixedX = player.x;
-    this.bossX = this.scene.cameras.main.scrollX + this.scene.cameras.main.width - 80;
+    this.bossX = player.x + 500;
     this.bossY = (floorTopY + floorBottomY) / 2 - OBSTACLE_OFFSET;
 
     this.bullets = this.scene.physics.add.group();
