@@ -9,6 +9,7 @@ import { crossfadeTransition } from '../utils/SceneTransition';
 import { getHighScore, getGamesPlayed, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { getLevelForDistance } from '../config/levels';
 import { showNameInput } from '../ui/NameInputOverlay';
+import { mpClient } from '../multiplayer/MultiplayerClient';
 
 export class MenuScene extends Phaser.Scene {
   private menuBgm: Phaser.Sound.BaseSound | null = null;
@@ -145,6 +146,7 @@ export class MenuScene extends Phaser.Scene {
           this.menuBgm.destroy();
           this.menuBgm = null;
         }
+        mpClient.disconnect();
         this.scene.start('GameScene');
       });
     };
