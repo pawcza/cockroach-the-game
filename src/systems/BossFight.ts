@@ -38,6 +38,7 @@ const INDESTRUCTIBLE_MAX_CHANCE = 0.12;
 // Boss charge constants
 const CHARGE_HP_THRESHOLD = 8; // last ~15% of 50
 const CHARGE_SPEED = 15; // px/s advance toward player
+const CHARGE_TIME_THRESHOLD = 60000; // also start charging after 60s
 
 // Multi-volley: chance increases with time
 const VOLLEY_BASE_CHANCE = 0;
@@ -98,6 +99,7 @@ export class BossFight {
   // Rage phase
   private rageTriggered: boolean[] = [];
   private isRaging = false;
+  private isCharging = false;
   private rageShots = 0;
   private rageLastLane: 'top' | 'bottom' = 'top';
 
@@ -328,13 +330,14 @@ export class BossFight {
     // Glock follows cockroach Y
     this.glockSprite.y = this.player.sprite.y;
 
-    // Wobble boss faces
+    // Wobble boss faces — more intense during charge
     const time = this.scene.time.now;
+    const wobbleMult = this.isCharging ? 3 : 1;
     for (let i = 0; i < this.faceSprites.length; i++) {
       const face = this.faceSprites[i];
       const freq = 1.5 + i * 0.3;
-      face.setAngle(Math.sin(time * 0.002 * freq) * 3);
-      face.y = FACES[i].offsetY + Math.sin(time * 0.003 * freq) * 5;
+      face.setAngle(Math.sin(time * 0.002 * freq * wobbleMult) * 3 * wobbleMult);
+      face.y = FACES[i].offsetY + Math.sin(time * 0.003 * freq * wobbleMult) * 5 * wobbleMult;
     }
 
     // Shoot cooldown
@@ -366,8 +369,17 @@ export class BossFight {
       }
     }
 
-    // Boss charge at low HP — cap at 200px from player
-    if (this.bossHP <= CHARGE_HP_THRESHOLD && this.bossContainer.active) {
+    // Boss charge — at low HP or after 60s (anti-farming)
+    const shouldCharge = (this.bossHP <= CHARGE_HP_THRESHOLD || this.fightTime >= CHARGE_TIME_THRESHOLD) && this.bossContainer.active;
+    if (shouldCharge) {
+      if (!this.isCharging) {
+        this.isCharging = true;
+        this.scene.cameras.main.shake(400, 0.03);
+        this.faceSprites.forEach(f => f.setTint(0xff0000));
+        this.delay(300, () => {
+          if (!this.isRaging) this.faceSprites.forEach(f => f.clearTint());
+        });
+      }
       const minBossX = this.playerFixedX + 200;
       this.bossContainer.x = Math.max(minBossX, this.bossContainer.x - CHARGE_SPEED * (delta / 1000));
     }
