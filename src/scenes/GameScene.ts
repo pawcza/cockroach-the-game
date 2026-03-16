@@ -19,6 +19,7 @@ import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
 import { GameHUD, HUDUpdateData } from '../ui/GameHUD';
 import { TouchControls } from '../ui/TouchControls';
 import { Player, Floor } from '../objects/Player';
+import { GameClock } from '../utils/GameClock';
 import { FloorManager } from '../systems/FloorManager';
 import { SpawnManager } from '../systems/SpawnManager';
 import { CollisionManager } from '../systems/CollisionManager';
@@ -86,13 +87,13 @@ export class GameScene extends Phaser.Scene {
   private isBossFight = false;
   private bossDefeated = false;
 
+  // Clock
+  private clock!: GameClock;
+
   // Scoring
   private score = 0;
   private startTime = 0;
   private activePlayTime = 0;
-  private gameStartWallClock = 0;  // Date.now() when gameplay begins
-  private bossTimeOffset = 0;     // accumulated time paused during boss fights
-  private bossStartWallClock = 0; // Date.now() when boss fight began
   private lastFrameTime = 0;
   private lastScoreTime = 0;
 
@@ -134,9 +135,6 @@ export class GameScene extends Phaser.Scene {
   // Mobile detection (input only — not scaling)
   private isMobile = false;
 
-  // Multiplayer position sync
-  private positionSyncTimer = 0;
-
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -155,6 +153,8 @@ export class GameScene extends Phaser.Scene {
     this.rng = (this.isMultiplayer && data?.seed != null) ? new SeededRNG(data.seed) : null;
 
     // Reset state — defensive cleanup of prior run
+    this.clock?.destroy();
+    this.clock = new GameClock(this);
     this.time.timeScale = 1.0;
     this.ghostManager?.destroy();
     this.ghostManager = null;
@@ -372,6 +372,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.events.on('shutdown', () => {
+      this.clock?.destroy();
       this.eventBridge?.destroy();
       this.bossFight?.destroy();
       this.bossFight = null;
@@ -469,12 +470,17 @@ export class GameScene extends Phaser.Scene {
       this.startTime = this.time.now;
       this.lastFrameTime = this.time.now;
       this.activePlayTime = 0;
-      this.gameStartWallClock = Date.now();
+      this.clock.start();
       this.lastScoreTime = this.time.now;
 
       // Send immediate position event so ghosts can start moving without delay
       if (this.isMultiplayer) {
         this.eventBridge.onPosition(this.player.x, this.player.currentFloor, 0);
+        this.clock.repeat(100, () => {
+          if (!this.isDead && !this.isBossFight) {
+            this.eventBridge.onPosition(this.player.x, this.player.currentFloor, this.clock.activePlayTime);
+          }
+        });
       }
     }
   }
@@ -586,7 +592,7 @@ export class GameScene extends Phaser.Scene {
 
     // Active play time from wall clock (paused during boss fight)
     if (!this.isBossFight) {
-      this.activePlayTime = Date.now() - this.gameStartWallClock - this.bossTimeOffset;
+      this.activePlayTime = this.clock.activePlayTime;
     }
     this.lastFrameTime = this.time.now;
 
@@ -774,15 +780,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Multiplayer position sync — broadcast at ~10Hz for smooth ghost correction
-    if (this.isMultiplayer && !this.isBossFight) {
-      this.positionSyncTimer += this.game.loop.delta;
-      if (this.positionSyncTimer >= 100) {
-        this.positionSyncTimer = 0;
-        this.eventBridge.onPosition(this.player.x, this.player.currentFloor, this.activePlayTime);
-      }
-    }
-
     // Ghost manager update
     if (this.ghostManager) {
       this.ghostManager.update(
@@ -804,7 +801,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isBossFight = true;
-    this.bossStartWallClock = Date.now();
+    this.clock.pause();
     this.bossFight = new BossFight(
       this, this.player, this.audio, this.vfx, this.hud,
       this.floorTopY, this.floorBottomY,
@@ -814,7 +811,7 @@ export class GameScene extends Phaser.Scene {
           this.hud.updateScore(this.score);
           this.bossFight?.destroy();
           this.bossFight = null;
-          this.bossTimeOffset += Date.now() - this.bossStartWallClock;
+          this.clock.resume();
           this.isBossFight = false;
           this.bossDefeated = true;
           this.player.resumeAfterBossFight();

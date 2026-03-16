@@ -110,7 +110,7 @@ export class BossFight {
 
   // Tracked sounds and timers for cleanup
   private beastAmbientSound: Phaser.Sound.BaseSound | null = null;
-  private pendingTimeoutIds: number[] = [];
+  private pendingTimers: Phaser.Time.TimerEvent[] = [];
 
   // Player fixed position during fight
   private playerFixedX = 0;
@@ -715,12 +715,10 @@ export class BossFight {
   // ── Victory ───────────────────────────────────────────────────────
 
   private delay(ms: number, fn: () => void): void {
-    const id = window.setTimeout(() => {
-      const idx = this.pendingTimeoutIds.indexOf(id);
-      if (idx !== -1) this.pendingTimeoutIds.splice(idx, 1);
+    const timer = this.scene.time.delayedCall(ms, () => {
       if (this.state !== 'done') fn();
-    }, ms);
-    this.pendingTimeoutIds.push(id);
+    });
+    this.pendingTimers.push(timer);
   }
 
   private startVictory(): void {
@@ -807,8 +805,8 @@ export class BossFight {
   // ── Cleanup ───────────────────────────────────────────────────────
 
   private cleanup(): void {
-    for (const id of this.pendingTimeoutIds) window.clearTimeout(id);
-    this.pendingTimeoutIds = [];
+    for (const timer of this.pendingTimers) timer.destroy();
+    this.pendingTimers = [];
 
     this.projectiles?.clear(true, true);
     this.bullets?.clear(true, true);
