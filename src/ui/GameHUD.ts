@@ -415,31 +415,31 @@ export class GameHUD {
     const h = this.scene.cameras.main.height;
 
     const tierConfig = [
-      { numSize: '24px', textSize: '10px', color: '#ffff00', stroke: 3, numStroke: 4, shake: 0.005, duration: 2000, scale: 1.3 },
-      { numSize: '32px', textSize: '12px', color: '#ff8800', stroke: 4, numStroke: 5, shake: 0.008, duration: 2500, scale: 1.5 },
-      { numSize: '40px', textSize: '14px', color: '#ff4400', stroke: 4, numStroke: 6, shake: 0.012, duration: 3000, scale: 1.6 },
-      { numSize: '48px', textSize: '16px', color: '#ff00ff', stroke: 5, numStroke: 7, shake: 0.018, duration: 3500, scale: 1.8 },
-      { numSize: '56px', textSize: '20px', color: '#ffffff', stroke: 6, numStroke: 8, shake: 0.025, duration: 4000, scale: 2.0 },
+      { numSize: '20px', textSize: '10px', color: '#ffff00', stroke: 3, numStroke: 4, shake: 0.005, duration: 1200, scale: 1.3, wobbleAngle: 1.5, wobbleInterval: 150 },
+      { numSize: '26px', textSize: '12px', color: '#ff8800', stroke: 4, numStroke: 5, shake: 0.008, duration: 1500, scale: 1.5, wobbleAngle: 2, wobbleInterval: 150 },
+      { numSize: '32px', textSize: '14px', color: '#ff4400', stroke: 4, numStroke: 6, shake: 0.012, duration: 1800, scale: 1.6, wobbleAngle: 2.5, wobbleInterval: 180 },
+      { numSize: '36px', textSize: '16px', color: '#ff00ff', stroke: 5, numStroke: 7, shake: 0.018, duration: 2000, scale: 1.8, wobbleAngle: 3, wobbleInterval: 200 },
+      { numSize: '42px', textSize: '20px', color: '#ffffff', stroke: 6, numStroke: 8, shake: 0.025, duration: 2200, scale: 2.0, wobbleAngle: 3, wobbleInterval: 220 },
     ];
     const cfg = tierConfig[Math.min(tier - 1, tierConfig.length - 1)];
 
-    const numText = this.scene.add.text(w / 2, h / 2 - 20, String(threshold), {
+    const numText = this.scene.add.text(w / 2, 60, String(threshold), {
       fontSize: cfg.numSize, fontFamily: FONT_FAMILY, color: cfg.color,
       stroke: '#000000', strokeThickness: cfg.numStroke,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(998).setAlpha(0).setScale(3);
 
-    const milestone = this.scene.add.text(w / 2, h / 2 + 25, text, {
+    const milestone = this.scene.add.text(w / 2, 90, text, {
       fontSize: cfg.textSize, fontFamily: FONT_FAMILY, color: cfg.color,
       stroke: '#000000', strokeThickness: cfg.stroke,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP).setAlpha(0).setScale(0.3);
 
     this.scene.tweens.add({
       targets: numText,
-      alpha: { from: 0, to: 0.4 + tier * 0.12 }, scale: 1, duration: 400, ease: 'Back.easeOut',
+      alpha: { from: 0, to: 0.25 + tier * 0.08 }, scale: 1, duration: 400, ease: 'Back.easeOut',
       onComplete: () => {
         this.scene.tweens.add({
           targets: numText,
-          scale: { from: 1, to: 1.05 + tier * 0.02 }, duration: 300,
+          scale: { from: 1, to: 1.02 + tier * 0.01 }, duration: 300,
           yoyo: true, repeat: Math.floor(cfg.duration / 600) - 1, ease: 'Sine.easeInOut',
         });
         this.scene.tweens.add({
@@ -455,7 +455,7 @@ export class GameHUD {
       onComplete: () => {
         this.scene.tweens.add({
           targets: milestone,
-          angle: { from: -2 * tier, to: 2 * tier }, duration: 100,
+          angle: { from: -cfg.wobbleAngle, to: cfg.wobbleAngle }, duration: cfg.wobbleInterval,
           yoyo: true, repeat: Math.floor(cfg.duration / 200) - 1, ease: 'Sine.easeInOut',
         });
         this.scene.tweens.add({
