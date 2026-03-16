@@ -4,8 +4,6 @@ import { popupStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
-import { mpClient } from '../multiplayer/MultiplayerClient';
-
 export interface CollisionCallbacks {
   getScore: () => number;
   addScore: (points: number) => void;
@@ -15,7 +13,8 @@ export interface CollisionCallbacks {
   onAppleCollected: () => void;
   onTyskieCollected: () => void;
   onPillCollected: () => void;
-  isMultiplayer: boolean;
+  onPickup: (x: number, score: number) => void;
+  onPillStart: () => void;
   onDie: (obstacleType?: string | null) => void;
 }
 
@@ -99,7 +98,7 @@ export class CollisionManager {
     const multiplier = this.callbacks.getComboMultiplier();
     const points = Math.round(APPLE_SCORE * multiplier);
     this.callbacks.addScore(points);
-    if (this.callbacks.isMultiplayer) mpClient.sendPickup(sprite.x, this.callbacks.getScore());
+    this.callbacks.onPickup(sprite.x, this.callbacks.getScore());
 
     const combo = this.callbacks.getPickupCombo();
     const comboColor = combo >= 10 ? '#ff00ff' : combo >= 5 ? '#ffff00' : '#00ff00';
@@ -120,7 +119,7 @@ export class CollisionManager {
     const multiplier = this.callbacks.getComboMultiplier();
     const points = Math.round(TYSKIE_SCORE * multiplier);
     this.callbacks.addScore(points);
-    if (this.callbacks.isMultiplayer) mpClient.sendPickup(sprite.x, this.callbacks.getScore());
+    this.callbacks.onPickup(sprite.x, this.callbacks.getScore());
 
     this.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
   }
@@ -142,14 +141,12 @@ export class CollisionManager {
     const multiplier = this.callbacks.getComboMultiplier();
     const pillPoints = Math.round(PILL_SCORE * multiplier);
     this.callbacks.addScore(pillPoints);
-    if (this.callbacks.isMultiplayer) mpClient.sendPickup(px, this.callbacks.getScore());
+    this.callbacks.onPickup(px, this.callbacks.getScore());
 
     this.vfx.appleCollectEffect(px, py);
     this.player.activatePill(px, py);
 
-    if (this.callbacks.isMultiplayer) {
-      mpClient.sendPillStart();
-    }
+    this.callbacks.onPillStart();
   }
 
   private hitObstacle(

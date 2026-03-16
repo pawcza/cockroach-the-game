@@ -50,6 +50,7 @@ export class GameOverHandler {
   private setGhostManager: (gm: GhostManager | null) => void;
   private setIsDead: () => void;
   private followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
+  private onDeath: (score: number, stats: Record<string, unknown>) => void;
 
   get mpGameOverTriggered(): boolean { return this._mpGameOverTriggered; }
 
@@ -71,6 +72,7 @@ export class GameOverHandler {
       setGhostManager: (gm: GhostManager | null) => void;
       setIsDead: () => void;
       followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
+      onDeath: (score: number, stats: Record<string, unknown>) => void;
     },
   ) {
     this.scene = scene;
@@ -89,6 +91,7 @@ export class GameOverHandler {
     this.setGhostManager = callbacks.setGhostManager;
     this.setIsDead = callbacks.setIsDead;
     this.followSpectateTarget = callbacks.followSpectateTarget;
+    this.onDeath = callbacks.onDeath;
     this.mpMyName = getPlayerNameOrDefault();
   }
 
@@ -126,7 +129,7 @@ export class GameOverHandler {
         maxCombo: this.getMaxCombo(),
         maxLevel: this.getCurrentLevel(),
       };
-      mpClient.sendDeath(score, stats);
+      this.onDeath(score, stats);
 
       const ghostManager = this.getGhostManager();
       if (ghostManager && !ghostManager.allDead()) {
@@ -271,50 +274,50 @@ export class GameOverHandler {
     }
   }
 
-  setupMultiplayerListeners(isDead: () => boolean): void {
-    this._mpGameOverTriggered = false;
+  handleGhostDeath(id: string, score: number, stats: Record<string, unknown>, isDead: () => boolean): void {
+    const ghostManager = this.getGhostManager();
+    const name = ghostManager?.getGhostName(id);
+    const color = ghostManager?.getGhostColor(id);
+    ghostManager?.handleDeath(id, score, stats);
+    if (name) {
+      this.showDeathNotification(name, color ?? 0xffffff);
+    }
+    if (isDead() && ghostManager?.allDead()) {
+      this.triggerMultiplayerGameOver();
+    }
+  }
 
-    mpClient.on('game:death', (data: any) => {
+  handlePlayerLeft(id: string, isDead: () => boolean): void {
+    const ghostManager = this.getGhostManager();
+    const name = ghostManager?.getGhostName(id);
+    const color = ghostManager?.getGhostColor(id);
+    ghostManager?.handleDeath(id, 0, {});
+    if (name) {
+      this.showDeathNotification(name, color ?? 0xffffff, true);
+    }
+    if (isDead() && ghostManager?.allDead()) {
+      this.triggerMultiplayerGameOver();
+    }
+  }
+
+  handleServerGameOver(data: { rankings: any[]; hostId: string }): void {
+    if (this._mpGameOverTriggered) return;
+    this._mpGameOverTriggered = true;
+    this.scene.time.delayedCall(1200, () => {
+      this.audio.destroy();
+      this.scene.sound.stopAll();
       const ghostManager = this.getGhostManager();
-      const name = ghostManager?.getGhostName(data.id);
-      const color = ghostManager?.getGhostColor(data.id);
-      ghostManager?.handleDeath(data.id, data.score, data.stats);
-      if (name) {
-        this.showDeathNotification(name, color ?? 0xffffff);
-      }
-      if (isDead() && ghostManager?.allDead()) {
-        this.triggerMultiplayerGameOver();
-      }
-    });
-
-    mpClient.on('game:player-left', (data: any) => {
-      const ghostManager = this.getGhostManager();
-      const name = ghostManager?.getGhostName(data.id);
-      const color = ghostManager?.getGhostColor(data.id);
-      ghostManager?.handleDeath(data.id, 0, {});
-      if (name) {
-        this.showDeathNotification(name, color ?? 0xffffff, true);
-      }
-      if (isDead() && ghostManager?.allDead()) {
-        this.triggerMultiplayerGameOver();
-      }
-    });
-
-    mpClient.on('game:over', (data: any) => {
-      if (this._mpGameOverTriggered) return;
-      this._mpGameOverTriggered = true;
-      this.scene.time.delayedCall(1200, () => {
-        this.audio.destroy();
-        this.scene.sound.stopAll();
-        const ghostManager = this.getGhostManager();
-        ghostManager?.destroy();
-        this.setGhostManager(null);
-        this.scene.scene.start('MultiplayerGameOverScene', {
-          rankings: data.rankings,
-          myId: mpClient.myId,
-          isHost: data.hostId === mpClient.myId,
-        });
+      ghostManager?.destroy();
+      this.setGhostManager(null);
+      this.scene.scene.start('MultiplayerGameOverScene', {
+        rankings: data.rankings,
+        myId: mpClient.myId,
+        isHost: data.hostId === mpClient.myId,
       });
     });
+  }
+
+  resetMpState(): void {
+    this._mpGameOverTriggered = false;
   }
 }
