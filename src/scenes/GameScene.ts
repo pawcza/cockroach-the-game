@@ -207,10 +207,12 @@ export class GameScene extends Phaser.Scene {
     (this.fgBg as any).setPipeline?.('Light2D');
 
     this.nextSkyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
+    (this.nextSkyBg as any).setPipeline?.('Light2D');
     this.nextMidBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
       .setDepth(DEPTH.MID_BG).setAlpha(0).setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
     this.nextFgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0)
       .setDepth(DEPTH.FG_BG).setAlpha(0);
+    (this.nextFgBg as any).setPipeline?.('Light2D');
 
     // Floor manager
     this.floorManager = new FloorManager(this, this.floorTopY, this.floorBottomY);
