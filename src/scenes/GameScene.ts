@@ -10,7 +10,8 @@ import {
 import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
-import { mpClient, MPPlayer } from '../multiplayer/MultiplayerClient';
+import { MPPlayer } from '../multiplayer/MultiplayerClient';
+import { GameEventBridge } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
@@ -47,6 +48,7 @@ export class GameScene extends Phaser.Scene {
   // Multiplayer
   private isMultiplayer = false;
   private ghostManager: GhostManager | null = null;
+  private eventBridge!: GameEventBridge;
   private _wasDashing = false;
   private _wasPillActive = false;
 
@@ -141,6 +143,8 @@ export class GameScene extends Phaser.Scene {
     } | undefined;
 
     this.isMultiplayer = data?.multiplayer ?? false;
+    this.eventBridge?.destroy();
+    this.eventBridge = new GameEventBridge(this.isMultiplayer);
     this.rng = (this.isMultiplayer && data?.seed != null) ? new SeededRNG(data.seed) : null;
 
     // Reset state
@@ -237,7 +241,8 @@ export class GameScene extends Phaser.Scene {
       onAppleCollected: () => { this.applesCollected++; },
       onTyskieCollected: () => { this.tyskiesCollected++; },
       onPillCollected: () => { this.pillsCollected++; },
-      isMultiplayer: this.isMultiplayer,
+      onPickup: (x, score) => this.eventBridge.onPickup(x, score),
+      onPillStart: () => this.eventBridge.onPillStart(),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
     });
     this.collisionManager.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
@@ -264,6 +269,7 @@ export class GameScene extends Phaser.Scene {
       setGhostManager: (gm) => { this.ghostManager = gm; },
       setIsDead: () => { this.isDead = true; },
       followSpectateTarget: (sprite) => this.followSpectateTarget(sprite),
+      onDeath: (score, stats) => this.eventBridge.onDeath(score, stats),
     });
 
     // Ghost manager for multiplayer
@@ -273,14 +279,43 @@ export class GameScene extends Phaser.Scene {
         this.floorManager.topColliderY, this.floorManager.bottomColliderY,
         COCKROACH_START_X,
       );
-      this.setupMultiplayerListeners();
+      this.eventBridge.setupListeners({
+        onGhostSwap: (id, lane) => this.ghostManager?.handleSwap(id, lane),
+        onGhostDashStart: (id) => this.ghostManager?.handleDashStart(id),
+        onGhostDashEnd: (id) => this.ghostManager?.handleDashEnd(id),
+        onGhostPillStart: (id) => this.ghostManager?.handlePillStart(id),
+        onGhostPillEnd: (id) => this.ghostManager?.handlePillEnd(id),
+        onGhostPickup: (id, x, score) => {
+          this.ghostManager?.updateGhostScore(id, score);
+          if (this.isDead) this.spawnManager.queuePickupDestruction(x);
+        },
+        onGhostDeath: (id, score, stats) => this.gameOverHandler.handleGhostDeath(id, score, stats, () => this.isDead),
+        onPlayerLeft: (id) => this.gameOverHandler.handlePlayerLeft(id, () => this.isDead),
+        onGameOver: (data) => this.gameOverHandler.handleServerGameOver(data),
+        onBossStart: (_data) => { /* TODO: co-op boss fight */ },
+        onBossProjectile: (_data) => { /* TODO: co-op boss fight */ },
+        onBossShoot: (_id) => { /* TODO: co-op boss fight */ },
+        onBossHit: (_data) => { /* TODO: co-op boss fight */ },
+        onBossRage: () => { /* TODO: co-op boss fight */ },
+        onBossEnd: (_data) => { /* TODO: co-op boss fight */ },
+        onBossHostTransfer: (_data) => { /* TODO: co-op boss fight */ },
+      });
+      this.gameOverHandler.resetMpState();
     }
+
+    this.events.on('shutdown', () => {
+      this.eventBridge?.destroy();
+      this.bossFight?.destroy();
+      this.bossFight = null;
+      this.ghostManager?.destroy();
+      this.ghostManager = null;
+    });
 
     // Touch controls
     this.touchControls = new TouchControls(this, this.isMobile, {
       onSwap: () => {
         this.player.swapLane();
-        if (this.isMultiplayer) mpClient.sendSwap(this.player.currentFloor);
+        this.eventBridge.onSwap(this.player.currentFloor);
       },
       onDash: () => {
         if (this.isBossFight && this.bossFight) {
@@ -288,7 +323,7 @@ export class GameScene extends Phaser.Scene {
           return;
         }
         this.player.startDash();
-        if (this.isMultiplayer) mpClient.sendDashStart();
+        this.eventBridge.onDashStart();
       },
       isDisabled: () => this.isDead || this.pauseManager.isPaused || this.isCountingDown || this.pauseManager.isUnpauseCountdown,
       isDashAllowed: () => {
@@ -316,7 +351,7 @@ export class GameScene extends Phaser.Scene {
         if (pauseDist <= pauseBtn.radius) return;
 
         this.player.swapLane();
-        if (this.isMultiplayer) mpClient.sendSwap(this.player.currentFloor);
+        this.eventBridge.onSwap(this.player.currentFloor);
       });
     }
 
@@ -532,7 +567,7 @@ export class GameScene extends Phaser.Scene {
     const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
     if (jumpPressed || dropPressed) {
       this.player.swapLane();
-      if (this.isMultiplayer) mpClient.sendSwap(this.player.currentFloor);
+      this.eventBridge.onSwap(this.player.currentFloor);
     }
 
     // Input — dash / shoot
@@ -541,7 +576,7 @@ export class GameScene extends Phaser.Scene {
       this.bossFight.shoot();
     } else if (dashPressed && this.player.dashReady && !this.player.isDashing) {
       this.player.startDash();
-      if (this.isMultiplayer) mpClient.sendDashStart();
+      this.eventBridge.onDashStart();
     }
 
     // Update dash and pill state machines
@@ -570,9 +605,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Multiplayer sync
-    if (this.isMultiplayer && this._wasDashing && !this.player.isDashing) mpClient.sendDashEnd();
+    if (this._wasDashing && !this.player.isDashing) this.eventBridge.onDashEnd();
     this._wasDashing = this.player.isDashing;
-    if (this.isMultiplayer && this._wasPillActive && !this.player.isPillActive) mpClient.sendPillEnd();
+    if (this._wasPillActive && !this.player.isPillActive) this.eventBridge.onPillEnd();
     this._wasPillActive = this.player.isPillActive;
     this.player.updateVisuals();
 
@@ -694,43 +729,6 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.height,
       );
     }
-  }
-
-  private setupMultiplayerListeners(): void {
-    mpClient.on('game:swap', (data: any) => { this.ghostManager?.handleSwap(data.id, data.lane); });
-    mpClient.on('game:dash-start', (data: any) => { this.ghostManager?.handleDashStart(data.id); });
-    mpClient.on('game:dash-end', (data: any) => { this.ghostManager?.handleDashEnd(data.id); });
-    mpClient.on('game:pill-start', (data: any) => { this.ghostManager?.handlePillStart(data.id); });
-    mpClient.on('game:pill-end', (data: any) => { this.ghostManager?.handlePillEnd(data.id); });
-
-    mpClient.on('game:pickup', (data: any) => {
-      if (data.id && data.score != null) {
-        this.ghostManager?.updateGhostScore(data.id, data.score);
-      }
-      if (this.isDead) {
-        this.spawnManager.queuePickupDestruction(data.x);
-      }
-    });
-
-    this.gameOverHandler.setupMultiplayerListeners(() => this.isDead);
-
-    this.events.on('shutdown', () => {
-      if (this.isMultiplayer) {
-        mpClient.off('game:swap');
-        mpClient.off('game:dash-start');
-        mpClient.off('game:dash-end');
-        mpClient.off('game:pill-start');
-        mpClient.off('game:pill-end');
-        mpClient.off('game:pickup');
-        mpClient.off('game:death');
-        mpClient.off('game:player-left');
-        mpClient.off('game:over');
-      }
-      this.bossFight?.destroy();
-      this.bossFight = null;
-      this.ghostManager?.destroy();
-      this.ghostManager = null;
-    });
   }
 
   private followSpectateTarget(sprite: Phaser.GameObjects.Sprite): void {
