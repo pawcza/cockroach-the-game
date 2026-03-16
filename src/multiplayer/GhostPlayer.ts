@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import {
   COCKROACH_BASE_SPEED,
-  COCKROACH_ACCELERATION,
+  COCKROACH_SPEED_MAX_BOOST,
+  COCKROACH_SPEED_TAU,
   DASH_SPEED_BOOST,
   DASH_DURATION,
   DASH_COOLDOWN,
@@ -114,7 +115,8 @@ export class GhostPlayer {
     const distance = Math.floor((this.sprite.x - this.startX) / 50);
     const level = getLevelForDistance(distance).level;
     const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
-    const baseSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION + levelBonus;
+    const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
+    const baseSpeed = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
     const dashBoost = this._isDashing ? DASH_SPEED_BOOST : 0;
     return (baseSpeed + dashBoost) * this.pillSpeedBoost;
   }

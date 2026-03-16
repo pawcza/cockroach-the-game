@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import {
   COCKROACH_START_X,
   COCKROACH_BASE_SPEED,
-  COCKROACH_ACCELERATION,
+  COCKROACH_SPEED_MAX_BOOST,
+  COCKROACH_SPEED_TAU,
   DASH_DURATION,
   DASH_COOLDOWN,
   DASH_SPEED_BOOST,
@@ -143,7 +144,8 @@ export class Player {
   updateSpeed(activePlayTime: number, currentLevel: number): void {
     const elapsedSeconds = activePlayTime / 1000;
     const levelBonus = (currentLevel - 1) * SPEED_BOOST_PER_LEVEL;
-    this._currentSpeed = COCKROACH_BASE_SPEED + elapsedSeconds * COCKROACH_ACCELERATION + levelBonus;
+    const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
+    this._currentSpeed = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
     this._speedMultiplier = this._currentSpeed / COCKROACH_BASE_SPEED;
 
     // Auto-run (flat dash boost + pill multiplier)

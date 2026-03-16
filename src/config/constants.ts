@@ -16,7 +16,9 @@ export const FLOOR_TILE_RADIUS = 6;
 // Cockroach
 export const COCKROACH_START_X = 150;
 export const COCKROACH_BASE_SPEED = 200;
-export const COCKROACH_ACCELERATION = 1.5; // px/s per second
+export const COCKROACH_ACCELERATION = 1.5; // legacy — unused, kept for reference
+export const COCKROACH_SPEED_MAX_BOOST = 300; // max px/s added by time (1.5 * BASE)
+export const COCKROACH_SPEED_TAU = 200; // seconds to reach ~63% of max boost
 export const COCKROACH_JUMP_VELOCITY = -550;
 export const COCKROACH_GRAVITY = 800;
 
