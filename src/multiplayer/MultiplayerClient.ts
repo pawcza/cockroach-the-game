@@ -146,6 +146,11 @@ class MultiplayerClient {
   sendPickup(x: number, score: number): void { this.socket?.emit('game:pickup', { x, score }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
   sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
+  sendBossStart(triggerX: number, hp: number): void { this.socket?.emit('game:boss-start', { triggerX, hp }); }
+  sendBossShoot(): void { this.socket?.emit('game:boss-shoot'); }
+  sendBossHit(): void { this.socket?.emit('game:boss-hit'); }
+  sendBossProjectile(data: { lane: string; speed: number; faceIdx: number; indestructible: boolean; volley: boolean }): void { this.socket?.emit('game:boss-projectile', data); }
+  sendBossRage(): void { this.socket?.emit('game:boss-rage'); }
 
   // Event listeners
   on(event: string, handler: (...args: any[]) => void): void {
