@@ -148,10 +148,10 @@ export function setupMultiplayer(io: Server): void {
     });
 
     // Game event relay — each event has its own handler to normalize data shapes
-    socket.on('game:swap', (lane: string) => {
+    socket.on('game:swap', (data: { lane: string; x?: number }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:swap', { id: socket.id, lane });
+      socket.to(lobbyId).emit('game:swap', { id: socket.id, lane: data.lane, x: data.x });
     });
 
     socket.on('game:dash-start', () => {

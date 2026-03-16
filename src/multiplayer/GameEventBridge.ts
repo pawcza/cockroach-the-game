@@ -9,7 +9,7 @@ export interface BossProjectileData {
 }
 
 export interface GameEventCallbacks {
-  onGhostSwap: (id: string, lane: string) => void;
+  onGhostSwap: (id: string, lane: string, x?: number) => void;
   onGhostDashStart: (id: string) => void;
   onGhostDashEnd: (id: string) => void;
   onGhostPillStart: (id: string) => void;
@@ -37,8 +37,8 @@ export class GameEventBridge {
 
   // ── Outgoing events (no-ops in solo) ────────────────────────────
 
-  onSwap(lane: string): void {
-    if (this.multiplayer) mpClient.sendSwap(lane);
+  onSwap(lane: string, x?: number): void {
+    if (this.multiplayer) mpClient.sendSwap(lane, x);
   }
 
   onDashStart(): void {
@@ -95,7 +95,7 @@ export class GameEventBridge {
       mpClient.on(event, handler);
     };
 
-    listen('game:swap', (data: any) => callbacks.onGhostSwap(data.id, data.lane));
+    listen('game:swap', (data: any) => callbacks.onGhostSwap(data.id, data.lane, data.x));
     listen('game:dash-start', (data: any) => callbacks.onGhostDashStart(data.id));
     listen('game:dash-end', (data: any) => callbacks.onGhostDashEnd(data.id));
     listen('game:pill-start', (data: any) => callbacks.onGhostPillStart(data.id));

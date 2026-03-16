@@ -289,7 +289,7 @@ export class GameScene extends Phaser.Scene {
         COCKROACH_START_X,
       );
       this.eventBridge.setupListeners({
-        onGhostSwap: (id, lane) => this.ghostManager?.handleSwap(id, lane),
+        onGhostSwap: (id, lane, x) => this.ghostManager?.handleSwap(id, lane, x),
         onGhostDashStart: (id) => this.ghostManager?.handleDashStart(id),
         onGhostDashEnd: (id) => this.ghostManager?.handleDashEnd(id),
         onGhostPillStart: (id) => this.ghostManager?.handlePillStart(id),
@@ -374,7 +374,7 @@ export class GameScene extends Phaser.Scene {
     this.touchControls = new TouchControls(this, this.isMobile, {
       onSwap: () => {
         this.player.swapLane();
-        this.eventBridge.onSwap(this.player.currentFloor);
+        this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
       },
       onDash: () => {
         if (this.isBossFight && this.bossFight) {
@@ -410,7 +410,7 @@ export class GameScene extends Phaser.Scene {
         if (pauseDist <= pauseBtn.radius) return;
 
         this.player.swapLane();
-        this.eventBridge.onSwap(this.player.currentFloor);
+        this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
       });
     }
 
@@ -633,7 +633,7 @@ export class GameScene extends Phaser.Scene {
     const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
     if (jumpPressed || dropPressed) {
       this.player.swapLane();
-      this.eventBridge.onSwap(this.player.currentFloor);
+      this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
     }
 
     // Input — dash / shoot
