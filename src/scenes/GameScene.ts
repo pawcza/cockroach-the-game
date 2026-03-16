@@ -247,8 +247,8 @@ export class GameScene extends Phaser.Scene {
       onAppleCollected: () => { this.applesCollected++; },
       onBeerCollected: () => { this.beersCollected++; },
       onPillCollected: () => { this.pillsCollected++; },
-      onPickup: (x, score) => this.eventBridge.onPickup(x, score),
-      onPillStart: () => this.eventBridge.onPillStart(),
+      onPickup: (x, score) => this.eventBridge.onPickup(x, score, this.pickupCombo),
+      onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
     });
     this.collisionManager.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
@@ -292,12 +292,12 @@ export class GameScene extends Phaser.Scene {
       );
       this.eventBridge.setupListeners({
         onGhostSwap: (id, lane, x) => this.ghostManager?.handleSwap(id, lane, x),
-        onGhostDashStart: (id) => this.ghostManager?.handleDashStart(id),
-        onGhostDashEnd: (id) => this.ghostManager?.handleDashEnd(id),
-        onGhostPillStart: (id) => this.ghostManager?.handlePillStart(id),
-        onGhostPillEnd: (id) => this.ghostManager?.handlePillEnd(id),
-        onGhostPickup: (id, x, score) => {
-          this.ghostManager?.updateGhostScore(id, score, x);
+        onGhostDashStart: (id, x) => this.ghostManager?.handleDashStart(id, x),
+        onGhostDashEnd: (id, x) => this.ghostManager?.handleDashEnd(id, x),
+        onGhostPillStart: (id, x) => this.ghostManager?.handlePillStart(id, x),
+        onGhostPillEnd: (id, x) => this.ghostManager?.handlePillEnd(id, x),
+        onGhostPickup: (id, x, score, combo) => {
+          this.ghostManager?.updateGhostScore(id, score, x, combo);
           if (this.isDead) {
             this.spawnManager.queuePickupDestruction(x);
             this.audio.playApple();
@@ -384,7 +384,7 @@ export class GameScene extends Phaser.Scene {
           return;
         }
         this.player.startDash();
-        this.eventBridge.onDashStart();
+        this.eventBridge.onDashStart(this.player.x);
       },
       isDisabled: () => this.isDead || this.pauseManager.isPaused || this.isCountingDown || this.pauseManager.isUnpauseCountdown,
       isDashAllowed: () => {
@@ -512,8 +512,8 @@ export class GameScene extends Phaser.Scene {
             distance: ghostDistance,
             speedMultiplier: target.speedMultiplier,
             currentFloor: target.lane as 'top' | 'bottom',
-            pickupCombo: 0,
-            comboMultiplier: 1.0,
+            pickupCombo: target.combo,
+            comboMultiplier: 1 + target.combo * 0.025,
             timeNow: this.time.now,
           };
           this.hud.update(hudData);
@@ -644,7 +644,7 @@ export class GameScene extends Phaser.Scene {
       this.bossFight.shoot();
     } else if (dashPressed && this.player.dashReady && !this.player.isDashing) {
       this.player.startDash();
-      this.eventBridge.onDashStart();
+      this.eventBridge.onDashStart(this.player.x);
     }
 
     // Update dash and pill state machines
@@ -682,9 +682,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Multiplayer sync
-    if (this._wasDashing && !this.player.isDashing) this.eventBridge.onDashEnd();
+    if (this._wasDashing && !this.player.isDashing) this.eventBridge.onDashEnd(this.player.x);
     this._wasDashing = this.player.isDashing;
-    if (this._wasPillActive && !this.player.isPillActive) this.eventBridge.onPillEnd();
+    if (this._wasPillActive && !this.player.isPillActive) this.eventBridge.onPillEnd(this.player.x);
     this._wasPillActive = this.player.isPillActive;
     this.player.updateVisuals();
 

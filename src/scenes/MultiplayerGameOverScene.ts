@@ -206,8 +206,14 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       const statParts: string[] = [deathLabel];
       if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
+      if (typeof stats.maxLevel === 'number') statParts.push(`lv${stats.maxLevel}`);
       if (stats.maxSpeed !== undefined) statParts.push(`${Number(stats.maxSpeed).toFixed(1)}x`);
       if (typeof stats.maxCombo === 'number' && stats.maxCombo > 0) statParts.push(`x${stats.maxCombo}kmb`);
+      const pickupParts: string[] = [];
+      if (typeof stats.applesCollected === 'number') pickupParts.push(`${stats.applesCollected}`);
+      if (typeof stats.tyskiesCollected === 'number') pickupParts.push(`${stats.tyskiesCollected}`);
+      if (typeof stats.pillsCollected === 'number') pickupParts.push(`${stats.pillsCollected}`);
+      if (pickupParts.length > 0) statParts.push(pickupParts.join('/'));
 
       this.add.text(statTextX, statLineY, statParts.join('  '), smallStyle({
         fontSize: statFontSize,

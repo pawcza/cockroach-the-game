@@ -154,28 +154,28 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:swap', { id: socket.id, lane: data.lane, x: data.x });
     });
 
-    socket.on('game:dash-start', () => {
+    socket.on('game:dash-start', (data: any) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:dash-start', { id: socket.id });
+      socket.to(lobbyId).emit('game:dash-start', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:dash-end', () => {
+    socket.on('game:dash-end', (data: any) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:dash-end', { id: socket.id });
+      socket.to(lobbyId).emit('game:dash-end', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:pill-start', () => {
+    socket.on('game:pill-start', (data: any) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:pill-start', { id: socket.id });
+      socket.to(lobbyId).emit('game:pill-start', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:pill-end', () => {
+    socket.on('game:pill-end', (data: any) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:pill-end', { id: socket.id });
+      socket.to(lobbyId).emit('game:pill-end', { id: socket.id, x: data?.x });
     });
 
     socket.on('game:position', (data: { x: number; lane: string }) => {
@@ -184,10 +184,10 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane });
     });
 
-    socket.on('game:pickup', (data: { x: number; score: number }) => {
+    socket.on('game:pickup', (data: { x: number; score: number; combo?: number }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
-      socket.to(lobbyId).emit('game:pickup', { id: socket.id, x: data.x, score: data.score });
+      socket.to(lobbyId).emit('game:pickup', { id: socket.id, x: data.x, score: data.score, combo: data.combo });
     });
 
     socket.on('game:boss-start', (data: { triggerX: number; hp: number }) => {
