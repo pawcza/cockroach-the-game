@@ -209,7 +209,7 @@ export function setupMultiplayer(io: Server): void {
         hostId: socket.id,
       });
 
-      io.to(lobbyId).emit('game:boss-start', { triggerX: data.triggerX, hp: scaledHp });
+      io.to(lobbyId).emit('game:boss-start', { triggerX: data.triggerX, hp: scaledHp, hostId: socket.id });
     });
 
     socket.on('game:boss-projectile', (data: any) => {

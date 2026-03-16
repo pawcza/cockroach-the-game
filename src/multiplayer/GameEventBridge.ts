@@ -18,7 +18,7 @@ export interface GameEventCallbacks {
   onGhostDeath: (id: string, score: number, stats: Record<string, unknown>) => void;
   onPlayerLeft: (id: string) => void;
   onGameOver: (data: { rankings: any[]; hostId: string }) => void;
-  onBossStart: (data: { triggerX: number; hp: number }) => void;
+  onBossStart: (data: { triggerX: number; hp: number; hostId: string }) => void;
   onBossProjectile: (data: BossProjectileData) => void;
   onBossShoot: (id: string) => void;
   onBossHit: (data: { id: string; hp: number }) => void;
