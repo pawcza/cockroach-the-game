@@ -129,18 +129,21 @@ export class GhostPlayer {
     this.sprite.setAngle(-90);
     this.sprite.x = targetX;
     this.sprite.y = targetY;
+    this.sprite.setAlpha(0.6);
+    this.nameLabel.setAlpha(0.8);
 
     this.bossGlockSprite = this.scene.add.image(targetX + 15, targetY, 'boss-gun');
     this.bossGlockSprite.setScale(0.25).setDepth(this.sprite.depth + 1);
     this.bossGlockSprite.setOrigin(0, 0.5);
     this.bossGlockSprite.setTint(this.color);
-    this.bossGlockSprite.setAlpha(this.sprite.alpha);
+    this.bossGlockSprite.setAlpha(0.6);
   }
 
   leaveBossFight(): void {
     this._inBossFight = false;
     this.sprite.setTexture('cockroach-idle');
     this.sprite.setAngle(0);
+    this.updateAlpha();
     if (this.bossGlockSprite) {
       this.bossGlockSprite.destroy();
       this.bossGlockSprite = null;

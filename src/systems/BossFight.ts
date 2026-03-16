@@ -300,6 +300,18 @@ export class BossFight {
       case 'fighting':
         this.updateFighting(delta);
         break;
+      case 'done':
+        // Keep boss visuals alive for spectators (wobble faces, move projectiles)
+        if (this.bossContainer?.active) {
+          const time = this.scene.time.now;
+          for (let i = 0; i < this.faceSprites.length; i++) {
+            const face = this.faceSprites[i];
+            const freq = 1.5 + i * 0.3;
+            face.setAngle(Math.sin(time * 0.002 * freq) * 3);
+            face.y = FACES[i].offsetY + Math.sin(time * 0.003 * freq) * 5;
+          }
+        }
+        break;
     }
   }
 
@@ -658,8 +670,15 @@ export class BossFight {
   }
 
   private onProjectileHitsPlayer(): void {
-    this.state = 'done';
-    this.cleanup();
+    if (this.role === 'solo') {
+      this.state = 'done';
+      this.cleanup();
+    } else {
+      // Multiplayer: keep boss visuals alive for spectators, just hide player's glock
+      this.state = 'done';
+      if (this.glockSprite?.active) this.glockSprite.destroy();
+      this.bullets?.clear(true, true);
+    }
     this.onDie('boss');
   }
 

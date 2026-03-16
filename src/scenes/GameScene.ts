@@ -319,7 +319,7 @@ export class GameScene extends Phaser.Scene {
             }
           }
 
-          const isHost = Math.abs(this.player.x - data.triggerX) < 200;
+          const isHost = data.hostId === mpClient.myId;
           const role = isHost ? 'host' : 'client';
 
           this.isBossFight = true;
