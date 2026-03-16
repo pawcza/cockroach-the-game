@@ -1,64 +1,36 @@
 import { Server } from 'socket.io';
 
-/**
- * Debug bot that auto-joins a lobby when a player named "debug" is present.
- * The bot connects as a real socket client internally, so it goes through
- * the full network path with real latency.
- *
- * After the game starts, the bot auto-plays: swaps lanes occasionally,
- * dashes, and sends position updates.
- */
-export function setupDebugBot(io: Server): void {
-  // Track active bots per lobby
-  const activeBots = new Map<string, ReturnType<typeof createBot>>();
+// Mirror the game's speed constants
+const COCKROACH_BASE_SPEED = 200;
+const COCKROACH_SPEED_MAX_BOOST = 300;
+const COCKROACH_SPEED_TAU = 200;
+const SPEED_BOOST_PER_LEVEL = 20;
+const DASH_SPEED_BOOST = 300;
+const DASH_DURATION = 375;
+const LEVEL_THRESHOLDS = [0, 100, 250, 450, 700, 950, 1200, 1500, 1800, 2200];
 
-  io.on('connection', (socket) => {
-    // When a lobby is updated, check if we need to spawn/remove a bot
-    socket.on('lobby:join', () => checkForDebugPlayer(socket));
-    socket.on('lobby:leave', () => cleanupBot(socket));
-  });
-
-  function checkForDebugPlayer(triggerSocket: any): void {
-    // This is called after a player joins. We check all lobbies for "debug" players.
-    // The actual bot spawning happens via lobby:updated events.
+function getLevelForDistance(dist: number): number {
+  let level = 1;
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (dist >= LEVEL_THRESHOLDS[i]) { level = i + 1; break; }
   }
-
-  function cleanupBot(_socket: any): void {
-    // Cleanup handled by bot disconnect
-  }
-
-  // Simpler approach: hook into lobby:updated broadcasts
-  // When we see a lobby with a "debug" player, spawn a bot
-  const origEmit = io.emit.bind(io);
-
-  // Monitor lobby updates to detect "debug" players
-  io.use((socket, next) => {
-    const origOn = socket.on.bind(socket);
-    socket.on = function (event: string, ...args: any[]) {
-      if (event === 'set-name') {
-        const handler = args[0];
-        args[0] = (name: string) => {
-          handler(name);
-          if (name === 'debug') {
-            // This socket is the debug player — spawn a bot in their lobby after game starts
-            socket.data.isDebugPlayer = true;
-          }
-        };
-      }
-      return origOn(event, ...args);
-    } as any;
-    next();
-  });
+  return level;
 }
 
-/**
- * Creates a bot that joins a lobby and auto-plays.
- * Call this from the lobby:start handler when a debug player is detected.
- */
+function getSpeed(elapsedSeconds: number, level: number, isDashing: boolean): number {
+  const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
+  const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
+  const base = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
+  return base + (isDashing ? DASH_SPEED_BOOST : 0);
+}
+
+export function setupDebugBot(_io: Server): void {
+  // Placeholder — bot spawning is triggered from multiplayer.ts
+}
+
 export function spawnBotForLobby(io: Server, lobbyId: string): void {
   const { io: ioClient } = require('socket.io-client');
 
-  // Connect to ourselves
   const port = process.env.PORT || 3000;
   const bot = ioClient(`http://localhost:${port}`, {
     path: '/socket.io',
@@ -66,14 +38,17 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
   });
 
   let lane: 'top' | 'bottom' = 'bottom';
-  let x = 150; // COCKROACH_START_X
+  let x = 150;
   let alive = true;
   let score = 0;
+  let combo = 0;
   let gameStarted = false;
+  let isDashing = false;
+  let activePlayTime = 0;
+  let startTime = 0;
 
   bot.on('connect', () => {
     bot.emit('set-name', 'DebugBot');
-    // Join the lobby
     bot.emit('lobby:join', lobbyId, (res: any) => {
       if (res?.error) {
         console.log('[DebugBot] Failed to join lobby:', res.error);
@@ -81,7 +56,6 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
         return;
       }
       console.log('[DebugBot] Joined lobby', lobbyId);
-      // Set ready
       bot.emit('lobby:ready', true, () => {});
     });
   });
@@ -92,73 +66,89 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
     alive = true;
     x = 150;
     score = 0;
+    combo = 0;
+    isDashing = false;
+    activePlayTime = 0;
     lane = 'bottom';
-
-    // Wait for countdown (4 steps × 600ms = 2400ms)
-    setTimeout(() => {
-      console.log('[DebugBot] Playing');
-    }, 2500);
+    startTime = Date.now();
 
     const countdownEnd = Date.now() + 2500;
+    const TICK_MS = 100; // 10 ticks per second for smooth movement
+    let lastTick = Date.now();
 
-    // Auto-play loop (waits for countdown)
     const playInterval = setInterval(() => {
       if (!alive || !gameStarted) {
         clearInterval(playInterval);
         return;
       }
-      if (Date.now() < countdownEnd) return;
 
-      // Advance X (approximate speed)
-      x += 200 * 0.5; // ~half second intervals at base speed
+      const now = Date.now();
+      if (now < countdownEnd) { lastTick = now; return; }
 
-      // Random swap (30% chance)
-      if (Math.random() < 0.3) {
+      const dt = (now - lastTick) / 1000;
+      lastTick = now;
+      activePlayTime += dt * 1000;
+
+      const elapsedSeconds = activePlayTime / 1000;
+      const distance = Math.floor((x - 150) / 50);
+      const level = getLevelForDistance(distance);
+      const speed = getSpeed(elapsedSeconds, level, isDashing);
+
+      // Advance position
+      x += speed * dt;
+
+      // Random swap (~every 3-5s on average)
+      if (Math.random() < 0.03) {
         lane = lane === 'top' ? 'bottom' : 'top';
         bot.emit('game:swap', { lane, x });
       }
 
-      // Random dash (10% chance)
-      if (Math.random() < 0.1) {
+      // Random dash (~every 8-12s on average, only when not dashing)
+      if (!isDashing && Math.random() < 0.01) {
+        isDashing = true;
         bot.emit('game:dash-start', { x });
         setTimeout(() => {
-          x += 50;
+          isDashing = false;
           bot.emit('game:dash-end', { x });
-        }, 375);
+        }, DASH_DURATION);
       }
 
-      // Occasional pickup event (simulates collecting)
-      if (Math.random() < 0.2) {
+      // Simulate pickup collection (~every 2-3s)
+      if (Math.random() < 0.05) {
         score += 10;
-        bot.emit('game:pickup', { x: x - 20, score, combo: Math.floor(Math.random() * 5) });
+        combo++;
+        bot.emit('game:pickup', { x: x - 20, score, combo });
       }
-    }, 500);
 
-    // Die 5-15 seconds after another player dies (to test spectate flow)
+      // Send position with swap events periodically for sync (~every 2s)
+      if (Math.random() < 0.05) {
+        bot.emit('game:swap', { lane, x });
+      }
+    }, TICK_MS);
+
+    // Die 5-15 seconds after another player dies, or after 120s max
     const dieNow = (): void => {
       if (!alive || !gameStarted) return;
       alive = false;
       const timeSurvived = Math.floor((Date.now() - startTime) / 1000);
+      const distance = Math.floor((x - 150) / 50);
       bot.emit('game:death', {
         score,
         stats: {
           timeSurvived,
-          distance: Math.floor(x / 50),
-          maxSpeed: 2.0,
+          distance,
+          maxSpeed: getSpeed(activePlayTime / 1000, getLevelForDistance(distance), false) / COCKROACH_BASE_SPEED,
           obstacleType: 'onion',
           applesCollected: Math.floor(score / 10),
           beersCollected: 0,
           pillsCollected: 0,
-          maxCombo: 3,
-          maxLevel: 2,
+          maxCombo: combo,
+          maxLevel: getLevelForDistance(distance),
         },
       });
-      console.log('[DebugBot] Died with score', score);
+      console.log('[DebugBot] Died at distance', distance, 'score', score);
     };
 
-    const startTime = Date.now();
-
-    // Die after host dies (5-15s delay) or after 120s max
     bot.on('game:death', () => {
       if (!alive) return;
       const delay = 5000 + Math.random() * 10000;
@@ -167,16 +157,14 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
     setTimeout(dieNow, 120000);
   });
 
-  // Handle game over
   bot.on('game:over', () => {
     gameStarted = false;
     console.log('[DebugBot] Game over');
   });
 
-  // Handle boss fight
   bot.on('game:boss-start', (data: any) => {
     console.log('[DebugBot] Boss fight started');
-    // Bot shoots at the boss
+    x = data.triggerX;
     const shootInterval = setInterval(() => {
       if (!alive || !gameStarted) {
         clearInterval(shootInterval);
@@ -184,8 +172,6 @@ export function spawnBotForLobby(io: Server, lobbyId: string): void {
       }
       bot.emit('game:boss-shoot');
       bot.emit('game:boss-hit');
-
-      // Swap lanes during boss fight too
       if (Math.random() < 0.3) {
         lane = lane === 'top' ? 'bottom' : 'top';
         bot.emit('game:swap', { lane, x });
