@@ -77,9 +77,17 @@ export class GhostManager {
     return this.ghosts.get(id)?.color ?? null;
   }
 
-  updateGhostScore(id: string, score: number): void {
+  updateGhostScore(id: string, score: number, pickupX?: number): void {
     const ghost = this.ghosts.get(id);
-    if (ghost) ghost.updateLiveScore(score);
+    if (ghost) {
+      ghost.updateLiveScore(score);
+      if (pickupX != null && ghost.alive && !ghost.inBossFight) {
+        const drift = ghost.sprite.x - pickupX;
+        if (Math.abs(drift) > 50) {
+          ghost.sprite.x = pickupX;
+        }
+      }
+    }
   }
 
   handleDeath(id: string, score: number, stats: Record<string, unknown>): void {
