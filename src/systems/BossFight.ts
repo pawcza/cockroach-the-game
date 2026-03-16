@@ -82,6 +82,7 @@ export class BossFight {
   private bossContainer!: Phaser.GameObjects.Container;
   private faceSprites: Phaser.GameObjects.Image[] = [];
   private bossHP = BOSS_MAX_HP;
+  private bossStartHP = BOSS_MAX_HP;
   private bossX = 0;
   private bossY = 0;
 
@@ -282,8 +283,9 @@ export class BossFight {
       this.beastAmbientSound = null;
     }
 
+    this.bossStartHP = this.bossHP;
     this.audio.switchBGM('boss-bgm');
-    this.hud.showBossHP('Bestia z Wadowic', this.bossHP, this.bossHP);
+    this.hud.showBossHP('Bestia z Wadowic', this.bossHP, this.bossStartHP);
   }
 
   // ── Update ────────────────────────────────────────────────────────
@@ -347,7 +349,7 @@ export class BossFight {
     if (this.role !== 'client') {
       if (!this.isRaging) {
         for (let i = 0; i < RAGE_HP_PERCENTAGES.length; i++) {
-          const threshold = Math.floor(BOSS_MAX_HP * RAGE_HP_PERCENTAGES[i]);
+          const threshold = Math.floor(this.bossStartHP * RAGE_HP_PERCENTAGES[i]);
           if (!this.rageTriggered[i] && this.bossHP <= threshold) {
             this.rageTriggered[i] = true;
             this.startRagePhase();
@@ -370,7 +372,8 @@ export class BossFight {
     }
 
     // Boss charge — at low HP or after 60s (anti-farming)
-    const shouldCharge = (this.bossHP <= CHARGE_HP_THRESHOLD || this.fightTime >= CHARGE_TIME_THRESHOLD) && this.bossContainer.active;
+    const chargeHpThreshold = Math.floor(this.bossStartHP * 0.16);
+    const shouldCharge = (this.bossHP <= chargeHpThreshold || this.fightTime >= CHARGE_TIME_THRESHOLD) && this.bossContainer.active;
     if (shouldCharge) {
       if (!this.isCharging) {
         this.isCharging = true;
@@ -814,6 +817,9 @@ export class BossFight {
   }
 
   updateHP(hp: number): void {
+    if (hp > this.bossStartHP) {
+      this.bossStartHP = hp;
+    }
     this.bossHP = hp;
     this.hud.updateBossHP(this.bossHP);
     if (this.bossHP <= 0) {

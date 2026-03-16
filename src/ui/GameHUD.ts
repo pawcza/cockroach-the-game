@@ -477,6 +477,7 @@ export class GameHUD {
   }
 
   updateBossHP(hp: number): void {
+    if (hp > this.bossMaxHP) this.bossMaxHP = hp;
     this.bossHP = hp;
   }
 

@@ -309,14 +309,12 @@ export class GameScene extends Phaser.Scene {
             }
           }
 
-          const isHost = Math.abs(this.player.x - data.triggerX) < 100;
+          const isHost = Math.abs(this.player.x - data.triggerX) < 200;
           const role = isHost ? 'host' : 'client';
 
-          if (!isHost) {
-            this.isBossFight = true;
-            this.player.sprite.x = data.triggerX;
-            this.cameras.main.scrollX = data.triggerX - 200;
-          }
+          this.isBossFight = true;
+          this.player.sprite.x = data.triggerX;
+          this.cameras.main.scrollX = data.triggerX - 200;
 
           this.createBossFight(role, data.hp);
           this.ghostManager?.enterBossFight(data.triggerX, this.floorTopY, this.floorBottomY);
