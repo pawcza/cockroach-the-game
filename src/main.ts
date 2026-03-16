@@ -35,18 +35,33 @@ const config: Phaser.Types.Core.GameConfig = {
 document.fonts.ready.then(() => {
   const game = new Phaser.Game(config);
 
+  let lastWidth = window.innerWidth;
+  let lastHeight = window.innerHeight;
+
   const handleResize = (): void => {
     setTimeout(() => {
       game.scale.resize(window.innerWidth, window.innerHeight);
       game.scale.refresh();
-      const activeScene = game.scene.getScenes(true)[0];
-      if (activeScene) {
-        activeScene.scene.restart();
+    }, 200);
+  };
+
+  const handleOrientationChange = (): void => {
+    setTimeout(() => {
+      game.scale.resize(window.innerWidth, window.innerHeight);
+      game.scale.refresh();
+      // Only restart scene on actual orientation change (width/height swap)
+      const widthChanged = Math.abs(window.innerWidth - lastWidth) > 100;
+      const heightChanged = Math.abs(window.innerHeight - lastHeight) > 100;
+      lastWidth = window.innerWidth;
+      lastHeight = window.innerHeight;
+      if (widthChanged && heightChanged) {
+        const activeScene = game.scene.getScenes(true)[0];
+        if (activeScene) activeScene.scene.restart();
       }
     }, 200);
   };
 
   window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', handleResize);
-  screen.orientation?.addEventListener('change', handleResize);
+  window.addEventListener('orientationchange', handleOrientationChange);
+  screen.orientation?.addEventListener('change', handleOrientationChange);
 });

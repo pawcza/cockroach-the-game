@@ -7,7 +7,7 @@ import { createPulsingOverlay } from '../utils/TweenPatterns';
 import { spawnFloatingParticle } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
 import { fetchScores } from '../ui/Scoreboard';
-import { updateHighScoreIfBetter } from '../utils/Storage';
+import { updateHighScoreIfBetter, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 
 interface MPGameOverRanking {
@@ -276,43 +276,49 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           const saveBtnW = Math.round(120 * s);
           const saveBtnH = Math.round(30 * s);
 
+          const doSave = (name: string): void => {
+            const stats = myRanking.stats || {};
+            fetch('/api/scores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name,
+                score: myRanking.score,
+                deathCause: stats.obstacleType || null,
+                distance: typeof stats.distance === 'number' ? stats.distance : null,
+                timeSurvived: typeof stats.timeSurvived === 'number' ? stats.timeSurvived : null,
+                applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
+                tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
+                pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
+                maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
+                maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
+              }),
+            }).catch(() => { /* offline is fine */ });
+
+            const saved = this.add.text(width / 2, saveY, 'Zapisano!', smallStyle({
+              fontSize: `${Math.round(10 * s)}px`,
+              color: '#00ff00',
+            })).setOrigin(0.5);
+            this.tweens.add({
+              targets: saved,
+              alpha: { from: 1, to: 0.6 },
+              duration: 800,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            });
+          };
+
           const saveBtn = createButton(this, width / 2, saveY, saveBtnW, saveBtnH, 'Zapisz', 0x008800, buttonStyle({
             fontSize: `${Math.round(10 * s)}px`,
             strokeThickness: 2,
           }), () => {
             for (const obj of saveBtn.all) obj.destroy();
-            showNameInput(this, (name) => {
-              const stats = myRanking.stats || {};
-              fetch('/api/scores', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name,
-                  score: myRanking.score,
-                  deathCause: stats.obstacleType || null,
-                  distance: typeof stats.distance === 'number' ? stats.distance : null,
-                  timeSurvived: typeof stats.timeSurvived === 'number' ? stats.timeSurvived : null,
-                  applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
-                  tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
-                  pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
-                  maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
-                  maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
-                }),
-              }).catch(() => { /* offline is fine */ });
-
-              const saved = this.add.text(width / 2, saveY, 'Zapisano!', smallStyle({
-                fontSize: `${Math.round(10 * s)}px`,
-                color: '#00ff00',
-              })).setOrigin(0.5);
-              this.tweens.add({
-                targets: saved,
-                alpha: { from: 1, to: 0.6 },
-                duration: 800,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut',
-              });
-            }, myRanking.name);
+            if (!isPlayerNameCustom()) {
+              showNameInput(this, doSave, myRanking.name);
+            } else {
+              doSave(getPlayerNameOrDefault());
+            }
           });
 
           this.tweens.add({
