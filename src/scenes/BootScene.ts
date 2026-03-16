@@ -107,7 +107,13 @@ export class BootScene extends Phaser.Scene {
     // --- Level backgrounds, floors, and BGM ---
     for (let i = 1; i <= 10; i++) {
       for (const [prefix, dir] of [['sky', 'sky'], ['bg', 'mid'], ['fg', 'fg'], ['floor', 'floor']] as const) {
-        this.load.image(`lv${i}-${prefix}`, `levels/${dir}/lv${i}.png`);
+        const normalMap = `levels/${dir}/lv${i}-n.png`;
+        const hasNormal = i === 1; // lv1 has normal maps for lighting
+        if (hasNormal) {
+          this.load.image(`lv${i}-${prefix}`, [`levels/${dir}/lv${i}.png`, normalMap]);
+        } else {
+          this.load.image(`lv${i}-${prefix}`, `levels/${dir}/lv${i}.png`);
+        }
       }
       this.load.audio(`bgm-lv${i}`, `levels/soundtracks/lv${i}.ogg`);
     }
