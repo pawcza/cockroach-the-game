@@ -148,9 +148,12 @@ export class GameScene extends Phaser.Scene {
     this.eventBridge = new GameEventBridge(this.isMultiplayer);
     this.rng = (this.isMultiplayer && data?.seed != null) ? new SeededRNG(data.seed) : null;
 
-    // Reset state
+    // Reset state — defensive cleanup of prior run
     this.time.timeScale = 1.0;
+    this.ghostManager?.destroy();
     this.ghostManager = null;
+    this.bossFight?.destroy();
+    this.bossFight = null;
     this._wasDashing = false;
     this._wasPillActive = false;
     this.score = 0;
@@ -330,9 +333,17 @@ export class GameScene extends Phaser.Scene {
           this.bossFight?.triggerExternalRage();
         },
         onBossEnd: (data) => {
-          if (data.result === 'victory' && this.bossFight) {
-            this.score += data.bonus;
-            this.hud.updateScore(this.score);
+          if (data.result === 'victory') {
+            if (!this.isDead) {
+              this.score += data.bonus;
+              this.hud.updateScore(this.score);
+            }
+          }
+          if (this.isDead && this.bossFight) {
+            this.bossFight.destroy();
+            this.bossFight = null;
+            this.isBossFight = false;
+            this.ghostManager?.leaveBossFight();
           }
         },
         onBossHostTransfer: (data) => {
@@ -456,6 +467,11 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.width,
           this.cameras.main.height,
         );
+      }
+
+      // Keep boss fight rendering during spectate (projectiles, HP updates from server)
+      if (this.isBossFight && this.bossFight) {
+        this.bossFight.update(this.game.loop.delta);
       }
 
       if (this.isMultiplayer && this.ghostManager?.isSpectating) {
@@ -770,9 +786,11 @@ export class GameScene extends Phaser.Scene {
           this.ghostManager?.leaveBossFight();
         },
         onDie: (type) => {
-          this.bossFight?.destroy();
-          this.bossFight = null;
-          this.isBossFight = false;
+          if (!this.isMultiplayer) {
+            this.bossFight?.destroy();
+            this.bossFight = null;
+            this.isBossFight = false;
+          }
           this.gameOverHandler.die(type);
         },
         clearScreen: () => { /* already cleared above */ },

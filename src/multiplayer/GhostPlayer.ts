@@ -125,6 +125,8 @@ export class GhostPlayer {
     this._inBossFight = true;
 
     const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - 20;
+    this.sprite.setTexture('cockroach-standing');
+    this.sprite.setAngle(-90);
     this.scene.tweens.add({
       targets: this.sprite,
       x: targetX,
@@ -133,13 +135,15 @@ export class GhostPlayer {
       ease: 'Power2',
     });
 
-    this.bossGlockSprite = this.scene.add.image(0, 0, 'boss-gun');
-    this.bossGlockSprite.setScale(0.25).setDepth(this.sprite.depth - 1);
+    this.bossGlockSprite = this.scene.add.image(targetX + 15, targetY, 'boss-gun');
+    this.bossGlockSprite.setScale(0.25).setDepth(this.sprite.depth + 1);
     this.bossGlockSprite.setOrigin(0, 0.5);
   }
 
   leaveBossFight(): void {
     this._inBossFight = false;
+    this.sprite.setTexture('cockroach-idle');
+    this.sprite.setAngle(0);
     if (this.bossGlockSprite) {
       this.bossGlockSprite.destroy();
       this.bossGlockSprite = null;

@@ -283,7 +283,7 @@ export class BossFight {
     }
 
     this.audio.switchBGM('boss-bgm');
-    this.hud.showBossHP('Bestia z Wadowic', this.bossHP, BOSS_MAX_HP);
+    this.hud.showBossHP('Bestia z Wadowic', this.bossHP, this.bossHP);
   }
 
   // ── Update ────────────────────────────────────────────────────────
@@ -802,6 +802,10 @@ export class BossFight {
   }
 
   spawnExternalProjectile(data: BossProjectileData): void {
+    if (!data.indestructible && this.isRaging) {
+      this.isRaging = false;
+      this.faceSprites.forEach(f => f.clearTint());
+    }
     if (data.indestructible) {
       this.fireIndestructible(data.lane);
     } else {
@@ -818,9 +822,10 @@ export class BossFight {
   }
 
   triggerExternalRage(): void {
-    if (!this.isRaging) {
-      this.startRagePhase();
-    }
+    if (this.isRaging) return;
+    this.isRaging = true;
+    this.faceSprites.forEach(f => f.setTint(0xff0000));
+    this.scene.cameras.main.shake(300, 0.02);
   }
 
   promoteToHost(): void {
