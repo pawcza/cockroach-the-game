@@ -99,12 +99,7 @@ export function showNameInput(
     }
   };
 
-  // Dismiss on backdrop click — delayed to prevent virtual keyboard popup from triggering it
-  let backdropReady = false;
-  setTimeout(() => { backdropReady = true; }, 500);
-  backdrop.on('pointerdown', (_pointer: Phaser.Input.Pointer) => {
-    if (backdropReady) cleanup();
-  });
+  // Backdrop absorbs clicks but does NOT dismiss (prevent accidental close)
 
   // Prevent touch on the input area from reaching the Phaser backdrop
   input.addEventListener('touchstart', (e) => e.stopPropagation());
