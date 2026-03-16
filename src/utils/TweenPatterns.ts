@@ -118,31 +118,43 @@ export function attachGlow(
   alpha: number,
   pulseConfig?: { toAlpha?: number; toScale?: number; duration?: number },
 ): Phaser.GameObjects.Arc {
-  const glow = createGlow(scene, sprite.x, sprite.y, radius, color, alpha);
+  const layers = [
+    { radiusMult: 0.6, alphaMult: 1.0 },
+    { radiusMult: 1.0, alphaMult: 0.5 },
+    { radiusMult: 1.5, alphaMult: 0.2 },
+  ];
 
   const pAlpha = pulseConfig?.toAlpha ?? alpha * 0.33;
   const pScale = pulseConfig?.toScale;
   const pDuration = pulseConfig?.duration ?? 500;
 
-  const tweenCfg: Phaser.Types.Tweens.TweenBuilderConfig = {
-    targets: glow,
-    alpha: pAlpha,
-    duration: pDuration,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  };
-  if (pScale !== undefined) {
-    (tweenCfg as Record<string, unknown>).scale = pScale;
+  const glows: Phaser.GameObjects.Arc[] = [];
+  for (const layer of layers) {
+    const glow = createGlow(scene, sprite.x, sprite.y, radius * layer.radiusMult, color, alpha * layer.alphaMult);
+    glows.push(glow);
+
+    const tweenCfg: Phaser.Types.Tweens.TweenBuilderConfig = {
+      targets: glow,
+      alpha: pAlpha * layer.alphaMult,
+      duration: pDuration,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    };
+    if (pScale !== undefined) {
+      (tweenCfg as Record<string, unknown>).scale = pScale;
+    }
+    scene.tweens.add(tweenCfg);
   }
-  scene.tweens.add(tweenCfg);
 
   sprite.on('destroy', () => {
-    scene.tweens.killTweensOf(glow);
-    glow.destroy();
+    for (const glow of glows) {
+      scene.tweens.killTweensOf(glow);
+      glow.destroy();
+    }
   });
 
-  return glow;
+  return glows[0];
 }
 
 // ── Overlay / particles ─────────────────────────────────────────────
