@@ -143,6 +143,7 @@ export function setupMultiplayer(io: Server): void {
       }
 
       const players = lobbies.serializePlayers(lobby);
+      console.log(`[game:start] Lobby ${lobby.id} — ${players.length} players:`, players.map(p => `${p.name}(${p.id.slice(0,8)})`).join(', '));
       // Clear any stale death data for this lobby
       lobbyDeathData.set(lobby.id, new Map());
 
@@ -187,7 +188,10 @@ export function setupMultiplayer(io: Server): void {
 
     socket.on('game:position', (data: { x: number; lane: string; t?: number }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
-      if (!lobbyId) return;
+      if (!lobbyId) {
+        console.warn(`[game:position] No lobby for socket ${socket.id} (name: ${playerName})`);
+        return;
+      }
       socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane, t: data.t });
     });
 
