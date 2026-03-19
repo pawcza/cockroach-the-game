@@ -1,10 +1,9 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
-import { COLORS } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
-import { spawnFloatingParticle } from '../ui/SceneBackground';
+import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
-import { crossfadeTransition } from '../utils/SceneTransition';
+import { sceneManager } from '../systems/SceneManager';
 import { getPlayerName, getPlayerNameOrDefault } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 
@@ -25,15 +24,13 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Background — scale to cover the canvas
-    const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
-    mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
+    // Background with all effects
+    createSceneBackground(this, {
+      textureKey: 'menu-bg-multiplayer',
+      overlayAlpha: 0.4,
+      lighting: { colors: [0x44ccff, 0x2288ff, 0x00ffcc, 0x6688ff, 0x22ddff] },
+    });
 
-    // Floating neon particles
-    for (let i = 0; i < 10; i++) {
-      spawnFloatingParticle(this, width, height, COLORS.NEON);
-    }
 
     // --- TITLE: ZJAZD KARALUCHOW ---
     const title = this.add.text(width / 2, 50, 'ZJAZD\nKARALUCH\u00d3W', titleStyle({
@@ -134,8 +131,9 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     // "Powrot" back button
     createButton(this, width / 2, height - 30, 200, 30, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), () => {
-      mpClient.disconnect();
-      crossfadeTransition(500, () => this.scene.start('MenuScene'));
+      sceneManager.goto(this, 'MenuScene', undefined, () => {
+        mpClient.disconnect();
+      });
     });
 
     // --- CONNECT AND LISTEN FOR LOBBY UPDATES ---
@@ -268,7 +266,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     mpClient.setName(name);
     try {
       const lobbyData = await mpClient.joinLobby(lobbyId);
-      this.scene.start('LobbyScene', { lobbyData });
+      sceneManager.goto(this, 'LobbyScene', { lobbyData });
     } catch {
       // Could show error
     }
@@ -279,7 +277,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     mpClient.setName(name);
     try {
       const lobbyData = await mpClient.createLobby();
-      this.scene.start('LobbyScene', { lobbyData });
+      sceneManager.goto(this, 'LobbyScene', { lobbyData });
     } catch {
       // Could show error
     }

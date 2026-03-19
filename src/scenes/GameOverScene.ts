@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
 import { COLORS } from '../config/constants';
 import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, getScale } from '../utils/TextStyles';
-import { createPulsingOverlay } from '../utils/TweenPatterns';
 import { createButton } from '../ui/shared';
-import { crossfadeTransition } from '../utils/SceneTransition';
+import { createSceneBackground } from '../ui/SceneBackground';
+import { sceneManager } from '../systems/SceneManager';
 import { getHighScore, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 
@@ -20,7 +20,6 @@ interface GameOverData {
 }
 
 export class GameOverScene extends Phaser.Scene {
-  private gameoverBgm: Phaser.Sound.BaseSound | null = null;
   private restartBound = false;
 
   private static readonly DEATH_TEXT: Record<string, string> = {
@@ -82,10 +81,6 @@ export class GameOverScene extends Phaser.Scene {
       this.spawnConfetti(width, height);
     }
 
-    // Game over music
-    this.gameoverBgm = this.sound.add('gameover-bgm', { volume: 0.3, loop: true });
-    this.gameoverBgm.play();
-
     // Check if score qualifies for top 100 leaderboard
     const finalScore = data?.score ?? 0;
     fetchScores().then((scores) => {
@@ -100,7 +95,12 @@ export class GameOverScene extends Phaser.Scene {
   // -- Background & atmosphere -----------------------------------------------
 
   private setupBackground(width: number, height: number): void {
-    createPulsingOverlay(this, width, height, 0x440000, 0.3, 0.05);
+    createSceneBackground(this, {
+      textureKey: 'menu-bg',
+      cycleColorFrom: 0x440000,
+      cycleColorTo: 0x880022,
+      lighting: { colors: [0xff2222, 0xcc0000, 0xff4444, 0x880000, 0xff6644] },
+    });
 
     this.tweens.add({
       targets: this.cameras.main,
@@ -340,25 +340,11 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private restartGame(): void {
-    crossfadeTransition(500, () => {
-      this.stopMusic();
-      this.scene.start('GameScene', { multiplayer: false });
-    });
+    sceneManager.goto(this, 'GameScene', { multiplayer: false });
   }
 
   private goToMenu(): void {
-    crossfadeTransition(500, () => {
-      this.stopMusic();
-      this.scene.start('MenuScene');
-    });
-  }
-
-  private stopMusic(): void {
-    if (this.gameoverBgm) {
-      this.gameoverBgm.stop();
-      this.gameoverBgm.destroy();
-      this.gameoverBgm = null;
-    }
+    sceneManager.goto(this, 'MenuScene');
   }
 
   // -- Network ----------------------------------------------------------------

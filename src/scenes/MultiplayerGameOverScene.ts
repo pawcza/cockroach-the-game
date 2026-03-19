@@ -3,9 +3,9 @@ import { mpClient } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
 import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, getScale, FONT_FAMILY } from '../utils/TextStyles';
-import { createPulsingOverlay } from '../utils/TweenPatterns';
-import { spawnFloatingParticle } from '../ui/SceneBackground';
+import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
+import { sceneManager } from '../systems/SceneManager';
 import { fetchScores } from '../ui/Scoreboard';
 import { updateHighScoreIfBetter, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
@@ -71,15 +71,14 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     const myId = data.myId;
     const isHost = data.isHost;
 
-    // --- Background --- scale to cover the canvas
-    const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
-    mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
-    createPulsingOverlay(this, width, height, 0x220044, 0.3, 0.05);
-
-    // Floating neon particles
-    for (let i = 0; i < 10; i++) {
-      spawnFloatingParticle(this, width, height, COLORS.NEON);
-    }
+    // --- Background with all effects ---
+    createSceneBackground(this, {
+      textureKey: 'menu-bg-multiplayer',
+      overlayAlpha: 0.4,
+      cycleColorFrom: 0x220044,
+      cycleColorTo: 0x440088,
+      lighting: { colors: [0xaa66ff, 0xffcc00, 0xff66aa, 0x8844ff, 0xffaa44] },
+    });
 
     // --- Title: "WYNIKI ZJAZDU" ---
     const title = this.add.text(width / 2, Math.round(30 * s), 'WYNIKI ZJAZDU', titleStyle({
@@ -347,9 +346,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
     // Leave button (everyone)
     createButton(this, width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnS, () => {
-      this.cleanupListeners();
-      mpClient.leaveLobby();
-      this.scene.start('MultiplayerMenuScene');
+      sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
+        this.cleanupListeners();
+        mpClient.leaveLobby();
+      });
     });
 
     // Host: Rematch with countdown; Non-host: waiting text
@@ -390,8 +390,9 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     // --- Socket listeners ---
     this.lobbyUpdatedHandler = (lobbyData: { id: string; players: any[]; status: string }) => {
       if (lobbyData.status === 'waiting') {
-        this.cleanupListeners();
-        this.scene.start('LobbyScene', { lobbyData });
+        sceneManager.goto(this, 'LobbyScene', { lobbyData }, () => {
+          this.cleanupListeners();
+        });
       }
     };
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
