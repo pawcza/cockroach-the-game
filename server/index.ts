@@ -7,7 +7,7 @@ import { getTopScores, getPlayerBest, insertScore } from './db';
 import { setupMultiplayer } from './multiplayer';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3456;
 
 app.use(express.json());
 
