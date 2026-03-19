@@ -46,7 +46,7 @@ export function setupDebugBot(_io: Server): void {
 export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any): void {
   const { io: ioClient } = require('socket.io-client');
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 3456;
   const bot = ioClient(`http://localhost:${port}`, {
     path: '/socket.io',
     transports: ['websocket'],

@@ -6,13 +6,14 @@ export default defineConfig({
     outDir: 'dist',
   },
   server: {
+    port: 5678,
     proxy: {
       '/api': {
         target: 'https://cockroach.wszystko.app',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3456',
         ws: true,
       },
     },
