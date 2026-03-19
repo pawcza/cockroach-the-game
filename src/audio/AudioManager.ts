@@ -88,8 +88,25 @@ export class AudioManager {
     this.scene.sound.play('pill-sfx', { volume: 0.8 });
   }
 
+  playComboChime(tier: number): void {
+    const rate = 1.0 + tier * 0.15;
+    this.scene.sound.play('apple', { volume: 0.4 + tier * 0.05, rate });
+  }
+
   playComboLost(): void {
     this.scene.sound.play('combo-lost', { volume: 0.6 });
+  }
+
+  glitchBGM(): void {
+    if (!this.bgm || !('setRate' in this.bgm)) return;
+    const sound = this.bgm as Phaser.Sound.WebAudioSound;
+    const originalRate = sound.rate;
+    sound.setRate(0.5);
+    this.scene.time.delayedCall(150, () => {
+      if (this.bgm && this.bgm.isPlaying) {
+        (this.bgm as Phaser.Sound.WebAudioSound).setRate(originalRate);
+      }
+    });
   }
 
   updatePitch(speedMultiplier: number): void {

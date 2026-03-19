@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { sceneManager } from '../systems/SceneManager';
 
 export class BootScene extends Phaser.Scene {
+  private deferredLoaded = false;
+
   constructor() {
     super({ key: 'BootScene' });
   }
@@ -94,24 +96,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image('menu-bg', ['assets/bg.webp', 'assets/bg-n.webp']);
     this.load.image('menu-bg-multiplayer', ['assets/bg-multiplayer.webp', 'assets/bg-multiplayer-n.webp']);
 
-    // --- Boss fight assets ---
-    const bossImages: [string, string][] = [
-      ['boss-gun', 'boss/gun.webp'],
-      ['boss-shell', 'boss/shell.webp'],
-      ['boss-bomb', 'boss/bomb.webp'],
-      ['boss-creamcake', 'boss/creamcake.webp'],
-      ['boss-dollar', 'boss/dollar.webp'],
-      ['boss-explosion1', 'boss/explosion1.webp'],
-      ['boss-explosion2', 'boss/explosion2.webp'],
-      ['boss-explosion3', 'boss/explosion3.webp'],
-      ['boss-face1', 'boss/face1.webp'],
-      ['boss-face2', 'boss/face2.webp'],
-      ['boss-face3', 'boss/face3.webp'],
-    ];
-    for (const [key, path] of bossImages) this.load.image(key, path);
-
     // --- Level backgrounds, floors, and BGM ---
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 3; i++) {
       for (const [prefix, dir] of [['sky', 'sky'], ['bg', 'mid'], ['fg', 'fg'], ['floor', 'floor']] as const) {
         const normalMap = `levels/${dir}/lv${i}-n.webp`;
         const hasNormal = i === 1; // lv1 has normal maps for lighting
@@ -154,7 +140,28 @@ export class BootScene extends Phaser.Scene {
     ];
     for (const [key, path] of audio) this.load.audio(key, path);
 
-    // Boss fight audio
+    // Score milestone sounds
+    const milestones = [100, 250, 420, 500, 1000, 1500, 2000, 2137, 3000, 4000, 4200, 5000, 10000];
+    for (const m of milestones) {
+      this.load.audio(`milestone-${m}`, `audio/${m}.ogg`);
+    }
+
+    // Boss fight assets (boss triggers at distance 450, during lv3 — must be ready at boot)
+    const bossImages: [string, string][] = [
+      ['boss-gun', 'boss/gun.webp'],
+      ['boss-shell', 'boss/shell.webp'],
+      ['boss-bomb', 'boss/bomb.webp'],
+      ['boss-creamcake', 'boss/creamcake.webp'],
+      ['boss-dollar', 'boss/dollar.webp'],
+      ['boss-explosion1', 'boss/explosion1.webp'],
+      ['boss-explosion2', 'boss/explosion2.webp'],
+      ['boss-explosion3', 'boss/explosion3.webp'],
+      ['boss-face1', 'boss/face1.webp'],
+      ['boss-face2', 'boss/face2.webp'],
+      ['boss-face3', 'boss/face3.webp'],
+    ];
+    for (const [key, path] of bossImages) this.load.image(key, path);
+
     const bossAudio: [string, string][] = [
       ['boss-choir', 'boss/choir.ogg'],
       ['boss-pistol', 'boss/pistol.ogg'],
@@ -169,12 +176,24 @@ export class BootScene extends Phaser.Scene {
     for (const [key, path] of bossAudio) this.load.audio(key, path);
     for (let i = 1; i <= 6; i++) this.load.audio(`boss-hurt-${i}`, `boss/hurt-${i}.ogg`);
     for (let i = 1; i <= 7; i++) this.load.audio(`boss-cue-${i}`, `boss/boss-cue-${i}.ogg`);
+  }
 
-    // Score milestone sounds
-    const milestones = [100, 250, 420, 500, 1000, 1500, 2000, 2137, 3000, 4000, 4200, 5000, 10000];
-    for (const m of milestones) {
-      this.load.audio(`milestone-${m}`, `audio/${m}.ogg`);
+  /** Load deferred assets using the calling scene's loader (BootScene is shut down by then). */
+  loadDeferred(callerScene: Phaser.Scene): void {
+    if (this.deferredLoaded) return;
+    this.deferredLoaded = true;
+
+    for (let i = 4; i <= 10; i++) {
+      for (const [prefix, dir] of [['sky', 'sky'], ['bg', 'mid'], ['fg', 'fg'], ['floor', 'floor']] as const) {
+        callerScene.load.image(`lv${i}-${prefix}`, `levels/${dir}/lv${i}.webp`);
+      }
+      callerScene.load.audio(`bgm-lv${i}`, `levels/soundtracks/lv${i}.ogg`);
     }
+
+    callerScene.load.once('complete', () => {
+      this.game.events.emit('deferred-loaded');
+    });
+    callerScene.load.start();
   }
 
   create(): void {

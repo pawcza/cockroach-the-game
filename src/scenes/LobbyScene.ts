@@ -21,8 +21,6 @@ export class LobbyScene extends Phaser.Scene {
   private titleText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
   private gameStartHandler!: (data: { seed: number; players: MPPlayer[] }) => void;
-  private visibilityHandler!: () => void;
-
   constructor() {
     super({ key: 'LobbyScene' });
   }
@@ -119,22 +117,6 @@ export class LobbyScene extends Phaser.Scene {
       });
     });
 
-    // --- VISIBILITY CHANGE ---
-    this.visibilityHandler = () => {
-      if (document.hidden && !this.isHost()) {
-        const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
-        if (me?.ready) {
-          mpClient.setReady(false).then((updatedLobby) => {
-            this.lobbyData = updatedLobby;
-            this.renderPlayerList();
-            this.updateStartButton();
-            this.updateReadyButton();
-          }).catch((err) => { console.error('unready failed:', err); });
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', this.visibilityHandler);
-
     // --- RENDER INITIAL STATE ---
     this.renderPlayerList();
     this.updateStartButton();
@@ -165,7 +147,6 @@ export class LobbyScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       mpClient.off('game:start', this.gameStartHandler);
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
       maskGraphics.destroy();
     });
   }

@@ -120,15 +120,16 @@ export class FloorManager {
       const tileLevelConfig = getLevelForDistance(tileDistance);
       const tileTextureKey = `floor-rounded-lv${tileLevelConfig.level}`;
 
+      const hasTexture = this.scene.textures.exists(tileTextureKey);
       const topStepped = this.isTileStepped(tx, this.steppedTopRanges);
       this.floorTopSprites[i].setVisible(!topStepped);
-      if (!topStepped && this.floorTopSprites[i].texture.key !== tileTextureKey) {
+      if (!topStepped && hasTexture && this.floorTopSprites[i].texture.key !== tileTextureKey) {
         this.floorTopSprites[i].setTexture(tileTextureKey);
       }
 
       const bottomStepped = this.isTileStepped(tx, this.steppedBottomRanges);
       this.floorBottomSprites[i].setVisible(!bottomStepped);
-      if (!bottomStepped && this.floorBottomSprites[i].texture.key !== tileTextureKey) {
+      if (!bottomStepped && hasTexture && this.floorBottomSprites[i].texture.key !== tileTextureKey) {
         this.floorBottomSprites[i].setTexture(tileTextureKey);
       }
     }
@@ -147,10 +148,15 @@ export class FloorManager {
     this.floorHighlightBottom.setAlpha(currentPlayerFloor === 'bottom' ? pulseAlpha : 0);
   }
 
+  regenerateFloorTextures(): void {
+    this.generateRoundedFloorTextures();
+  }
+
   private generateRoundedFloorTextures(): void {
     for (let i = 1; i <= 10; i++) {
       const key = `floor-rounded-lv${i}`;
       const sourceKey = `lv${i}-floor`;
+      if (!this.scene.textures.exists(sourceKey)) continue;
       const sourceImage = this.scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
 
       if (this.scene.textures.exists(key)) {
@@ -198,6 +204,7 @@ export class FloorManager {
       const tileDistance = (startX - COCKROACH_START_X) / 50;
       const tileLevelConfig = getLevelForDistance(tileDistance);
       const textureKey = `floor-rounded-lv${tileLevelConfig.level}`;
+      if (!this.scene.textures.exists(textureKey)) { startX += FLOOR_TILE_STEP; tilesSpawned++; continue; }
 
       const fallingTile = this.scene.add.image(startX, floorY, textureKey)
         .setOrigin(0, 0).setDepth(DEPTH.FLOOR);

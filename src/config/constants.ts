@@ -121,3 +121,12 @@ export const DEPTH = {
   PAUSE_BTN: 5000,
   PAUSE_BTN_LABEL: 5001,
 } as const;
+
+export const COMBO_TIERS = [
+  { threshold: 5,   color: 0x44ff44, label: 'NIEZŁE!', audioTier: 1 },
+  { threshold: 10,  color: 0xffff00, label: 'MASAKRA!', audioTier: 2 },
+  { threshold: 25,  color: 0xff6600, label: 'SZALEŃSTWO!', audioTier: 3 },
+  { threshold: 50,  color: 0xff00ff, label: 'TURBOKOMPOT!', audioTier: 4 },
+  { threshold: 100, color: 0x00ffff, label: 'ULTRA KARALUCH!', audioTier: 5 },
+  { threshold: 150, color: 0xff0000, label: 'NIEMOŻLIWE!!!', audioTier: 6 },
+] as const;

@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
 import { COLORS } from '../config/constants';
-import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, getScale } from '../utils/TextStyles';
+import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, popupStyle, getScale } from '../utils/TextStyles';
 import { createButton } from '../ui/shared';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { sceneManager } from '../systems/SceneManager';
 import { getHighScore, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
+import { ReplayData } from '../systems/DeathReplay';
 
 interface GameOverData {
   score: number;
@@ -17,25 +18,27 @@ interface GameOverData {
   level?: number;
   maxCombo?: number;
   pickupCounts?: { apples: number; beers: number; pills: number };
+  replayData?: ReplayData | null;
 }
 
 export class GameOverScene extends Phaser.Scene {
   private restartBound = false;
+  private replayData: ReplayData | null = null;
 
-  private static readonly DEATH_TEXT: Record<string, string> = {
-    bird: 'SRAK CIĘ OPTAKAŁ',
-    cat: 'Rozkotowany',
-    flipper: 'Kubota Ci w ryj!',
-    newspaper: 'Złe wybory kolego',
-    onion: 'Smrót Cię zmiótł',
-    spray: 'MUGA!',
-    pill: 'PRZEDAWKOWANIE!',
-    disco: 'DYSKOTEKA ZAMKNIĘTA!',
-    jellyfish: 'UŻĄDLONY NA BAŁTYKU!',
-    pope: 'OKADZONY PRZEZ PAPIEŻA!',
-    bison: 'ŻUBR CIĘ STRATOWAŁ!',
-    blackhole: 'WCIĄGNIĘTY W NICOŚĆ!',
-    boss: 'BESTIA CIĘ DOPADŁA!',
+  private static readonly DEATH_TEXT: Record<string, string[]> = {
+    bird: ['Srak cię optakał', 'Gołąb zemsty!', 'Bombardowanie z góry!'],
+    cat: ['Rozkotowany', 'Łapa losu!', 'Kici kici... pac!'],
+    flipper: ['Kubota ci w ryj!', 'Klapek sprawiedliwości!', 'Ciapnięty na amen!'],
+    newspaper: ['Złe wybory kolego', 'Gazeta prawdy!', 'Przywalony faktem!'],
+    onion: ['Smrót cię zmiótł', 'Cebulowy nokaut!', 'Zapłakałeś na wieki!'],
+    spray: ['Muga!', 'Psik i po tobie!', 'Toksyczny koniec!'],
+    pill: ['Przedawkowanie!', 'Za dużo dobrego!', 'Narkotyczny zgon!'],
+    disco: ['Dyskoteka zamknięta!', 'Ostatni taniec!', 'Kto nie tańczy ten ginie!'],
+    jellyfish: ['Użądlony na Bałtyku!', 'Meduza ci w twarz!', 'Morska zemsta!'],
+    pope: ['Okadzony przez papieża!', 'Kremówka ostatnia!', 'Santo subito... ale nie ty!'],
+    bison: ['Żubr cię stratował!', 'Żubrówka na kopyta!', 'Byka złapałeś!'],
+    blackhole: ['Wciągnięty w nicość!', 'Ssanie kosmiczne!', 'Karaluch w próżni!'],
+    boss: ['Bestia cię dopadła!', 'Wadowice zwyciężyły!', 'Kremówkowy armagedon!'],
   };
 
   private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
@@ -53,7 +56,7 @@ export class GameOverScene extends Phaser.Scene {
     boss: 'boss-face2',
   };
 
-  private static readonly DEFAULT_DEATH = 'ZGNIOTŁEŚ SIĘ!';
+  private static readonly DEFAULT_DEATH = 'Zgniotłeś się!';
 
   constructor() {
     super({ key: 'GameOverScene' });
@@ -62,12 +65,14 @@ export class GameOverScene extends Phaser.Scene {
   create(data: GameOverData): void {
     const { width, height } = this.cameras.main;
     this.restartBound = false;
+    this.replayData = data?.replayData ?? null;
 
     this.cameras.main.setBackgroundColor('#0a0a0a');
     this.setupBackground(width, height);
 
-    const deathMessage = data?.obstacleType
-      ? GameOverScene.DEATH_TEXT[data.obstacleType] || GameOverScene.DEFAULT_DEATH
+    const texts = data?.obstacleType ? GameOverScene.DEATH_TEXT[data.obstacleType] : null;
+    const deathMessage = texts
+      ? texts[Math.floor(Math.random() * texts.length)]
       : GameOverScene.DEFAULT_DEATH;
 
     const titleY = this.setupDeathTitle(width, height, deathMessage);
@@ -296,12 +301,21 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     const btnY = height - Math.round(60 * s);
-    const btnW = Math.round(160 * s);
     const btnH = Math.round(44 * s);
-    const gap = Math.round(16 * s);
+    const gap = Math.round(10 * s);
+    const hasReplay = this.replayData && this.replayData.frames.length > 0;
+    const btnW = Math.round(130 * s);
 
-    createButton(this, width / 2 - btnW / 2 - gap / 2, btnY, btnW, btnH, 'Ekran Główny', 0x666666, btnS, () => this.goToMenu());
-    createButton(this, width / 2 + btnW / 2 + gap / 2, btnY, btnW, btnH, 'Powtórka', 0x880000, btnS, () => this.restartGame());
+    if (hasReplay) {
+      const totalW = btnW * 3 + gap * 2;
+      const startX = width / 2 - totalW / 2 + btnW / 2;
+      createButton(this, startX, btnY, btnW, btnH, 'Menu', 0x666666, btnS, () => this.goToMenu());
+      createButton(this, startX + btnW + gap, btnY, btnW, btnH, 'Powtórka', 0x333366, btnS, () => this.playReplay());
+      createButton(this, startX + (btnW + gap) * 2, btnY, btnW, btnH, 'Jeszcze raz!', 0x880000, btnS, () => this.restartGame());
+    } else {
+      createButton(this, width / 2 - btnW / 2 - gap / 2, btnY, btnW, btnH, 'Menu', 0x666666, btnS, () => this.goToMenu());
+      createButton(this, width / 2 + btnW / 2 + gap / 2, btnY, btnW, btnH, 'Jeszcze raz!', 0x880000, btnS, () => this.restartGame());
+    }
 
     // "Zapisz" button below the highscore text when score qualifies for top 100
     if (canSave) {
@@ -345,6 +359,145 @@ export class GameOverScene extends Phaser.Scene {
 
   private goToMenu(): void {
     sceneManager.goto(this, 'MenuScene');
+  }
+
+  private playReplay(): void {
+    if (!this.replayData || this.replayData.frames.length < 2) return;
+    const data = this.replayData;
+    const { width, height } = this.cameras.main;
+    const cleanup: Phaser.GameObjects.GameObject[] = [];
+    const COCKROACH_SCREEN_X = 200;
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85)
+      .setScrollFactor(0).setDepth(1000);
+    cleanup.push(overlay);
+
+    // Floor reference lines
+    const floorGfx = this.add.graphics().setScrollFactor(0).setDepth(1000);
+    floorGfx.lineStyle(1, 0x444444, 0.5);
+    floorGfx.lineBetween(0, 296, width, 296);
+    floorGfx.lineBetween(0, 396, width, 396);
+    cleanup.push(floorGfx);
+
+    // Create world sprites — positioned relative to cockroach each frame
+    // Obstacles: blue tint (avoided), killer: red pulsing
+    const lastFrame = data.frames[data.frames.length - 1];
+    const killerTexture = data.obstacleType ? GameOverScene.OBSTACLE_TEXTURE[data.obstacleType] : null;
+
+    const worldSprites: { img: Phaser.GameObjects.Image; worldX: number; baseY: number }[] = [];
+
+    for (const obs of data.obstacles) {
+      if (!this.textures.exists(obs.textureKey)) continue;
+      const img = this.add.image(0, obs.y, obs.textureKey)
+        .setScale(0.22).setScrollFactor(0).setDepth(1001).setAlpha(0.7).setTint(0x4488ff);
+      cleanup.push(img);
+      worldSprites.push({ img, worldX: obs.worldX, baseY: obs.y });
+    }
+
+    for (const pk of data.pickups) {
+      if (!this.textures.exists(pk.textureKey)) continue;
+      const img = this.add.image(0, pk.y, pk.textureKey)
+        .setScale(0.15).setScrollFactor(0).setDepth(1001).setAlpha(0.7).setTint(0x44ff44);
+      cleanup.push(img);
+      worldSprites.push({ img, worldX: pk.worldX, baseY: pk.y });
+    }
+
+    // Killer obstacle — separate so it gets red pulsing tint and higher depth
+    let killerSprite: Phaser.GameObjects.Image | null = null;
+    if (killerTexture && this.textures.exists(killerTexture)) {
+      // Place killer just ahead of death position
+      killerSprite = this.add.image(0, lastFrame.y, killerTexture)
+        .setScale(0.25).setScrollFactor(0).setDepth(1002).setAlpha(0.9);
+      cleanup.push(killerSprite);
+    }
+    // Killer world X: slightly ahead of where the cockroach died
+    const killerWorldX = lastFrame.x + 50;
+
+    const ghost = this.add.sprite(COCKROACH_SCREEN_X, data.frames[0].y, 'cockroach-idle')
+      .setScale(0.30).setAlpha(0.7).setTint(0x8888ff).setScrollFactor(0).setDepth(1003);
+    cleanup.push(ghost);
+
+    const label = this.add.text(width / 2, 30, '', popupStyle({ fontSize: '10px', color: '#ff4444' }))
+      .setOrigin(0.5).setScrollFactor(0).setDepth(1004);
+    cleanup.push(label);
+
+    let frameIndex = 0;
+    let deathAnimPlayed = false;
+    const playbackStart = this.time.now;
+    const replayDuration = data.frames[data.frames.length - 1].time - data.frames[0].time;
+    const baseTime = data.frames[0].time;
+
+    const replayUpdate = (): void => {
+      const elapsed = this.time.now - playbackStart;
+      const replayTime = baseTime + elapsed;
+
+      while (frameIndex < data.frames.length - 1 && data.frames[frameIndex + 1].time <= replayTime) {
+        frameIndex++;
+      }
+
+      const frame = data.frames[frameIndex];
+      ghost.setPosition(COCKROACH_SCREEN_X, frame.y);
+      ghost.setTexture(frame.texture);
+      if (frame.isDashing) ghost.setTint(0xffffff);
+      else if (frame.isPillActive) ghost.setTint(0xff00ff);
+      else ghost.setTint(0x8888ff);
+
+      // Position all world sprites relative to cockroach — they scroll left as cockroach "moves"
+      const cameraWorldX = frame.x - COCKROACH_SCREEN_X;
+      for (const ws of worldSprites) {
+        const screenX = ws.worldX - cameraWorldX;
+        ws.img.setX(screenX);
+        // Float up/down like real game pickups/obstacles
+        ws.img.setY(ws.baseY + Math.sin(elapsed * 0.004 + ws.worldX * 0.01) * 6);
+        ws.img.setVisible(screenX > -50 && screenX < width + 50);
+      }
+
+      // Killer follows same world-relative positioning + red pulse
+      if (killerSprite) {
+        const killerScreenX = killerWorldX - cameraWorldX;
+        killerSprite.setX(killerScreenX);
+        killerSprite.setVisible(killerScreenX > -50 && killerScreenX < width + 50);
+        const pulse = Math.sin(elapsed * 0.01) * 0.5 + 0.5;
+        killerSprite.setTint(Phaser.Display.Color.GetColor(255, Math.floor(pulse * 100), Math.floor(pulse * 100)));
+      }
+
+      const remaining = Math.ceil((replayDuration - elapsed) / 1000);
+      if (remaining > 0) label.setText(`${remaining}...`);
+      else label.setText('');
+
+      // Death animation at the end of replay
+      if (frameIndex >= data.frames.length - 1 && !deathAnimPlayed) {
+        deathAnimPlayed = true;
+        ghost.setTint(0x444444);
+        this.tweens.add({
+          targets: ghost,
+          y: ghost.y - 80,
+          x: ghost.x - 20,
+          angle: 720,
+          alpha: 0,
+          duration: 1000,
+          ease: 'Linear',
+        });
+        this.cameras.main.shake(200, 0.005);
+      }
+
+      // Cleanup after death anim finishes
+      if (elapsed >= replayDuration + 1500 && !cleanup.find(o => (o as any)._fading)) {
+        this.events.off('update', replayUpdate);
+        (overlay as any)._fading = true;
+        this.tweens.add({
+          targets: cleanup.filter(o => o.active),
+          alpha: 0,
+          duration: 500,
+          ease: 'Power2',
+          onComplete: () => {
+            for (const obj of cleanup) if (obj.active) obj.destroy();
+          },
+        });
+      }
+    };
+
+    this.events.on('update', replayUpdate);
   }
 
   // -- Network ----------------------------------------------------------------
