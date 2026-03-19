@@ -36,7 +36,7 @@ export const DASH_SPEED_BOOST = 300; // flat px/s added during dash
 // Pill pickup
 export const PILL_SPAWN_CHANCE = 0.005; // 0.5% - 10x rarer than beer
 export const PILL_SPEED_MULTIPLIER = 1.5;
-export const PILL_DURATION = 4000; // 4 seconds
+export const PILL_DURATION = 5000; // 5 seconds
 export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
 
 // Speed per level (added on top of time-based acceleration)
