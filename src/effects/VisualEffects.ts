@@ -256,6 +256,19 @@ export class VisualEffects {
     });
   }
 
+  comboTierFlash(color: number): void {
+    const { width, height } = this.scene.cameras.main;
+    const flash = this.scene.add.rectangle(width / 2, height / 2, width, height, color, 0.15)
+      .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE).setBlendMode(Phaser.BlendModes.ADD);
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power2',
+      onComplete: () => flash.destroy(),
+    });
+  }
+
   deathEffect(): void {
     if (!this.initialized) return;
 

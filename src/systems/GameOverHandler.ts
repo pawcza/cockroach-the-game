@@ -7,6 +7,7 @@ import { AudioManager } from '../audio/AudioManager';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from './SceneManager';
+import { ReplayData } from './DeathReplay';
 import { GameHUD } from '../ui/GameHUD';
 import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed } from '../utils/Storage';
 
@@ -52,6 +53,7 @@ export class GameOverHandler {
   private followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
   private cleanupBossFight: () => void;
   private onDeath: (score: number, stats: Record<string, unknown>) => void;
+  private getReplayData: (obstacleType: string | null) => ReplayData | null;
 
   get mpGameOverTriggered(): boolean { return this._mpGameOverTriggered; }
 
@@ -75,6 +77,7 @@ export class GameOverHandler {
       followSpectateTarget: (sprite: Phaser.GameObjects.Sprite) => void;
       onDeath: (score: number, stats: Record<string, unknown>) => void;
       cleanupBossFight: () => void;
+      getReplayData: (obstacleType: string | null) => ReplayData | null;
     },
   ) {
     this.scene = scene;
@@ -95,6 +98,7 @@ export class GameOverHandler {
     this.followSpectateTarget = callbacks.followSpectateTarget;
     this.onDeath = callbacks.onDeath;
     this.cleanupBossFight = callbacks.cleanupBossFight;
+    this.getReplayData = callbacks.getReplayData;
     this.mpMyName = getPlayerNameOrDefault();
   }
 
@@ -158,6 +162,7 @@ export class GameOverHandler {
     // Solo mode
     incrementGamesPlayed();
     updateHighScoreIfBetter(score);
+    const replayData = this.getReplayData(obstacleType || null);
 
     // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)
     window.setTimeout(() => {
@@ -170,6 +175,7 @@ export class GameOverHandler {
         level: this.getCurrentLevel(),
         maxCombo: this.getMaxCombo(),
         pickupCounts: this.getPickupCounts(),
+        replayData,
       }, () => {
         this.vfx.destroy();
         this.audio.destroy();
@@ -180,6 +186,7 @@ export class GameOverHandler {
   triggerMultiplayerGameOver(): void {
     if (this._mpGameOverTriggered) return;
     this.cleanupBossFight();
+    const replayData = this.getReplayData(null);
     this.scene.time.delayedCall(3000, () => {
       if (this._mpGameOverTriggered) return;
       this._mpGameOverTriggered = true;
@@ -197,6 +204,7 @@ export class GameOverHandler {
         rankings,
         myId: mpClient.myId,
         isHost: false,
+        replayData,
       }, () => {
         this.audio.destroy();
         this.scene.sound.stopAll();

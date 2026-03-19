@@ -14,6 +14,7 @@ import { MPPlayer } from '../multiplayer/MultiplayerClient';
 import { GameEventBridge } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { VisualEffects } from '../effects/VisualEffects';
+import { playLevelGlitch } from '../effects/LevelTransitionFX';
 import { AudioManager } from '../audio/AudioManager';
 import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
 import { GameHUD, HUDUpdateData } from '../ui/GameHUD';
@@ -25,11 +26,15 @@ import { SpawnManager } from '../systems/SpawnManager';
 import { CollisionManager } from '../systems/CollisionManager';
 import { PauseManager } from '../systems/PauseManager';
 import { GameOverHandler } from '../systems/GameOverHandler';
+import { DeathReplayRecorder } from '../systems/DeathReplay';
+import { ComboFeedback } from '../systems/ComboFeedback';
+import { WeatherSystem } from '../systems/WeatherSystem';
 import { BossFight, BOSS_MAX_HP } from '../systems/BossFight';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from '../systems/SceneManager';
+import { BootScene } from './BootScene';
 
-const BOSS_TRIGGER_DISTANCE = 450; // After lv3. Production: 2600
+const BOSS_TRIGGER_DISTANCE = 450;
 
 export class GameScene extends Phaser.Scene {
   // Floor positions
@@ -84,6 +89,9 @@ export class GameScene extends Phaser.Scene {
   private collisionManager!: CollisionManager;
   private pauseManager!: PauseManager;
   private gameOverHandler!: GameOverHandler;
+  private comboFeedback!: ComboFeedback;
+  private weather!: WeatherSystem;
+  private replayRecorder!: DeathReplayRecorder;
   private bossFight: BossFight | null = null;
   private isBossFight = false;
   private bossDefeated = false;
@@ -264,13 +272,34 @@ export class GameScene extends Phaser.Scene {
       });
     });
     this.hud.create();
+    this.comboFeedback = new ComboFeedback(this);
+    this.weather = new WeatherSystem(this);
+    this.replayRecorder = new DeathReplayRecorder();
+
+    (this.scene.get('BootScene') as BootScene).loadDeferred(this);
+    this.game.events.once('deferred-loaded', () => {
+      this.floorManager.regenerateFloorTextures();
+      // Apply current level's backgrounds if they were skipped during deferred loading
+      const lvlConfig = getLevelForDistance(this.getDistance());
+      if (lvlConfig.level > 3) {
+        this.switchLevel(lvlConfig);
+      }
+    });
 
     // Collision manager
     this.collisionManager = new CollisionManager(this, this.player, this.vfx, this.audio, {
       getScore: () => this.score,
       addScore: (points) => { this.score += points; this.hud.updateScore(this.score); },
       getPickupCombo: () => this.pickupCombo,
-      incrementCombo: () => { this.pickupCombo++; if (this.pickupCombo > this.maxCombo) this.maxCombo = this.pickupCombo; },
+      incrementCombo: () => {
+        this.pickupCombo++;
+        if (this.pickupCombo > this.maxCombo) this.maxCombo = this.pickupCombo;
+        const tier = this.comboFeedback.onPickup(this.pickupCombo);
+        if (tier) {
+          this.audio.playComboChime(tier.audioTier);
+          this.vfx.comboTierFlash(tier.color);
+        }
+      },
       getComboMultiplier: () => this.getComboMultiplier(),
       onAppleCollected: () => { this.applesCollected++; },
       onBeerCollected: () => { this.beersCollected++; },
@@ -308,6 +337,18 @@ export class GameScene extends Phaser.Scene {
         this.bossFight?.destroy();
         this.bossFight = null;
         this.isBossFight = false;
+      },
+      getReplayData: (obstacleType) => {
+        const snapGroup = (group: Phaser.Physics.Arcade.Group) =>
+          group.getChildren().map(obj => {
+            const s = obj as Phaser.Physics.Arcade.Sprite;
+            return { worldX: s.x, y: s.y, textureKey: s.texture.key };
+          });
+        return this.replayRecorder.getReplayData(
+          obstacleType,
+          snapGroup(this.obstacles),
+          [...snapGroup(this.apples), ...snapGroup(this.beers), ...snapGroup(this.pills)],
+        );
       },
     });
 
@@ -384,6 +425,16 @@ export class GameScene extends Phaser.Scene {
           }
           this.isBossFight = false;
           this.bossDefeated = true;
+          this.hud.hideBossHP();
+          // Resume player and camera for all clients (solo path handles this in onComplete)
+          if (!this.isDead) {
+            this.player.resumeAfterBossFight();
+            this.player.updateSpeed(this.activePlayTime, this.currentLevel);
+            this.cameras.main.startFollow(this.player.sprite, true, 1, 0);
+            this.cameras.main.setFollowOffset(-200, 0);
+            this.clock.resume();
+            this.spawnManager.advanceSpawnX(this.player.x + 400);
+          }
         },
         onBossHostTransfer: (data) => {
           if (data.newHostId === mpClient.myId) {
@@ -397,6 +448,7 @@ export class GameScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       this.clock?.destroy();
       this.eventBridge?.destroy();
+      this.weather?.destroy();
       this.bossFight?.destroy();
       this.bossFight = null;
       this.ghostManager?.destroy();
@@ -545,8 +597,9 @@ export class GameScene extends Phaser.Scene {
           const ghostDistance = Math.floor((target.sprite.x - COCKROACH_START_X) / 50);
           const newLevelConfig = getLevelForDistance(ghostDistance);
           if (newLevelConfig.level !== this.currentLevel) {
-            this.currentLevel = newLevelConfig.level;
-            this.switchLevel(newLevelConfig);
+            if (this.switchLevel(newLevelConfig)) {
+              this.currentLevel = newLevelConfig.level;
+            }
           }
           this.gameOverHandler.checkSpectatedMilestones(target.liveScore);
           const hudData: HUDUpdateData = {
@@ -568,6 +621,7 @@ export class GameScene extends Phaser.Scene {
       this.vfx.comboLostEffect(comboLost);
       this.audio.playComboLost();
       this.pickupCombo = 0;
+      this.comboFeedback.onComboLost();
     }, this.pickupCombo);
 
         if (target && !target.alive) {
@@ -741,6 +795,11 @@ export class GameScene extends Phaser.Scene {
     if (this._wasPillActive && !this.player.isPillActive) this.eventBridge.onPillEnd(this.player.x);
     this._wasPillActive = this.player.isPillActive;
     this.player.updateVisuals();
+    this.replayRecorder.sample(
+      this.time.now, this.player.x, this.player.y,
+      this.player.currentFloor, this.player.isDashing,
+      this.player.isPillActive, this.player.sprite.texture.key,
+    );
 
     // Survival score (+1 per second)
     if (this.time.now - this.lastScoreTime >= 1000) {
@@ -755,8 +814,9 @@ export class GameScene extends Phaser.Scene {
     const distance = this.getDistance();
     const newLevelConfig = getLevelForDistance(distance);
     if (newLevelConfig.level !== this.currentLevel) {
-      this.currentLevel = newLevelConfig.level;
-      this.switchLevel(newLevelConfig);
+      if (this.switchLevel(newLevelConfig)) {
+        this.currentLevel = newLevelConfig.level;
+      }
     }
 
     // Boss fight trigger
@@ -790,6 +850,7 @@ export class GameScene extends Phaser.Scene {
       this.vfx.comboLostEffect(comboLost);
       this.audio.playComboLost();
       this.pickupCombo = 0;
+      this.comboFeedback.onComboLost();
     }, this.pickupCombo);
 
     // Visual effects & audio
@@ -902,7 +963,21 @@ export class GameScene extends Phaser.Scene {
     return Math.floor((this.player.x - COCKROACH_START_X) / 50);
   }
 
-  private switchLevel(config: LevelConfig): void {
+  private switchLevel(config: LevelConfig): boolean {
+    const skyKey = `lv${config.level}-sky`;
+    if (!this.textures.exists(skyKey)) {
+      if (this.cache.audio.exists(config.bgmKey)) {
+        this.audio.switchBGM(config.bgmKey);
+      }
+      return false;
+    }
+
+    playLevelGlitch(this);
+    this.audio.glitchBGM();
+
+    const weather = WeatherSystem.rollWeather(config.weatherChances, this.rng);
+    this.weather.setWeather(weather);
+
     this.nextSkyBg.setTexture(config.skyKey);
     this.nextMidBg.setTexture(config.bgKey);
     this.nextFgBg.setTexture(config.fgKey);
@@ -934,6 +1009,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.isDead) {
       this.hud.showLevelAnnouncement(config);
     }
+    return true;
   }
 
   private updateParallax(): void {
