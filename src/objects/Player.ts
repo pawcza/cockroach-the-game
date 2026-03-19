@@ -209,16 +209,18 @@ export class Player {
 
     if (this._isPillActive) {
       if (this._isPillWarning) {
-        const blinkOn = Math.floor(this.scene.time.now / 100) % 2 === 0;
-        if (blinkOn) {
-          this.cockroach.setTint(COLORS.PILL_GLOW);
-          this.cockroach.setAlpha(1);
-        } else {
-          this.cockroach.clearTint();
-          this.cockroach.setAlpha(0.4);
-        }
+        // Fade-away: intensity drops over the last PILL_WARN_TIME
+        const elapsed = this.scene.time.now - this._pillStartTime;
+        const warnProgress = Math.min(1, (elapsed - (PILL_DURATION - PILL_WARN_TIME)) / PILL_WARN_TIME);
+        const fade = 1 - warnProgress; // 1 → 0
+        const t = this.scene.time.now * 0.003;
+        const r = Math.floor((Math.sin(t) + 1) * 127);
+        const g = Math.floor((Math.sin(t + 2.094) + 1) * 127);
+        const b = Math.floor((Math.sin(t + 4.189) + 1) * 127);
+        this.cockroach.setTint(Phaser.Display.Color.GetColor(r, g, b));
+        this.cockroach.setAlpha(0.4 + fade * 0.6);
         this.cockroach.setScale(0.30);
-        this.pillOverlay.setFillStyle(COLORS.PILL_GLOW, blinkOn ? 0.1 : 0);
+        this.pillOverlay.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), fade * 0.15);
       } else {
         const t = this.scene.time.now * 0.003;
         const r = Math.floor((Math.sin(t) + 1) * 127);
@@ -468,8 +470,10 @@ export class Player {
     this._isPillActive = false;
     this._isPillWarning = false;
     this._pillSpeedBoost = 1;
-    this._isInvulnerable = false;
     this._pillStartTime = 0;
+
+    // Keep invulnerability for 0.5s with blinking cockroach
+    this._isInvulnerable = true;
 
     if (this.pillRainbowTimer) {
       this.pillRainbowTimer.destroy();
@@ -481,7 +485,6 @@ export class Player {
     }
 
     this.cockroach.clearTint();
-    this.cockroach.setAlpha(1);
     this.cockroach.setScale(0.30);
 
     this.pillOverlay.setFillStyle(0x000000, 0);
@@ -499,6 +502,25 @@ export class Player {
       popupStyle({ fontSize: '18px', color: '#ffff00', strokeThickness: 5 }),
       { floatY: 50, scale: 1.5, duration: 1500, scrollFactor: 0 },
     );
+
+    // Post-pill invulnerability blink for 0.5s
+    const blinkTimer = this.scene.time.addEvent({
+      delay: 60,
+      repeat: 7,
+      callback: () => {
+        if (this._isDead) return;
+        this.cockroach.setAlpha(this.cockroach.alpha < 1 ? 1 : 0.3);
+      },
+    });
+
+    this.scene.time.delayedCall(500, () => {
+      blinkTimer.destroy();
+      if (!this._isDead) {
+        this._isInvulnerable = false;
+        this.cockroach.setAlpha(1);
+        this.cockroach.clearTint();
+      }
+    });
   }
 
   die(): void {

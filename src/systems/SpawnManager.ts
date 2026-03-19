@@ -30,6 +30,7 @@ export class SpawnManager {
   private floorBottomY: number;
 
   private nextSpawnX: number;
+  private firstSpawn = true;
   private pendingPickupDestructions: number[] = [];
 
   constructor(
@@ -70,6 +71,13 @@ export class SpawnManager {
       const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
       const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.3);
       this.nextSpawnX += slotWidth;
+
+      // DEBUG: force first pickup to be a pill for testing vacuum effect
+      if (this.firstSpawn) {
+        this.firstSpawn = false;
+        this.spawnPill(slotX);
+        continue;
+      }
 
       const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {

@@ -147,6 +147,10 @@ export function attachGlow(
     scene.tweens.add(tweenCfg);
   }
 
+  // Store glow refs on the sprite so vacuum pull can move them
+  const existing: Phaser.GameObjects.Arc[] = sprite.getData('_glows') ?? [];
+  sprite.setData('_glows', [...existing, ...glows]);
+
   sprite.on('destroy', () => {
     for (const glow of glows) {
       scene.tweens.killTweensOf(glow);
