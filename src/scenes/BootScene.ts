@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sceneManager } from '../systems/SceneManager';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -50,69 +51,74 @@ export class BootScene extends Phaser.Scene {
 
     this.load.on('complete', () => {
       clearInterval(roachInterval);
-      loadOverlay.remove();
-      style.remove();
+      loadOverlay.style.transition = 'opacity 0.5s';
+      loadOverlay.style.opacity = '0';
+      loadOverlay.addEventListener('transitionend', () => {
+        loadOverlay.remove();
+        style.remove();
+      });
     });
 
     // --- Sprites ---
     const images: [string, string][] = [
-      ['cockroach', 'assets/cockroach.png'],
-      ['cockroach-idle', 'assets/cockroach-idle.png'],
-      ['cockroach-running', 'assets/cockroach-running.png'],
-      ['cockroach-dashing', 'assets/cockroach-dashing.png'],
-      ['cockroach-standing', 'assets/cockroach-standing.png'],
-      ['apple', 'assets/apple.png'],
-      ['menu-bg', 'assets/bg.png'],
-      ['menu-bg-multiplayer', 'assets/bg-multiplayer.png'],
-      ['pest-spray', 'assets/spray.png'],
-      ['newspaper', 'assets/newspaper.png'],
-      ['onion', 'assets/onion.png'],
-      ['flipper', 'assets/flipper.png'],
-      ['bird', 'assets/bird.png'],
-      ['cat-paw', 'assets/cat.png'],
-      ['bird-overlook', 'assets/bird-overlook.png'],
-      ['beer-1', 'assets/beer-1.png'],
-      ['beer-2', 'assets/beer-2.png'],
-      ['beer-3', 'assets/beer-3.png'],
-      ['beer-4', 'assets/beer-4.png'],
-      ['beer-5', 'assets/beer-5.png'],
-      ['beer-6', 'assets/beer-6.png'],
-      ['pill', 'assets/pill.png'],
-      ['disco-ball', 'assets/disco.png'],
-      ['jellyfish', 'assets/jellyfish.png'],
-      ['pope', 'assets/pope.png'],
-      ['bison', 'assets/bison.png'],
-      ['black-hole', 'assets/blackhole.png'],
-      ['cupboard', 'assets/cupboard.png'],
-      ['btn-bg', 'assets/btn.png'],
+      ['cockroach', 'assets/cockroach.webp'],
+      ['cockroach-idle', 'assets/cockroach-idle.webp'],
+      ['cockroach-running', 'assets/cockroach-running.webp'],
+      ['cockroach-dashing', 'assets/cockroach-dashing.webp'],
+      ['cockroach-standing', 'assets/cockroach-standing.webp'],
+      ['apple', 'assets/apple.webp'],
+      ['pest-spray', 'assets/spray.webp'],
+      ['newspaper', 'assets/newspaper.webp'],
+      ['onion', 'assets/onion.webp'],
+      ['flipper', 'assets/flipper.webp'],
+      ['bird', 'assets/bird.webp'],
+      ['cat-paw', 'assets/cat.webp'],
+      ['bird-overlook', 'assets/bird-overlook.webp'],
+      ['beer-1', 'assets/beer-1.webp'],
+      ['beer-2', 'assets/beer-2.webp'],
+      ['beer-3', 'assets/beer-3.webp'],
+      ['beer-4', 'assets/beer-4.webp'],
+      ['beer-5', 'assets/beer-5.webp'],
+      ['beer-6', 'assets/beer-6.webp'],
+      ['pill', 'assets/pill.webp'],
+      ['disco-ball', 'assets/disco.webp'],
+      ['jellyfish', 'assets/jellyfish.webp'],
+      ['pope', 'assets/pope.webp'],
+      ['bison', 'assets/bison.webp'],
+      ['black-hole', 'assets/blackhole.webp'],
+      ['btn-bg', 'assets/btn.webp'],
     ];
     for (const [key, path] of images) this.load.image(key, path);
 
+    // Menu backgrounds with normal maps for lighting
+    this.load.image('menu-bg', ['assets/bg.webp', 'assets/bg-n.webp']);
+    this.load.image('menu-bg-multiplayer', ['assets/bg-multiplayer.webp', 'assets/bg-multiplayer-n.webp']);
+
     // --- Boss fight assets ---
     const bossImages: [string, string][] = [
-      ['boss-gun', 'boss/gun.png'],
-      ['boss-shell', 'boss/shell.png'],
-      ['boss-bomb', 'boss/bomb.png'],
-      ['boss-creamcake', 'boss/creamcake.png'],
-      ['boss-dollar', 'boss/dollar.png'],
-      ['boss-explosion1', 'boss/explosion1.png'],
-      ['boss-explosion2', 'boss/explosion2.png'],
-      ['boss-explosion3', 'boss/explosion3.png'],
-      ['boss-face1', 'boss/face1.png'],
-      ['boss-face2', 'boss/face2.png'],
-      ['boss-face3', 'boss/face3.png'],
+      ['boss-gun', 'boss/gun.webp'],
+      ['boss-shell', 'boss/shell.webp'],
+      ['boss-bomb', 'boss/bomb.webp'],
+      ['boss-creamcake', 'boss/creamcake.webp'],
+      ['boss-dollar', 'boss/dollar.webp'],
+      ['boss-explosion1', 'boss/explosion1.webp'],
+      ['boss-explosion2', 'boss/explosion2.webp'],
+      ['boss-explosion3', 'boss/explosion3.webp'],
+      ['boss-face1', 'boss/face1.webp'],
+      ['boss-face2', 'boss/face2.webp'],
+      ['boss-face3', 'boss/face3.webp'],
     ];
     for (const [key, path] of bossImages) this.load.image(key, path);
 
     // --- Level backgrounds, floors, and BGM ---
     for (let i = 1; i <= 10; i++) {
       for (const [prefix, dir] of [['sky', 'sky'], ['bg', 'mid'], ['fg', 'fg'], ['floor', 'floor']] as const) {
-        const normalMap = `levels/${dir}/lv${i}-n.png`;
+        const normalMap = `levels/${dir}/lv${i}-n.webp`;
         const hasNormal = i === 1; // lv1 has normal maps for lighting
         if (hasNormal) {
-          this.load.image(`lv${i}-${prefix}`, [`levels/${dir}/lv${i}.png`, normalMap]);
+          this.load.image(`lv${i}-${prefix}`, [`levels/${dir}/lv${i}.webp`, normalMap]);
         } else {
-          this.load.image(`lv${i}-${prefix}`, `levels/${dir}/lv${i}.png`);
+          this.load.image(`lv${i}-${prefix}`, `levels/${dir}/lv${i}.webp`);
         }
       }
       this.load.audio(`bgm-lv${i}`, `levels/soundtracks/lv${i}.ogg`);
@@ -172,6 +178,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('MenuScene');
+    sceneManager.goto(this, 'MenuScene');
   }
 }

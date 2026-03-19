@@ -4,8 +4,9 @@ import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
 import { COLORS } from '../config/constants';
 import { neonStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
 import { floatUpDown } from '../utils/TweenPatterns';
-import { spawnFloatingParticle } from '../ui/SceneBackground';
+import { spawnFloatingParticle, setupMenuLighting } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
+import { sceneManager } from '../systems/SceneManager';
 
 export class LobbyScene extends Phaser.Scene {
   private lobbyData!: MPLobbyData;
@@ -36,6 +37,7 @@ export class LobbyScene extends Phaser.Scene {
     // Background — scale to cover the canvas
     const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
     mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
+    setupMenuLighting(this, mpBg);
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
 
     // Floating neon particles
@@ -97,7 +99,7 @@ export class LobbyScene extends Phaser.Scene {
     const startBtn = createButton(this, width / 2, actionBtnY, 260, 36, 'Rozpocznij Gr\u0119', 0x008800, btnS, () => {
       if (this.isStartEnabled()) {
         mpClient.startGame().then((res) => {
-          this.scene.start('GameScene', {
+          sceneManager.goto(this, 'GameScene', {
             multiplayer: true,
             seed: res.seed,
             players: res.players,
@@ -112,8 +114,9 @@ export class LobbyScene extends Phaser.Scene {
 
     // "Opusc" leave button
     const { bg: leaveBg, txt: leaveTxt } = createButton(this, width / 2, height - 25, 200, 30, 'Opu\u015b\u0107', 0x660000, buttonStyle({ fontSize: '10px' }), () => {
-      mpClient.leaveLobby();
-      this.scene.start('MultiplayerMenuScene');
+      sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
+        mpClient.leaveLobby();
+      });
     });
 
     // --- VISIBILITY CHANGE ---
@@ -147,7 +150,7 @@ export class LobbyScene extends Phaser.Scene {
     };
 
     this.gameStartHandler = (data: { seed: number; players: MPPlayer[] }) => {
-      this.scene.start('GameScene', {
+      sceneManager.goto(this, 'GameScene', {
         multiplayer: true,
         seed: data.seed,
         players: data.players,
