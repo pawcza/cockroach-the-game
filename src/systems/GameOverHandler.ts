@@ -6,7 +6,7 @@ import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
-import { crossfadeTransition } from '../utils/SceneTransition';
+import { sceneManager } from './SceneManager';
 import { GameHUD } from '../ui/GameHUD';
 import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed } from '../utils/Storage';
 
@@ -161,19 +161,18 @@ export class GameOverHandler {
 
     // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)
     window.setTimeout(() => {
-      crossfadeTransition(500, () => {
+      sceneManager.goto(this.scene, 'GameOverScene', {
+        score,
+        timeSurvived: Math.floor(this.getActivePlayTime() / 1000),
+        topSpeed: this.player.speedMultiplier,
+        distance: this.getDistance(),
+        obstacleType: obstacleType || null,
+        level: this.getCurrentLevel(),
+        maxCombo: this.getMaxCombo(),
+        pickupCounts: this.getPickupCounts(),
+      }, () => {
         this.vfx.destroy();
         this.audio.destroy();
-        this.scene.scene.start('GameOverScene', {
-          score,
-          timeSurvived: Math.floor(this.getActivePlayTime() / 1000),
-          topSpeed: this.player.speedMultiplier,
-          distance: this.getDistance(),
-          obstacleType: obstacleType || null,
-          level: this.getCurrentLevel(),
-          maxCombo: this.getMaxCombo(),
-          pickupCounts: this.getPickupCounts(),
-        });
       });
     }, 1000);
   }
@@ -194,14 +193,15 @@ export class GameOverHandler {
           maxSpeed: this.player.speedMultiplier,
         },
       ) ?? [];
-      this.audio.destroy();
-      this.scene.sound.stopAll();
-      ghostManager?.destroy();
-      this.setGhostManager(null);
-      this.scene.scene.start('MultiplayerGameOverScene', {
+      sceneManager.goto(this.scene, 'MultiplayerGameOverScene', {
         rankings,
         myId: mpClient.myId,
         isHost: false,
+      }, () => {
+        this.audio.destroy();
+        this.scene.sound.stopAll();
+        ghostManager?.destroy();
+        this.setGhostManager(null);
       });
     });
   }
@@ -309,15 +309,16 @@ export class GameOverHandler {
     this._mpGameOverTriggered = true;
     this.cleanupBossFight();
     this.scene.time.delayedCall(1200, () => {
-      this.audio.destroy();
-      this.scene.sound.stopAll();
-      const ghostManager = this.getGhostManager();
-      ghostManager?.destroy();
-      this.setGhostManager(null);
-      this.scene.scene.start('MultiplayerGameOverScene', {
+      sceneManager.goto(this.scene, 'MultiplayerGameOverScene', {
         rankings: data.rankings,
         myId: mpClient.myId,
         isHost: data.hostId === mpClient.myId,
+      }, () => {
+        this.audio.destroy();
+        this.scene.sound.stopAll();
+        const ghostManager = this.getGhostManager();
+        ghostManager?.destroy();
+        this.setGhostManager(null);
       });
     });
   }

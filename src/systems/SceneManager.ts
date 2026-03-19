@@ -1,0 +1,92 @@
+import { crossfadeTransition } from '../utils/SceneTransition';
+
+/** BGM config per scene — scenes sharing the same BGM key keep it playing across transitions. */
+const SCENE_BGM: Record<string, string | null> = {
+  MenuScene: 'menu-bgm',
+  MultiplayerMenuScene: 'menu-bgm',
+  LobbyScene: 'menu-bgm',
+  GameScene: null,           // manages its own level BGMs via AudioManager
+  GameOverScene: 'gameover-bgm',
+  MultiplayerGameOverScene: null, // no dedicated BGM
+};
+
+const BGM_VOLUME: Record<string, number> = {
+  'menu-bgm': 0.3,
+  'gameover-bgm': 0.3,
+};
+
+const FADE_DURATION = 500;
+
+class SceneManagerSingleton {
+  private currentBgmKey: string | null = null;
+  private currentBgm: Phaser.Sound.BaseSound | null = null;
+
+  /** Transition to a new scene with crossfade, auto-managing BGM. */
+  goto(
+    fromScene: Phaser.Scene,
+    targetKey: string,
+    data?: Record<string, unknown>,
+    beforeTransition?: () => void,
+  ): void {
+    crossfadeTransition(FADE_DURATION, () => {
+      beforeTransition?.();
+      this.handleBGM(fromScene, targetKey);
+      fromScene.scene.start(targetKey, data);
+    });
+  }
+
+  private handleBGM(scene: Phaser.Scene, targetKey: string): void {
+    const targetBgm = SCENE_BGM[targetKey] ?? null;
+
+    // Same BGM — keep playing
+    if (targetBgm === this.currentBgmKey && this.currentBgm?.isPlaying) {
+      return;
+    }
+
+    // Stop current BGM
+    if (this.currentBgm) {
+      this.currentBgm.stop();
+      this.currentBgm.destroy();
+      this.currentBgm = null;
+      this.currentBgmKey = null;
+    }
+
+    // Start new BGM if target scene has one
+    if (targetBgm) {
+      const volume = BGM_VOLUME[targetBgm] ?? 0.3;
+      this.currentBgm = scene.sound.add(targetBgm, { volume, loop: true });
+      this.currentBgm.play();
+      this.currentBgmKey = targetBgm;
+    }
+  }
+
+  /** Stop current BGM (e.g. when GameScene takes over with its own AudioManager). */
+  stopBGM(): void {
+    if (this.currentBgm) {
+      this.currentBgm.stop();
+      this.currentBgm.destroy();
+      this.currentBgm = null;
+      this.currentBgmKey = null;
+    }
+  }
+
+  /** Fade out current BGM over the given duration. */
+  fadeOutBGM(scene: Phaser.Scene, duration = 500): void {
+    if (this.currentBgm && this.currentBgm.isPlaying) {
+      const bgm = this.currentBgm;
+      scene.tweens.add({
+        targets: bgm,
+        volume: 0,
+        duration,
+        onComplete: () => {
+          bgm.stop();
+          bgm.destroy();
+        },
+      });
+      this.currentBgm = null;
+      this.currentBgmKey = null;
+    }
+  }
+}
+
+export const sceneManager = new SceneManagerSingleton();
