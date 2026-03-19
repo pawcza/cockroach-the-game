@@ -27,6 +27,7 @@ import { PauseManager } from '../systems/PauseManager';
 import { GameOverHandler } from '../systems/GameOverHandler';
 import { BossFight, BOSS_MAX_HP } from '../systems/BossFight';
 import { mpClient } from '../multiplayer/MultiplayerClient';
+import { sceneManager } from '../systems/SceneManager';
 
 const BOSS_TRIGGER_DISTANCE = 450; // After lv3. Production: 2600
 
@@ -252,7 +253,15 @@ export class GameScene extends Phaser.Scene {
         (t) => { this.lastFrameTime = t; },
       );
     }, this.isMultiplayer ? undefined : () => {
-      this.scene.start('GameScene', { multiplayer: false });
+      sceneManager.goto(this, 'GameScene', { multiplayer: false }, () => {
+        this.sound.stopAll();
+        this.audio.destroy();
+      });
+    }, this.isMultiplayer ? undefined : () => {
+      sceneManager.goto(this, 'MenuScene', undefined, () => {
+        this.sound.stopAll();
+        this.audio.destroy();
+      });
     });
     this.hud.create();
 
@@ -689,7 +698,7 @@ export class GameScene extends Phaser.Scene {
     if (this.player.isPillActive) {
       const magnetRange = 600;
       const playerSpeed = this.player.sprite.body!.velocity.x;
-      const pullSpeed = Math.max(800, playerSpeed * 2.5);
+      const pullSpeed = Math.max(200, playerSpeed * 0.8);
       const groups = [this.apples, this.beers, this.pills];
       const delta = this.game.loop.delta / 1000;
       const px = this.player.x;
@@ -701,14 +710,25 @@ export class GameScene extends Phaser.Scene {
           const dy = py - pickup.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < magnetRange && dist > 1) {
-            const strength = pullSpeed * (1 + (magnetRange - dist) / magnetRange);
-            // Pull X toward player
-            pickup.x += Math.sign(dx) * strength * delta;
-            // Pull Y aggressively — snap to player lane when close in X
-            if (Math.abs(dx) < 150) {
-              pickup.y += (dy > 0 ? 1 : -1) * Math.min(Math.abs(dy), strength * 2 * delta);
-            } else {
-              pickup.y += Math.sign(dy) * strength * 0.5 * delta;
+            // First time vacuuming this pickup — kill float tween so it doesn't fight Y
+            if (!pickup.getData('_vacuumed')) {
+              pickup.setData('_vacuumed', true);
+              this.tweens.killTweensOf(pickup);
+            }
+            const strength = pullSpeed * (1 + (magnetRange - dist) / magnetRange) * delta;
+            const mx = (dx / dist) * strength;
+            const my = (dy / dist) * strength;
+            pickup.x += mx;
+            pickup.y += my;
+            // Sync physics body so overlap collection still works
+            const body = pickup.body as Phaser.Physics.Arcade.Body;
+            body.reset(pickup.x, pickup.y);
+            // Move attached glow layers with the pickup
+            const glows: Phaser.GameObjects.Arc[] | undefined = pickup.getData('_glows');
+            if (glows) {
+              for (const glow of glows) {
+                if (glow.active) { glow.x += mx; glow.y += my; }
+              }
             }
           }
         });
