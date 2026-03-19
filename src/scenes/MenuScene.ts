@@ -1,20 +1,17 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
-import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, headingStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
 import { floatUpDown } from '../utils/TweenPatterns';
-import { spawnFloatingParticle } from '../ui/SceneBackground';
+import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
-import { crossfadeTransition } from '../utils/SceneTransition';
+import { sceneManager } from '../systems/SceneManager';
 import { getHighScore, getGamesPlayed, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { getLevelForDistance } from '../config/levels';
 import { showNameInput } from '../ui/NameInputOverlay';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 
 export class MenuScene extends Phaser.Scene {
-  private menuBgm: Phaser.Sound.BaseSound | null = null;
-  private menuBg!: Phaser.GameObjects.TileSprite;
-  private bgScrollSpeed = 0.05;
+  private bgScroll = { speed: 0.05 };
   private scoreCleanups: (() => void)[] = [];
 
   constructor() {
@@ -24,65 +21,14 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Menu background with dark overlay (scrolling)
-    this.menuBg = this.add.tileSprite(0, 0, width, height, 'menu-bg').setOrigin(0, 0).setTileScale(height / 1024);
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
-
-    // --- TRIPPY COLOR-CYCLING OVERLAY ---
-    const colorOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x8800aa, 0.15);
-    colorOverlay.setBlendMode(Phaser.BlendModes.ADD);
-
-    this.tweens.add({
-      targets: colorOverlay,
-      fillColor: { from: 0x8800aa, to: 0xff0044 },
-      duration: 3000,
-      yoyo: true,
-      repeat: -1,
-      onUpdate: (_tween, target) => {
-        const progress = Math.sin(this.time.now * 0.001) * 0.5 + 0.5;
-        const r = Math.floor(0x88 + progress * (0xff - 0x88));
-        const g = Math.floor(0x00 + progress * 0x00);
-        const b = Math.floor(0xaa - progress * (0xaa - 0x44));
-        (target as Phaser.GameObjects.Rectangle).setFillStyle(
-          (r << 16) | (g << 8) | b,
-          0.15,
-        );
-      },
+    // Menu background with all effects (scrolling, lighting, overlays, vignette)
+    const { setScrollSpeed } = createSceneBackground(this, {
+      textureKey: 'menu-bg',
+      lighting: { colors: [0xffcc66, 0xff8844, 0xffaa22, 0xffddaa, 0xdd6622] },
     });
-
-    // --- FLOATING NEON PARTICLES ---
-    for (let i = 0; i < 14; i++) {
-      spawnFloatingParticle(this, width, height, COLORS.NEON);
-    }
-
-    // --- PULSING VIGNETTE ---
-    const vignette = this.add.graphics();
-    vignette.setDepth(DEPTH.VIGNETTE_MENU);
-    const drawVignette = (alpha: number): void => {
-      vignette.clear();
-      for (let i = 5; i >= 0; i--) {
-        const ratio = i / 5;
-        const a = alpha * ratio * ratio;
-        vignette.fillStyle(0x000000, a);
-        const inset = (1 - ratio) * 80;
-        vignette.fillRect(0, 0, inset, height);
-        vignette.fillRect(width - inset, 0, inset, height);
-        vignette.fillRect(0, 0, width, inset);
-        vignette.fillRect(0, height - inset, width, inset);
-      }
-    };
-    drawVignette(0.6);
-
-    const vignetteData = { alpha: 0.6 };
-    this.tweens.add({
-      targets: vignetteData,
-      alpha: 0.9,
-      duration: 2000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-      onUpdate: () => drawVignette(vignetteData.alpha),
-    });
+    // Wire up bgScroll proxy so page-transition tweens can target bgScroll.speed
+    this.bgScroll.speed = 0.05;
+    this.events.on('update', () => setScrollSpeed(this.bgScroll.speed));
 
     const isMobile = !this.sys.game.device.os.desktop;
 
@@ -115,15 +61,6 @@ export class MenuScene extends Phaser.Scene {
     });
     subtitle.setAngle(-3);
 
-    // --- MENU MUSIC (skip if already playing from a previous visit) ---
-    const existingBgm = this.sound.getAll('menu-bgm').find(s => s.isPlaying);
-    if (existingBgm) {
-      this.menuBgm = existingBgm;
-    } else {
-      this.menuBgm = this.sound.add('menu-bgm', { volume: 0.3, loop: true });
-      this.menuBgm.play();
-    }
-
     let startingGame = false;
     const startGame = (): void => {
       if (startingGame) return;
@@ -131,23 +68,8 @@ export class MenuScene extends Phaser.Scene {
       if (isMobile && !document.fullscreenElement) {
         document.documentElement.requestFullscreen?.().catch(() => {});
       }
-
-      if (this.menuBgm) {
-        this.tweens.add({
-          targets: this.menuBgm,
-          volume: 0,
-          duration: 500,
-        });
-      }
-
-      crossfadeTransition(500, () => {
-        if (this.menuBgm) {
-          this.menuBgm.stop();
-          this.menuBgm.destroy();
-          this.menuBgm = null;
-        }
+      sceneManager.goto(this, 'GameScene', { multiplayer: false }, () => {
         mpClient.disconnect();
-        this.scene.start('GameScene', { multiplayer: false });
       });
     };
 
@@ -219,17 +141,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     addBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
-      if (this.menuBgm) {
-        this.tweens.add({ targets: this.menuBgm, volume: 0, duration: 500 });
-      }
-      crossfadeTransition(500, () => {
-        if (this.menuBgm) {
-          this.menuBgm.stop();
-          this.menuBgm.destroy();
-          this.menuBgm = null;
-        }
-        this.scene.start('MultiplayerMenuScene');
-      });
+      sceneManager.goto(this, 'MultiplayerMenuScene');
     });
 
     // --- Scoreboard page container (off-screen to the left) ---
@@ -244,9 +156,9 @@ export class MenuScene extends Phaser.Scene {
       scorePage.add(scoreBack.all);
       this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
+      this.tweens.add({ targets: this.bgScroll, speed: -6, duration: 200, ease: 'Power2',
         onComplete: () => {
-          this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
+          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
         },
       });
     };
@@ -254,9 +166,9 @@ export class MenuScene extends Phaser.Scene {
     const hideScores = (): void => {
       this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: scorePage, x: -width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this, bgScrollSpeed: 6, duration: 200, ease: 'Power2',
+      this.tweens.add({ targets: this.bgScroll, speed: 6, duration: 200, ease: 'Power2',
         onComplete: () => {
-          this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
+          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
         },
       });
     };
@@ -277,9 +189,9 @@ export class MenuScene extends Phaser.Scene {
       }
       this.tweens.add({ targets: mainPage, x: -width, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: infoPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this, bgScrollSpeed: 6, duration: 200, ease: 'Power2',
+      this.tweens.add({ targets: this.bgScroll, speed: 6, duration: 200, ease: 'Power2',
         onComplete: () => {
-          this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
+          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
         },
       });
     };
@@ -287,9 +199,9 @@ export class MenuScene extends Phaser.Scene {
     const hideInfo = (): void => {
       this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
       this.tweens.add({ targets: infoPage, x: width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this, bgScrollSpeed: -6, duration: 200, ease: 'Power2',
+      this.tweens.add({ targets: this.bgScroll, speed: -6, duration: 200, ease: 'Power2',
         onComplete: () => {
-          this.tweens.add({ targets: this, bgScrollSpeed: 0.05, duration: 200, ease: 'Power2' });
+          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
         },
       });
     };
@@ -524,10 +436,6 @@ export class MenuScene extends Phaser.Scene {
         });
       }
     });
-  }
-
-  update(): void {
-    this.menuBg.tilePositionX += this.bgScrollSpeed;
   }
 
   private buildInfoPage(
