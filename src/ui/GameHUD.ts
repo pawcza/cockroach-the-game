@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../config/constants';
 import { getLevelForDistance, getLevelProgress, getLevelDistances, LevelConfig } from '../config/levels';
-import { hudStyle, hudSmallStyle, smallStyle, popupStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { hudStyle, hudSmallStyle, smallStyle, buttonStyle, popupStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { createButton } from './shared';
 
 export interface HUDUpdateData {
   score: number;
@@ -36,7 +37,8 @@ export class GameHUD {
 
   private onTogglePause: () => void;
   private onRestart: (() => void) | null;
-  private restartBtn!: Phaser.GameObjects.Text;
+  private onMenu: (() => void) | null;
+  private pauseBtns: Phaser.GameObjects.GameObject[] = [];
   private lastTitleScore = -1;
   private lastTitleSpeed = -1;
 
@@ -56,10 +58,11 @@ export class GameHUD {
   // Scroll offset for fill texture animation
   private fillScrollX = 0;
 
-  constructor(scene: Phaser.Scene, onTogglePause: () => void, onRestart?: () => void) {
+  constructor(scene: Phaser.Scene, onTogglePause: () => void, onRestart?: () => void, onMenu?: () => void) {
     this.scene = scene;
     this.onTogglePause = onTogglePause;
     this.onRestart = onRestart ?? null;
+    this.onMenu = onMenu ?? null;
   }
 
   get pauseButton(): Phaser.GameObjects.Arc {
@@ -126,15 +129,34 @@ export class GameHUD {
 
     this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZA!', popupStyle({ fontSize: '24px' }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
-    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Wciśnij cokolwiek, po to by grać dalej', smallStyle({ fontSize: '7px' }))
+    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Walnij w ekran aby kontynuować bieg', smallStyle({ fontSize: '7px' }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
 
-    this.restartBtn = this.scene.add.text(w / 2, h / 2 + 55, 'Od nowa', smallStyle({ fontSize: '10px', color: '#ff4444' }))
-      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false)
-      .setInteractive({ useHandCursor: true });
-    this.restartBtn.on('pointerover', () => this.restartBtn.setColor('#ff8888'));
-    this.restartBtn.on('pointerout', () => this.restartBtn.setColor('#ff4444'));
-    this.restartBtn.on('pointerdown', () => { if (this.onRestart) this.onRestart(); });
+    // Pause menu buttons
+    const btnW = 120;
+    const btnH = 32;
+    const btnGap = 12;
+    const btnY = h / 2 + 55;
+    const btnS = buttonStyle({ fontSize: '10px', strokeThickness: 3 });
+
+    const setupPauseBtn = (btn: ReturnType<typeof createButton>): void => {
+      for (const obj of btn.all) {
+        const go = obj as unknown as Phaser.GameObjects.Components.ScrollFactor & Phaser.GameObjects.Components.Depth & Phaser.GameObjects.Components.Visible;
+        go.setScrollFactor(0);
+        go.setDepth(DEPTH.PAUSE_TEXT);
+        go.setVisible(false);
+      }
+      this.pauseBtns.push(...btn.all);
+    };
+
+    if (this.onRestart) {
+      setupPauseBtn(createButton(this.scene, w / 2 - btnW / 2 - btnGap / 2, btnY, btnW, btnH, 'Od Nowa', 0x880000, btnS, () => { this.onRestart!(); }));
+    }
+
+    if (this.onMenu) {
+      const menuX = this.onRestart ? w / 2 + btnW / 2 + btnGap / 2 : w / 2;
+      setupPauseBtn(createButton(this.scene, menuX, btnY, btnW, btnH, 'Menu', 0x444444, btnS, () => { this.onMenu!(); }));
+    }
 
     // Pause button — circular, top-right
     const pauseR = 18;
@@ -333,7 +355,7 @@ export class GameHUD {
     this.pauseOverlay.setVisible(true);
     this.pauseText.setVisible(true);
     this.pauseSubtext.setVisible(true);
-    if (this.onRestart) this.restartBtn.setVisible(true);
+    for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(true);
 
     this.pauseText.setScale(0).setAlpha(0);
     this.pauseTweens.push(
@@ -389,7 +411,7 @@ export class GameHUD {
     this.pauseOverlay.setVisible(false);
     this.pauseText.setVisible(false).setY(h / 2 - 15).setScale(1).setAlpha(1);
     this.pauseSubtext.setVisible(false).setAngle(0).setAlpha(1);
-    this.restartBtn.setVisible(false);
+    for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
 
     if (this.cricketSound) this.cricketSound.stop();
   }

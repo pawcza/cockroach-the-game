@@ -122,14 +122,14 @@ export function createButton(
     drawButton(baseColor, 0.9);
   };
 
-  return { bg, txt, hitZone, all: [bg, tile, hitZone, txt], setColor };
+  return { bg, txt, hitZone, all: [bg, tile, maskGfx, hitZone, txt], setColor };
 }
 
 /** Create an HTML button styled to match the in-game buttons (for DOM overlays). */
 export function createHtmlButton(text: string, bgColor: string): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.textContent = text;
-  btn.style.cssText = `font-family:"Press Start 2P",monospace;font-size:18px;padding:14px 32px;color:#ddd;border:none;cursor:pointer;border-radius:8px;background-color:${bgColor};background-image:url("assets/btn.png");background-size:auto 100%;background-repeat:repeat-x;background-blend-mode:overlay;box-shadow:2px 3px 0 rgba(0,0,0,0.5);`;
+  btn.style.cssText = `font-family:"Press Start 2P",monospace;font-size:18px;padding:14px 32px;color:#ddd;border:none;cursor:pointer;border-radius:8px;background-color:${bgColor};background-image:url("assets/btn.webp");background-size:auto 100%;background-repeat:repeat-x;background-blend-mode:overlay;box-shadow:2px 3px 0 rgba(0,0,0,0.5);`;
   btn.addEventListener('mouseenter', () => {
     btn.style.color = '#ffff00';
     btn.style.textShadow = '0 0 6px #ffff00';
