@@ -5,7 +5,7 @@ import { floatUpDown } from '../utils/TweenPatterns';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
 import { sceneManager } from '../systems/SceneManager';
-import { getHighScore, getGamesPlayed, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
+import { getHighScore, getGamesPlayed, getPlayerNameOrDefault, isPlayerNameCustom, getMusicVolume, setMusicVolume, getSfxVolume, setSfxVolume } from '../utils/Storage';
 import { getLevelForDistance } from '../config/levels';
 import { showNameInput } from '../ui/NameInputOverlay';
 import { mpClient } from '../multiplayer/MultiplayerClient';
@@ -13,6 +13,8 @@ import { mpClient } from '../multiplayer/MultiplayerClient';
 export class MenuScene extends Phaser.Scene {
   private bgScroll = { speed: 0.05 };
   private scoreCleanups: (() => void)[] = [];
+  private sliderMoveHandlers: ((pointer: Phaser.Input.Pointer) => void)[] = [];
+  private sliderUpHandlers: (() => void)[] = [];
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -208,6 +210,35 @@ export class MenuScene extends Phaser.Scene {
 
     addBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
 
+    // --- Settings page container (off-screen below) ---
+    const settingsPage = this.add.container(0, height).setDepth(10);
+    let settingsBuilt = false;
+
+    const showSettings = (): void => {
+      if (!settingsBuilt) {
+        this.buildSettingsPage(settingsPage, width, height);
+        const settingsBack = createButton(this, width / 2, height - 40, 200, 36, '\u2191 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideSettings);
+        settingsPage.add(settingsBack.all);
+        settingsBuilt = true;
+      }
+      this.tweens.add({ targets: mainPage, y: -height, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: settingsPage, y: 0, duration: 400, ease: 'Power2' });
+    };
+
+    const hideSettings = (): void => {
+      this.tweens.add({ targets: mainPage, y: 0, duration: 400, ease: 'Power2' });
+      this.tweens.add({ targets: settingsPage, y: height, duration: 400, ease: 'Power2' });
+    };
+
+    // Gear icon top-right
+    const gear = this.add.text(width - 45, 50, '\u2699', {
+      fontSize: '32px', color: '#888888',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    gear.on('pointerover', () => gear.setColor('#ffffff'));
+    gear.on('pointerout', () => gear.setColor('#888888'));
+    gear.on('pointerdown', () => { settingsPage.y === 0 ? hideSettings() : showSettings(); });
+    mainPage.add(gear);
+
     // Version
     const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', smallStyle({
       fontSize: '6px',
@@ -218,6 +249,13 @@ export class MenuScene extends Phaser.Scene {
     // Keyboard shortcuts
     this.input.keyboard!.once('keydown-SPACE', startGame);
     this.input.keyboard!.on('keydown-T', () => { scorePage.x === 0 ? hideScores() : showScores(); });
+
+    this.events.on('shutdown', () => {
+      for (const h of this.sliderMoveHandlers) this.input.off('pointermove', h);
+      for (const h of this.sliderUpHandlers) this.input.off('pointerup', h);
+      this.sliderMoveHandlers = [];
+      this.sliderUpHandlers = [];
+    });
   }
 
   private buildScorePage(
@@ -600,5 +638,98 @@ export class MenuScene extends Phaser.Scene {
     const stat1 = this.add.text(right, bottom, `Najlepszy: ${highScore}`, statStyle).setOrigin(0.5);
     const stat2 = this.add.text(right, bottom + 28, `Giereczki: ${gamesPlayed}`, statStyle).setOrigin(0.5);
     container.add([stat1, stat2]);
+  }
+
+  private buildSettingsPage(
+    container: Phaser.GameObjects.Container,
+    width: number,
+    height: number,
+  ): void {
+    const title = this.add.text(width / 2, 40, 'USTAWIENIA', headingStyle({ fontSize: '20px' })).setOrigin(0.5);
+    container.add(title);
+    floatUpDown(this, title, 4, 1200);
+
+    const sliderW = 260;
+    const sliderH = 8;
+    const sliderX = width / 2 - sliderW / 2;
+    const labelStyle = bodyStyle({ fontSize: '10px', color: '#cccccc', strokeThickness: 3 });
+    const valStyle = smallStyle({ fontSize: '8px', color: '#ffff00', strokeThickness: 2 });
+
+    const createSlider = (
+      y: number,
+      label: string,
+      getValue: () => number,
+      setValue: (v: number) => void,
+      onPreview?: (v: number) => void,
+    ): void => {
+      const labelText = this.add.text(width / 2, y, label, labelStyle).setOrigin(0.5);
+      container.add(labelText);
+
+      const barY = y + 25;
+      const bar = this.add.graphics();
+      bar.fillStyle(0x333333, 1);
+      bar.fillRoundedRect(sliderX, barY, sliderW, sliderH, 4);
+      container.add(bar);
+
+      const fillBar = this.add.graphics();
+      container.add(fillBar);
+
+      const pct = Math.round(getValue() * 100);
+      const valText = this.add.text(width / 2 + sliderW / 2 + 25, barY + sliderH / 2, `${pct}%`, valStyle).setOrigin(0, 0.5);
+      container.add(valText);
+
+      const knobR = 10;
+      const knobX = sliderX + getValue() * sliderW;
+      const knob = this.add.circle(knobX, barY + sliderH / 2, knobR, 0xffffff, 1);
+      container.add(knob);
+
+      const drawFill = (val: number): void => {
+        fillBar.clear();
+        fillBar.fillStyle(0x888800, 1);
+        fillBar.fillRoundedRect(sliderX, barY, val * sliderW, sliderH, 4);
+      };
+      drawFill(getValue());
+
+      // Hit zone — covers bar + knob area for click and drag
+      const hitZone = this.add.rectangle(sliderX + sliderW / 2, barY + sliderH / 2, sliderW + knobR * 4, sliderH + knobR * 4, 0x000000, 0)
+        .setInteractive({ useHandCursor: true });
+      container.add(hitZone);
+
+      let dragging = false;
+
+      const updateFromX = (px: number): void => {
+        const val = Phaser.Math.Clamp((px - sliderX) / sliderW, 0, 1);
+        knob.x = sliderX + val * sliderW;
+        drawFill(val);
+        valText.setText(`${Math.round(val * 100)}%`);
+        setValue(val);
+        onPreview?.(val);
+      };
+
+      hitZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        dragging = true;
+        updateFromX(pointer.x);
+      });
+
+      const moveHandler = (pointer: Phaser.Input.Pointer): void => {
+        if (dragging && pointer.isDown) updateFromX(pointer.x);
+      };
+      const upHandler = (): void => { dragging = false; };
+
+      this.input.on('pointermove', moveHandler);
+      this.input.on('pointerup', upHandler);
+      this.sliderMoveHandlers.push(moveHandler);
+      this.sliderUpHandlers.push(upHandler);
+    };
+
+    const startY = height / 2 - 60;
+
+    createSlider(startY, 'Muzyka', getMusicVolume, setMusicVolume, (v) => {
+      // Live preview: adjust currently playing BGM
+      const bgm = this.sound.getAll('menu-bgm').find(s => s.isPlaying);
+      if (bgm) (bgm as Phaser.Sound.WebAudioSound).setVolume(0.3 * v);
+    });
+
+    createSlider(startY + 80, 'Efekty', getSfxVolume, setSfxVolume);
   }
 }

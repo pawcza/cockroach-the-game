@@ -68,7 +68,7 @@ export class SpawnManager {
       const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
       const spawnLevel = getLevelForDistance(slotDistance).level;
       const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
-      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.3);
+      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.15);
       this.nextSpawnX += slotWidth;
 
       const roll = this.rng?.next() ?? Math.random();
@@ -164,15 +164,47 @@ export class SpawnManager {
     }
   }
 
+  private spawnPickup(
+    group: Phaser.Physics.Arcade.Group,
+    x: number,
+    textureKey: string,
+    config: {
+      scale: number;
+      floatDistance: number;
+      floatDuration: number;
+      glowRadius: number;
+      glowColor: number;
+      glowIntensity: number;
+      glowPulse?: { toAlpha: number; toScale?: number; duration: number };
+      pulse?: { toScale: number; duration: number };
+    },
+  ): Phaser.Physics.Arcade.Sprite {
+    const floor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
+    const y = (floor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
+    const sprite = group.create(x, y, textureKey) as Phaser.Physics.Arcade.Sprite;
+    sprite.setScale(config.scale);
+    sprite.setDepth(DEPTH.PICKUPS);
+    (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
+    sprite.setImmovable(true);
+    floatUpDown(this.scene, sprite, config.floatDistance, config.floatDuration);
+    attachGlow(this.scene, sprite, config.glowRadius, config.glowColor, config.glowIntensity, config.glowPulse);
+    if (config.pulse) {
+      pulse(this.scene, sprite, config.pulse.toScale, config.pulse.duration);
+    }
+    return sprite;
+  }
+
   private spawnPill(slotX: number): void {
-    const pFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-    const pY = (pFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-    const pill = this.pills.create(slotX, pY, 'pill') as Phaser.Physics.Arcade.Sprite;
-    pill.setScale(0.15);
-    pill.setDepth(DEPTH.PICKUPS);
-    (pill.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    pill.setImmovable(true);
-    floatUpDown(this.scene, pill, 10, 400);
+    const pill = this.spawnPickup(this.pills, slotX, 'pill', {
+      scale: 0.15,
+      floatDistance: 10,
+      floatDuration: 400,
+      glowRadius: 28,
+      glowColor: COLORS.PILL_GLOW,
+      glowIntensity: 0.5,
+      glowPulse: { toAlpha: 0.18, toScale: 1.3, duration: 400 },
+      pulse: { toScale: 0.18, duration: 300 },
+    });
     const pillGlowTween = this.scene.tweens.addCounter({
       from: 0,
       to: 360,
@@ -187,33 +219,31 @@ export class SpawnManager {
       },
     });
     pill.setData('glowTween', pillGlowTween);
-    attachGlow(this.scene, pill, 28, COLORS.PILL_GLOW, 0.5, { toAlpha: 0.18, toScale: 1.3, duration: 400 });
-    pulse(this.scene, pill, 0.18, 300);
   }
 
   private spawnBeer(slotX: number): void {
-    const tFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-    const tY = (tFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
     const beerKey = `beer-${Phaser.Math.Between(1, 6)}`;
-    const beer = this.beers.create(slotX, tY, beerKey) as Phaser.Physics.Arcade.Sprite;
-    beer.setScale(0.18);
-    beer.setDepth(DEPTH.PICKUPS);
-    (beer.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    beer.setImmovable(true);
-    floatUpDown(this.scene, beer, 8, 400);
-    pulse(this.scene, beer, 0.22, 600);
-    attachGlow(this.scene, beer, 24, COLORS.BEER_GLOW, 0.4, { toAlpha: 0.15, duration: 600 });
+    this.spawnPickup(this.beers, slotX, beerKey, {
+      scale: 0.18,
+      floatDistance: 8,
+      floatDuration: 400,
+      glowRadius: 24,
+      glowColor: COLORS.BEER_GLOW,
+      glowIntensity: 0.4,
+      glowPulse: { toAlpha: 0.15, duration: 600 },
+      pulse: { toScale: 0.22, duration: 600 },
+    });
   }
 
   private spawnApple(slotX: number): void {
-    const appleFloor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-    const appleY = (appleFloor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-    const apple = this.apples.create(slotX, appleY, 'apple') as Phaser.Physics.Arcade.Sprite;
-    apple.setScale(0.15);
-    apple.setDepth(DEPTH.PICKUPS);
-    (apple.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    apple.setImmovable(true);
-    floatUpDown(this.scene, apple, 8, 500);
-    attachGlow(this.scene, apple, 22, COLORS.APPLE_GLOW, 0.35, { toAlpha: 0.12, duration: 500 });
+    this.spawnPickup(this.apples, slotX, 'apple', {
+      scale: 0.15,
+      floatDistance: 8,
+      floatDuration: 500,
+      glowRadius: 22,
+      glowColor: COLORS.APPLE_GLOW,
+      glowIntensity: 0.35,
+      glowPulse: { toAlpha: 0.12, duration: 500 },
+    });
   }
 }

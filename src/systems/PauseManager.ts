@@ -12,14 +12,36 @@ export class PauseManager {
   private _isUnpauseCountdown = false;
   private unpauseCountdownStart = 0;
   private unpauseCountdownLastShown = -1;
+  private pauseStartTime = 0;
+  private _totalPausedTime = 0;
+
+  get totalPausedTime(): number { return this._totalPausedTime; }
 
   get isPaused(): boolean { return this._isPaused; }
   get isUnpauseCountdown(): boolean { return this._isUnpauseCountdown; }
 
-  constructor(scene: Phaser.Scene, hud: GameHUD, isMultiplayer: boolean) {
+  private onPause: (() => void) | null = null;
+  private onResume: ((pausedMs: number) => void) | null = null;
+
+  constructor(scene: Phaser.Scene, hud: GameHUD, isMultiplayer: boolean, onPause?: () => void, onResume?: (pausedMs: number) => void) {
     this.scene = scene;
     this.hud = hud;
     this.isMultiplayer = isMultiplayer;
+    this.onPause = onPause ?? null;
+    this.onResume = onResume ?? null;
+  }
+
+  pause(): void {
+    if (this.isMultiplayer) return;
+    if (this._isPaused || this._isUnpauseCountdown) return;
+
+    this._isPaused = true;
+    this.pauseStartTime = Date.now();
+    this.scene.physics.pause();
+    this.scene.tweens.pauseAll();
+    this.scene.time.paused = true;
+    if (this.onPause) this.onPause();
+    this.hud.showPauseOverlay();
   }
 
   toggle(getLastFrameTime: () => number, setLastFrameTime: (t: number) => void): void {
@@ -28,14 +50,23 @@ export class PauseManager {
 
     if (!this._isPaused) {
       this._isPaused = true;
+      this.pauseStartTime = Date.now();
       this.scene.physics.pause();
+      this.scene.tweens.pauseAll();
+      this.scene.time.paused = true;
+      if (this.onPause) this.onPause();
       this.hud.showPauseOverlay();
     } else {
       this._isPaused = false;
       this._isUnpauseCountdown = true;
+      const pauseDuration = Date.now() - this.pauseStartTime;
+      this._totalPausedTime += pauseDuration;
+      this.scene.time.paused = false;
       this.hud.hidePauseOverlay();
+      this.scene.tweens.resumeAll();
       this.scene.physics.resume();
       setLastFrameTime(this.scene.time.now);
+      if (this.onResume) this.onResume(pauseDuration);
       this.scene.time.delayedCall(100, () => {
         this._isUnpauseCountdown = false;
       });

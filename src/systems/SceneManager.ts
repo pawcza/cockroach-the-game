@@ -1,4 +1,5 @@
 import { crossfadeTransition } from '../utils/SceneTransition';
+import { getMusicVolume } from '../utils/Storage';
 
 /** BGM config per scene — scenes sharing the same BGM key keep it playing across transitions. */
 const SCENE_BGM: Record<string, string | null> = {
@@ -53,7 +54,7 @@ class SceneManagerSingleton {
 
     // Start new BGM if target scene has one
     if (targetBgm) {
-      const volume = BGM_VOLUME[targetBgm] ?? 0.3;
+      const volume = (BGM_VOLUME[targetBgm] ?? 0.3) * getMusicVolume();
       this.currentBgm = scene.sound.add(targetBgm, { volume, loop: true });
       this.currentBgm.play();
       this.currentBgmKey = targetBgm;
@@ -81,10 +82,12 @@ class SceneManagerSingleton {
         onComplete: () => {
           bgm.stop();
           bgm.destroy();
+          if (this.currentBgm === bgm) {
+            this.currentBgm = null;
+            this.currentBgmKey = null;
+          }
         },
       });
-      this.currentBgm = null;
-      this.currentBgmKey = null;
     }
   }
 }

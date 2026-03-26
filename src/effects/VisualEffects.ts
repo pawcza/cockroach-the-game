@@ -17,6 +17,8 @@ export class VisualEffects {
   private glitchTimer = 0;
   private invertFlashActive = false;
   private invertTimer = 0;
+  private was20xShaking = false;
+  private deathSlowMoTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -123,6 +125,8 @@ export class VisualEffects {
       this.borderOverlay.lineStyle(3, edgeColor, edgeAlpha);
       this.borderOverlay.strokeRect(1, 1, this.scene.cameras.main.width - 2, this.scene.cameras.main.height - 2);
       this.borderOverlay.setAlpha(1);
+    } else {
+      this.borderOverlay.clear();
     }
 
     // ~Lv9-10 (8.0x): Color inversion flashes
@@ -192,10 +196,14 @@ export class VisualEffects {
 
       const trailAlpha = 0.02 + Math.sin(time * 0.005) * 0.01;
       this.scene.cameras.main.setAlpha(1.0 - trailAlpha);
+      this.was20xShaking = true;
+    } else if (this.was20xShaking) {
+      this.scene.cameras.main.setFollowOffset(0, 0);
+      this.was20xShaking = false;
     }
   }
 
-  appleCollectEffect(x: number, y: number): void {
+  pickupCollectEffect(x: number, y: number): void {
     if (!this.initialized) return;
 
     burstParticles(this.scene, x, y, COLORS.COLLECT, 12, {
@@ -290,9 +298,10 @@ export class VisualEffects {
     });
 
     this.scene.time.timeScale = 0.3;
-    this.scene.time.delayedCall(800, () => {
+    this.deathSlowMoTimeout = setTimeout(() => {
       this.scene.time.timeScale = 1.0;
-    });
+      this.deathSlowMoTimeout = null;
+    }, 800);
 
     this.scene.tweens.add({
       targets: this.tintOverlay,
@@ -308,6 +317,10 @@ export class VisualEffects {
 
   destroy(): void {
     if (!this.initialized) return;
+    if (this.deathSlowMoTimeout !== null) {
+      clearTimeout(this.deathSlowMoTimeout);
+      this.deathSlowMoTimeout = null;
+    }
     this.tintOverlay.destroy();
     this.vignetteGraphics.destroy();
     this.flashOverlay.destroy();

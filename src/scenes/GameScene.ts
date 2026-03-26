@@ -29,6 +29,7 @@ import { GameOverHandler } from '../systems/GameOverHandler';
 import { DeathReplayRecorder } from '../systems/DeathReplay';
 import { ComboFeedback } from '../systems/ComboFeedback';
 import { WeatherSystem } from '../systems/WeatherSystem';
+import { NotificationManager } from '../systems/NotificationManager';
 import { BossFight, BOSS_MAX_HP } from '../systems/BossFight';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from '../systems/SceneManager';
@@ -89,6 +90,7 @@ export class GameScene extends Phaser.Scene {
   private collisionManager!: CollisionManager;
   private pauseManager!: PauseManager;
   private gameOverHandler!: GameOverHandler;
+  private notifications!: NotificationManager;
   private comboFeedback!: ComboFeedback;
   private weather!: WeatherSystem;
   private replayRecorder!: DeathReplayRecorder;
@@ -108,9 +110,6 @@ export class GameScene extends Phaser.Scene {
   private activePlayTime = 0;
   private lastFrameTime = 0;
   private lastScoreTime = 0;
-
-  // Spawning
-  private nextSpawnX = 0;
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -176,7 +175,6 @@ export class GameScene extends Phaser.Scene {
     this._wasPillActive = false;
     this.score = 0;
     this.isDead = false;
-    this.nextSpawnX = COCKROACH_START_X + 400;
     this.startTime = this.time.now;
     this.activePlayTime = 0;
     this.lastFrameTime = this.time.now;
@@ -272,8 +270,11 @@ export class GameScene extends Phaser.Scene {
       });
     });
     this.hud.create();
-    this.comboFeedback = new ComboFeedback(this);
+    this.notifications = new NotificationManager(this);
+    this.comboFeedback = new ComboFeedback(this.notifications);
     this.weather = new WeatherSystem(this);
+    const startWeather = WeatherSystem.rollWeather(getLevelForDistance(0).weatherChances, this.rng);
+    this.weather.setWeather(startWeather);
     this.replayRecorder = new DeathReplayRecorder();
 
     (this.scene.get('BootScene') as BootScene).loadDeferred(this);
@@ -307,6 +308,7 @@ export class GameScene extends Phaser.Scene {
       onPickup: (x, score) => this.eventBridge.onPickup(x, score, this.pickupCombo),
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
+      onPickupCollected: (x, y, textureKey) => this.replayRecorder.recordPickupCollected(this.time.now, x, y, textureKey),
     });
     this.collisionManager.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
     this.collisionManager.setupOverlaps(this.apples, this.beers, this.pills, this.obstacles);
@@ -318,7 +320,13 @@ export class GameScene extends Phaser.Scene {
     );
 
     // Pause manager
-    this.pauseManager = new PauseManager(this, this.hud, this.isMultiplayer);
+    this.pauseManager = new PauseManager(this, this.hud, this.isMultiplayer,
+      () => { this.clock.pause(); },
+      (pausedMs) => {
+        this.clock.resume();
+        this.player.adjustTimersForPause(pausedMs);
+      },
+    );
 
     // Game over handler
     this.gameOverHandler = new GameOverHandler(this, this.player, this.vfx, this.audio, this.hud, this.isMultiplayer, {
@@ -445,7 +453,18 @@ export class GameScene extends Phaser.Scene {
       this.gameOverHandler.resetMpState();
     }
 
+    // Auto-pause on tab losing focus (singleplayer only)
+    const onVisibilityChange = () => {
+      if (document.hidden && !this.isDead && !this.isCountingDown) {
+        this.pauseManager.pause();
+      }
+    };
+    if (!this.isMultiplayer) {
+      document.addEventListener('visibilitychange', onVisibilityChange);
+    }
+
     this.events.on('shutdown', () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       this.clock?.destroy();
       this.eventBridge?.destroy();
       this.weather?.destroy();
@@ -618,11 +637,11 @@ export class GameScene extends Phaser.Scene {
         this.updateFloors();
         this.spawnManager.handleSpawning(this.cameras.main.scrollX + this.cameras.main.width);
         this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX, (comboLost: number) => {
-      this.vfx.comboLostEffect(comboLost);
-      this.audio.playComboLost();
-      this.pickupCombo = 0;
-      this.comboFeedback.onComboLost();
-    }, this.pickupCombo);
+          this.vfx.comboLostEffect(comboLost);
+          this.audio.playComboLost();
+          this.pickupCombo = 0;
+          this.comboFeedback.onComboLost();
+        }, this.pickupCombo);
 
         if (target && !target.alive) {
           const next = this.ghostManager.cycleSpectate(1);
@@ -667,25 +686,26 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Active play time from wall clock (paused during boss fight)
-    if (!this.isBossFight) {
+    // Active play time from wall clock (paused during boss fight and pause menu)
+    if (!this.isBossFight && !this.pauseManager.isPaused) {
       this.activePlayTime = this.clock.activePlayTime;
     }
     this.lastFrameTime = this.time.now;
 
     // Boss fight mode — delegate to BossFight
     if (this.isBossFight && this.bossFight) {
-      // Lane swap input
-      const jumpPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.cursors.up);
-      const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
-      if (jumpPressed || dropPressed) {
-        this.player.swapLane();
-        this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
-      }
-      // Shoot input
-      const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);
-      if (dashPressed) {
-        this.bossFight.shoot();
+      // Only allow input during active fighting (not intro/victory/resuming)
+      if (this.bossFight.isFighting) {
+        const jumpPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.cursors.up);
+        const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
+        if (jumpPressed || dropPressed) {
+          this.player.swapLane();
+          this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
+        }
+        const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);
+        if (dashPressed) {
+          this.bossFight.shoot();
+        }
       }
 
       this.bossFight.update(this.game.loop.delta);
@@ -777,13 +797,6 @@ export class GameScene extends Phaser.Scene {
             // Sync physics body so overlap collection still works
             const body = pickup.body as Phaser.Physics.Arcade.Body;
             body.reset(pickup.x, pickup.y);
-            // Move attached glow layers with the pickup
-            const glows: Phaser.GameObjects.Arc[] | undefined = pickup.getData('_glows');
-            if (glows) {
-              for (const glow of glows) {
-                if (glow.active) { glow.x += mx; glow.y += my; }
-              }
-            }
           }
         });
       }
@@ -964,6 +977,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private switchLevel(config: LevelConfig): boolean {
+    const weather = WeatherSystem.rollWeather(config.weatherChances, this.rng);
+
     const skyKey = `lv${config.level}-sky`;
     if (!this.textures.exists(skyKey)) {
       if (this.cache.audio.exists(config.bgmKey)) {
@@ -975,7 +990,6 @@ export class GameScene extends Phaser.Scene {
     playLevelGlitch(this);
     this.audio.glitchBGM();
 
-    const weather = WeatherSystem.rollWeather(config.weatherChances, this.rng);
     this.weather.setWeather(weather);
 
     this.nextSkyBg.setTexture(config.skyKey);
