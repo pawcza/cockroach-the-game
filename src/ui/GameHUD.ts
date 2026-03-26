@@ -347,54 +347,11 @@ export class GameHUD {
     this.levelBarText.setText(`Lv${levelConfig.level} ${levelConfig.name} ${distLabel}`);
   }
 
-  private pauseTweens: Phaser.Tweens.Tween[] = [];
-
   showPauseOverlay(): void {
-    const h = this.scene.cameras.main.height;
-
     this.pauseOverlay.setVisible(true);
-    this.pauseText.setVisible(true);
-    this.pauseSubtext.setVisible(true);
+    this.pauseText.setVisible(true).setScale(1).setAlpha(1);
+    this.pauseSubtext.setVisible(true).setAlpha(0.7).setAngle(0);
     for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(true);
-
-    this.pauseText.setScale(0).setAlpha(0);
-    this.pauseTweens.push(
-      this.scene.tweens.add({
-        targets: this.pauseText,
-        scale: 1, alpha: 1, duration: 300, ease: 'Back.easeOut',
-        onComplete: () => {
-          this.pauseTweens.push(
-            this.scene.tweens.add({
-              targets: this.pauseText,
-              y: h / 2 - 25, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-            }),
-          );
-        },
-      }),
-    );
-
-    this.pauseSubtext.setAlpha(0);
-    this.pauseTweens.push(
-      this.scene.tweens.add({
-        targets: this.pauseSubtext,
-        alpha: 1, duration: 400, delay: 200, ease: 'Power2',
-        onComplete: () => {
-          this.pauseTweens.push(
-            this.scene.tweens.add({
-              targets: this.pauseSubtext,
-              alpha: 0.4, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-            }),
-          );
-          this.pauseSubtext.setAngle(-2);
-          this.pauseTweens.push(
-            this.scene.tweens.add({
-              targets: this.pauseSubtext,
-              angle: 2, duration: 2000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-            }),
-          );
-        },
-      }),
-    );
 
     if (!this.cricketSound) {
       this.cricketSound = this.scene.sound.add('cricket', { volume: 0.4, loop: true });
@@ -403,14 +360,9 @@ export class GameHUD {
   }
 
   hidePauseOverlay(): void {
-    const h = this.scene.cameras.main.height;
-
-    for (const tween of this.pauseTweens) tween.destroy();
-    this.pauseTweens = [];
-
     this.pauseOverlay.setVisible(false);
-    this.pauseText.setVisible(false).setY(h / 2 - 15).setScale(1).setAlpha(1);
-    this.pauseSubtext.setVisible(false).setAngle(0).setAlpha(1);
+    this.pauseText.setVisible(false);
+    this.pauseSubtext.setVisible(false);
     for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
 
     if (this.cricketSound) this.cricketSound.stop();
@@ -460,7 +412,7 @@ export class GameHUD {
     const numText = this.scene.add.text(w / 2, 60, String(threshold), {
       fontSize: cfg.numSize, fontFamily: FONT_FAMILY, color: cfg.color,
       stroke: '#000000', strokeThickness: cfg.numStroke,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(998).setAlpha(0).setScale(3);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.SCORE_MILESTONE).setAlpha(0).setScale(3);
 
     const milestone = this.scene.add.text(w / 2, 90, text, {
       fontSize: cfg.textSize, fontFamily: FONT_FAMILY, color: cfg.color,

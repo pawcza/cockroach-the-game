@@ -10,6 +10,7 @@ import { fetchScores } from '../ui/Scoreboard';
 import { updateHighScoreIfBetter, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 import { ReplayData } from '../systems/DeathReplay';
+import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
 
 interface MPGameOverRanking {
   id: string;
@@ -412,130 +413,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
   private playReplay(): void {
     if (!this.replayData || this.replayData.frames.length < 2) return;
-    const data = this.replayData;
-    const { width, height } = this.cameras.main;
-    const cleanup: Phaser.GameObjects.GameObject[] = [];
-
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85)
-      .setScrollFactor(0).setDepth(1000);
-    cleanup.push(overlay);
-
-    const floorGfx = this.add.graphics().setScrollFactor(0).setDepth(1000);
-    floorGfx.lineStyle(1, 0x444444, 0.5);
-    floorGfx.lineBetween(0, 296, width, 296);
-    floorGfx.lineBetween(0, 396, width, 396);
-    cleanup.push(floorGfx);
-
-    const COCKROACH_SCREEN_X = 200;
-    const lastFrame = data.frames[data.frames.length - 1];
-    const killerTexture = data.obstacleType ? OBSTACLE_TEXTURE[data.obstacleType] : null;
-
-    const worldSprites: { img: Phaser.GameObjects.Image; worldX: number; baseY: number }[] = [];
-
-    for (const obs of data.obstacles) {
-      if (!this.textures.exists(obs.textureKey)) continue;
-      const img = this.add.image(0, obs.y, obs.textureKey)
-        .setScale(0.22).setScrollFactor(0).setDepth(1001).setAlpha(0.7).setTint(0x4488ff);
-      cleanup.push(img);
-      worldSprites.push({ img, worldX: obs.worldX, baseY: obs.y });
-    }
-
-    for (const pk of data.pickups) {
-      if (!this.textures.exists(pk.textureKey)) continue;
-      const img = this.add.image(0, pk.y, pk.textureKey)
-        .setScale(0.15).setScrollFactor(0).setDepth(1001).setAlpha(0.7).setTint(0x44ff44);
-      cleanup.push(img);
-      worldSprites.push({ img, worldX: pk.worldX, baseY: pk.y });
-    }
-
-    let killerSprite: Phaser.GameObjects.Image | null = null;
-    if (killerTexture && this.textures.exists(killerTexture)) {
-      killerSprite = this.add.image(0, lastFrame.y, killerTexture)
-        .setScale(0.25).setScrollFactor(0).setDepth(1002).setAlpha(0.9);
-      cleanup.push(killerSprite);
-    }
-    const killerWorldX = lastFrame.x + 50;
-
-    const ghost = this.add.sprite(COCKROACH_SCREEN_X, data.frames[0].y, 'cockroach-idle')
-      .setScale(0.30).setAlpha(0.7).setTint(0x8888ff).setScrollFactor(0).setDepth(1003);
-    cleanup.push(ghost);
-
-    const label = this.add.text(width / 2, 30, '', popupStyle({ fontSize: '10px', color: '#ff4444' }))
-      .setOrigin(0.5).setScrollFactor(0).setDepth(1004);
-    cleanup.push(label);
-
-    let frameIndex = 0;
-    let deathAnimPlayed = false;
-    const playbackStart = this.time.now;
-    const replayDuration = data.frames[data.frames.length - 1].time - data.frames[0].time;
-    const baseTime = data.frames[0].time;
-
-    const replayUpdate = (): void => {
-      const elapsed = this.time.now - playbackStart;
-      const replayTime = baseTime + elapsed;
-
-      while (frameIndex < data.frames.length - 1 && data.frames[frameIndex + 1].time <= replayTime) {
-        frameIndex++;
-      }
-
-      const frame = data.frames[frameIndex];
-      ghost.setPosition(COCKROACH_SCREEN_X, frame.y);
-      ghost.setTexture(frame.texture);
-      if (frame.isDashing) ghost.setTint(0xffffff);
-      else if (frame.isPillActive) ghost.setTint(0xff00ff);
-      else ghost.setTint(0x8888ff);
-
-      const cameraWorldX = frame.x - COCKROACH_SCREEN_X;
-      for (const ws of worldSprites) {
-        const screenX = ws.worldX - cameraWorldX;
-        ws.img.setX(screenX);
-        ws.img.setY(ws.baseY + Math.sin(elapsed * 0.004 + ws.worldX * 0.01) * 6);
-        ws.img.setVisible(screenX > -50 && screenX < width + 50);
-      }
-
-      if (killerSprite) {
-        const killerScreenX = killerWorldX - cameraWorldX;
-        killerSprite.setX(killerScreenX);
-        killerSprite.setVisible(killerScreenX > -50 && killerScreenX < width + 50);
-        const pulse = Math.sin(elapsed * 0.01) * 0.5 + 0.5;
-        killerSprite.setTint(Phaser.Display.Color.GetColor(255, Math.floor(pulse * 100), Math.floor(pulse * 100)));
-      }
-
-      const remaining = Math.ceil((replayDuration - elapsed) / 1000);
-      if (remaining > 0) label.setText(`${remaining}...`);
-      else label.setText('');
-
-      if (frameIndex >= data.frames.length - 1 && !deathAnimPlayed) {
-        deathAnimPlayed = true;
-        ghost.setTint(0x444444);
-        this.tweens.add({
-          targets: ghost,
-          y: ghost.y - 80,
-          x: ghost.x - 20,
-          angle: 720,
-          alpha: 0,
-          duration: 1000,
-          ease: 'Linear',
-        });
-        this.cameras.main.shake(200, 0.005);
-      }
-
-      if (elapsed >= replayDuration + 1500 && !cleanup.find(o => (o as any)._fading)) {
-        this.events.off('update', replayUpdate);
-        (overlay as any)._fading = true;
-        this.tweens.add({
-          targets: cleanup.filter(o => o.active),
-          alpha: 0,
-          duration: 500,
-          ease: 'Power2',
-          onComplete: () => {
-            for (const obj of cleanup) if (obj.active) obj.destroy();
-          },
-        });
-      }
-    };
-
-    this.events.on('update', replayUpdate);
+    new DeathReplayPlayer(this, this.replayData).play();
   }
 
   private cleanupListeners(): void {

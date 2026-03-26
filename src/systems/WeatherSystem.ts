@@ -7,8 +7,10 @@ export class WeatherSystem {
   private scene: Phaser.Scene;
   private currentWeather: WeatherType = 'clear';
   private fogOverlay: Phaser.GameObjects.Graphics | null = null;
+  private rainOverlay: Phaser.GameObjects.Rectangle | null = null;
   private rainTimer: Phaser.Time.TimerEvent | null = null;
   private windDrift = 0;
+  private activeRainDrops: Phaser.GameObjects.Rectangle[] = [];
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -19,7 +21,12 @@ export class WeatherSystem {
   setWeather(weather: WeatherType): void {
     this.clear();
     this.currentWeather = weather;
-    if (weather === 'rain') this.startRain();
+    if (weather === 'rain') {
+      this.startRain();
+      const cam = this.scene.cameras.main;
+      this.rainOverlay = this.scene.add.rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, 0x000022, 0.08)
+        .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE - 1);
+    }
     if (weather === 'fog') this.startFog();
     if (weather === 'wind') this.startWind();
   }
@@ -41,21 +48,30 @@ export class WeatherSystem {
 
   private startRain(): void {
     this.rainTimer = this.scene.time.addEvent({
-      delay: 30,
+      delay: 16,
       loop: true,
       callback: () => {
         if (this.currentWeather !== 'rain') return;
+        if (this.scene.physics.world.isPaused) return;
         const cam = this.scene.cameras.main;
-        const x = cam.scrollX + Math.random() * cam.width;
-        const y = cam.scrollY - 10;
-        const drop = this.scene.add.rectangle(x, y, 1, Phaser.Math.Between(8, 16), 0x8888cc, 0.3)
-          .setDepth(DEPTH.VFX_VIGNETTE);
+        const x = Math.random() * cam.width;
+        const y = -10;
+        const width = Math.random() < 0.5 ? 1 : 2;
+        const alpha = 0.3 + Math.random() * 0.3;
+        const color = Math.random() < 0.6 ? 0x8888cc : 0xaaaadd;
+        const drop = this.scene.add.rectangle(x, y, width, Phaser.Math.Between(8, 16), color, alpha)
+          .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE);
+        this.activeRainDrops.push(drop);
         this.scene.tweens.add({
           targets: drop,
           x: x - 30,
-          y: y + cam.height + 20,
-          duration: Phaser.Math.Between(300, 600),
-          onComplete: () => drop.destroy(),
+          y: cam.height + 20,
+          duration: Phaser.Math.Between(400, 800),
+          onComplete: () => {
+            const idx = this.activeRainDrops.indexOf(drop);
+            if (idx !== -1) this.activeRainDrops.splice(idx, 1);
+            drop.destroy();
+          },
         });
       },
     });
@@ -97,6 +113,15 @@ export class WeatherSystem {
     if (this.rainTimer) {
       this.rainTimer.destroy();
       this.rainTimer = null;
+    }
+    for (const drop of this.activeRainDrops) {
+      this.scene.tweens.killTweensOf(drop);
+      drop.destroy();
+    }
+    this.activeRainDrops = [];
+    if (this.rainOverlay) {
+      this.rainOverlay.destroy();
+      this.rainOverlay = null;
     }
   }
 

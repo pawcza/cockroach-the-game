@@ -37,7 +37,8 @@ export class GameClock {
 
   resume(): void {
     if (!this._isPaused) return;
-    this.pausedDuration += Date.now() - this.pauseStart;
+    const pausedFor = Date.now() - this.pauseStart;
+    this.pausedDuration += pausedFor;
     this._isPaused = false;
   }
 

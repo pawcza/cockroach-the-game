@@ -16,6 +16,7 @@ export interface CollisionCallbacks {
   onPickup: (x: number, score: number) => void;
   onPillStart: () => void;
   onDie: (obstacleType?: string | null) => void;
+  onPickupCollected?: (x: number, y: number, textureKey: string) => void;
 }
 
 export class CollisionManager {
@@ -84,69 +85,85 @@ export class CollisionManager {
     }, this.scene);
   }
 
+  private collectPickup(
+    _player: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    pickup: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
+    config: {
+      sound?: () => void;
+      score: number;
+      popupColor?: string | (() => string);
+      onCollected: () => void;
+      beforeDestroy?: (sprite: Phaser.Physics.Arcade.Sprite) => void;
+      afterScore?: (px: number, py: number) => void;
+    },
+  ): void {
+    const sprite = pickup as Phaser.Physics.Arcade.Sprite;
+    const px = sprite.x;
+    const py = sprite.y;
+    this.callbacks.onPickupCollected?.(px, py, sprite.texture.key);
+    this.vfx.pickupCollectEffect(px, py);
+    config.sound?.();
+    config.beforeDestroy?.(sprite);
+    sprite.destroy();
+
+    this.callbacks.incrementCombo();
+    config.onCollected();
+    const multiplier = this.callbacks.getComboMultiplier();
+    const points = Math.round(config.score * multiplier);
+    this.callbacks.addScore(points);
+    this.callbacks.onPickup(px, this.callbacks.getScore());
+
+    config.afterScore?.(px, py);
+
+    if (config.popupColor !== undefined) {
+      const color = typeof config.popupColor === 'function' ? config.popupColor() : config.popupColor;
+      this.showPickupPopup(px, py, `+${points}`, color);
+    }
+  }
+
   private collectApple(
     _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
     apple: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
-    const sprite = apple as Phaser.Physics.Arcade.Sprite;
-    this.vfx.appleCollectEffect(sprite.x, sprite.y);
-    this.audio.playApple();
-    sprite.destroy();
-
-    this.callbacks.incrementCombo();
-    this.callbacks.onAppleCollected();
-    const multiplier = this.callbacks.getComboMultiplier();
-    const points = Math.round(APPLE_SCORE * multiplier);
-    this.callbacks.addScore(points);
-    this.callbacks.onPickup(sprite.x, this.callbacks.getScore());
-
-    const combo = this.callbacks.getPickupCombo();
-    const comboColor = combo >= 10 ? '#ff00ff' : combo >= 5 ? '#ffff00' : '#00ff00';
-    this.showPickupPopup(sprite.x, sprite.y, `+${points}`, comboColor);
+    this.collectPickup(_cockroach, apple, {
+      sound: () => this.audio.playApple(),
+      score: APPLE_SCORE,
+      popupColor: () => {
+        const combo = this.callbacks.getPickupCombo();
+        return combo >= 10 ? '#ff00ff' : combo >= 5 ? '#ffff00' : '#00ff00';
+      },
+      onCollected: () => this.callbacks.onAppleCollected(),
+    });
   }
 
   private collectBeer(
     _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
     beer: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
-    const sprite = beer as Phaser.Physics.Arcade.Sprite;
-    this.vfx.appleCollectEffect(sprite.x, sprite.y);
-    this.scene.sound.play('burp', { volume: 0.8 });
-    sprite.destroy();
-
-    this.callbacks.incrementCombo();
-    this.callbacks.onBeerCollected();
-    const multiplier = this.callbacks.getComboMultiplier();
-    const points = Math.round(BEER_SCORE * multiplier);
-    this.callbacks.addScore(points);
-    this.callbacks.onPickup(sprite.x, this.callbacks.getScore());
-
-    this.showPickupPopup(sprite.x, sprite.y, `+${points}`, '#ffdd00');
+    this.collectPickup(_cockroach, beer, {
+      sound: () => this.scene.sound.play('burp', { volume: 0.8 }),
+      score: BEER_SCORE,
+      popupColor: '#ffdd00',
+      onCollected: () => this.callbacks.onBeerCollected(),
+    });
   }
 
   private collectPill(
     _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
     pill: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
-    const sprite = pill as Phaser.Physics.Arcade.Sprite;
-    const px = sprite.x;
-    const py = sprite.y;
-
-    const glowTween = sprite.getData('glowTween');
-    if (glowTween) glowTween.destroy();
-    sprite.destroy();
-
-    this.callbacks.incrementCombo();
-    this.callbacks.onPillCollected();
-    const multiplier = this.callbacks.getComboMultiplier();
-    const pillPoints = Math.round(PILL_SCORE * multiplier);
-    this.callbacks.addScore(pillPoints);
-    this.callbacks.onPickup(px, this.callbacks.getScore());
-
-    this.vfx.appleCollectEffect(px, py);
-    this.player.activatePill(px, py);
-
-    this.callbacks.onPillStart();
+    this.collectPickup(_cockroach, pill, {
+      score: PILL_SCORE,
+      onCollected: () => this.callbacks.onPillCollected(),
+      beforeDestroy: (sprite) => {
+        const glowTween = sprite.getData('glowTween');
+        if (glowTween) glowTween.destroy();
+      },
+      afterScore: (px, py) => {
+        this.player.activatePill(px, py);
+        this.callbacks.onPillStart();
+      },
+    });
   }
 
   private hitObstacle(

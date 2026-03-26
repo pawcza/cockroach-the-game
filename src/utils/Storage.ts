@@ -2,6 +2,8 @@ const KEYS = {
   PLAYER_NAME: 'cockroach-mp-name',
   HIGH_SCORE: 'cockroach-highscore',
   GAMES_PLAYED: 'cockroach-games-played',
+  MUSIC_VOLUME: 'cockroach-music-vol',
+  SFX_VOLUME: 'cockroach-sfx-vol',
 } as const;
 
 const DEFAULT_NAME = 'Karaluch';
@@ -44,4 +46,20 @@ export function getGamesPlayed(): number {
 
 export function incrementGamesPlayed(): void {
   localStorage.setItem(KEYS.GAMES_PLAYED, (getGamesPlayed() + 1).toString());
+}
+
+export function getMusicVolume(): number {
+  return parseFloat(localStorage.getItem(KEYS.MUSIC_VOLUME) ?? '1');
+}
+
+export function setMusicVolume(vol: number): void {
+  localStorage.setItem(KEYS.MUSIC_VOLUME, vol.toString());
+}
+
+export function getSfxVolume(): number {
+  return parseFloat(localStorage.getItem(KEYS.SFX_VOLUME) ?? '1');
+}
+
+export function setSfxVolume(vol: number): void {
+  localStorage.setItem(KEYS.SFX_VOLUME, vol.toString());
 }

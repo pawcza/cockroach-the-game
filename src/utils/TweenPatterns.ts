@@ -47,6 +47,7 @@ export function fadeAndDestroy(
   duration: number,
   props?: Partial<Phaser.Types.Tweens.TweenBuilderConfig>,
 ): Phaser.Tweens.Tween {
+  const callerOnComplete = props?.onComplete;
   return scene.tweens.add({
     targets: target,
     alpha: 0,
@@ -54,6 +55,7 @@ export function fadeAndDestroy(
     ...props,
     onComplete: () => {
       (target as Phaser.GameObjects.Sprite).destroy();
+      if (typeof callerOnComplete === 'function') callerOnComplete.call(undefined, {} as Phaser.Tweens.Tween, [] as Phaser.GameObjects.GameObject[]);
     },
   });
 }
@@ -93,72 +95,57 @@ export function floatingText(
 // ── Glow helpers ────────────────────────────────────────────────────
 
 /** Create a standalone glow circle (additive blend). Returns the circle. */
-export function createGlow(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  radius: number,
-  color: number,
-  alpha: number,
-): Phaser.GameObjects.Arc {
-  return scene.add.circle(x, y, radius, color, alpha)
-    .setDepth(DEPTH.GLOW)
-    .setBlendMode(Phaser.BlendModes.ADD);
-}
-
 /**
- * Attach a pulsing glow to a sprite. The glow auto-destroys when the sprite
- * is destroyed. Returns the glow circle.
+ * Attach a pulsing point light to a pickup sprite. Uses Phaser's Light2D
+ * system for natural-looking illumination instead of additive-blend circles.
+ * The light follows the sprite and auto-removes on destroy.
  */
 export function attachGlow(
   scene: Phaser.Scene,
   sprite: Phaser.GameObjects.Sprite | Phaser.Physics.Arcade.Sprite,
   radius: number,
   color: number,
-  alpha: number,
+  intensity: number,
   pulseConfig?: { toAlpha?: number; toScale?: number; duration?: number },
-): Phaser.GameObjects.Arc {
-  const layers = [
-    { radiusMult: 0.6, alphaMult: 1.0 },
-    { radiusMult: 1.0, alphaMult: 0.5 },
-    { radiusMult: 1.5, alphaMult: 0.2 },
-  ];
+): Phaser.GameObjects.Light | null {
+  // Only works if the scene has lighting enabled
+  if (!scene.lights.active) return null;
 
-  const pAlpha = pulseConfig?.toAlpha ?? alpha * 0.33;
-  const pScale = pulseConfig?.toScale;
+  const light = scene.lights.addLight(sprite.x, sprite.y, radius * 3, color, intensity * 1.5);
+
   const pDuration = pulseConfig?.duration ?? 500;
+  const minIntensity = (pulseConfig?.toAlpha ?? intensity * 0.33) * 1.5;
 
-  const glows: Phaser.GameObjects.Arc[] = [];
-  for (const layer of layers) {
-    const glow = createGlow(scene, sprite.x, sprite.y, radius * layer.radiusMult, color, alpha * layer.alphaMult);
-    glows.push(glow);
-
-    const tweenCfg: Phaser.Types.Tweens.TweenBuilderConfig = {
-      targets: glow,
-      alpha: pAlpha * layer.alphaMult,
-      duration: pDuration,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    };
-    if (pScale !== undefined) {
-      (tweenCfg as Record<string, unknown>).scale = pScale;
-    }
-    scene.tweens.add(tweenCfg);
-  }
-
-  // Store glow refs on the sprite so vacuum pull can move them
-  const existing: Phaser.GameObjects.Arc[] = sprite.getData('_glows') ?? [];
-  sprite.setData('_glows', [...existing, ...glows]);
-
-  sprite.on('destroy', () => {
-    for (const glow of glows) {
-      scene.tweens.killTweensOf(glow);
-      glow.destroy();
-    }
+  // Pulse intensity
+  const pulseData = { val: light.intensity };
+  const pulseTween = scene.tweens.add({
+    targets: pulseData,
+    val: minIntensity,
+    duration: pDuration,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+    onUpdate: () => { light.intensity = pulseData.val; },
   });
 
-  return glows[0];
+  // Follow sprite position each frame
+  const updateHandler = (): void => {
+    if (!sprite.active) return;
+    light.x = sprite.x;
+    light.y = sprite.y;
+  };
+  scene.events.on('update', updateHandler);
+
+  // Store light ref on sprite for vacuum pull
+  sprite.setData('_light', light);
+
+  sprite.on('destroy', () => {
+    pulseTween.destroy();
+    scene.events.off('update', updateHandler);
+    scene.lights.removeLight(light);
+  });
+
+  return light;
 }
 
 // ── Overlay / particles ─────────────────────────────────────────────

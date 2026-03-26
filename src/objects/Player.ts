@@ -52,6 +52,7 @@ export class Player {
   private _pillStartTime = 0;
   private _isPillWarning = false;
   private pillSpeedLines: Phaser.GameObjects.Rectangle[] = [];
+  private pillSpeedLinesTimer: Phaser.Time.TimerEvent | null = null;
   private pillOverlay!: Phaser.GameObjects.Rectangle;
 
   // Floor positions
@@ -87,6 +88,11 @@ export class Player {
   get isPillWarning(): boolean { return this._isPillWarning; }
   get pillSpeedBoost(): number { return this._pillSpeedBoost; }
   get pillStartTime(): number { return this._pillStartTime; }
+
+  adjustTimersForPause(pausedMs: number): void {
+    if (this._dashStartTime > 0) this._dashStartTime += pausedMs;
+    if (this._pillStartTime > 0) this._pillStartTime += pausedMs;
+  }
   get currentSpeed(): number { return this._currentSpeed; }
   get speedMultiplier(): number { return this._speedMultiplier; }
   get x(): number { return this.cockroach.x; }
@@ -135,6 +141,7 @@ export class Player {
     this._pillSpeedBoost = 1;
     if (this.pillRainbowTimer) { this.pillRainbowTimer.destroy(); this.pillRainbowTimer = null; }
     if (this.pillTrailTimer) { this.pillTrailTimer.destroy(); this.pillTrailTimer = null; }
+    if (this.pillSpeedLinesTimer) { this.pillSpeedLinesTimer.destroy(); this.pillSpeedLinesTimer = null; }
     this._pillStartTime = 0;
     this.pillSpeedLines.forEach(l => l.destroy());
     this.pillSpeedLines = [];
@@ -427,6 +434,7 @@ export class Player {
   }
 
   private startPillSpeedLines(): void {
+    if (this.pillSpeedLinesTimer) { this.pillSpeedLinesTimer.destroy(); this.pillSpeedLinesTimer = null; }
     this.pillSpeedLines.forEach(l => l.destroy());
     this.pillSpeedLines = [];
 
@@ -459,7 +467,7 @@ export class Player {
       });
     };
 
-    this.scene.time.addEvent({
+    this.pillSpeedLinesTimer = this.scene.time.addEvent({
       delay: 60,
       repeat: Math.floor(PILL_DURATION / 60),
       callback: spawnLine,
@@ -482,6 +490,10 @@ export class Player {
     if (this.pillTrailTimer) {
       this.pillTrailTimer.destroy();
       this.pillTrailTimer = null;
+    }
+    if (this.pillSpeedLinesTimer) {
+      this.pillSpeedLinesTimer.destroy();
+      this.pillSpeedLinesTimer = null;
     }
 
     this.cockroach.clearTint();
@@ -542,6 +554,7 @@ export class Player {
       this._pillSpeedBoost = 1;
       if (this.pillRainbowTimer) { this.pillRainbowTimer.destroy(); this.pillRainbowTimer = null; }
       if (this.pillTrailTimer) { this.pillTrailTimer.destroy(); this.pillTrailTimer = null; }
+      if (this.pillSpeedLinesTimer) { this.pillSpeedLinesTimer.destroy(); this.pillSpeedLinesTimer = null; }
       this._pillStartTime = 0;
       this.pillOverlay.setFillStyle(0x000000, 0);
       this.pillSpeedLines.forEach(l => l.destroy());

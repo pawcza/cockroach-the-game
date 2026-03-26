@@ -1,20 +1,25 @@
 import Phaser from 'phaser';
+import { getMusicVolume, getSfxVolume } from '../utils/Storage';
 
 export class AudioManager {
   private scene: Phaser.Scene;
   private bgm: Phaser.Sound.BaseSound | null = null;
   private currentBGMKey: string = '';
+  private fadeOutTween: Phaser.Tweens.Tween | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
   }
+
+  private mv(): number { return getMusicVolume(); }
+  private sv(): number { return getSfxVolume(); }
 
   startBGM(key: string = 'bgm-lv1'): void {
     if (this.bgm) {
       this.bgm.destroy();
     }
     this.currentBGMKey = key;
-    this.bgm = this.scene.sound.add(key, { volume: 0.5, loop: true });
+    this.bgm = this.scene.sound.add(key, { volume: 0.5 * this.mv(), loop: true });
     this.bgm.play();
   }
 
@@ -22,20 +27,31 @@ export class AudioManager {
     if (this.currentBGMKey === newKey) return;
     this.currentBGMKey = newKey;
 
+    if (this.fadeOutTween) {
+      const tweenTargetBgm = this.bgm;
+      this.fadeOutTween.stop();
+      this.fadeOutTween = null;
+      if (tweenTargetBgm) {
+        tweenTargetBgm.stop();
+        tweenTargetBgm.destroy();
+      }
+    }
+
     const oldBgm = this.bgm;
     if (oldBgm) {
-      this.scene.tweens.addCounter({
+      this.fadeOutTween = this.scene.tweens.addCounter({
         from: 50,
         to: 0,
         duration: 800,
         onUpdate: (tween) => {
           if (oldBgm && oldBgm.isPlaying) {
-            (oldBgm as Phaser.Sound.WebAudioSound).setVolume((tween.getValue() ?? 0) / 100);
+            (oldBgm as Phaser.Sound.WebAudioSound).setVolume((tween.getValue() ?? 0) / 100 * this.mv());
           }
         },
         onComplete: () => {
           oldBgm.stop();
           oldBgm.destroy();
+          this.fadeOutTween = null;
         },
       });
     }
@@ -49,7 +65,7 @@ export class AudioManager {
       duration: 800,
       onUpdate: (tween) => {
         if (this.bgm && this.bgm.isPlaying) {
-          (this.bgm as Phaser.Sound.WebAudioSound).setVolume((tween.getValue() ?? 0) / 100);
+          (this.bgm as Phaser.Sound.WebAudioSound).setVolume((tween.getValue() ?? 0) / 100 * this.mv());
         }
       },
     });
@@ -64,37 +80,37 @@ export class AudioManager {
   }
 
   playJump(): void {
-    this.scene.sound.play('jump', { volume: 0.6 });
+    this.scene.sound.play('jump', { volume: 0.6 * this.sv() });
   }
 
   playApple(): void {
-    this.scene.sound.play('apple', { volume: 0.7 });
+    this.scene.sound.play('apple', { volume: 0.7 * this.sv() });
   }
 
   playDeath(): void {
     this.stopBGM();
-    this.scene.sound.play('death', { volume: 0.8 });
+    this.scene.sound.play('death', { volume: 0.8 * this.sv() });
   }
 
   playFloorSwitch(): void {
-    this.scene.sound.play('floor-switch', { volume: 0.4 });
+    this.scene.sound.play('floor-switch', { volume: 0.4 * this.sv() });
   }
 
   playDash(): void {
-    this.scene.sound.play('dash', { volume: 0.6 });
+    this.scene.sound.play('dash', { volume: 0.6 * this.sv() });
   }
 
   playPill(): void {
-    this.scene.sound.play('pill-sfx', { volume: 0.8 });
+    this.scene.sound.play('pill-sfx', { volume: 0.8 * this.sv() });
   }
 
   playComboChime(tier: number): void {
     const rate = 1.0 + tier * 0.15;
-    this.scene.sound.play('apple', { volume: 0.4 + tier * 0.05, rate });
+    this.scene.sound.play('apple', { volume: (0.4 + tier * 0.05) * this.sv(), rate });
   }
 
   playComboLost(): void {
-    this.scene.sound.play('combo-lost', { volume: 0.6 });
+    this.scene.sound.play('combo-lost', { volume: 0.6 * this.sv() });
   }
 
   glitchBGM(): void {

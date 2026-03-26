@@ -1,20 +1,19 @@
-import Phaser from 'phaser';
-import { COMBO_TIERS, DEPTH } from '../config/constants';
-import { popupStyle } from '../utils/TextStyles';
+import { COMBO_TIERS } from '../config/constants';
+import { NotificationManager } from './NotificationManager';
 
 export class ComboFeedback {
-  private scene: Phaser.Scene;
+  private notifications: NotificationManager;
   private lastTier = -1;
 
-  constructor(scene: Phaser.Scene) {
-    this.scene = scene;
+  constructor(notifications: NotificationManager) {
+    this.notifications = notifications;
   }
 
   onPickup(combo: number): typeof COMBO_TIERS[number] | null {
     const tier = this.getCurrentTier(combo);
     if (tier === null || tier === this.lastTier) return null;
     this.lastTier = tier;
-    this.showTierPopup(COMBO_TIERS[tier]);
+    this.notifications.showComboTier(COMBO_TIERS[tier].threshold, COMBO_TIERS[tier].label, COMBO_TIERS[tier].color);
     return COMBO_TIERS[tier];
   }
 
@@ -27,25 +26,5 @@ export class ComboFeedback {
       if (combo >= COMBO_TIERS[i].threshold) return i;
     }
     return null;
-  }
-
-  private showTierPopup(tier: typeof COMBO_TIERS[number]): void {
-    const cam = this.scene.cameras.main;
-    const text = this.scene.add.text(
-      cam.width / 2, cam.height * 0.35,
-      `x${tier.threshold} ${tier.label}`,
-      popupStyle({ fontSize: '14px', color: '#' + tier.color.toString(16).padStart(6, '0') }),
-    ).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP);
-
-    this.scene.tweens.add({
-      targets: text,
-      y: text.y - 30,
-      alpha: 0,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 1200,
-      ease: 'Power2',
-      onComplete: () => text.destroy(),
-    });
   }
 }

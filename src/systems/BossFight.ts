@@ -165,6 +165,7 @@ export class BossFight {
   }
 
   get isDone(): boolean { return this.state === 'done'; }
+  get isFighting(): boolean { return this.state === 'fighting'; }
   get victoryBonus(): number { return VICTORY_BONUS; }
 
   // ── Intro ─────────────────────────────────────────────────────────
@@ -294,6 +295,11 @@ export class BossFight {
   update(delta: number): void {
     this.stateTime += delta;
 
+    // Glock always follows cockroach Y when it exists
+    if (this.glockSprite?.active) {
+      this.glockSprite.y = this.player.sprite.y;
+    }
+
     switch (this.state) {
       case 'intro':
         this.updateGodray();
@@ -341,9 +347,6 @@ export class BossFight {
     // Keep player at fixed X
     this.player.sprite.x = this.playerFixedX;
     this.player.sprite.setVelocityX(0);
-
-    // Glock follows cockroach Y
-    this.glockSprite.y = this.player.sprite.y;
 
     // Wobble boss faces — more intense during charge
     const time = this.scene.time.now;
