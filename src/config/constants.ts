@@ -1,6 +1,11 @@
 export const GAME_WIDTH = 800;
 export const GAME_HEIGHT = 512;
 
+// Real pixel art: the world is drawn on a grid of PIXEL_BLOCK logical px (256 native rows), and the canvas is
+// scaled by a whole number of device pixels per native pixel.
+export const PIXEL_BLOCK = 2;
+
+
 // Floor positions (Y coordinates)
 export const FLOOR_BOTTOM_Y = 396;
 export const FLOOR_TOP_Y = 296;
@@ -74,6 +79,10 @@ export const COLORS = {
   BEER_GLOW: 0xffdd00,
   /** Apple pickup glow */
   APPLE_GLOW: 0x00ff44,
+  /** Outline on everything that can be picked up */
+  PICKUP_OUTLINE: 0x2cff5a,
+  /** Outline on everything that kills */
+  OBSTACLE_OUTLINE: 0xff2b3a,
   /** Death particle color */
   DEATH_PARTICLE: 0xff0000,
 } as const;

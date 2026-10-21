@@ -12,7 +12,7 @@ import {
   DEPTH,
 } from '../config/constants';
 import { getLevelForDistance } from '../config/levels';
-import { floatUpDown, pulse, attachGlow } from '../utils/TweenPatterns';
+import { floatUpDown, pulse, attachGlow, outlineGlow } from '../utils/TweenPatterns';
 import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
@@ -188,6 +188,7 @@ export class SpawnManager {
     sprite.setImmovable(true);
     floatUpDown(this.scene, sprite, config.floatDistance, config.floatDuration);
     attachGlow(this.scene, sprite, config.glowRadius, config.glowColor, config.glowIntensity, config.glowPulse);
+    outlineGlow(this.scene, sprite, COLORS.PICKUP_OUTLINE, true);
     if (config.pulse) {
       pulse(this.scene, sprite, config.pulse.toScale, config.pulse.duration);
     }
