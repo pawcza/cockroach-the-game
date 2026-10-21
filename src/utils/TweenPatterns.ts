@@ -148,6 +148,28 @@ export function attachGlow(
   return light;
 }
 
+/**
+ * Coloured outline glow around a sprite's silhouette, so pickups and obstacles read apart at a glance on busy
+ * backgrounds. `distance` is in texture pixels: sprites are drawn at ~0.2 scale, so it has to be large to show.
+ */
+export function outlineGlow(
+  scene: Phaser.Scene,
+  sprite: Phaser.GameObjects.Sprite | Phaser.Physics.Arcade.Sprite,
+  color: number,
+  pulsing: boolean,
+): void {
+  const fx = sprite.preFX;
+  if (!fx) return; // canvas renderer
+  const distance = 96;
+  fx.setPadding(distance);
+  const glow = fx.addGlow(color, 4, 0, false, 0.1, distance);
+  if (!pulsing) return;
+  const tween = scene.tweens.add({
+    targets: glow, outerStrength: 1.5, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+  });
+  sprite.on('destroy', () => tween.destroy());
+}
+
 // ── Overlay / particles ─────────────────────────────────────────────
 
 /** Create a pulsing overlay (additive blend) that fades between alpha and pulseAlpha. */

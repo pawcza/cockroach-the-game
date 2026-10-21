@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, COLORS, DEPTH } from '../config/constants';
 import { SeededRNG } from '../multiplayer/SeededRNG';
+import { outlineGlow } from '../utils/TweenPatterns';
 
 type Floor = 'top' | 'bottom';
 type SpawnFn = (x: number) => void;
@@ -36,6 +37,9 @@ interface ObstacleEntry {
   fn: SpawnFn;
   basic: boolean;
 }
+
+/** Seconds of warning the disco ball leaves after its last floor swap before it reaches the cockroach. */
+const DISCO_LOCK_S = 0.7;
 
 export class ObstacleSpawner {
   private scene: GameSceneAccessor;
@@ -138,6 +142,7 @@ export class ObstacleSpawner {
     sprite.setData('type', type);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     sprite.body!.setSize(sprite.width * hitbox.w, sprite.height * hitbox.h);
+    outlineGlow(this.scene, sprite, COLORS.OBSTACLE_OUTLINE, false);
 
     return sprite;
   }
@@ -557,6 +562,17 @@ export class ObstacleSpawner {
 
     const doSwapCycle = (): void => {
       if (!disco.active) return;
+      // Once the cockroach is close, the ball holds its floor: its last swap has to land at least
+      // DISCO_LOCK_S before contact, or a swap into your lane leaves no time to answer it
+      const cockroach = this.scene.cockroach;
+      if (cockroach) {
+        const vx = Math.max((cockroach.body as Phaser.Physics.Arcade.Body).velocity.x, 1);
+        const ahead = disco.x - cockroach.x;
+        if (ahead > -60 && ahead < vx * ((warmupDuration + jumpDuration) / 1000 + DISCO_LOCK_S)) {
+          this.scene.time.delayedCall(waitDuration, doSwapCycle);
+          return;
+        }
+      }
       const targetFloor: Floor = currentFloor === 'top' ? 'bottom' : 'top';
       const targetY = targetFloor === 'top' ? topY : bottomY;
 
