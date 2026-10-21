@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { sceneManager } from '../systems/SceneManager';
 
+/** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
+ * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
+const ASSET_REV = '?v=2';
+
 export class BootScene extends Phaser.Scene {
   private deferredLoaded = false;
 
@@ -90,11 +94,11 @@ export class BootScene extends Phaser.Scene {
       ['black-hole', 'assets/blackhole.webp'],
       ['btn-bg', 'assets/btn.webp'],
     ];
-    for (const [key, path] of images) this.load.image(key, path);
+    for (const [key, path] of images) this.load.image(key, path + ASSET_REV);
 
     // Menu backgrounds with normal maps for lighting
-    this.load.image('menu-bg', ['assets/bg.webp', 'assets/bg-n.webp']);
-    this.load.image('menu-bg-multiplayer', ['assets/bg-multiplayer.webp', 'assets/bg-multiplayer-n.webp']);
+    this.load.image('menu-bg', ['assets/bg.webp' + ASSET_REV, 'assets/bg-n.webp' + ASSET_REV]);
+    this.load.image('menu-bg-multiplayer', ['assets/bg-multiplayer.webp' + ASSET_REV, 'assets/bg-multiplayer-n.webp' + ASSET_REV]);
 
     // --- Level backgrounds, floors, and BGM ---
     for (let i = 1; i <= 3; i++) {

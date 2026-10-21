@@ -11,10 +11,13 @@ const PORT = process.env.PORT || 3456;
 
 app.use(express.json());
 
-// Hashed assets (Vite adds content hash) — cache forever
+// Vite's hashed bundles share dist/assets with the sprites copied from public/assets, whose names never change:
+// only the hashed ones may be cached forever, the rest revalidate (ETag) so new art shows up on the next visit
+const HASHED = /-[\w-]{8}\.(js|css)$/;
 app.use('/assets', express.static(path.join(__dirname, '..', 'dist', 'assets'), {
-  maxAge: '1y',
-  immutable: true,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Cache-Control', HASHED.test(filePath) ? 'public, max-age=31536000, immutable' : 'no-cache');
+  },
 }));
 
 // All other static files — no cache (forces revalidation on every visit)
