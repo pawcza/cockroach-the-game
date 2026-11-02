@@ -38,6 +38,7 @@ const ACK_TIMEOUT = 5000;
 class MultiplayerClient {
   private socket: Socket | null = null;
   private _myId = '';
+  private latestLobby: MPLobbyData | null = null;
 
   get myId(): string { return this._myId; }
   get connected(): boolean { return this.socket?.connected ?? false; }
@@ -50,6 +51,14 @@ class MultiplayerClient {
       // Re-emit any pending room joins after reconnection
       for (const handler of this.connectHandlers) handler();
     });
+    // Recorded here, not in LobbyScene: an update can arrive during the crossfade,
+    // before that scene exists to hear it.
+    this.socket.on('lobby:updated', (lobby: MPLobbyData) => { this.latestLobby = lobby; });
+  }
+
+  /** The newest state of this lobby the server has sent, or `known` if nothing newer came. */
+  freshestLobby(known: MPLobbyData): MPLobbyData {
+    return this.latestLobby?.id === known.id ? this.latestLobby : known;
   }
 
   private connectHandlers: Array<() => void> = [];
@@ -116,11 +125,13 @@ class MultiplayerClient {
   }
 
   async createLobby(): Promise<MPLobbyData> {
+    this.latestLobby = null;
     const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:create');
     return res.lobby;
   }
 
   async joinLobby(lobbyId: string): Promise<MPLobbyData> {
+    this.latestLobby = null;
     const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:join', lobbyId);
     return res.lobby;
   }
