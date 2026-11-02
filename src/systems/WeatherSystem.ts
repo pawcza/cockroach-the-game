@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { WeatherType } from '../config/levels';
-import { SeededRNG } from '../multiplayer/SeededRNG';
 import { DEPTH } from '../config/constants';
 
 export class WeatherSystem {
@@ -29,21 +28,6 @@ export class WeatherSystem {
     }
     if (weather === 'fog') this.startFog();
     if (weather === 'wind') this.startWind();
-  }
-
-  static rollWeather(
-    chances: { type: WeatherType; weight: number }[] | undefined,
-    rng: SeededRNG | null,
-  ): WeatherType {
-    if (!chances || chances.length === 0) return 'clear';
-    const total = chances.reduce((s, c) => s + c.weight, 0);
-    const roll = (rng?.next() ?? Math.random()) * total;
-    let acc = 0;
-    for (const c of chances) {
-      acc += c.weight;
-      if (roll < acc) return c.type;
-    }
-    return 'clear';
   }
 
   private startRain(): void {
