@@ -4,10 +4,10 @@ import { AudioManager } from '../audio/AudioManager';
 import { COCKROACH_START_X } from '../config/constants';
 import { getLevelForDistance, LevelConfig } from '../config/levels';
 import { playLevelGlitch } from '../effects/LevelTransitionFX';
-import { SeededRNG } from '../multiplayer/SeededRNG';
 import { GameHUD } from '../ui/GameHUD';
 import { ParallaxBackground } from './ParallaxBackground';
 import { RunState } from './RunState';
+import { rollLevelWeather } from './rollLevelWeather';
 import { WeatherSystem } from './WeatherSystem';
 
 export function distanceAt(x: number): number {
@@ -20,7 +20,7 @@ export class LevelProgression {
   private background: ParallaxBackground;
   private audio: AudioManager;
   private hud: GameHUD;
-  private rng: SeededRNG | null;
+  private seed: number | null;
   private weather: WeatherSystem;
 
   constructor(
@@ -29,16 +29,17 @@ export class LevelProgression {
     background: ParallaxBackground,
     audio: AudioManager,
     hud: GameHUD,
-    rng: SeededRNG | null,
+    seed: number | null,
   ) {
     this.scene = scene;
     this.run = run;
     this.background = background;
     this.audio = audio;
     this.hud = hud;
-    this.rng = rng;
+    this.seed = seed;
     this.weather = new WeatherSystem(scene);
-    this.weather.setWeather(WeatherSystem.rollWeather(getLevelForDistance(0).weatherChances, rng));
+    const first = getLevelForDistance(0);
+    this.weather.setWeather(rollLevelWeather(first.weatherChances, seed, first.level));
   }
 
   update(distance: number): void {
@@ -61,9 +62,6 @@ export class LevelProgression {
   }
 
   private switchLevel(config: LevelConfig): boolean {
-    // Rolled before the texture check: on seeded runs this draw is part of the shared RNG sequence.
-    const weather = WeatherSystem.rollWeather(config.weatherChances, this.rng);
-
     if (!this.scene.textures.exists(`lv${config.level}-sky`)) {
       if (this.scene.cache.audio.exists(config.bgmKey)) {
         this.audio.switchBGM(config.bgmKey);
@@ -74,7 +72,7 @@ export class LevelProgression {
     playLevelGlitch(this.scene);
     this.audio.glitchBGM();
 
-    this.weather.setWeather(weather);
+    this.weather.setWeather(rollLevelWeather(config.weatherChances, this.seed, config.level));
     this.background.crossfadeTo(config);
 
     this.audio.switchBGM(config.bgmKey);

@@ -53,6 +53,7 @@ export class GameScene extends Phaser.Scene {
 
   private isMultiplayer = false;
   private rng: SeededRNG | null = null;
+  private seed: number | null = null;
   private clock!: GameClock;
   private eventBridge!: GameEventBridge;
 
@@ -144,7 +145,8 @@ export class GameScene extends Phaser.Scene {
     this.isMultiplayer = data?.multiplayer ?? false;
     this.eventBridge?.destroy();
     this.eventBridge = new GameEventBridge(this.isMultiplayer);
-    this.rng = (this.isMultiplayer && data?.seed != null) ? new SeededRNG(data.seed) : null;
+    this.seed = this.isMultiplayer ? data?.seed ?? null : null;
+    this.rng = this.seed !== null ? new SeededRNG(this.seed) : null;
 
     // Defensive cleanup of prior run
     this.clock?.destroy();
@@ -208,7 +210,7 @@ export class GameScene extends Phaser.Scene {
 
     const comboFeedback = new ComboFeedback(new NotificationManager(this));
     this.score = new ScoreTracker(this, this.run, this.hud, comboFeedback, this.audio, this.vfx);
-    this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.rng);
+    this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.seed);
     this.replayRecorder = new DeathReplayRecorder();
   }
 
