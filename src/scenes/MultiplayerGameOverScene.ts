@@ -48,7 +48,7 @@ const OBSTACLE_LABEL: Record<string, string> = {
   pope: 'Papież',
   bison: 'Żubr',
   blackhole: 'Czarna dziura',
-  boss: 'Bestia z Wadowic',
+  boss: 'Bestia spod Zlewu',
   fall: 'Spadł',
 };
 

@@ -58,7 +58,7 @@ interface FaceConfig {
 const FACES: FaceConfig[] = [
   { key: 'boss-face1', projectileKey: 'boss-bomb', shotSound: 'boss-bomb-shot', offsetX: -40, offsetY: -75, scale: 0.35, lane: 'top' },
   { key: 'boss-face2', projectileKey: 'boss-creamcake', shotSound: 'boss-creamcake-shot', offsetX: 30, offsetY: 0, scale: 0.30, lane: 'both' },
-  { key: 'boss-face3', projectileKey: 'boss-dollar', shotSound: 'boss-dollar-shot', offsetX: -20, offsetY: 70, scale: 0.32, lane: 'bottom' },
+  { key: 'boss-face3', projectileKey: 'boss-bomb', shotSound: 'boss-bomb-shot', offsetX: -20, offsetY: 70, scale: 0.32, lane: 'bottom' },
 ];
 
 export class BossFight {
@@ -287,7 +287,7 @@ export class BossFight {
 
     this.bossStartHP = this.bossHP;
     this.audio.switchBGM('boss-bgm');
-    this.hud.showBossHP('Bestia z Wadowic', this.bossHP, this.bossStartHP);
+    this.hud.showBossHP('Bestia spod Zlewu', this.bossHP, this.bossStartHP);
   }
 
   // ── Update ────────────────────────────────────────────────────────

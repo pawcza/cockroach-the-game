@@ -15,7 +15,7 @@ import { RunState } from './RunState';
 import { ScoreTracker } from './ScoreTracker';
 import { SpawnManager } from './SpawnManager';
 
-const BOSS_TRIGGER_DISTANCE = 450;
+const BOSS_TRIGGER_DISTANCE = 1800;
 
 export interface BossEncounterDeps {
   run: RunState;
