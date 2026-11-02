@@ -1,11 +1,13 @@
 /** Cosmetic life around the cockroach: dust, its light, the bird cameo and ambient noise. */
 import Phaser from 'phaser';
+import { AudioManager } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
 import { Player } from '../objects/Player';
 
 export class AmbientEffects {
   private scene: Phaser.Scene;
   private player!: Player;
+  private audio!: AudioManager;
   private light: Phaser.GameObjects.Light | null = null;
 
   private dustTimer = 0;
@@ -28,8 +30,9 @@ export class AmbientEffects {
     this.nextNoiseTime = 20000 + Math.random() * 15000;
   }
 
-  attachTo(player: Player): void {
+  attachTo(player: Player, audio: AudioManager): void {
     this.player = player;
+    this.audio = audio;
     // Warm white glow
     this.light = this.scene.lights.addLight(player.x, player.y, 300, 0xfff0dd, 1.5);
   }
@@ -60,7 +63,7 @@ export class AmbientEffects {
       this.noiseTimer = 0;
       this.nextNoiseTime = 20000 + Math.random() * 15000;
       if (!this.noiseSound || !this.noiseSound.isPlaying) {
-        this.noiseSound = this.scene.sound.add('cockroach-noise', { volume: 0.3 });
+        this.noiseSound = this.audio.addSfx('cockroach-noise', 0.3);
         this.noiseSound.play();
       }
     }
@@ -104,7 +107,7 @@ export class AmbientEffects {
     birdImg.setScrollFactor(0).setDepth(DEPTH.BIRD_OVERLOOK).setScale(0.4).setAlpha(0);
     birdImg.setFlipX(corner.flipX).setFlipY(corner.flipY);
 
-    this.scene.sound.play('huh', { volume: 0.5 });
+    this.audio.playSfx('huh', 0.5);
 
     this.scene.tweens.add({
       targets: birdImg,

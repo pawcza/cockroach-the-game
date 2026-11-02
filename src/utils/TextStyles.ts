@@ -33,11 +33,6 @@ export function hudStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextS
   return { fontSize: '14px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
 }
 
-/** Small HUD text. */
-export function hudSmallStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
-  return { fontSize: '10px', fontFamily: BASE_FONT, color: '#ffffff', stroke: '#000000', strokeThickness: 3, ...overrides };
-}
-
 /** Floating popup text (score, combo, etc.). */
 export function popupStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
   return { fontSize: '12px', fontFamily: BASE_FONT, color: '#00ffff', stroke: '#000000', strokeThickness: 3, ...overrides };

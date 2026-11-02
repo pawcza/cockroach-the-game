@@ -21,17 +21,13 @@ export const FLOOR_TILE_RADIUS = 6;
 // Cockroach
 export const COCKROACH_START_X = 150;
 export const COCKROACH_BASE_SPEED = 200;
-export const COCKROACH_ACCELERATION = 1.5; // legacy — unused, kept for reference
 export const COCKROACH_SPEED_MAX_BOOST = 300; // max px/s added by time (1.5 * BASE)
 export const COCKROACH_SPEED_TAU = 200; // seconds to reach ~63% of max boost
-export const COCKROACH_JUMP_VELOCITY = -550;
-export const COCKROACH_GRAVITY = 800;
 
 // Spawning
 export const SPAWN_DISTANCE_AHEAD = 900;
 export const MIN_OBSTACLE_SPACING = 200;
 export const APPLE_SPAWN_CHANCE = 0.4;
-export const OBSTACLE_SPAWN_INTERVAL = 350;
 
 // Dash
 export const DASH_DURATION = 375;
@@ -54,7 +50,6 @@ export const BEER_SPAWN_CHANCE = 0.05; // 5% of slots get a beer
 export const APPLE_SCORE = 10;
 export const BEER_SCORE = 25;
 export const PILL_SCORE = 100;
-export const SURVIVAL_SCORE_INTERVAL = 1000;
 
 // ── Color palettes ──────────────────────────────────────────────────
 
@@ -99,6 +94,7 @@ export const DEPTH = {
   GLOW: 9,
   PICKUPS: 11,
   OBSTACLES: 10,
+  MENU_PAGE: 10,
   DISCO_STROBE: 90,
   VIGNETTE_MENU: 100,
   WARNING: 500,
@@ -127,7 +123,6 @@ export const DEPTH = {
   PAUSE: 4000,
   DEATH_NOTIFICATION: 4000,
   PAUSE_TEXT: 4001,
-  UNPAUSE_COUNTDOWN: 4003,
   PAUSE_BTN: 5000,
   PAUSE_BTN_LABEL: 5001,
   DEATH_REPLAY_BG: 6000,

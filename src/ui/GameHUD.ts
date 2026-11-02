@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
+import { sfxVolume } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
 import { getLevelForDistance, getLevelProgress, getLevelDistances, LevelConfig } from '../config/levels';
-import { hudStyle, hudSmallStyle, smallStyle, buttonStyle, popupStyle, FONT_FAMILY } from '../utils/TextStyles';
+import { headingStyle, hudStyle, smallStyle, buttonStyle, popupStyle } from '../utils/TextStyles';
 import { createButton } from './shared';
 
 export interface HUDUpdateData {
@@ -41,6 +42,7 @@ export class GameHUD {
   private pauseBtns: Phaser.GameObjects.GameObject[] = [];
   private lastTitleScore = -1;
   private lastTitleSpeed = -1;
+  private lastSpeedColor = -1;
 
   // Boss HP bar
   private bossMode = false;
@@ -103,13 +105,7 @@ export class GameHUD {
 
     // Text inside the bar
     this.levelBarText = this.scene.add
-      .text(this.barX, this.barY + this.barH / 2, 'Lv1 Zwykła Kuchnia (0/100)m', {
-        fontSize: '7px',
-        fontFamily: FONT_FAMILY,
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      })
+      .text(this.barX, this.barY + this.barH / 2, 'Lv1 Zwykła Kuchnia (0/100)m', smallStyle({ fontSize: '7px' }))
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.HUD_FILL + 1);
@@ -172,6 +168,28 @@ export class GameHUD {
     this.drawLevelBar(0);
   }
 
+  /** Moves everything centered or right-aligned after the screen changes shape. */
+  layout(w: number, h: number): void {
+    const dx = w / 2 - this.barX;
+    this.scoreText.setX(w / 2);
+    this.scoreLabels.setX(w / 2);
+    this.barX = w / 2;
+    this.levelBarText.setX(this.barX);
+    this.speedText.setX(this.barX + this.barW / 2 + 12);
+
+    this.pauseOverlay.setPosition(w / 2, h / 2).setSize(w, h);
+    (this.pauseOverlay.input!.hitArea as Phaser.Geom.Rectangle).setSize(w, h);
+    this.pauseText.setX(w / 2);
+    this.pauseSubtext.setX(w / 2);
+    for (const obj of this.pauseBtns) {
+      (obj as unknown as Phaser.GameObjects.Components.Transform).x += dx;
+    }
+
+    const pauseX = w - this.touchPauseBtn.radius - 12;
+    this.touchPauseBtn.setX(pauseX);
+    this.touchPauseBtnLabel.setX(pauseX);
+  }
+
   updateScore(score: number): void {
     this.scoreText.setText(String(score));
   }
@@ -186,12 +204,15 @@ export class GameHUD {
     this.drawLevelBar(data.distance);
 
     // Speed text + color from level
-    const speedColorStr = '#' + getLevelForDistance(data.distance).color.toString(16).padStart(6, '0');
     this.speedText.setText(`${data.speedMultiplier.toFixed(1)}x`);
-    this.speedText.setColor(speedColorStr);
+    const speedColor = getLevelForDistance(data.distance).color;
+    if (speedColor !== this.lastSpeedColor) {
+      this.lastSpeedColor = speedColor;
+      this.speedText.setColor('#' + speedColor.toString(16).padStart(6, '0'));
+    }
 
     // Wobbly speed text — intensity scales with speed
-    const intensity = Math.max(0, (data.speedMultiplier - 1) / 4); // 0 at 1x, 1 at 5x
+    const intensity = Math.max(0, (data.speedMultiplier - 1) / 2.4); // 0 at 1x, 1 at the 3.4x cap
     const baseSpeedX = this.barX + this.barW / 2 + 12;
     const baseSpeedY = this.barY + this.barH / 2;
     if (intensity > 0.1) {
@@ -223,46 +244,7 @@ export class GameHUD {
   private drawLevelBar(distance: number): void {
     // Boss HP mode — repurpose the level bar
     if (this.bossMode) {
-      const bx = this.barX - this.barW / 2;
-      const by = this.barY;
-      const bw = this.barW;
-      const bh = this.barH;
-      const r = this.barRadius;
-      const progress = this.bossHP / this.bossMaxHP;
-      const fillW = Math.max(0, bw * progress);
-
-      this.levelBarGfx.clear();
-      this.levelBarGfx.fillStyle(0x000000, 0.5);
-      this.levelBarGfx.fillRoundedRect(bx + 2, by + 2, bw, bh, r);
-      this.levelBarGfx.fillStyle(0x330000, 1);
-      this.levelBarGfx.fillRoundedRect(bx - 1, by - 1, bw + 2, bh + 2, r + 1);
-      this.levelBarGfx.fillStyle(0x111111, 0.9);
-      this.levelBarGfx.fillRoundedRect(bx, by, bw, bh, r);
-
-      this.levelBarFillGfx.clear();
-      if (fillW > 2) {
-        const fillR = {
-          tl: r, bl: r,
-          tr: fillW >= bw - r ? r : 0,
-          br: fillW >= bw - r ? r : 0,
-        };
-        this.levelBarFillGfx.fillStyle(0xcc0000, 0.85);
-        this.levelBarFillGfx.fillRoundedRect(bx, by, fillW, bh, fillR);
-
-        this.fillScrollX += 0.5;
-        const stripeW = 12;
-        const stripeGap = 8;
-        const stripeStep = stripeW + stripeGap;
-        this.levelBarFillGfx.fillStyle(0xff0000, 0.15);
-        for (let sx = -stripeStep + (this.fillScrollX % stripeStep); sx < fillW + stripeStep; sx += stripeStep) {
-          const clampL = Math.max(bx, Math.min(bx + sx, bx + fillW));
-          const clampR = Math.max(bx, Math.min(bx + sx + stripeW, bx + fillW));
-          if (clampR > clampL) {
-            this.levelBarFillGfx.fillRect(clampL, by + 1, clampR - clampL, bh - 2);
-          }
-        }
-      }
-
+      this.drawBar(this.bossHP / this.bossMaxHP, 0xcc0000, 0xff0000, 0x330000, false);
       this.levelBarText.setText(`${this.bossName} (${this.bossHP}/${this.bossMaxHP})`);
       this.speedText.setVisible(false);
       return;
@@ -271,17 +253,9 @@ export class GameHUD {
     this.speedText.setVisible(true);
 
     const levelConfig = getLevelForDistance(distance);
-    const levelProgress = getLevelProgress(distance);
-    const { inLevel, levelSpan } = getLevelDistances(distance);
+    const { levelSpan } = getLevelDistances(distance);
     const barColor = levelConfig.color;
 
-    const bx = this.barX - this.barW / 2;
-    const by = this.barY;
-    const bw = this.barW;
-    const bh = this.barH;
-    const r = this.barRadius;
-
-    // Border color (darker version of level color)
     const cr = (barColor >> 16) & 0xff;
     const cg = (barColor >> 8) & 0xff;
     const cb = barColor & 0xff;
@@ -294,7 +268,22 @@ export class GameHUD {
       Math.min(255, Math.floor(cb * 1.4)),
     );
 
-    // Draw bar background
+    this.drawBar(getLevelProgress(distance), barColor, highlightColor, borderColor, true);
+
+    // Bar text — show total distance / next level threshold
+    const nextThreshold = levelConfig.distanceThreshold + levelSpan;
+    const distLabel = levelSpan > 0 ? `(${Math.floor(distance)}/${nextThreshold})m` : `${Math.floor(distance)}m`;
+    this.levelBarText.setText(`Lv${levelConfig.level} ${levelConfig.name} ${distLabel}`);
+  }
+
+  /** The rounded bar at the bottom: shadow, border and dark base, then the fill with its scrolling stripes. */
+  private drawBar(progress: number, fillColor: number, stripeColor: number, borderColor: number, shine: boolean): void {
+    const bx = this.barX - this.barW / 2;
+    const by = this.barY;
+    const bw = this.barW;
+    const bh = this.barH;
+    const r = this.barRadius;
+
     this.levelBarGfx.clear();
     this.levelBarGfx.fillStyle(0x000000, 0.5);
     this.levelBarGfx.fillRoundedRect(bx + 2, by + 2, bw, bh, r);
@@ -303,48 +292,30 @@ export class GameHUD {
     this.levelBarGfx.fillStyle(0x111111, 0.9);
     this.levelBarGfx.fillRoundedRect(bx, by, bw, bh, r);
 
-    // Draw fill with progress
-    const fillW = Math.max(0, bw * levelProgress);
+    const fillW = Math.max(0, bw * progress);
     this.levelBarFillGfx.clear();
-    if (fillW > 2) {
-      const fillR = {
-        tl: r, bl: r,
-        tr: fillW >= bw - r ? r : 0,
-        br: fillW >= bw - r ? r : 0,
-      };
-      this.levelBarFillGfx.fillStyle(barColor, 0.85);
-      this.levelBarFillGfx.fillRoundedRect(bx, by, fillW, bh, fillR);
+    if (fillW <= 2) return;
 
-      // Animated stripe overlay
-      this.fillScrollX += 0.5;
-      const stripeW = 12;
-      const stripeGap = 8;
-      const stripeStep = stripeW + stripeGap;
-      this.levelBarFillGfx.fillStyle(highlightColor, 0.15);
-      for (let sx = -stripeStep + (this.fillScrollX % stripeStep); sx < fillW + stripeStep; sx += stripeStep) {
-        const x0 = bx + sx;
-        const x1 = x0 + stripeW;
-        const skew = bh * 0.6;
-        if (x1 + skew > bx && x0 < bx + fillW) {
-          this.levelBarFillGfx.save();
-          const clampL = Math.max(bx, Math.min(x0, bx + fillW));
-          const clampR = Math.max(bx, Math.min(x1, bx + fillW));
-          if (clampR > clampL) {
-            this.levelBarFillGfx.fillRect(clampL, by + 1, clampR - clampL, bh - 2);
-          }
-          this.levelBarFillGfx.restore();
-        }
+    const fullWidth = fillW >= bw - r;
+    this.levelBarFillGfx.fillStyle(fillColor, 0.85);
+    this.levelBarFillGfx.fillRoundedRect(bx, by, fillW, bh, { tl: r, bl: r, tr: fullWidth ? r : 0, br: fullWidth ? r : 0 });
+
+    this.fillScrollX += 0.5;
+    const stripeW = 12;
+    const stripeStep = stripeW + 8;
+    this.levelBarFillGfx.fillStyle(stripeColor, 0.15);
+    for (let sx = -stripeStep + (this.fillScrollX % stripeStep); sx < fillW + stripeStep; sx += stripeStep) {
+      const clampL = Math.max(bx, Math.min(bx + sx, bx + fillW));
+      const clampR = Math.max(bx, Math.min(bx + sx + stripeW, bx + fillW));
+      if (clampR > clampL) {
+        this.levelBarFillGfx.fillRect(clampL, by + 1, clampR - clampL, bh - 2);
       }
-
-      // Inner highlight at top of fill
-      this.levelBarFillGfx.fillStyle(0xffffff, 0.12);
-      this.levelBarFillGfx.fillRoundedRect(bx + 2, by + 1, Math.max(0, fillW - 4), bh * 0.35, { tl: r - 1, tr: fillW >= bw - r ? r - 1 : 0, bl: 0, br: 0 });
     }
 
-    // Bar text — show total distance / next level threshold
-    const nextThreshold = levelConfig.distanceThreshold + levelSpan;
-    const distLabel = levelSpan > 0 ? `(${Math.floor(distance)}/${nextThreshold})m` : `${Math.floor(distance)}m`;
-    this.levelBarText.setText(`Lv${levelConfig.level} ${levelConfig.name} ${distLabel}`);
+    if (shine) {
+      this.levelBarFillGfx.fillStyle(0xffffff, 0.12);
+      this.levelBarFillGfx.fillRoundedRect(bx + 2, by + 1, Math.max(0, fillW - 4), bh * 0.35, { tl: r - 1, tr: fullWidth ? r - 1 : 0, bl: 0, br: 0 });
+    }
   }
 
   showPauseOverlay(): void {
@@ -354,7 +325,7 @@ export class GameHUD {
     for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(true);
 
     if (!this.cricketSound) {
-      this.cricketSound = this.scene.sound.add('cricket', { volume: 0.4, loop: true });
+      this.cricketSound = this.scene.sound.add('cricket', { volume: sfxVolume(0.4), loop: true });
     }
     this.cricketSound.play();
   }
@@ -378,11 +349,10 @@ export class GameHUD {
       fontSize: '12px', color: '#ffff00', strokeThickness: 4,
     })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setScale(0.5).setAlpha(0);
 
-    const nameText = this.scene.add.text(w / 2, 95, nameLabel, {
-      fontSize: '18px', fontFamily: FONT_FAMILY, color: '#ffffff',
-      stroke: '#000000', strokeThickness: 6,
+    const nameText = this.scene.add.text(w / 2, 95, nameLabel, headingStyle({
+      strokeThickness: 6,
       shadow: { offsetX: 2, offsetY: 2, color: '#ff6600', blur: 8, fill: true, stroke: true },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setScale(0.5).setAlpha(0);
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setScale(0.5).setAlpha(0);
 
     this.scene.tweens.add({
       targets: [levelText, nameText], scale: 1, alpha: 1, duration: 300, ease: 'Back.easeOut',
@@ -398,7 +368,6 @@ export class GameHUD {
 
   showScoreMilestone(text: string, tier: number, threshold: number): void {
     const w = this.scene.cameras.main.width;
-    const h = this.scene.cameras.main.height;
 
     const tierConfig = [
       { numSize: '20px', textSize: '10px', color: '#ffff00', stroke: 3, numStroke: 4, shake: 0.005, duration: 1200, scale: 1.3, wobbleAngle: 1.5, wobbleInterval: 150 },
@@ -409,15 +378,13 @@ export class GameHUD {
     ];
     const cfg = tierConfig[Math.min(tier - 1, tierConfig.length - 1)];
 
-    const numText = this.scene.add.text(w / 2, 60, String(threshold), {
-      fontSize: cfg.numSize, fontFamily: FONT_FAMILY, color: cfg.color,
-      stroke: '#000000', strokeThickness: cfg.numStroke,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.SCORE_MILESTONE).setAlpha(0).setScale(3);
+    const numText = this.scene.add.text(w / 2, 60, String(threshold), popupStyle({
+      fontSize: cfg.numSize, color: cfg.color, strokeThickness: cfg.numStroke,
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.SCORE_MILESTONE).setAlpha(0).setScale(3);
 
-    const milestone = this.scene.add.text(w / 2, 90, text, {
-      fontSize: cfg.textSize, fontFamily: FONT_FAMILY, color: cfg.color,
-      stroke: '#000000', strokeThickness: cfg.stroke,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP).setAlpha(0).setScale(0.3);
+    const milestone = this.scene.add.text(w / 2, 90, text, popupStyle({
+      fontSize: cfg.textSize, color: cfg.color, strokeThickness: cfg.stroke,
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP).setAlpha(0).setScale(0.3);
 
     this.scene.tweens.add({
       targets: numText,

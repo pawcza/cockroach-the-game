@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import { getMusicVolume, getSfxVolume } from '../utils/Storage';
 
+/** A sound effect's base volume scaled by the player's Efekty setting. */
+export function sfxVolume(base: number): number {
+  return base * getSfxVolume();
+}
+
 export class AudioManager {
   private scene: Phaser.Scene;
   private bgm: Phaser.Sound.BaseSound | null = null;
@@ -12,7 +17,6 @@ export class AudioManager {
   }
 
   private mv(): number { return getMusicVolume(); }
-  private sv(): number { return getSfxVolume(); }
 
   startBGM(key: string = 'bgm-lv1'): void {
     if (this.bgm) {
@@ -79,38 +83,48 @@ export class AudioManager {
     }
   }
 
+  /** Plays a one-shot sound effect. */
+  playSfx(key: string, volume: number): void {
+    this.scene.sound.play(key, { volume: sfxVolume(volume) });
+  }
+
+  /** Creates a sound effect the caller controls, such as a loop. */
+  addSfx(key: string, volume: number, loop = false): Phaser.Sound.BaseSound {
+    return this.scene.sound.add(key, { volume: sfxVolume(volume), loop });
+  }
+
   playJump(): void {
-    this.scene.sound.play('jump', { volume: 0.6 * this.sv() });
+    this.scene.sound.play('jump', { volume: sfxVolume(0.6) });
   }
 
   playApple(): void {
-    this.scene.sound.play('apple', { volume: 0.7 * this.sv() });
+    this.scene.sound.play('apple', { volume: sfxVolume(0.7) });
   }
 
   playDeath(): void {
     this.stopBGM();
-    this.scene.sound.play('death', { volume: 0.8 * this.sv() });
+    this.scene.sound.play('death', { volume: sfxVolume(0.8) });
   }
 
   playFloorSwitch(): void {
-    this.scene.sound.play('floor-switch', { volume: 0.4 * this.sv() });
+    this.scene.sound.play('floor-switch', { volume: sfxVolume(0.4) });
   }
 
   playDash(): void {
-    this.scene.sound.play('dash', { volume: 0.6 * this.sv() });
+    this.scene.sound.play('dash', { volume: sfxVolume(0.6) });
   }
 
   playPill(): void {
-    this.scene.sound.play('pill-sfx', { volume: 0.8 * this.sv() });
+    this.scene.sound.play('pill-sfx', { volume: sfxVolume(0.8) });
   }
 
   playComboChime(tier: number): void {
     const rate = 1.0 + tier * 0.15;
-    this.scene.sound.play('apple', { volume: (0.4 + tier * 0.05) * this.sv(), rate });
+    this.scene.sound.play('apple', { volume: sfxVolume(0.4 + tier * 0.05), rate });
   }
 
   playComboLost(): void {
-    this.scene.sound.play('combo-lost', { volume: 0.6 * this.sv() });
+    this.scene.sound.play('combo-lost', { volume: sfxVolume(0.6) });
   }
 
   glitchBGM(): void {

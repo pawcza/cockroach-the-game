@@ -1,13 +1,11 @@
 import Phaser from 'phaser';
 import {
   COCKROACH_START_X,
-  COCKROACH_BASE_SPEED,
   APPLE_SPAWN_CHANCE,
   PILL_SPAWN_CHANCE,
   BEER_SPAWN_CHANCE,
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
-  SPEED_BOOST_PER_LEVEL,
   COLORS,
   DEPTH,
 } from '../config/constants';
@@ -17,6 +15,9 @@ import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { Floor } from '../objects/Player';
+
+/** Spawned objects stay hidden until this close to the screen: their outline shader isn't culled by Phaser. */
+const SHOW_MARGIN = 250;
 
 export class SpawnManager {
   private scene: Phaser.Scene;
@@ -67,9 +68,7 @@ export class SpawnManager {
 
       const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
       const spawnLevel = getLevelForDistance(slotDistance).level;
-      const levelSpeedMult = 1 + (spawnLevel - 1) * (SPEED_BOOST_PER_LEVEL / COCKROACH_BASE_SPEED);
-      const slotWidth = MIN_OBSTACLE_SPACING * Math.max(1, levelSpeedMult * 0.15);
-      this.nextSpawnX += slotWidth;
+      this.nextSpawnX += MIN_OBSTACLE_SPACING;
 
       const roll = this.rng?.next() ?? Math.random();
       if (roll < PILL_SPAWN_CHANCE) {
@@ -87,6 +86,14 @@ export class SpawnManager {
       this.pendingPickupDestructions = this.pendingPickupDestructions.filter(
         x => !this.destroyPickupNear(x),
       );
+    }
+
+    const showBefore = cameraRight + SHOW_MARGIN;
+    for (const group of [this.obstacles, this.apples, this.beers, this.pills]) {
+      for (const obj of group.getChildren()) {
+        const sprite = obj as Phaser.Physics.Arcade.Sprite;
+        sprite.setVisible(sprite.x < showBefore);
+      }
     }
   }
 
@@ -186,6 +193,7 @@ export class SpawnManager {
     sprite.setDepth(DEPTH.PICKUPS);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     sprite.setImmovable(true);
+    sprite.once('destroy', () => this.scene.tweens.killTweensOf(sprite));
     floatUpDown(this.scene, sprite, config.floatDistance, config.floatDuration);
     attachGlow(this.scene, sprite, config.glowRadius, config.glowColor, config.glowIntensity, config.glowPulse);
     outlineGlow(this.scene, sprite, COLORS.PICKUP_OUTLINE, true);
@@ -212,14 +220,11 @@ export class SpawnManager {
       duration: 1500,
       repeat: -1,
       onUpdate: (tween) => {
-        if (pill.active) {
-          const hue = tween.getValue() ?? 0;
-          const color = Phaser.Display.Color.HSLToColor(hue / 360, 1, 0.5);
-          pill.setTint(color.color);
-        }
+        const hue = tween.getValue() ?? 0;
+        pill.setTint(Phaser.Display.Color.HSLToColor(hue / 360, 1, 0.5).color);
       },
     });
-    pill.setData('glowTween', pillGlowTween);
+    pill.once('destroy', () => pillGlowTween.destroy());
   }
 
   private spawnBeer(slotX: number): void {

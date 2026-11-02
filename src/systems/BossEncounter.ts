@@ -2,14 +2,14 @@
 import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
 import { getLevelForDistance } from '../config/levels';
-import { VisualEffects } from '../effects/VisualEffects';
 import { GameEventBridge } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { Player } from '../objects/Player';
 import { GameHUD } from '../ui/GameHUD';
 import { GameClock } from '../utils/GameClock';
-import { BossFight, BossFightRole, BOSS_MAX_HP } from './BossFight';
+import { BOSS_MAX_HP } from './boss/bossConfig';
+import { BossFight, BossFightRole } from './BossFight';
 import { GameOverHandler } from './GameOverHandler';
 import { RunState } from './RunState';
 import { ScoreTracker } from './ScoreTracker';
@@ -21,7 +21,6 @@ export interface BossEncounterDeps {
   run: RunState;
   player: Player;
   audio: AudioManager;
-  vfx: VisualEffects;
   hud: GameHUD;
   score: ScoreTracker;
   clock: GameClock;
@@ -87,11 +86,9 @@ export class BossEncounter {
     this.deps.getGhostManager()?.enterBossFight(data.triggerX, floorTopY, floorBottomY);
   }
 
-  handleServerEnd(data: { result: 'victory' | 'defeat'; bonus: number }): void {
+  handleServerEnd(data: { result: 'victory'; bonus: number }): void {
     const { run, score, hud, player, clock, spawnManager } = this.deps;
-    if (data.result === 'victory' && !run.isDead) {
-      score.addScore(data.bonus);
-    }
+    if (!run.isDead) score.addScore(data.bonus);
     this.deps.getGhostManager()?.leaveBossFight();
     this.destroy();
     this._isActive = false;
@@ -129,13 +126,13 @@ export class BossEncounter {
   }
 
   private createFight(role: BossFightRole, overrideHp?: number): void {
-    const { player, audio, vfx, hud, clock, gameOverHandler, score, isMultiplayer, eventBridge } = this.deps;
+    const { player, audio, hud, clock, gameOverHandler, score, isMultiplayer, eventBridge } = this.deps;
     this.clearArena();
 
     this._isActive = true;
     clock.pause();
     this._fight = new BossFight(
-      this.scene, player, audio, vfx, hud,
+      this.scene, player, audio, hud,
       this.deps.floorTopY, this.deps.floorBottomY,
       {
         onComplete: () => this.completeSoloFight(),
@@ -143,7 +140,6 @@ export class BossEncounter {
           if (!isMultiplayer) this.cleanup();
           gameOverHandler.die(type);
         },
-        clearScreen: () => { /* already cleared above */ },
         addScore: (points) => score.addScore(points),
       },
       role,

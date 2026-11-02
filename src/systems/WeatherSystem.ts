@@ -2,24 +2,26 @@ import Phaser from 'phaser';
 import { WeatherType } from '../config/levels';
 import { DEPTH } from '../config/constants';
 
+const FOG_STEPS = 20;
+const SPECK_TEXTURE = 'weather-speck';
+
 export class WeatherSystem {
   private scene: Phaser.Scene;
-  private currentWeather: WeatherType = 'clear';
   private fogOverlay: Phaser.GameObjects.Graphics | null = null;
   private rainOverlay: Phaser.GameObjects.Rectangle | null = null;
-  private rainTimer: Phaser.Time.TimerEvent | null = null;
-  private windDrift = 0;
-  private activeRainDrops: Phaser.GameObjects.Rectangle[] = [];
+  private emitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private paused = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    if (!scene.textures.exists(SPECK_TEXTURE)) {
+      scene.make.graphics({}, false).fillStyle(0xffffff).fillRect(0, 0, 1, 1)
+        .generateTexture(SPECK_TEXTURE, 1, 1).destroy();
+    }
   }
-
-  get drift(): number { return this.windDrift; }
 
   setWeather(weather: WeatherType): void {
     this.clear();
-    this.currentWeather = weather;
     if (weather === 'rain') {
       this.startRain();
       const cam = this.scene.cameras.main;
@@ -30,48 +32,60 @@ export class WeatherSystem {
     if (weather === 'wind') this.startWind();
   }
 
+  /** Emitters run on the scene's update, which a pause leaves running. */
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (paused) this.emitter?.pause();
+    else this.emitter?.resume();
+  }
+
+  resize(): void {
+    const cam = this.scene.cameras.main;
+    this.rainOverlay?.setPosition(cam.width / 2, cam.height / 2).setSize(cam.width, cam.height);
+    if (this.fogOverlay) this.drawFog(this.fogOverlay);
+  }
+
   private startRain(): void {
-    this.rainTimer = this.scene.time.addEvent({
-      delay: 16,
-      loop: true,
-      callback: () => {
-        if (this.currentWeather !== 'rain') return;
-        if (this.scene.physics.world.isPaused) return;
-        const cam = this.scene.cameras.main;
-        const x = Math.random() * cam.width;
-        const y = -10;
-        const width = Math.random() < 0.5 ? 1 : 2;
-        const alpha = 0.3 + Math.random() * 0.3;
-        const color = Math.random() < 0.6 ? 0x8888cc : 0xaaaadd;
-        const drop = this.scene.add.rectangle(x, y, width, Phaser.Math.Between(8, 16), color, alpha)
-          .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE);
-        this.activeRainDrops.push(drop);
-        this.scene.tweens.add({
-          targets: drop,
-          x: x - 30,
-          y: cam.height + 20,
-          duration: Phaser.Math.Between(400, 800),
-          onComplete: () => {
-            const idx = this.activeRainDrops.indexOf(drop);
-            if (idx !== -1) this.activeRainDrops.splice(idx, 1);
-            drop.destroy();
-          },
-        });
-      },
+    const cam = this.scene.cameras.main;
+    this.startEmitter({
+      x: { onEmit: () => Math.random() * cam.width },
+      y: -10,
+      speedX: { min: -75, max: -38 },
+      speedY: { min: 660, max: 1320 },
+      lifespan: 850,
+      frequency: 16,
+      scaleX: { min: 1, max: 2 },
+      scaleY: { min: 8, max: 16 },
+      alpha: { min: 0.3, max: 0.6 },
+      tint: [0x8888cc, 0x8888cc, 0xaaaadd],
     });
   }
 
-  private startFog(): void {
+  private startWind(): void {
     const cam = this.scene.cameras.main;
+    this.startEmitter({
+      x: { onEmit: () => cam.width + 40 },
+      y: { onEmit: () => Math.random() * cam.height },
+      speedX: { min: -1400, max: -900 },
+      speedY: { min: -30, max: 30 },
+      lifespan: 1400,
+      frequency: 90,
+      scaleX: { min: 30, max: 90 },
+      scaleY: 1,
+      alpha: { min: 0.08, max: 0.2 },
+    });
+  }
+
+  private startEmitter(config: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig): void {
+    this.emitter = this.scene.add.particles(0, 0, SPECK_TEXTURE, config)
+      .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE);
+    if (this.paused) this.emitter.pause();
+  }
+
+  private startFog(): void {
     this.fogOverlay = this.scene.add.graphics()
       .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE);
-    const fogWidth = cam.width * 0.4;
-    for (let i = 0; i < 20; i++) {
-      const alpha = (i / 20) * 0.5;
-      const x = cam.width - fogWidth + (fogWidth / 20) * i;
-      this.fogOverlay.fillStyle(0x222233, alpha);
-      this.fogOverlay.fillRect(x, 0, fogWidth / 20, cam.height);
-    }
+    this.drawFog(this.fogOverlay);
     this.scene.tweens.add({
       targets: this.fogOverlay,
       alpha: { from: 0.7, to: 1 },
@@ -82,27 +96,24 @@ export class WeatherSystem {
     });
   }
 
-  private startWind(): void {
-    this.windDrift = -30;
+  private drawFog(fog: Phaser.GameObjects.Graphics): void {
+    const cam = this.scene.cameras.main;
+    const fogWidth = cam.width * 0.4;
+    fog.clear();
+    for (let i = 0; i < FOG_STEPS; i++) {
+      fog.fillStyle(0x222233, (i / FOG_STEPS) * 0.5);
+      fog.fillRect(cam.width - fogWidth + (fogWidth / FOG_STEPS) * i, 0, fogWidth / FOG_STEPS, cam.height);
+    }
   }
 
   clear(): void {
-    this.currentWeather = 'clear';
-    this.windDrift = 0;
     if (this.fogOverlay) {
       this.scene.tweens.killTweensOf(this.fogOverlay);
       this.fogOverlay.destroy();
       this.fogOverlay = null;
     }
-    if (this.rainTimer) {
-      this.rainTimer.destroy();
-      this.rainTimer = null;
-    }
-    for (const drop of this.activeRainDrops) {
-      this.scene.tweens.killTweensOf(drop);
-      drop.destroy();
-    }
-    this.activeRainDrops = [];
+    this.emitter?.destroy();
+    this.emitter = null;
     if (this.rainOverlay) {
       this.rainOverlay.destroy();
       this.rainOverlay = null;

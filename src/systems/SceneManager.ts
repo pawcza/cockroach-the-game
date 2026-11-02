@@ -60,36 +60,6 @@ class SceneManagerSingleton {
       this.currentBgmKey = targetBgm;
     }
   }
-
-  /** Stop current BGM (e.g. when GameScene takes over with its own AudioManager). */
-  stopBGM(): void {
-    if (this.currentBgm) {
-      this.currentBgm.stop();
-      this.currentBgm.destroy();
-      this.currentBgm = null;
-      this.currentBgmKey = null;
-    }
-  }
-
-  /** Fade out current BGM over the given duration. */
-  fadeOutBGM(scene: Phaser.Scene, duration = 500): void {
-    if (this.currentBgm && this.currentBgm.isPlaying) {
-      const bgm = this.currentBgm;
-      scene.tweens.add({
-        targets: bgm,
-        volume: 0,
-        duration,
-        onComplete: () => {
-          bgm.stop();
-          bgm.destroy();
-          if (this.currentBgm === bgm) {
-            this.currentBgm = null;
-            this.currentBgmKey = null;
-          }
-        },
-      });
-    }
-  }
 }
 
 export const sceneManager = new SceneManagerSingleton();

@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
 import { COLORS } from '../config/constants';
-import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle, popupStyle, getScale } from '../utils/TextStyles';
-import { createButton } from '../ui/shared';
+import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
+import { createButton, OBSTACLE_TEXTURE } from '../ui/shared';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { sceneManager } from '../systems/SceneManager';
 import { getHighScore, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
@@ -25,6 +25,7 @@ interface GameOverData {
 export class GameOverScene extends Phaser.Scene {
   private restartBound = false;
   private replayData: ReplayData | null = null;
+  private replay: DeathReplayPlayer | null = null;
 
   private static readonly DEATH_TEXT: Record<string, string[]> = {
     bird: ['Srak cię optakał', 'Gołąb zemsty!', 'Bombardowanie z góry!'],
@@ -33,28 +34,12 @@ export class GameOverScene extends Phaser.Scene {
     newspaper: ['Złe wybory kolego', 'Gazeta prawdy!', 'Przywalony faktem!'],
     onion: ['Smrót cię zmiótł', 'Cebulowy nokaut!', 'Zapłakałeś na wieki!'],
     spray: ['Muga!', 'Psik i po tobie!', 'Toksyczny koniec!'],
-    pill: ['Przedawkowanie!', 'Za dużo dobrego!', 'Narkotyczny zgon!'],
     disco: ['Dyskoteka zamknięta!', 'Ostatni taniec!', 'Kto nie tańczy ten ginie!'],
     jellyfish: ['Użądlony na Bałtyku!', 'Meduza ci w twarz!', 'Morska zemsta!'],
     pope: ['Okadzony przez papieża!', 'Kremówka ostatnia!', 'Santo subito... ale nie ty!'],
     bison: ['Żubr cię stratował!', 'Żubrówka na kopyta!', 'Byka złapałeś!'],
     blackhole: ['Wciągnięty w nicość!', 'Ssanie kosmiczne!', 'Karaluch w próżni!'],
     boss: ['Bestia cię dopadła!', 'Zlew zwyciężył!', 'Kremówkowy armagedon!'],
-  };
-
-  private static readonly OBSTACLE_TEXTURE: Record<string, string> = {
-    bird: 'bird',
-    cat: 'cat-paw',
-    flipper: 'flipper',
-    newspaper: 'newspaper',
-    onion: 'onion',
-    spray: 'pest-spray',
-    disco: 'disco-ball',
-    jellyfish: 'jellyfish',
-    pope: 'pope',
-    bison: 'bison',
-    blackhole: 'black-hole',
-    boss: 'boss-face2',
   };
 
   private static readonly DEFAULT_DEATH = 'Zgniotłeś się!';
@@ -67,6 +52,7 @@ export class GameOverScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.restartBound = false;
     this.replayData = data?.replayData ?? null;
+    this.replay = null;
 
     this.cameras.main.setBackgroundColor('#0a0a0a');
     this.setupBackground(width, height);
@@ -92,9 +78,9 @@ export class GameOverScene extends Phaser.Scene {
     fetchScores().then((scores) => {
       const inTop100 = scores.length < 100 || (finalScore > 0 && finalScore > scores[scores.length - 1].score);
       const canSave = isNewRecord && inTop100;
-      this.showDeathButtons(width, height, isNewRecord, canSave, data);
+      this.showDeathButtons(width, height, canSave, data);
     }).catch(() => {
-      this.showDeathButtons(width, height, isNewRecord, false, data);
+      this.showDeathButtons(width, height, false, data);
     });
   }
 
@@ -142,7 +128,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private setupObstacleImage(width: number, titleY: number, data: GameOverData): void {
-    if (!data?.obstacleType || !GameOverScene.OBSTACLE_TEXTURE[data.obstacleType]) return;
+    if (!data?.obstacleType || !OBSTACLE_TEXTURE[data.obstacleType]) return;
 
     if (data.obstacleType === 'boss') {
       const faces = ['boss-face1', 'boss-face2', 'boss-face3'];
@@ -165,7 +151,7 @@ export class GameOverScene extends Phaser.Scene {
       return;
     }
 
-    const textureKey = GameOverScene.OBSTACLE_TEXTURE[data.obstacleType];
+    const textureKey = OBSTACLE_TEXTURE[data.obstacleType];
     const img = this.add.image(width / 2, titleY + 30, textureKey);
     img.setScale(0.25).setOrigin(0.5, 0);
 
@@ -193,15 +179,14 @@ export class GameOverScene extends Phaser.Scene {
     width: number, height: number,
     finalScore: number, highScore: number, isNewRecord: boolean,
   ): void {
-    const s = getScale();
     const scoreY = height * 0.42;
 
     // Animated count-up
     const counter = { value: 0 };
     const scoreText = this.add
       .text(width / 2, scoreY, 'Punkciory: 0', bodyStyle({
-        fontSize: `${Math.round(16 * s)}px`,
-        strokeThickness: 4 * s,
+        fontSize: '16px',
+        strokeThickness: 4,
       }))
       .setOrigin(0.5);
 
@@ -216,17 +201,17 @@ export class GameOverScene extends Phaser.Scene {
     });
 
     // High score line
-    const hsY = scoreY + Math.round(28 * s);
+    const hsY = scoreY + 28;
     const hsText = this.add
       .text(width / 2, hsY, `Najlepsiejszy wynik: ${highScore}`, smallStyle({
-        fontSize: `${Math.round(11 * s)}px`,
+        fontSize: '11px',
         color: isNewRecord ? '#ffff00' : '#ff8800',
-        strokeThickness: 3 * s,
+        strokeThickness: 3,
       }))
       .setOrigin(0.5);
 
     if (isNewRecord) {
-      hsText.setFontSize(Math.round(16 * s));
+      hsText.setFontSize(16);
       hsText.setColor('#ffff00');
       this.tweens.add({
         targets: hsText,
@@ -241,9 +226,8 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private setupStats(width: number, height: number, data: GameOverData): void {
-    const s = getScale();
-    const fontSize = `${Math.round(10 * s)}px`;
-    const lineHeight = Math.round(20 * s);
+    const fontSize = '10px';
+    const lineHeight = 20;
     const startY = height * 0.58;
 
     const stats: { label: string; value: string; color: string }[] = [];
@@ -291,21 +275,17 @@ export class GameOverScene extends Phaser.Scene {
 
   // -- Restart / navigation ---------------------------------------------------
 
-  private showDeathButtons(width: number, height: number, isNewRecord: boolean, canSave: boolean, data: GameOverData): void {
+  private showDeathButtons(width: number, height: number, canSave: boolean, data: GameOverData): void {
     if (this.restartBound) return;
     this.restartBound = true;
 
-    const s = getScale();
-    const btnS = buttonStyle({
-      fontSize: `${Math.round(12 * s)}px`,
-      strokeThickness: Math.round(3 * s),
-    });
+    const btnS = buttonStyle({ fontSize: '12px', strokeThickness: 3 });
 
-    const btnY = height - Math.round(60 * s);
-    const btnH = Math.round(44 * s);
-    const gap = Math.round(10 * s);
+    const btnY = height - 60;
+    const btnH = 44;
+    const gap = 10;
     const hasReplay = this.replayData && this.replayData.frames.length > 0;
-    const btnW = Math.round(150 * s);
+    const btnW = 150;
 
     if (hasReplay) {
       const totalW = btnW * 3 + gap * 2;
@@ -320,21 +300,24 @@ export class GameOverScene extends Phaser.Scene {
 
     // "Zapisz" button below the highscore text when score qualifies for top 100
     if (canSave) {
-      const saveY = height * 0.42 + Math.round(56 * s);
-      const saveBtnW = Math.round(120 * s);
-      const saveBtnH = Math.round(32 * s);
+      const saveY = height * 0.42 + 56;
 
-      const saveBtn = createButton(this, width / 2, saveY, saveBtnW, saveBtnH, 'Zapisz', 0x008800, buttonStyle({
-        fontSize: `${Math.round(12 * s)}px`,
+      const save = (name: string): void => {
+        this.submitScore(name, data).then((saved) => {
+          if (saved || !this.scene.isActive()) return;
+          this.add.text(width / 2, saveY, 'Nie udało się zapisać', smallStyle({ color: '#ff4444' })).setOrigin(0.5);
+        });
+      };
+
+      const saveBtn = createButton(this, width / 2, saveY, 120, 32, 'Zapisz', 0x008800, buttonStyle({
+        fontSize: '12px',
         strokeThickness: 2,
       }), () => {
         for (const obj of saveBtn.all) obj.destroy();
         if (!isPlayerNameCustom()) {
-          showNameInput(this, (name) => {
-            this.submitScore(name, data);
-          });
+          showNameInput(this, save);
         } else {
-          this.submitScore(getPlayerNameOrDefault(), data);
+          save(getPlayerNameOrDefault());
         }
       });
 
@@ -364,14 +347,16 @@ export class GameOverScene extends Phaser.Scene {
 
   private playReplay(): void {
     if (!this.replayData || this.replayData.frames.length < 2) return;
-    new DeathReplayPlayer(this, this.replayData).play();
+    this.replay?.destroy();
+    this.replay = new DeathReplayPlayer(this, this.replayData);
+    this.replay.play();
   }
 
   // -- Network ----------------------------------------------------------------
 
-  private async submitScore(name: string, data: GameOverData): Promise<void> {
+  private async submitScore(name: string, data: GameOverData): Promise<boolean> {
     try {
-      await fetch('/api/scores', {
+      const res = await fetch('/api/scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -387,8 +372,9 @@ export class GameOverScene extends Phaser.Scene {
           maxCombo: data.maxCombo ?? null,
         }),
       });
+      return res.ok;
     } catch {
-      // Silently fail — game works offline too
+      return false;
     }
   }
 

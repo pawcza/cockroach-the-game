@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COCKROACH_START_X, DEPTH } from '../config/constants';
+import { DEPTH } from '../config/constants';
 import { smallStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
@@ -56,8 +56,6 @@ export class GameOverHandler {
   private onDeath: (score: number, stats: Record<string, unknown>) => void;
   private getReplayData: (obstacleType: string | null) => ReplayData | null;
 
-  get mpGameOverTriggered(): boolean { return this._mpGameOverTriggered; }
-
   constructor(
     scene: Phaser.Scene,
     player: Player,
@@ -103,13 +101,6 @@ export class GameOverHandler {
     this.mpMyName = getPlayerNameOrDefault();
   }
 
-  reset(): void {
-    this._mpGameOverTriggered = false;
-    this.deathNotificationY = 80;
-    this.lastMilestone = 0;
-    this.lastSpectatedMilestone = 0;
-  }
-
   die(obstacleType?: string | null): void {
     if (this.player.isDead) return;
     this.setIsDead();
@@ -119,7 +110,7 @@ export class GameOverHandler {
     document.title = `ZGNIOTŁEŚ SIĘ! | ${score} pkt`;
     this.scene.cameras.main.shake(300, 0.02);
 
-    this.scene.sound.play('cockroach-hiss', { volume: 0.7 });
+    this.audio.playSfx('cockroach-hiss', 0.7);
 
     this.vfx.deathEffect();
     this.audio.playDeath();
@@ -253,38 +244,27 @@ export class GameOverHandler {
   }
 
   checkMilestones(score: number): void {
-    // Find the highest milestone just crossed
-    let highest: typeof SCORE_MILESTONES[number] | null = null;
-    for (const m of SCORE_MILESTONES) {
-      if (score >= m.threshold && this.lastMilestone < m.threshold) {
-        highest = m;
-      }
-    }
-    if (highest) {
-      this.lastMilestone = highest.threshold;
-      this.hud.showScoreMilestone(highest.text, highest.tier, highest.threshold);
-      const key = `milestone-${highest.threshold}`;
-      if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
-        this.scene.sound.play(key, { volume: 0.7 });
-      }
-    }
+    this.lastMilestone = this.announceMilestone(score, this.lastMilestone);
   }
 
   checkSpectatedMilestones(ghostScore: number): void {
+    this.lastSpectatedMilestone = this.announceMilestone(ghostScore, this.lastSpectatedMilestone);
+  }
+
+  /** Announces the highest milestone just crossed and returns the new last milestone. */
+  private announceMilestone(score: number, last: number): number {
     let highest: typeof SCORE_MILESTONES[number] | null = null;
     for (const m of SCORE_MILESTONES) {
-      if (ghostScore >= m.threshold && this.lastSpectatedMilestone < m.threshold) {
+      if (score >= m.threshold && last < m.threshold) {
         highest = m;
       }
     }
-    if (highest) {
-      this.lastSpectatedMilestone = highest.threshold;
-      this.hud.showScoreMilestone(highest.text, highest.tier, highest.threshold);
-      const key = `milestone-${highest.threshold}`;
-      if (this.scene.sound.get(key) || this.scene.cache.audio.exists(key)) {
-        this.scene.sound.play(key, { volume: 0.7 });
-      }
-    }
+    if (!highest) return last;
+
+    this.hud.showScoreMilestone(highest.text, highest.tier, highest.threshold);
+    const key = `milestone-${highest.threshold}`;
+    if (this.scene.cache.audio.exists(key)) this.audio.playSfx(key, 0.7);
+    return highest.threshold;
   }
 
   handleGhostDeath(id: string, score: number, stats: Record<string, unknown>, isDead: () => boolean): void {
@@ -317,11 +297,13 @@ export class GameOverHandler {
     if (this._mpGameOverTriggered) return;
     this._mpGameOverTriggered = true;
     this.cleanupBossFight();
+    const replayData = this.getReplayData(null);
     this.scene.time.delayedCall(1200, () => {
       sceneManager.goto(this.scene, 'MultiplayerGameOverScene', {
         rankings: data.rankings,
         myId: mpClient.myId,
         isHost: data.hostId === mpClient.myId,
+        replayData,
       }, () => {
         this.audio.destroy();
         this.scene.sound.stopAll();

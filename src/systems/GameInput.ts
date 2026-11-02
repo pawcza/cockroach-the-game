@@ -19,6 +19,7 @@ export class GameInput {
   private pauseManager: PauseManager;
   private eventBridge: GameEventBridge;
   private boss: BossEncounter;
+  private touchControls: TouchControls;
 
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey: Phaser.Input.Keyboard.Key;
@@ -46,7 +47,7 @@ export class GameInput {
 
     const isMobile = !scene.sys.game.device.os.desktop;
 
-    new TouchControls(scene, isMobile, {
+    this.touchControls = new TouchControls(scene, isMobile, {
       onSwap: () => this.swapLane(),
       onDash: () => {
         const fight = this.boss.activeFight;
@@ -61,7 +62,8 @@ export class GameInput {
         if (this.boss.isActive) return true;
         return this.player.dashReady && !this.player.isDashing;
       },
-    }).create();
+    });
+    this.touchControls.create();
 
     const keyboard = scene.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -75,6 +77,10 @@ export class GameInput {
     if (!isMobile) {
       scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.handlePointer(pointer));
     }
+  }
+
+  layout(width: number, height: number): void {
+    this.touchControls.layout(width, height);
   }
 
   pausePressed(): boolean {

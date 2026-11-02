@@ -15,8 +15,8 @@ import {
   DEPTH,
 } from '../config/constants';
 import { AudioManager } from '../audio/AudioManager';
-import { fadeAndDestroy, floatingText } from '../utils/TweenPatterns';
-import { neonStyle, popupStyle } from '../utils/TextStyles';
+import { fadeAndDestroy } from '../utils/TweenPatterns';
+import { PillEffect } from './PillEffect';
 
 export type Floor = 'top' | 'bottom';
 
@@ -36,7 +36,6 @@ export class Player {
 
   // Dash
   private _isDashing = false;
-  private _dashCooldown = 0;
   private _dashReady = true;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
   private _dashStartTime = 0;
@@ -47,13 +46,9 @@ export class Player {
   // Pill
   private _isPillActive = false;
   private _pillSpeedBoost = 1;
-  private pillRainbowTimer: Phaser.Time.TimerEvent | null = null;
-  private pillTrailTimer: Phaser.Time.TimerEvent | null = null;
   private _pillStartTime = 0;
   private _isPillWarning = false;
-  private pillSpeedLines: Phaser.GameObjects.Rectangle[] = [];
-  private pillSpeedLinesTimer: Phaser.Time.TimerEvent | null = null;
-  private pillOverlay!: Phaser.GameObjects.Rectangle;
+  private pill: PillEffect;
 
   // Floor positions
   private floorTopY: number;
@@ -74,6 +69,7 @@ export class Player {
     this.audio = audio;
     this.floorTopY = floorTopY;
     this.floorBottomY = floorBottomY;
+    this.pill = new PillEffect(scene);
   }
 
   // --- Getters ---
@@ -115,13 +111,11 @@ export class Player {
     this.cockroachOffset = this.cockroach.displayHeight / 2;
     this.cockroach.y = this.floorBottomY - this.cockroachOffset;
 
-    // Pill psychedelic overlay (hidden by default)
-    const w = this.scene.cameras.main.width;
-    const h = this.scene.cameras.main.height;
-    this.pillOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, COLORS.PILL_GLOW, 0)
-      .setScrollFactor(0)
-      .setDepth(DEPTH.PILL_OVERLAY)
-      .setBlendMode(Phaser.BlendModes.ADD);
+    this.pill.create(this.cockroach);
+  }
+
+  resize(width: number, height: number): void {
+    this.pill.resize(width, height);
   }
 
   resetState(): void {
@@ -130,22 +124,22 @@ export class Player {
     this._currentSpeed = COCKROACH_BASE_SPEED;
     this._speedMultiplier = 1;
     this._isDashing = false;
-    this._dashCooldown = 0;
     this._dashReady = true;
 
     if (this.dashTrailTimer) { this.dashTrailTimer.destroy(); }
     this.dashTrailTimer = null;
     this._isInvulnerable = true;
     this._dashStartTime = 0;
+    this.stopPill();
+  }
+
+  /** Clears the pill's state and stops its effects, however it ended. */
+  private stopPill(): void {
     this._isPillActive = false;
-    this._pillSpeedBoost = 1;
-    if (this.pillRainbowTimer) { this.pillRainbowTimer.destroy(); this.pillRainbowTimer = null; }
-    if (this.pillTrailTimer) { this.pillTrailTimer.destroy(); this.pillTrailTimer = null; }
-    if (this.pillSpeedLinesTimer) { this.pillSpeedLinesTimer.destroy(); this.pillSpeedLinesTimer = null; }
-    this._pillStartTime = 0;
-    this.pillSpeedLines.forEach(l => l.destroy());
-    this.pillSpeedLines = [];
     this._isPillWarning = false;
+    this._pillSpeedBoost = 1;
+    this._pillStartTime = 0;
+    this.pill.stop();
   }
 
   updateSpeed(activePlayTime: number, currentLevel: number): void {
@@ -181,14 +175,7 @@ export class Player {
       // Enter warning phase
       if (!this._isPillWarning && pillElapsed >= PILL_DURATION - PILL_WARN_TIME) {
         this._isPillWarning = true;
-        if (this.pillTrailTimer) {
-          this.pillTrailTimer.destroy();
-          this.pillTrailTimer = null;
-        }
-        if (this.pillRainbowTimer) {
-          this.pillRainbowTimer.destroy();
-          this.pillRainbowTimer = null;
-        }
+        this.pill.enterWarning();
       }
 
       // End pill effect
@@ -215,31 +202,9 @@ export class Player {
     }
 
     if (this._isPillActive) {
-      if (this._isPillWarning) {
-        // Fade-away: intensity drops over the last PILL_WARN_TIME
-        const elapsed = this.scene.time.now - this._pillStartTime;
-        const warnProgress = Math.min(1, (elapsed - (PILL_DURATION - PILL_WARN_TIME)) / PILL_WARN_TIME);
-        const fade = 1 - warnProgress; // 1 → 0
-        const t = this.scene.time.now * 0.003;
-        const r = Math.floor((Math.sin(t) + 1) * 127);
-        const g = Math.floor((Math.sin(t + 2.094) + 1) * 127);
-        const b = Math.floor((Math.sin(t + 4.189) + 1) * 127);
-        this.cockroach.setTint(Phaser.Display.Color.GetColor(r, g, b));
-        this.cockroach.setAlpha(0.4 + fade * 0.6);
-        this.cockroach.setScale(0.30);
-        this.pillOverlay.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), fade * 0.15);
-      } else {
-        const t = this.scene.time.now * 0.003;
-        const r = Math.floor((Math.sin(t) + 1) * 127);
-        const g = Math.floor((Math.sin(t + 2.094) + 1) * 127);
-        const b = Math.floor((Math.sin(t + 4.189) + 1) * 127);
-        this.pillOverlay.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.15 + Math.sin(t * 1.5) * 0.05);
-
-        const throb = 0.30 + Math.sin(this.scene.time.now * 0.01) * 0.02;
-        this.cockroach.setScale(throb);
-      }
+      this.pill.update(this._isPillWarning, this._pillStartTime);
     } else if (this._speedMultiplier >= 3 && !this._isDashing && !this._isInvulnerable) {
-      const glowIntensity = Math.min((this._speedMultiplier - 3) / 5, 1);
+      const glowIntensity = Math.min((this._speedMultiplier - 3) / 0.4, 1);
       const r = Math.floor(255 * glowIntensity);
       const gVal = Math.floor(100 + 155 * (1 - glowIntensity));
       this.cockroach.setTint(Phaser.Display.Color.GetColor(r, gVal, 50));
@@ -291,23 +256,27 @@ export class Player {
       this.dashTrailTimer = null;
     }
 
-    // Destroy any obstacles currently overlapping the cockroach so they don't kill on next frame
-    const cockroachBounds = this.cockroach.getBounds();
+    // Clear whatever the dash ended inside of, or it would kill on the next frame. The body has to go now:
+    // the fade below keeps the sprite around for another 200 ms
+    const body = this.cockroach.body as Phaser.Physics.Arcade.Body;
+    const bounds = new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height);
     const obstacles = this.scene.data.get('obstacles') as Phaser.Physics.Arcade.Group | undefined;
-    if (obstacles) {
-      obstacles.getChildren().forEach((obj) => {
-        const sprite = obj as Phaser.Physics.Arcade.Sprite;
-        if (sprite.getBounds().contains(cockroachBounds.centerX, cockroachBounds.centerY)) {
-          this.scene.tweens.add({
-            targets: sprite,
-            alpha: 0,
-            scale: 0.5,
-            duration: 200,
-            onComplete: () => sprite.destroy(),
-          });
-        }
-      });
-    }
+    obstacles?.getChildren().forEach((obj) => {
+      const sprite = obj as Phaser.Physics.Arcade.Sprite;
+      const other = sprite.body as Phaser.Physics.Arcade.Body;
+      if (!other.enable) return;
+      const hit = new Phaser.Geom.Rectangle(other.x, other.y, other.width, other.height);
+      if (Phaser.Geom.Intersects.RectangleToRectangle(bounds, hit)) {
+        sprite.disableBody();
+        this.scene.tweens.add({
+          targets: sprite,
+          alpha: 0,
+          scale: 0.5,
+          duration: 200,
+          onComplete: () => sprite.destroy(),
+        });
+      }
+    });
   }
 
   private spawnAfterimage(): void {
@@ -330,7 +299,7 @@ export class Player {
   private playDashReadyEffect(): void {
     if (this._isDead) return;
 
-    this.scene.sound.play('dash-ready', { volume: 0.6 });
+    this.audio.playSfx('dash-ready', 0.6);
 
     // White flash overlay on top of cockroach
     const flash = this.scene.add.sprite(
@@ -358,164 +327,21 @@ export class Player {
   activatePill(px: number, py: number): void {
     this.audio.playPill();
 
-    // If pill already active, refresh the duration
+    // If pill already active, this refreshes the duration
     this._isPillActive = true;
     this._pillSpeedBoost = PILL_SPEED_MULTIPLIER;
     this._isInvulnerable = true;
-
-    // --- "PIGULKA!" floating text ---
-    floatingText(this.scene, px, py - 30, 'PIGULKA!', neonStyle(), {
-      floatY: 60,
-      scale: 2,
-      duration: 1200,
-    });
-
-    // --- Score popup ---
-    floatingText(this.scene, px, py, '+100', popupStyle(), { floatY: 40 });
-
-    // --- Screen flash ---
-    this.scene.cameras.main.flash(300, 180, 0, 255);
-
-    // --- Rainbow blink on cockroach ---
-    if (this.pillRainbowTimer) this.pillRainbowTimer.destroy();
-    this.pillRainbowTimer = this.scene.time.addEvent({
-      delay: 60,
-      repeat: -1,
-      callback: () => {
-        if (!this._isPillActive || this._isDead) return;
-        const hue = (this.scene.time.now * 0.5) % 360;
-        const color = Phaser.Display.Color.HSLToColor(hue / 360, 1, 0.6);
-        this.cockroach.setTint(color.color);
-        this.cockroach.setAlpha(0.7 + Math.sin(this.scene.time.now * 0.02) * 0.3);
-      },
-    });
-
-    // --- Rainbow afterimage trail ---
-    if (this.pillTrailTimer) this.pillTrailTimer.destroy();
-    this.pillTrailTimer = this.scene.time.addEvent({
-      delay: 80,
-      repeat: -1,
-      callback: () => {
-        if (!this._isPillActive || this._isDead) return;
-        this.spawnPillAfterimage();
-      },
-    });
-
-    // --- Speed lines ---
-    this.startPillSpeedLines();
-
-    // --- Pill overlay activation ---
-    this.pillOverlay.setFillStyle(COLORS.PILL_GLOW, 0.1);
-
-    // --- Track pill start time ---
+    this.pill.start(px, py);
     this._isPillWarning = false;
     this._pillStartTime = this.scene.time.now;
   }
 
-  private spawnPillAfterimage(): void {
-    const afterimage = this.scene.add.sprite(
-      this.cockroach.x,
-      this.cockroach.y,
-      this.cockroach.texture.key,
-      this.cockroach.frame.name,
-    );
-    afterimage.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
-    afterimage.setAlpha(0.5);
-    afterimage.setFlipY(this.cockroach.flipY);
-
-    const rainbowColors = COLORS.RAINBOW;
-    const colorIdx = Math.floor(this.scene.time.now / 60) % rainbowColors.length;
-    afterimage.setTint(rainbowColors[colorIdx]);
-
-    fadeAndDestroy(this.scene, afterimage, 300, {
-      scaleX: afterimage.scaleX * 1.3,
-      scaleY: afterimage.scaleY * 1.3,
-    });
-  }
-
-  private startPillSpeedLines(): void {
-    if (this.pillSpeedLinesTimer) { this.pillSpeedLinesTimer.destroy(); this.pillSpeedLinesTimer = null; }
-    this.pillSpeedLines.forEach(l => l.destroy());
-    this.pillSpeedLines = [];
-
-    const spawnLine = () => {
-      if (!this._isPillActive || this._isDead) return;
-      const lineY = Phaser.Math.Between(0, this.scene.cameras.main.height);
-      const lineWidth = Phaser.Math.Between(40, 120);
-      const lineColors = COLORS.PILL_LINES;
-      const color = lineColors[Math.floor(Math.random() * lineColors.length)];
-      const line = this.scene.add.rectangle(
-        this.scene.cameras.main.width + lineWidth, lineY,
-        lineWidth, 2, color, 0.6,
-      );
-      line.setScrollFactor(0);
-      line.setDepth(DEPTH.PILL_SPEED_LINES);
-      line.setBlendMode(Phaser.BlendModes.ADD);
-      this.pillSpeedLines.push(line);
-
-      this.scene.tweens.add({
-        targets: line,
-        x: -lineWidth,
-        alpha: 0,
-        duration: 200 + Math.random() * 200,
-        ease: 'Linear',
-        onComplete: () => {
-          const idx = this.pillSpeedLines.indexOf(line);
-          if (idx >= 0) this.pillSpeedLines.splice(idx, 1);
-          line.destroy();
-        },
-      });
-    };
-
-    this.pillSpeedLinesTimer = this.scene.time.addEvent({
-      delay: 60,
-      repeat: Math.floor(PILL_DURATION / 60),
-      callback: spawnLine,
-    });
-  }
-
   private endPillEffect(): void {
-    this._isPillActive = false;
-    this._isPillWarning = false;
-    this._pillSpeedBoost = 1;
-    this._pillStartTime = 0;
+    this.stopPill();
+    this.pill.showEnd();
 
     // Keep invulnerability for 0.5s with blinking cockroach
     this._isInvulnerable = true;
-
-    if (this.pillRainbowTimer) {
-      this.pillRainbowTimer.destroy();
-      this.pillRainbowTimer = null;
-    }
-    if (this.pillTrailTimer) {
-      this.pillTrailTimer.destroy();
-      this.pillTrailTimer = null;
-    }
-    if (this.pillSpeedLinesTimer) {
-      this.pillSpeedLinesTimer.destroy();
-      this.pillSpeedLinesTimer = null;
-    }
-
-    this.cockroach.clearTint();
-    this.cockroach.setScale(0.30);
-
-    this.pillOverlay.setFillStyle(0x000000, 0);
-
-    this.pillSpeedLines.forEach(l => l.destroy());
-    this.pillSpeedLines = [];
-
-    this.scene.cameras.main.flash(200, 255, 255, 255);
-
-    floatingText(
-      this.scene,
-      this.scene.cameras.main.width / 2,
-      this.scene.cameras.main.height / 2 - 20,
-      'KONIEC JAZDY!',
-      popupStyle({ fontSize: '18px', color: '#ffff00', strokeThickness: 5 }),
-      { floatY: 50, scale: 1.5, duration: 1500, scrollFactor: 0 },
-    );
-
-    // Post-pill invulnerability blink for 0.5s
     const blinkTimer = this.scene.time.addEvent({
       delay: 60,
       repeat: 7,
@@ -547,19 +373,7 @@ export class Player {
     this._isDashing = false;
     this._dashReady = true;
 
-    // Reset pill state on death
-    if (this._isPillActive) {
-      this._isPillActive = false;
-      this._isPillWarning = false;
-      this._pillSpeedBoost = 1;
-      if (this.pillRainbowTimer) { this.pillRainbowTimer.destroy(); this.pillRainbowTimer = null; }
-      if (this.pillTrailTimer) { this.pillTrailTimer.destroy(); this.pillTrailTimer = null; }
-      if (this.pillSpeedLinesTimer) { this.pillSpeedLinesTimer.destroy(); this.pillSpeedLinesTimer = null; }
-      this._pillStartTime = 0;
-      this.pillOverlay.setFillStyle(0x000000, 0);
-      this.pillSpeedLines.forEach(l => l.destroy());
-      this.pillSpeedLines = [];
-    }
+    this.stopPill();
 
     this.cockroach.setTint(0x444444);
     this.cockroach.setVelocity(-50, -300);
@@ -607,6 +421,7 @@ export class Player {
   }
 
   startInvulnerabilityBlink(): Phaser.Tweens.Tween {
+    this._isInvulnerable = true;
     return this.scene.tweens.add({
       targets: this.cockroach,
       alpha: { from: 1, to: 0.3 },
