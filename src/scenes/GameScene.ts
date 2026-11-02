@@ -1,325 +1,246 @@
 import Phaser from 'phaser';
-import {
-  FLOOR_BOTTOM_Y,
-  FLOOR_TOP_Y,
-  COCKROACH_START_X,
-  COCKROACH_BASE_SPEED,
-  SPEED_BOOST_PER_LEVEL,
-  DEPTH,
-} from '../config/constants';
-import { popupStyle } from '../utils/TextStyles';
+import { FLOOR_BOTTOM_Y, FLOOR_TOP_Y } from '../config/constants';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { MPPlayer } from '../multiplayer/MultiplayerClient';
 import { GameEventBridge } from '../multiplayer/GameEventBridge';
-import { GhostManager } from '../multiplayer/GhostManager';
+import { MultiplayerSession } from '../multiplayer/MultiplayerSession';
 import { VisualEffects } from '../effects/VisualEffects';
-import { playLevelGlitch } from '../effects/LevelTransitionFX';
 import { AudioManager } from '../audio/AudioManager';
-import { LEVELS, getLevelForDistance, LevelConfig } from '../config/levels';
-import { GameHUD, HUDUpdateData } from '../ui/GameHUD';
-import { TouchControls } from '../ui/TouchControls';
-import { Player, Floor } from '../objects/Player';
+import { GameHUD } from '../ui/GameHUD';
+import { Player } from '../objects/Player';
 import { GameClock } from '../utils/GameClock';
-import { FloorManager } from '../systems/FloorManager';
-import { SpawnManager } from '../systems/SpawnManager';
+import { AmbientEffects } from '../systems/AmbientEffects';
+import { BossEncounter } from '../systems/BossEncounter';
+import { BossFight } from '../systems/BossFight';
 import { CollisionManager } from '../systems/CollisionManager';
-import { PauseManager } from '../systems/PauseManager';
-import { GameOverHandler } from '../systems/GameOverHandler';
-import { DeathReplayRecorder } from '../systems/DeathReplay';
 import { ComboFeedback } from '../systems/ComboFeedback';
-import { WeatherSystem } from '../systems/WeatherSystem';
+import { DeathReplayRecorder } from '../systems/DeathReplay';
+import { FloorManager } from '../systems/FloorManager';
+import { GameInput } from '../systems/GameInput';
+import { GameOverHandler } from '../systems/GameOverHandler';
+import { distanceAt, LevelProgression } from '../systems/LevelProgression';
 import { NotificationManager } from '../systems/NotificationManager';
-import { BossFight, BOSS_MAX_HP } from '../systems/BossFight';
-import { mpClient } from '../multiplayer/MultiplayerClient';
+import { ParallaxBackground } from '../systems/ParallaxBackground';
+import { PauseManager } from '../systems/PauseManager';
+import { PickupMagnet } from '../systems/PickupMagnet';
+import { RunCountdown } from '../systems/RunCountdown';
+import { comboMultiplier, RunState } from '../systems/RunState';
+import { ScoreTracker } from '../systems/ScoreTracker';
 import { sceneManager } from '../systems/SceneManager';
+import { SpawnManager } from '../systems/SpawnManager';
+import { SpectateController } from '../systems/SpectateController';
 import { BootScene } from './BootScene';
 
-const BOSS_TRIGGER_DISTANCE = 450;
+interface GameSceneData {
+  multiplayer?: boolean;
+  seed?: number;
+  players?: MPPlayer[];
+  myId?: string;
+}
 
+/** Builds a run in a fixed order and calls its systems in a fixed per-frame order. */
 export class GameScene extends Phaser.Scene {
-  // Floor positions
+  // Read by ObstacleSpawner
   public floorBottomY = FLOOR_BOTTOM_Y;
   public floorTopY = FLOOR_TOP_Y;
-
-  // Player
-  private player!: Player;
-  private _isDead = false;
-
-  // Exposed for ObstacleSpawner
   public get cockroach(): Phaser.Physics.Arcade.Sprite { return this.player.sprite; }
-  public get isDead(): boolean { return this._isDead; }
-  private set isDead(val: boolean) { this._isDead = val; }
+  public get isDead(): boolean { return this.run.isDead; }
 
-  // Multiplayer RNG
-  private rng: SeededRNG | null = null;
+  // These two outlive a run: restart resets them instead of replacing them.
+  private readonly run = new RunState();
+  private readonly ambient = new AmbientEffects(this);
 
-  // Multiplayer
   private isMultiplayer = false;
-  private ghostManager: GhostManager | null = null;
+  private rng: SeededRNG | null = null;
+  private clock!: GameClock;
   private eventBridge!: GameEventBridge;
-  private _wasDashing = false;
-  private _wasPillActive = false;
 
-  // Level progression
-  private currentLevel = 0;
-
-  // Backgrounds (current + next for crossfade)
-  private skyBg!: Phaser.GameObjects.TileSprite;
-  private midBg!: Phaser.GameObjects.TileSprite;
-  private fgBg!: Phaser.GameObjects.TileSprite;
-  private nextSkyBg!: Phaser.GameObjects.TileSprite;
-  private nextMidBg!: Phaser.GameObjects.TileSprite;
-  private nextFgBg!: Phaser.GameObjects.TileSprite;
-  private bgTransitioning = false;
-
-  // Physics groups
-  private obstacles!: Phaser.Physics.Arcade.Group;
-  private apples!: Phaser.Physics.Arcade.Group;
-  private beers!: Phaser.Physics.Arcade.Group;
-  private pills!: Phaser.Physics.Arcade.Group;
-
-  // Systems
-  private obstacleSpawner!: ObstacleSpawner;
-  private vfx!: VisualEffects;
+  private player!: Player;
   private audio!: AudioManager;
+  private vfx!: VisualEffects;
   private hud!: GameHUD;
-  private touchControls!: TouchControls;
+  private background!: ParallaxBackground;
   private floorManager!: FloorManager;
+  private groups!: Record<'obstacles' | 'apples' | 'beers' | 'pills', Phaser.Physics.Arcade.Group>;
+
   private spawnManager!: SpawnManager;
-  private collisionManager!: CollisionManager;
   private pauseManager!: PauseManager;
   private gameOverHandler!: GameOverHandler;
-  private notifications!: NotificationManager;
-  private comboFeedback!: ComboFeedback;
-  private weather!: WeatherSystem;
   private replayRecorder!: DeathReplayRecorder;
-  private bossFight: BossFight | null = null;
-  private isBossFight = false;
-  private bossDefeated = false;
-
-  // Clock
-  private clock!: GameClock;
-
-  // Lighting
-  private cockroachLight: Phaser.GameObjects.Light | null = null;
-
-  // Scoring
-  private score = 0;
-  private startTime = 0;
-  private activePlayTime = 0;
-  private lastFrameTime = 0;
-  private lastScoreTime = 0;
-
-  // Input
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private spaceKey!: Phaser.Input.Keyboard.Key;
-  private ctrlKey!: Phaser.Input.Keyboard.Key;
-  private shiftKey!: Phaser.Input.Keyboard.Key;
-  private rightKey!: Phaser.Input.Keyboard.Key;
-  private escKey!: Phaser.Input.Keyboard.Key;
-
-  // Countdown
-  private isCountingDown = true;
-  private countdownStartReal = 0;
-  private countdownLastShown = -1;
-
-  // Dust trail
-  private dustTimer = 0;
-
-  // Bird overlook
-  private birdOverlookTimer = 0;
-  private nextBirdOverlookTime = 0;
-
-  // Cockroach ambient noise
-  private cockroachNoiseTimer = 0;
-  private nextNoiseTime = 0;
-  private cockroachNoiseSound: Phaser.Sound.BaseSound | null = null;
-
-  // Pickup combo & collection counts
-  private pickupCombo = 0;
-  private maxCombo = 0;
-  private applesCollected = 0;
-  private beersCollected = 0;
-  private pillsCollected = 0;
-
-  // Mobile detection (input only — not scaling)
-  private isMobile = false;
+  private score!: ScoreTracker;
+  private levels!: LevelProgression;
+  private boss!: BossEncounter;
+  private session!: MultiplayerSession;
+  private magnet!: PickupMagnet;
+  private gameInput!: GameInput;
+  private spectate!: SpectateController;
+  private countdown!: RunCountdown;
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
   create(): void {
-    const data = this.scene.settings.data as {
-      multiplayer?: boolean;
-      seed?: number;
-      players?: MPPlayer[];
-      myId?: string;
-    } | undefined;
+    const data = this.scene.settings.data as GameSceneData | undefined;
 
+    this.resetRun(data);
+    this.createWorld();
+    this.createHud();
+
+    (this.scene.get('BootScene') as BootScene).loadDeferred(this);
+    this.game.events.once('deferred-loaded', () => {
+      this.floorManager.regenerateFloorTextures();
+      this.levels.applyDeferredLevel(this.getDistance());
+    });
+
+    this.createPlaySystems();
+    this.createEncounters(data);
+    this.listenForLifecycle();
+
+    this.gameInput = new GameInput(this, this.run, this.player, this.hud, this.pauseManager, this.eventBridge, this.boss);
+    this.spectate = new SpectateController(this, this.gameInput, this.levels, this.gameOverHandler, this.hud, () => {
+      this.background.update(this.player.speedMultiplier);
+      this.updateFloors();
+      this.spawnManager.handleSpawning(this.cameraRight);
+      this.cleanupOffscreen();
+    });
+
+    this.startRun();
+  }
+
+  update(): void {
+    if (this.run.isDead) {
+      this.updateDead();
+      return;
+    }
+
+    if (this.run.isCountingDown) {
+      this.updateCountdown();
+      return;
+    }
+
+    if (this.gameInput.pausePressed()) this.pauseManager.toggle();
+    if (this.pauseManager.isPaused) {
+      this.gameInput.handlePausedKeys();
+      return;
+    }
+
+    // Active play time stands still during a boss fight
+    if (!this.boss.isActive) {
+      this.run.activePlayTime = this.clock.activePlayTime;
+    }
+
+    const fight = this.boss.activeFight;
+    if (fight) {
+      this.updateBossFight(fight);
+      return;
+    }
+
+    this.updateRunning();
+  }
+
+  private resetRun(data: GameSceneData | undefined): void {
     this.isMultiplayer = data?.multiplayer ?? false;
     this.eventBridge?.destroy();
     this.eventBridge = new GameEventBridge(this.isMultiplayer);
     this.rng = (this.isMultiplayer && data?.seed != null) ? new SeededRNG(data.seed) : null;
 
-    // Reset state — defensive cleanup of prior run
+    // Defensive cleanup of prior run
     this.clock?.destroy();
     this.clock = new GameClock(this);
     this.time.timeScale = 1.0;
-    this.ghostManager?.destroy();
-    this.ghostManager = null;
-    this.bossFight?.destroy();
-    this.bossFight = null;
-    this._wasDashing = false;
-    this._wasPillActive = false;
-    this.score = 0;
-    this.isDead = false;
-    this.startTime = this.time.now;
-    this.activePlayTime = 0;
-    this.lastFrameTime = this.time.now;
-    this.lastScoreTime = this.time.now;
-    this.dustTimer = 0;
-    this.birdOverlookTimer = 0;
-    this.nextBirdOverlookTime = 15000 + Math.random() * 10000;
-    this.cockroachNoiseTimer = 0;
-    this.nextNoiseTime = 20000 + Math.random() * 15000;
-    this.pickupCombo = 0;
-    this.maxCombo = 0;
-    this.applesCollected = 0;
-    this.beersCollected = 0;
-    this.pillsCollected = 0;
-    this.currentLevel = 1;
-    this.isCountingDown = true;
-    this.bgTransitioning = false;
-    this.bossFight = null;
-    this.isBossFight = false;
-    this.bossDefeated = false;
+    this.session?.destroy();
+    this.boss?.destroy();
 
-    const w = this.cameras.main.width;
-    const h = this.cameras.main.height;
-    this.isMobile = !this.sys.game.device.os.desktop;
+    this.run.reset(this.time.now);
+    this.ambient.reset();
     this.floorBottomY = FLOOR_BOTTOM_Y;
     this.floorTopY = FLOOR_TOP_Y;
+  }
 
-    // Enable lighting system
+  private createWorld(): void {
+    const { width, height } = this.cameras.main;
+
     this.lights.enable().setAmbientColor(0x808080);
+    this.background = new ParallaxBackground(this, width, height);
 
-    // Parallax backgrounds (lit by normal maps when available)
-    this.skyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(0.8);
-    this.skyBg.setPipeline('Light2D');
-    this.midBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
-      .setDepth(DEPTH.MID_BG).setAlpha(0.15).setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
-    this.fgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FG_BG);
-    this.fgBg.setPipeline('Light2D');
-
-    this.nextSkyBg = this.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
-    this.nextSkyBg.setPipeline('Light2D');
-    this.nextMidBg = this.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
-      .setDepth(DEPTH.MID_BG).setAlpha(0).setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
-    this.nextFgBg = this.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0)
-      .setDepth(DEPTH.FG_BG).setAlpha(0);
-    this.nextFgBg.setPipeline('Light2D');
-
-    // Floor manager
     this.floorManager = new FloorManager(this, this.floorTopY, this.floorBottomY);
-    this.floorManager.create(w);
+    this.floorManager.create(width);
 
-    // Audio (created before Player since Player needs it)
+    // Audio comes before Player, which needs it
     this.audio = new AudioManager(this);
 
-    // Player
     this.player = new Player(this, this.audio, this.floorManager.topColliderY, this.floorManager.bottomColliderY);
     this.player.create();
     this.player.resetState();
+    this.ambient.attachTo(this.player);
 
-    // Cockroach light — warm white glow
-    this.cockroachLight = this.lights.addLight(this.player.x, this.player.y, 300, 0xfff0dd, 1.5);
+    this.groups = {
+      obstacles: this.physics.add.group(),
+      apples: this.physics.add.group(),
+      beers: this.physics.add.group(),
+      pills: this.physics.add.group(),
+    };
+    this.data.set('obstacles', this.groups.obstacles);
 
-    // Physics groups
-    this.obstacles = this.physics.add.group();
-    this.data.set('obstacles', this.obstacles);
-    this.apples = this.physics.add.group();
-    this.beers = this.physics.add.group();
-    this.pills = this.physics.add.group();
-
-    // Obstacle spawner
-    this.obstacleSpawner = new ObstacleSpawner(this, this.obstacles);
-    if (this.rng) this.obstacleSpawner.setRNG(this.rng);
-
-    // Visual effects
     this.vfx = new VisualEffects(this);
     this.vfx.init();
+  }
 
-    // HUD
-    this.hud = new GameHUD(this, () => {
-      if (this.isDead || this.isCountingDown) return;
-      this.pauseManager.toggle(
-        () => this.lastFrameTime,
-        (t) => { this.lastFrameTime = t; },
-      );
-    }, this.isMultiplayer ? undefined : () => {
-      sceneManager.goto(this, 'GameScene', { multiplayer: false }, () => {
+  private createHud(): void {
+    const leaveRun = (target: string, data?: Record<string, unknown>) => {
+      sceneManager.goto(this, target, data, () => {
         this.sound.stopAll();
         this.audio.destroy();
       });
-    }, this.isMultiplayer ? undefined : () => {
-      sceneManager.goto(this, 'MenuScene', undefined, () => {
-        this.sound.stopAll();
-        this.audio.destroy();
-      });
-    });
-    this.hud.create();
-    this.notifications = new NotificationManager(this);
-    this.comboFeedback = new ComboFeedback(this.notifications);
-    this.weather = new WeatherSystem(this);
-    const startWeather = WeatherSystem.rollWeather(getLevelForDistance(0).weatherChances, this.rng);
-    this.weather.setWeather(startWeather);
-    this.replayRecorder = new DeathReplayRecorder();
-
-    (this.scene.get('BootScene') as BootScene).loadDeferred(this);
-    this.game.events.once('deferred-loaded', () => {
-      this.floorManager.regenerateFloorTextures();
-      // Apply current level's backgrounds if they were skipped during deferred loading
-      const lvlConfig = getLevelForDistance(this.getDistance());
-      if (lvlConfig.level > 3) {
-        this.switchLevel(lvlConfig);
-      }
-    });
-
-    // Collision manager
-    this.collisionManager = new CollisionManager(this, this.player, this.vfx, this.audio, {
-      getScore: () => this.score,
-      addScore: (points) => { this.score += points; this.hud.updateScore(this.score); },
-      getPickupCombo: () => this.pickupCombo,
-      incrementCombo: () => {
-        this.pickupCombo++;
-        if (this.pickupCombo > this.maxCombo) this.maxCombo = this.pickupCombo;
-        const tier = this.comboFeedback.onPickup(this.pickupCombo);
-        if (tier) {
-          this.audio.playComboChime(tier.audioTier);
-          this.vfx.comboTierFlash(tier.color);
-        }
+    };
+    this.hud = new GameHUD(
+      this,
+      () => {
+        if (this.run.isDead || this.run.isCountingDown) return;
+        this.pauseManager.toggle();
       },
-      getComboMultiplier: () => this.getComboMultiplier(),
-      onAppleCollected: () => { this.applesCollected++; },
-      onBeerCollected: () => { this.beersCollected++; },
-      onPillCollected: () => { this.pillsCollected++; },
-      onPickup: (x, score) => this.eventBridge.onPickup(x, score, this.pickupCombo),
+      this.isMultiplayer ? undefined : () => leaveRun('GameScene', { multiplayer: false }),
+      this.isMultiplayer ? undefined : () => leaveRun('MenuScene'),
+    );
+    this.hud.create();
+
+    const comboFeedback = new ComboFeedback(new NotificationManager(this));
+    this.score = new ScoreTracker(this, this.run, this.hud, comboFeedback, this.audio, this.vfx);
+    this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.rng);
+    this.replayRecorder = new DeathReplayRecorder();
+  }
+
+  private createPlaySystems(): void {
+    const { run, groups } = this;
+    const { obstacles, apples, beers, pills } = groups;
+
+    const collisions = new CollisionManager(this, this.player, this.vfx, this.audio, {
+      getScore: () => run.score,
+      addScore: (points) => this.score.addScore(points),
+      getPickupCombo: () => run.pickupCombo,
+      incrementCombo: () => this.score.incrementCombo(),
+      getComboMultiplier: () => comboMultiplier(run.pickupCombo),
+      onAppleCollected: () => { run.applesCollected++; },
+      onBeerCollected: () => { run.beersCollected++; },
+      onPillCollected: () => { run.pillsCollected++; },
+      onPickup: (x, score) => this.eventBridge.onPickup(x, score, run.pickupCombo),
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
       onPickupCollected: (x, y, textureKey) => this.replayRecorder.recordPickupCollected(this.time.now, x, y, textureKey),
     });
-    this.collisionManager.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
-    this.collisionManager.setupOverlaps(this.apples, this.beers, this.pills, this.obstacles);
+    collisions.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
+    collisions.setupOverlaps(apples, beers, pills, obstacles);
 
-    // Spawn manager
+    const obstacleSpawner = new ObstacleSpawner(this, obstacles);
+    if (this.rng) obstacleSpawner.setRNG(this.rng);
     this.spawnManager = new SpawnManager(
-      this, this.obstacles, this.apples, this.beers, this.pills,
-      this.obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
+      this, obstacles, apples, beers, pills,
+      obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
     );
+    this.magnet = new PickupMagnet(this, this.player, [apples, beers, pills]);
 
-    // Pause manager
     this.pauseManager = new PauseManager(this, this.hud, this.isMultiplayer,
       () => { this.clock.pause(); },
       (pausedMs) => {
@@ -328,134 +249,50 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
-    // Game over handler
     this.gameOverHandler = new GameOverHandler(this, this.player, this.vfx, this.audio, this.hud, this.isMultiplayer, {
-      getScore: () => this.score,
-      getActivePlayTime: () => this.activePlayTime,
+      getScore: () => run.score,
+      getActivePlayTime: () => run.activePlayTime,
       getDistance: () => this.getDistance(),
-      getCurrentLevel: () => this.currentLevel,
-      getPickupCounts: () => ({ apples: this.applesCollected, beers: this.beersCollected, pills: this.pillsCollected }),
-      getMaxCombo: () => this.maxCombo,
-      getGhostManager: () => this.ghostManager,
-      setGhostManager: (gm) => { this.ghostManager = gm; },
-      setIsDead: () => { this.isDead = true; },
-      followSpectateTarget: (sprite) => this.followSpectateTarget(sprite),
+      getCurrentLevel: () => run.currentLevel,
+      getPickupCounts: () => ({ apples: run.applesCollected, beers: run.beersCollected, pills: run.pillsCollected }),
+      getMaxCombo: () => run.maxCombo,
+      getGhostManager: () => this.session.ghostManager,
+      setGhostManager: (gm) => { this.session.ghostManager = gm; },
+      setIsDead: () => { run.isDead = true; },
+      followSpectateTarget: (sprite) => this.spectate.follow(sprite),
       onDeath: (score, stats) => this.eventBridge.onDeath(score, stats),
-      cleanupBossFight: () => {
-        this.bossFight?.destroy();
-        this.bossFight = null;
-        this.isBossFight = false;
-      },
-      getReplayData: (obstacleType) => {
-        const snapGroup = (group: Phaser.Physics.Arcade.Group) =>
-          group.getChildren().map(obj => {
-            const s = obj as Phaser.Physics.Arcade.Sprite;
-            return { worldX: s.x, y: s.y, textureKey: s.texture.key };
-          });
-        return this.replayRecorder.getReplayData(
-          obstacleType,
-          snapGroup(this.obstacles),
-          [...snapGroup(this.apples), ...snapGroup(this.beers), ...snapGroup(this.pills)],
-        );
-      },
+      cleanupBossFight: () => this.boss.cleanup(),
+      getReplayData: (obstacleType) => this.replayRecorder.getReplayData(obstacleType, obstacles, [apples, beers, pills]),
+    });
+  }
+
+  private createEncounters(data: GameSceneData | undefined): void {
+    const { run, player, audio, clock, eventBridge, isMultiplayer, spawnManager, gameOverHandler } = this;
+    const shared = { run, player, audio, clock, eventBridge, isMultiplayer, spawnManager, gameOverHandler };
+    const { obstacles, apples, beers, pills } = this.groups;
+
+    this.boss = new BossEncounter(this, {
+      ...shared,
+      vfx: this.vfx,
+      hud: this.hud,
+      score: this.score,
+      floorTopY: this.floorTopY,
+      floorBottomY: this.floorBottomY,
+      groups: [obstacles, apples, beers, pills],
+      getDistance: () => this.getDistance(),
+      getGhostManager: () => this.session.ghostManager,
     });
 
-    // Ghost manager for multiplayer
-    if (this.isMultiplayer && data?.players && data?.myId) {
-      this.ghostManager = new GhostManager(
-        this, data.players, data.myId,
-        this.floorManager.topColliderY, this.floorManager.bottomColliderY,
-        COCKROACH_START_X,
-      );
-      this.eventBridge.setupListeners({
-        onGhostSwap: (id, lane, x) => this.ghostManager?.handleSwap(id, lane, x),
-        onGhostDashStart: (id, x) => this.ghostManager?.handleDashStart(id, x),
-        onGhostDashEnd: (id, x) => this.ghostManager?.handleDashEnd(id, x),
-        onGhostPillStart: (id, x) => this.ghostManager?.handlePillStart(id, x),
-        onGhostPillEnd: (id, x) => this.ghostManager?.handlePillEnd(id, x),
-        onGhostPosition: (id, x, _lane, t) => this.ghostManager?.handlePosition(id, x, t),
-        onGhostPickup: (id, x, score, combo) => {
-          this.ghostManager?.updateGhostScore(id, score, x, combo);
-          if (this.isDead) {
-            this.spawnManager.queuePickupDestruction(x);
-            this.audio.playApple();
-          }
-        },
-        onGhostDeath: (id, score, stats) => this.gameOverHandler.handleGhostDeath(id, score, stats, () => this.isDead),
-        onPlayerLeft: (id) => this.gameOverHandler.handlePlayerLeft(id, () => this.isDead),
-        onGameOver: (data) => this.gameOverHandler.handleServerGameOver(data),
-        onBossStart: (data) => {
-          if (this.bossFight) return;
-
-          this.player.forceEndEffects();
-
-          const groups = [this.obstacles, this.apples, this.beers, this.pills];
-          for (const group of groups) {
-            const children = group.getChildren().slice();
-            for (const obj of children) {
-              (obj as Phaser.Physics.Arcade.Sprite).destroy();
-            }
-          }
-
-          const isHost = data.hostId === mpClient.myId;
-          const role = isHost ? 'host' : 'client';
-
-          this.isBossFight = true;
-          this.player.sprite.x = data.triggerX;
-          this.cameras.main.scrollX = data.triggerX - 200;
-
-          this.createBossFight(role, data.hp);
-          this.ghostManager?.enterBossFight(data.triggerX, this.floorTopY, this.floorBottomY);
-        },
-        onBossProjectile: (data) => {
-          this.bossFight?.spawnExternalProjectile(data);
-        },
-        onBossShoot: (id) => {
-          this.ghostManager?.handleBossShoot(id);
-        },
-        onBossHit: (data) => {
-          this.bossFight?.updateHP(data.hp);
-        },
-        onBossRage: () => {
-          this.bossFight?.triggerExternalRage();
-        },
-        onBossEnd: (data) => {
-          if (data.result === 'victory') {
-            if (!this.isDead) {
-              this.score += data.bonus;
-              this.hud.updateScore(this.score);
-            }
-          }
-          this.ghostManager?.leaveBossFight();
-          if (this.bossFight) {
-            this.bossFight.destroy();
-            this.bossFight = null;
-          }
-          this.isBossFight = false;
-          this.bossDefeated = true;
-          this.hud.hideBossHP();
-          // Resume player and camera for all clients (solo path handles this in onComplete)
-          if (!this.isDead) {
-            this.player.resumeAfterBossFight();
-            this.player.updateSpeed(this.activePlayTime, this.currentLevel);
-            this.cameras.main.startFollow(this.player.sprite, true, 1, 0);
-            this.cameras.main.setFollowOffset(-200, 0);
-            this.clock.resume();
-            this.spawnManager.advanceSpawnX(this.player.x + 400);
-          }
-        },
-        onBossHostTransfer: (data) => {
-          if (data.newHostId === mpClient.myId) {
-            this.bossFight?.promoteToHost();
-          }
-        },
-      });
-      this.gameOverHandler.resetMpState();
+    this.session = new MultiplayerSession(this, { ...shared, boss: this.boss });
+    if (isMultiplayer && data?.players && data?.myId) {
+      this.session.joinPlayers(data.players, data.myId, this.floorManager.topColliderY, this.floorManager.bottomColliderY);
     }
+  }
 
+  private listenForLifecycle(): void {
     // Auto-pause on tab losing focus (singleplayer only)
     const onVisibilityChange = () => {
-      if (document.hidden && !this.isDead && !this.isCountingDown) {
+      if (document.hidden && !this.run.isDead && !this.run.isCountingDown) {
         this.pauseManager.pause();
       }
     };
@@ -467,666 +304,161 @@ export class GameScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       this.clock?.destroy();
       this.eventBridge?.destroy();
-      this.weather?.destroy();
-      this.bossFight?.destroy();
-      this.bossFight = null;
-      this.ghostManager?.destroy();
-      this.ghostManager = null;
+      this.levels?.destroy();
+      this.boss?.destroy();
+      this.session?.destroy();
     });
+  }
 
-    // Touch controls
-    this.touchControls = new TouchControls(this, this.isMobile, {
-      onSwap: () => {
-        this.player.swapLane();
-        this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
-      },
-      onDash: () => {
-        if (this.isBossFight && this.bossFight) {
-          this.bossFight.shoot();
-          return;
-        }
-        this.player.startDash();
-        this.eventBridge.onDashStart(this.player.x);
-      },
-      isDisabled: () => this.isDead || this.pauseManager.isPaused || this.isCountingDown || this.pauseManager.isUnpauseCountdown,
-      isDashAllowed: () => {
-        if (this.isBossFight) return true;
-        return this.player.dashReady && !this.player.isDashing;
-      },
-    });
-    this.touchControls.create();
+  private startRun(): void {
+    const camera = this.cameras.main;
+    camera.startFollow(this.player.sprite, true, 1, 0);
+    camera.setFollowOffset(-200, 0);
+    camera.scrollY = 0;
 
-    // Input
-    this.cursors = this.input.keyboard!.createCursorKeys();
-    this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.ctrlKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.CTRL);
-    this.shiftKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-    this.rightKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
-    this.escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-
-    // Pointer handler for lane swap (desktop only — mobile uses button)
-    if (!this.isMobile) {
-      this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        if (this.isDead || this.pauseManager.isPaused || this.isCountingDown || this.pauseManager.isUnpauseCountdown) return;
-
-        const pauseBtn = this.hud.pauseButton;
-        const pauseDist = Phaser.Math.Distance.Between(pointer.x, pointer.y, pauseBtn.x, pauseBtn.y);
-        if (pauseDist <= pauseBtn.radius) return;
-
-        this.player.swapLane();
-        this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
-      });
-    }
-
-    // Camera
-    this.cameras.main.startFollow(this.player.sprite, true, 1, 0);
-    this.cameras.main.setFollowOffset(-200, 0);
-    this.cameras.main.scrollY = 0;
-
-    // Audio start BGM
     this.audio.startBGM('bgm-lv1');
 
     // Starting invulnerability
     const blinkTween = this.player.startInvulnerabilityBlink();
     this.time.delayedCall(1500, () => { this.player.endInvulnerability(blinkTween); });
 
-    // Countdown before game starts
     this.player.freezeForCountdown();
-    this.countdownStartReal = performance.now();
-    this.countdownLastShown = -1;
+    this.countdown = new RunCountdown(this, () => this.beginRunning());
+  }
+
+  private beginRunning(): void {
+    this.run.isCountingDown = false;
+    this.player.startRunning();
+    this.run.activePlayTime = 0;
+    this.clock.start();
+    this.run.lastScoreTime = this.time.now;
+    this.session.startPositionBroadcast();
+  }
+
+  private updateDead(): void {
+    // Keep ghosts moving even before spectating starts
+    this.session.updateGhosts();
+    // Keep boss fight rendering during spectate (projectiles, HP updates from server)
+    this.boss.activeFight?.update(this.game.loop.delta);
+
+    const ghostManager = this.session.ghostManager;
+    if (ghostManager?.isSpectating) this.spectate.update(ghostManager);
   }
 
   private updateCountdown(): void {
-    const elapsed = performance.now() - this.countdownStartReal;
-    const countdownTexts = ['3', '2', '1', 'JAZDA!'];
-    const step = Math.floor(elapsed / 600);
-
-    if (step < countdownTexts.length && step > this.countdownLastShown) {
-      this.countdownLastShown = step;
-      const text = countdownTexts[step];
-      const countText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 30, text,
-        popupStyle({ fontSize: text === 'JAZDA!' ? '24px' : '32px', color: text === 'JAZDA!' ? '#00ff00' : '#ffffff', strokeThickness: 6 }),
-      );
-      countText.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.COUNTDOWN);
-      this.tweens.add({
-        targets: countText,
-        scale: { from: 2, to: 0.5 },
-        alpha: { from: 1, to: 0 },
-        duration: 500,
-        ease: 'Power2',
-        onComplete: () => countText.destroy(),
-      });
-    }
-
-    if (elapsed >= countdownTexts.length * 600) {
-      this.isCountingDown = false;
-      this.player.startRunning();
-      this.startTime = this.time.now;
-      this.lastFrameTime = this.time.now;
-      this.activePlayTime = 0;
-      this.clock.start();
-      this.lastScoreTime = this.time.now;
-
-      // Send immediate position event so ghosts can start moving without delay
-      if (this.isMultiplayer) {
-        this.eventBridge.onPosition(this.player.x, this.player.currentFloor, 0);
-        this.clock.repeat(100, () => {
-          if (!this.isDead && !this.isBossFight) {
-            this.eventBridge.onPosition(this.player.x, this.player.currentFloor, this.clock.activePlayTime);
-          }
-        });
-      }
-    }
+    this.player.freezeForCountdown();
+    this.countdown.update();
+    this.updateFloors();
+    this.spawnManager.handleSpawning(this.cameraRight);
+    this.background.update(this.player.speedMultiplier);
   }
 
-  update(): void {
-    if (this.isDead) {
-      // Keep ghosts moving even before spectating starts
-      if (this.isMultiplayer && this.ghostManager) {
-        this.ghostManager.update(
-          this.game.loop.delta,
-          this.cameras.main.scrollX,
-          this.cameras.main.width,
-          this.cameras.main.height,
-        );
-      }
+  private updateBossFight(fight: BossFight): void {
+    this.gameInput.handleBossKeys(fight);
+    fight.update(this.game.loop.delta);
+    this.background.update(this.player.speedMultiplier);
+    this.updateFloors();
+    this.updateHud(this.getDistance());
+  }
 
-      // Keep boss fight rendering during spectate (projectiles, HP updates from server)
-      if (this.isBossFight && this.bossFight) {
-        this.bossFight.update(this.game.loop.delta);
-      }
+  private updateRunning(): void {
+    const { player } = this;
 
-      if (this.isMultiplayer && this.ghostManager?.isSpectating) {
-        const target = this.ghostManager.spectateTargetPlayer;
-
-        // Cycle spectate target with arrow keys
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.left) ||
-            Phaser.Input.Keyboard.JustDown(this.cursors.up)) {
-          const newTarget = this.ghostManager.cycleSpectate(-1);
-          if (newTarget) this.followSpectateTarget(newTarget.sprite);
-        }
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.right) ||
-            Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
-          const newTarget = this.ghostManager.cycleSpectate(1);
-          if (newTarget) this.followSpectateTarget(newTarget.sprite);
-        }
-
-        // Update level and milestones based on spectated player
-        if (target && target.alive) {
-          const ghostDistance = Math.floor((target.sprite.x - COCKROACH_START_X) / 50);
-          const newLevelConfig = getLevelForDistance(ghostDistance);
-          if (newLevelConfig.level !== this.currentLevel) {
-            if (this.switchLevel(newLevelConfig)) {
-              this.currentLevel = newLevelConfig.level;
-            }
-          }
-          this.gameOverHandler.checkSpectatedMilestones(target.liveScore);
-          const hudData: HUDUpdateData = {
-            score: target.liveScore,
-            distance: ghostDistance,
-            speedMultiplier: target.speedMultiplier,
-            currentFloor: target.lane as 'top' | 'bottom',
-            pickupCombo: target.combo,
-            comboMultiplier: 1 + target.combo * 0.025,
-            timeNow: this.time.now,
-          };
-          this.hud.update(hudData);
-        }
-
-        this.updateParallax();
-        this.updateFloors();
-        this.spawnManager.handleSpawning(this.cameras.main.scrollX + this.cameras.main.width);
-        this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX, (comboLost: number) => {
-          this.vfx.comboLostEffect(comboLost);
-          this.audio.playComboLost();
-          this.pickupCombo = 0;
-          this.comboFeedback.onComboLost();
-        }, this.pickupCombo);
-
-        if (target && !target.alive) {
-          const next = this.ghostManager.cycleSpectate(1);
-          if (next) {
-            this.followSpectateTarget(next.sprite);
-          } else if (this.ghostManager.allDead()) {
-            this.gameOverHandler.triggerMultiplayerGameOver();
-          }
-        }
-      }
-      return;
-    }
-
-    if (this.isCountingDown) {
-      this.player.freezeForCountdown();
-      this.updateCountdown();
-      this.updateFloors();
-      this.spawnManager.handleSpawning(this.cameras.main.scrollX + this.cameras.main.width);
-      this.updateParallax();
-      return;
-    }
-
-    // Pause toggle
-    if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-      this.pauseManager.toggle(
-        () => this.lastFrameTime,
-        (t) => { this.lastFrameTime = t; },
-      );
-    }
-    if (this.pauseManager.isPaused) {
-      const keys = this.input.keyboard!.keys;
-      if (this.pauseManager.handlePausedInput(keys, Phaser.Input.Keyboard.KeyCodes.ESC, () => {
-        this.pauseManager.toggle(
-          () => this.lastFrameTime,
-          (t) => { this.lastFrameTime = t; },
-        );
-      })) {
-        this.lastFrameTime = this.time.now;
-        return;
-      }
-      this.lastFrameTime = this.time.now;
-      return;
-    }
-
-    // Active play time from wall clock (paused during boss fight and pause menu)
-    if (!this.isBossFight && !this.pauseManager.isPaused) {
-      this.activePlayTime = this.clock.activePlayTime;
-    }
-    this.lastFrameTime = this.time.now;
-
-    // Boss fight mode — delegate to BossFight
-    if (this.isBossFight && this.bossFight) {
-      // Only allow input during active fighting (not intro/victory/resuming)
-      if (this.bossFight.isFighting) {
-        const jumpPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.cursors.up);
-        const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
-        if (jumpPressed || dropPressed) {
-          this.player.swapLane();
-          this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
-        }
-        const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);
-        if (dashPressed) {
-          this.bossFight.shoot();
-        }
-      }
-
-      this.bossFight.update(this.game.loop.delta);
-      this.updateParallax();
-      this.updateFloors();
-      const hudData: HUDUpdateData = {
-        score: this.score,
-        distance: this.getDistance(),
-        speedMultiplier: this.player.speedMultiplier,
-        currentFloor: this.player.currentFloor,
-        pickupCombo: this.pickupCombo,
-        comboMultiplier: this.getComboMultiplier(),
-        timeNow: this.time.now,
-      };
-      this.hud.update(hudData);
-      return;
-    }
-
-    // Update player
-    this.player.updateSpeed(this.activePlayTime, this.currentLevel);
-
-    // Dust trail particles
-    this.dustTimer += this.game.loop.delta;
-    const dustInterval = Math.max(100, 300 / this.player.speedMultiplier);
-    const onGroundForDust = this.player.sprite.body!.touching.down || this.player.sprite.body!.blocked.down;
-    if (this.dustTimer >= dustInterval && onGroundForDust) {
-      this.dustTimer = 0;
-      this.spawnDustParticle();
-    } else if (this.dustTimer >= dustInterval) {
-      this.dustTimer = 0;
-    }
-
-    this.updateParallax();
+    player.updateSpeed(this.run.activePlayTime, this.run.currentLevel);
+    this.ambient.updateDust();
+    this.background.update(player.speedMultiplier);
     this.updateFloors();
 
     // Off-screen death
-    if (this.player.y > this.cameras.main.height + 50 || this.player.y < -100) {
+    if (player.y > this.cameras.main.height + 50 || player.y < -100) {
       this.gameOverHandler.die();
       return;
     }
 
-    // Input — lane swap
-    const jumpPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.cursors.up);
-    const dropPressed = Phaser.Input.Keyboard.JustDown(this.ctrlKey) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
-    if (jumpPressed || dropPressed) {
-      this.player.swapLane();
-      this.eventBridge.onSwap(this.player.currentFloor, this.player.x);
-    }
+    this.gameInput.handleRunKeys();
+    player.updateDash();
+    player.updatePill();
+    this.magnet.update();
 
-    // Input — dash / shoot
-    const dashPressed = Phaser.Input.Keyboard.JustDown(this.shiftKey) || Phaser.Input.Keyboard.JustDown(this.rightKey);
-    if (dashPressed && this.isBossFight && this.bossFight) {
-      this.bossFight.shoot();
-    } else if (dashPressed && this.player.dashReady && !this.player.isDashing) {
-      this.player.startDash();
-      this.eventBridge.onDashStart(this.player.x);
-    }
-
-    // Update dash and pill state machines
-    this.player.updateDash();
-    this.player.updatePill();
-
-    // Pill magnet — vacuum pickups toward player during pill effect
-    if (this.player.isPillActive) {
-      const magnetRange = 600;
-      const playerSpeed = this.player.sprite.body!.velocity.x;
-      const pullSpeed = Math.max(200, playerSpeed * 0.8);
-      const groups = [this.apples, this.beers, this.pills];
-      const delta = this.game.loop.delta / 1000;
-      const px = this.player.x;
-      const py = this.player.y;
-      for (const group of groups) {
-        group.getChildren().slice().forEach((obj) => {
-          const pickup = obj as Phaser.Physics.Arcade.Sprite;
-          const dx = px - pickup.x;
-          const dy = py - pickup.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < magnetRange && dist > 1) {
-            // First time vacuuming this pickup — kill float tween so it doesn't fight Y
-            if (!pickup.getData('_vacuumed')) {
-              pickup.setData('_vacuumed', true);
-              this.tweens.killTweensOf(pickup);
-            }
-            const strength = pullSpeed * (1 + (magnetRange - dist) / magnetRange) * delta;
-            const mx = (dx / dist) * strength;
-            const my = (dy / dist) * strength;
-            pickup.x += mx;
-            pickup.y += my;
-            // Sync physics body so overlap collection still works
-            const body = pickup.body as Phaser.Physics.Arcade.Body;
-            body.reset(pickup.x, pickup.y);
-          }
-        });
-      }
-    }
-
-    // Multiplayer sync
-    if (this._wasDashing && !this.player.isDashing) this.eventBridge.onDashEnd(this.player.x);
-    this._wasDashing = this.player.isDashing;
-    if (this._wasPillActive && !this.player.isPillActive) this.eventBridge.onPillEnd(this.player.x);
-    this._wasPillActive = this.player.isPillActive;
-    this.player.updateVisuals();
+    this.session.sendEndedEffects();
+    player.updateVisuals();
     this.replayRecorder.sample(
-      this.time.now, this.player.x, this.player.y,
-      this.player.currentFloor, this.player.isDashing,
-      this.player.isPillActive, this.player.sprite.texture.key,
+      this.time.now, player.x, player.y,
+      player.currentFloor, player.isDashing,
+      player.isPillActive, player.sprite.texture.key,
     );
 
-    // Survival score (+1 per second)
-    if (this.time.now - this.lastScoreTime >= 1000) {
-      this.score += 1;
-      this.lastScoreTime = this.time.now;
-    }
+    this.score.tickSurvival();
+    this.gameOverHandler.checkMilestones(this.run.score);
 
-    // Score milestones
-    this.gameOverHandler.checkMilestones(this.score);
-
-    // Level progression
     const distance = this.getDistance();
-    const newLevelConfig = getLevelForDistance(distance);
-    if (newLevelConfig.level !== this.currentLevel) {
-      if (this.switchLevel(newLevelConfig)) {
-        this.currentLevel = newLevelConfig.level;
-      }
-    }
+    this.levels.update(distance);
+    if (this.boss.tryTrigger(distance)) return;
 
-    // Boss fight trigger
-    if (!this.isBossFight && !this.bossDefeated && distance >= BOSS_TRIGGER_DISTANCE && !this.isDead) {
-      this.isBossFight = true;
-      if (this.isMultiplayer) {
-        this.eventBridge.onBossStart(this.player.x, BOSS_MAX_HP);
-      } else {
-        this.createBossFight('solo');
-      }
-      return;
-    }
+    this.updateHud(distance);
 
-    // Update HUD
-    const hudData: HUDUpdateData = {
-      score: this.score,
+    this.spawnManager.handleSpawning(this.cameraRight);
+    this.spawnManager.showObstacleWarnings(this.cameraRight, player.currentFloor);
+    this.cleanupOffscreen();
+
+    this.vfx.update(player.speedMultiplier);
+    this.audio.updatePitch(player.speedMultiplier * player.pillSpeedBoost);
+    this.ambient.update();
+    this.session.updateGhosts();
+  }
+
+  private updateHud(distance: number): void {
+    this.hud.update({
+      score: this.run.score,
       distance,
       speedMultiplier: this.player.speedMultiplier,
       currentFloor: this.player.currentFloor,
-      pickupCombo: this.pickupCombo,
-      comboMultiplier: this.getComboMultiplier(),
+      pickupCombo: this.run.pickupCombo,
+      comboMultiplier: comboMultiplier(this.run.pickupCombo),
       timeNow: this.time.now,
-    };
-    this.hud.update(hudData);
-
-    // Spawning & cleanup
-    const cameraRight = this.cameras.main.scrollX + this.cameras.main.width;
-    this.spawnManager.handleSpawning(cameraRight);
-    this.spawnManager.showObstacleWarnings(cameraRight, this.player.currentFloor);
-    this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX, (comboLost: number) => {
-      this.vfx.comboLostEffect(comboLost);
-      this.audio.playComboLost();
-      this.pickupCombo = 0;
-      this.comboFeedback.onComboLost();
-    }, this.pickupCombo);
-
-    // Visual effects & audio
-    this.vfx.update(this.player.speedMultiplier);
-    this.audio.updatePitch(this.player.speedMultiplier * this.player.pillSpeedBoost);
-
-    // Bird overlook
-    this.birdOverlookTimer += this.game.loop.delta;
-    if (this.birdOverlookTimer >= this.nextBirdOverlookTime) {
-      this.birdOverlookTimer = 0;
-      this.nextBirdOverlookTime = 15000 + Math.random() * 10000;
-      this.spawnBirdOverlook();
-    }
-
-    // Cockroach ambient noise
-    this.cockroachNoiseTimer += this.game.loop.delta;
-    if (this.cockroachNoiseTimer >= this.nextNoiseTime) {
-      this.cockroachNoiseTimer = 0;
-      this.nextNoiseTime = 20000 + Math.random() * 15000;
-      if (!this.cockroachNoiseSound || !this.cockroachNoiseSound.isPlaying) {
-        this.cockroachNoiseSound = this.sound.add('cockroach-noise', { volume: 0.3 });
-        this.cockroachNoiseSound.play();
-      }
-    }
-
-    // Update cockroach light position
-    if (this.cockroachLight) {
-      this.cockroachLight.x = this.player.x;
-      this.cockroachLight.y = this.player.y;
-    }
-
-    // Ghost manager update
-    if (this.ghostManager) {
-      this.ghostManager.update(
-        this.game.loop.delta,
-        this.cameras.main.scrollX,
-        this.cameras.main.width,
-        this.cameras.main.height,
-      );
-    }
-  }
-
-  private createBossFight(role: 'solo' | 'host' | 'client', overrideHp?: number): void {
-    const groups = [this.obstacles, this.apples, this.beers, this.pills];
-    for (const group of groups) {
-      const children = group.getChildren().slice();
-      for (const obj of children) {
-        (obj as Phaser.Physics.Arcade.Sprite).destroy();
-      }
-    }
-
-    this.isBossFight = true;
-    this.clock.pause();
-    this.bossFight = new BossFight(
-      this, this.player, this.audio, this.vfx, this.hud,
-      this.floorTopY, this.floorBottomY,
-      {
-        onComplete: () => {
-          this.score += this.bossFight!.victoryBonus;
-          this.hud.updateScore(this.score);
-          this.bossFight?.destroy();
-          this.bossFight = null;
-          this.clock.resume();
-          this.isBossFight = false;
-          this.bossDefeated = true;
-          this.player.resumeAfterBossFight();
-          this.player.updateSpeed(this.activePlayTime, this.currentLevel);
-          const blinkTween = this.player.startInvulnerabilityBlink();
-          this.time.delayedCall(1500, () => this.player.endInvulnerability(blinkTween));
-          const lvlConfig = getLevelForDistance(this.getDistance());
-          this.audio.switchBGM(lvlConfig.bgmKey);
-          this.spawnManager.advanceSpawnX(this.player.x + 400);
-          this.ghostManager?.leaveBossFight();
-        },
-        onDie: (type) => {
-          if (!this.isMultiplayer) {
-            this.bossFight?.destroy();
-            this.bossFight = null;
-            this.isBossFight = false;
-          }
-          this.gameOverHandler.die(type);
-        },
-        clearScreen: () => { /* already cleared above */ },
-        addScore: (points) => {
-          this.score += points;
-          this.hud.updateScore(this.score);
-        },
-      },
-      role,
-      this.isMultiplayer ? this.eventBridge : undefined,
-    );
-
-    if (overrideHp != null && overrideHp !== BOSS_MAX_HP) {
-      this.bossFight.updateHP(overrideHp);
-    }
-  }
-
-  private followSpectateTarget(sprite: Phaser.GameObjects.Sprite): void {
-    this.cameras.main.stopFollow();
-    this.cameras.main.scrollX = sprite.x - 200;
-    this.cameras.main.startFollow(sprite, true, 1, 0);
-    this.cameras.main.setFollowOffset(-200, 0);
-  }
-
-  private getComboMultiplier(): number {
-    return 1 + this.pickupCombo * 0.025;
-  }
-
-  private getDistance(): number {
-    return Math.floor((this.player.x - COCKROACH_START_X) / 50);
-  }
-
-  private switchLevel(config: LevelConfig): boolean {
-    const weather = WeatherSystem.rollWeather(config.weatherChances, this.rng);
-
-    const skyKey = `lv${config.level}-sky`;
-    if (!this.textures.exists(skyKey)) {
-      if (this.cache.audio.exists(config.bgmKey)) {
-        this.audio.switchBGM(config.bgmKey);
-      }
-      return false;
-    }
-
-    playLevelGlitch(this);
-    this.audio.glitchBGM();
-
-    this.weather.setWeather(weather);
-
-    this.nextSkyBg.setTexture(config.skyKey);
-    this.nextMidBg.setTexture(config.bgKey);
-    this.nextFgBg.setTexture(config.fgKey);
-    this.nextFgBg.setDepth(DEPTH.FG_BG);
-    this.bgTransitioning = true;
-
-    const fadeDuration = 3000;
-    this.tweens.add({ targets: this.nextSkyBg, alpha: 0.8, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: this.nextMidBg, alpha: 0.15, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: this.nextFgBg, alpha: 1, duration: fadeDuration, ease: 'Sine.easeInOut' });
-
-    this.tweens.add({ targets: this.skyBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({ targets: this.midBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut' });
-    this.tweens.add({
-      targets: this.fgBg, alpha: 0, duration: fadeDuration, ease: 'Sine.easeInOut',
-      onComplete: () => {
-        this.skyBg.setTexture(config.skyKey).setAlpha(0.8);
-        this.midBg.setTexture(config.bgKey).setAlpha(0.15);
-        this.fgBg.setTexture(config.fgKey).setAlpha(1);
-        this.fgBg.setDepth(DEPTH.FG_BG);
-        this.nextSkyBg.setAlpha(0);
-        this.nextMidBg.setAlpha(0);
-        this.nextFgBg.setAlpha(0);
-        this.bgTransitioning = false;
-      },
     });
-
-    this.audio.switchBGM(config.bgmKey);
-    if (!this.isDead) {
-      this.hud.showLevelAnnouncement(config);
-    }
-    return true;
-  }
-
-  private updateParallax(): void {
-    const breatheFactor = this.data.get('breatheFactor') ?? 1.0;
-    const scrollX = this.cameras.main.scrollX;
-    this.skyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
-    this.midBg.tilePositionX = scrollX * 0.4 * breatheFactor;
-    this.fgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
-
-    if (this.bgTransitioning) {
-      this.nextSkyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
-      this.nextMidBg.tilePositionX = scrollX * 0.4 * breatheFactor;
-      this.nextFgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
-    }
-
-    const targetZoom = Math.max(0.88, 1 - Math.max(this.player.speedMultiplier - 5, 0) * 0.02);
-    this.cameras.main.zoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.02);
-
-    const darkening = Math.min(Math.max(this.player.speedMultiplier - 3.5, 0) * 0.08, 0.5);
-    if (darkening > 0) {
-      this.skyBg.setTint(
-        Phaser.Display.Color.GetColor(
-          Math.floor(255 * (1 - darkening)),
-          Math.floor(255 * (1 - darkening * 0.8)),
-          Math.floor(255 * (1 - darkening * 0.3)),
-        ),
-      );
-    }
-
-    this.cameras.main.scrollY = 0;
   }
 
   private updateFloors(): void {
-    let trackX: number;
-    let trackFloor: 'top' | 'bottom';
-    let shouldTrack: boolean;
+    const { player, run } = this;
+    const ghostManager = this.session.ghostManager;
+    let trackX = player.x;
+    let trackFloor = player.currentFloor;
+    let shouldTrack = !run.isCountingDown && !run.isDead;
 
-    if (this.isDead && this.isMultiplayer && this.ghostManager?.isSpectating) {
-      const target = this.ghostManager.spectateTargetPlayer;
+    if (run.isDead && ghostManager?.isSpectating) {
+      const target = ghostManager.spectateTargetPlayer;
       if (target && target.alive) {
         trackX = target.sprite.x;
         trackFloor = target.lane as 'top' | 'bottom';
         shouldTrack = true;
       } else {
-        shouldTrack = false;
         trackX = 0;
         trackFloor = 'bottom';
       }
-    } else {
-      trackX = this.player.x;
-      trackFloor = this.player.currentFloor;
-      shouldTrack = !this.isCountingDown && !this.isDead;
     }
 
     this.floorManager.update(
       this.cameras.main.scrollX,
       trackX, trackFloor, shouldTrack,
-      this.player.currentFloor,
+      player.currentFloor,
       this.time.now,
     );
   }
 
-  private spawnDustParticle(): void {
-    const dust = this.add.circle(
-      this.player.x - 20,
-      this.player.y + 10,
-      2 + Math.random() * 2,
-      0x8b7355,
-      0.6,
+  private cleanupOffscreen(): void {
+    this.spawnManager.cleanupOffscreen(
+      this.cameras.main.scrollX,
+      (comboLost) => this.score.loseCombo(comboLost),
+      this.run.pickupCombo,
     );
-    this.tweens.add({
-      targets: dust,
-      y: dust.y - 15,
-      alpha: 0,
-      scaleX: 0.3,
-      scaleY: 0.3,
-      duration: 400,
-      onComplete: () => { dust.destroy(); },
-    });
   }
 
-  private spawnBirdOverlook(): void {
-    const corners = [
-      { x: 60, y: this.cameras.main.height - 60, flipX: false, flipY: false },
-      { x: this.cameras.main.width - 60, y: this.cameras.main.height - 60, flipX: true, flipY: false },
-      { x: 60, y: 60, flipX: false, flipY: true },
-      { x: this.cameras.main.width - 60, y: 60, flipX: true, flipY: true },
-    ];
-    const corner = corners[Math.floor(Math.random() * corners.length)];
+  private get cameraRight(): number {
+    return this.cameras.main.scrollX + this.cameras.main.width;
+  }
 
-    const birdImg = this.add.image(corner.x, corner.y, 'bird-overlook');
-    birdImg.setScrollFactor(0).setDepth(DEPTH.BIRD_OVERLOOK).setScale(0.4).setAlpha(0);
-    birdImg.setFlipX(corner.flipX).setFlipY(corner.flipY);
-
-    this.sound.play('huh', { volume: 0.5 });
-
-    this.tweens.add({
-      targets: birdImg,
-      alpha: 1,
-      duration: 300,
-      hold: 1500,
-      yoyo: true,
-      onComplete: () => birdImg.destroy(),
-    });
+  private getDistance(): number {
+    return distanceAt(this.player.x);
   }
 }
