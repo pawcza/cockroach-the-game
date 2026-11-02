@@ -30,7 +30,7 @@ interface GameSocketEvents {
   'game:boss-shoot': { id: string };
   'game:boss-hit': { id: string; hp: number };
   'game:boss-rage': undefined;
-  'game:boss-end': { result: 'victory' | 'defeat'; bonus: number };
+  'game:boss-end': { result: 'victory'; bonus: number };
   'game:boss-host-transfer': { newHostId: string };
 }
 
@@ -50,7 +50,7 @@ export interface GameEventCallbacks {
   onBossShoot: (id: string) => void;
   onBossHit: (data: { id: string; hp: number }) => void;
   onBossRage: () => void;
-  onBossEnd: (data: { result: 'victory' | 'defeat'; bonus: number }) => void;
+  onBossEnd: (data: { result: 'victory'; bonus: number }) => void;
   onBossHostTransfer: (data: { newHostId: string }) => void;
 }
 

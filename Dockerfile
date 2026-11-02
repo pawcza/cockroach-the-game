@@ -1,28 +1,32 @@
-FROM node:20-alpine
+FROM node:24-alpine AS build
 
 # better-sqlite3 needs build tools
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source
 COPY . .
-
-# Build frontend
 RUN npm run build
-
-# Build server
 RUN npx tsc -p server/tsconfig.json
+RUN npm prune --omit=dev
 
-# Create data directory for SQLite
-RUN mkdir -p /data
+FROM node:24-alpine
 
+ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/data/scores.db
+
+WORKDIR /app
+COPY --from=build /app/package.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist-server ./dist-server
+
+RUN mkdir -p /data && chown node:node /data
+USER node
 
 EXPOSE 3000
 

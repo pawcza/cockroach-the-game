@@ -51,6 +51,10 @@ class MultiplayerClient {
       // Re-emit any pending room joins after reconnection
       for (const handler of this.connectHandlers) handler();
     });
+    this.socket.on('disconnect', (reason) => {
+      if (reason === 'io client disconnect') return;
+      for (const handler of [...this.dropHandlers]) handler();
+    });
     // Recorded here, not in LobbyScene: an update can arrive during the crossfade,
     // before that scene exists to hear it.
     this.socket.on('lobby:updated', (lobby: MPLobbyData) => { this.latestLobby = lobby; });
@@ -62,6 +66,13 @@ class MultiplayerClient {
   }
 
   private connectHandlers: Array<() => void> = [];
+  private dropHandlers: Array<() => void> = [];
+
+  /** Runs when the connection is lost. The server forgets a dropped player, so a reconnect can't resume a lobby. */
+  onDrop(handler: () => void): () => void {
+    this.dropHandlers.push(handler);
+    return () => { this.dropHandlers = this.dropHandlers.filter(h => h !== handler); };
+  }
 
   /** Register a callback to run on every (re)connect. */
   onConnect(handler: () => void): void {
@@ -108,10 +119,6 @@ class MultiplayerClient {
 
       this.socket.emit(event, ...args, callback);
     });
-  }
-
-  async listLobbies(): Promise<MPLobbyListEntry[]> {
-    return this.emitWithAck<MPLobbyListEntry[]>('lobby:list');
   }
 
   /** Join the lobby-browser room to receive real-time lobby list updates. */
@@ -167,7 +174,6 @@ class MultiplayerClient {
   sendPosition(x: number, lane: string, t?: number): void { this.socket?.emit('game:position', { x, lane, t }); }
   sendPickup(x: number, score: number, combo?: number): void { this.socket?.emit('game:pickup', { x, score, combo }); }
   sendDeath(score: number, stats: Record<string, unknown>): void { this.socket?.emit('game:death', { score, stats }); }
-  sendAllDead(rankings: Array<Record<string, unknown>>): void { this.socket?.emit('game:all-dead', { rankings }); }
   sendBossStart(triggerX: number, hp: number): void { this.socket?.emit('game:boss-start', { triggerX, hp }); }
   sendBossShoot(): void { this.socket?.emit('game:boss-shoot'); }
   sendBossHit(): void { this.socket?.emit('game:boss-hit'); }

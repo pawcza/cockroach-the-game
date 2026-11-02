@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { mpClient, type MPLobbyData, type MPRanking } from '../multiplayer/MultiplayerClient';
-import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
+import { PLAYER_COLORS } from '../../server/lobby';
 import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, popupStyle, getScale, FONT_FAMILY } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
-import { createButton } from '../ui/shared';
+import { createButton, OBSTACLE_LABEL, OBSTACLE_TEXTURE } from '../ui/shared';
 import { sceneManager } from '../systems/SceneManager';
 import { fetchScores } from '../ui/Scoreboard';
 import { updateHighScoreIfBetter, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
@@ -18,39 +18,6 @@ interface MPGameOverData {
   isHost: boolean;
   replayData?: ReplayData | null;
 }
-
-// Map obstacle type names to texture keys for the death icon
-const OBSTACLE_TEXTURE: Record<string, string> = {
-  onion: 'onion',
-  spray: 'pest-spray',
-  flipper: 'flipper',
-  newspaper: 'newspaper',
-  bird: 'bird',
-  cat: 'cat-paw',
-  disco: 'disco-ball',
-  jellyfish: 'jellyfish',
-  pope: 'pope',
-  bison: 'bison',
-  blackhole: 'black-hole',
-  boss: 'boss-face2',
-};
-
-// Polish death cause labels
-const OBSTACLE_LABEL: Record<string, string> = {
-  onion: 'Cebula',
-  spray: 'Spray',
-  flipper: 'Klapek',
-  newspaper: 'Gazeta',
-  bird: 'Ptak',
-  cat: 'Łapa kota',
-  disco: 'Dyskoteka',
-  jellyfish: 'Meduza',
-  pope: 'Papież',
-  bison: 'Żubr',
-  blackhole: 'Czarna dziura',
-  boss: 'Bestia spod Zlewu',
-  fall: 'Spadł',
-};
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((lobbyData: MPLobbyData) => void) | null = null;
@@ -156,7 +123,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
 
       // Player color square
-      const playerColor = MP_PLAYER_COLORS[entry.color] ?? 0xffffff;
+      const playerColor = PLAYER_COLORS[entry.color] ?? 0xffffff;
       const sq = Math.round(16 * s);
       this.add.rectangle(colColor, y, sq, sq, playerColor, 1);
 
@@ -280,9 +247,9 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           const saveBtnX = colScore - Math.round(60 * s);
           const saveBtnY = myRowY - Math.round(12 * s);
 
-          const doSave = (name: string): void => {
+          const doSave = async (name: string): Promise<void> => {
             const stats = myRanking.stats || {};
-            fetch('/api/scores', {
+            const saved = await fetch('/api/scores', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -297,11 +264,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
                 maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
                 maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
               }),
-            }).catch(() => { /* offline is fine */ });
+            }).then((res) => res.ok, () => false);
 
-            this.add.text(saveBtnX, saveBtnY, 'OK!', smallStyle({
+            if (!this.scene.isActive()) return;
+            this.add.text(saveBtnX, saveBtnY, saved ? 'OK!' : 'Nie zapisano', smallStyle({
               fontSize: `${Math.round(8 * s)}px`,
-              color: '#00ff00',
+              color: saved ? '#00ff00' : '#ff5555',
             })).setOrigin(0.5);
           };
 
@@ -311,9 +279,9 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
           }), () => {
             for (const obj of saveBtn.all) obj.destroy();
             if (!isPlayerNameCustom()) {
-              showNameInput(this, doSave, myRanking.name);
+              showNameInput(this, (name) => { void doSave(name); }, myRanking.name);
             } else {
-              doSave(getPlayerNameOrDefault());
+              void doSave(getPlayerNameOrDefault());
             }
           });
 
@@ -346,7 +314,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     }
 
     // Leave button (everyone)
-    createButton(this, width / 2, bottomBtnY, btnW, btnH, 'Opusc', 0x666666, btnS, () => {
+    createButton(this, width / 2, bottomBtnY, btnW, btnH, 'Opuść', 0x666666, btnS, () => {
       sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
         this.cleanupListeners();
         mpClient.leaveLobby();
@@ -356,7 +324,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     // Host: Rematch with countdown; Non-host: waiting text
     if (isHost) {
       const rematch = createButton(this, width / 2, topBtnY, btnW, btnH, 'Rewanżyk (5)', 0x880000, btnS, () => {
-        mpClient.restartLobby();
+        mpClient.restartLobby().catch((err) => { console.error('restartLobby failed:', err); });
       });
       // Disabled during countdown
       rematch.hitZone.disableInteractive();
@@ -398,7 +366,12 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     };
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
 
-    this.events.on('shutdown', () => {
+    const stopWatchingDrop = mpClient.onDrop(() => {
+      sceneManager.goto(this, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' });
+    });
+
+    this.events.once('shutdown', () => {
+      stopWatchingDrop();
       this.cleanupListeners();
     });
   }

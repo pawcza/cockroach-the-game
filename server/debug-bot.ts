@@ -1,29 +1,9 @@
-import { Server, type Socket } from 'socket.io';
 import { io as ioClient } from 'socket.io-client';
 
 // Mirror the game's speed constants
 const COCKROACH_BASE_SPEED = 200;
 const COCKROACH_SPEED_MAX_BOOST = 300;
 const COCKROACH_SPEED_TAU = 200;
-const SPEED_BOOST_PER_LEVEL = 20;
-const DASH_SPEED_BOOST = 300;
-const DASH_DURATION = 375;
-const LEVEL_THRESHOLDS = [0, 100, 250, 450, 700, 950, 1200, 1500, 1800, 2200];
-
-function getLevelForDistance(dist: number): number {
-  let level = 1;
-  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (dist >= LEVEL_THRESHOLDS[i]) { level = i + 1; break; }
-  }
-  return level;
-}
-
-function getSpeed(elapsedSeconds: number, level: number, isDashing: boolean): number {
-  const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
-  const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
-  const base = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
-  return base + (isDashing ? DASH_SPEED_BOOST : 0);
-}
 
 /**
  * Compute position analytically from the integral of the speed formula.
@@ -40,8 +20,7 @@ function getPositionAtTime(elapsedSeconds: number, startX: number): number {
   return startX + B * elapsedSeconds + M * (elapsedSeconds + T * Math.exp(-elapsedSeconds / T) - T);
 }
 
-export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: Socket): void {
-
+export function spawnBotForLobby(lobbyId: string): void {
   const port = process.env.PORT || 3456;
   const bot = ioClient(`http://localhost:${port}`, {
     path: '/socket.io',
@@ -54,7 +33,6 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: Socke
   let score = 0;
   let combo = 0;
   let gameStarted = false;
-  let isDashing = false;
   let activePlayTime = 0;
   let startTime = 0;
 
@@ -85,14 +63,12 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: Socke
     x = 150;
     score = 0;
     combo = 0;
-    isDashing = false;
     activePlayTime = 0;
     lane = 'bottom';
     startTime = Date.now();
 
     const countdownEnd = Date.now() + 2400;
     const TICK_MS = 100;
-    let lastTick = Date.now();
     let sentInitialPos = false;
     let gameplayStartWallClock = 0;
 
@@ -103,18 +79,15 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: Socke
       }
 
       const now = Date.now();
-      if (now < countdownEnd) { lastTick = now; return; }
+      if (now < countdownEnd) return;
 
       // Send initial position immediately at countdown end
       if (!sentInitialPos) {
         sentInitialPos = true;
         gameplayStartWallClock = now;
-        lastTick = now;
         bot.emit('game:position', { x, lane, t: 0 });
         return;
       }
-
-      lastTick = now;
 
       // Use wall clock for activePlayTime (same as GameClock.activePlayTime)
       activePlayTime = now - gameplayStartWallClock;
@@ -143,13 +116,11 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: Socke
         stats: {
           timeSurvived,
           distance,
-          maxSpeed: getSpeed(activePlayTime / 1000, getLevelForDistance(distance), false) / COCKROACH_BASE_SPEED,
           obstacleType: 'onion',
           applesCollected: Math.floor(score / 10),
-          beersCollected: 0,
+          tyskiesCollected: 0,
           pillsCollected: 0,
           maxCombo: combo,
-          maxLevel: getLevelForDistance(distance),
         },
       });
     };

@@ -6,6 +6,7 @@ import { Player } from '../objects/Player';
 import { BossEncounter } from '../systems/BossEncounter';
 import { GameOverHandler } from '../systems/GameOverHandler';
 import { RunState } from '../systems/RunState';
+import { sceneManager } from '../systems/SceneManager';
 import { SpawnManager } from '../systems/SpawnManager';
 import { GameClock } from '../utils/GameClock';
 import { GameEventBridge } from './GameEventBridge';
@@ -31,6 +32,7 @@ export class MultiplayerSession {
   private deps: MultiplayerSessionDeps;
   private wasDashing = false;
   private wasPillActive = false;
+  private stopWatchingDrop: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene, deps: MultiplayerSessionDeps) {
     this.scene = scene;
@@ -75,6 +77,13 @@ export class MultiplayerSession {
       },
     });
     gameOverHandler.resetMpState();
+
+    this.stopWatchingDrop = mpClient.onDrop(() => {
+      sceneManager.goto(this.scene, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' }, () => {
+        audio.destroy();
+        this.scene.sound.stopAll();
+      });
+    });
   }
 
   /** Sends an immediate position so ghosts can start moving without delay, then one every 100 ms. */
@@ -105,6 +114,8 @@ export class MultiplayerSession {
   }
 
   destroy(): void {
+    this.stopWatchingDrop?.();
+    this.stopWatchingDrop = null;
     this.ghostManager?.destroy();
     this.ghostManager = null;
   }
