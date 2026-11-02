@@ -4,6 +4,7 @@ import { smallStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
+import type { GameOverData } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from './SceneManager';
@@ -312,7 +313,7 @@ export class GameOverHandler {
     }
   }
 
-  handleServerGameOver(data: { rankings: any[]; hostId: string }): void {
+  handleServerGameOver(data: GameOverData): void {
     if (this._mpGameOverTriggered) return;
     this._mpGameOverTriggered = true;
     this.cleanupBossFight();

@@ -67,7 +67,6 @@ export class BootScene extends Phaser.Scene {
 
     // --- Sprites ---
     const images: [string, string][] = [
-      ['cockroach', 'assets/cockroach.webp'],
       ['cockroach-idle', 'assets/cockroach-idle.webp'],
       ['cockroach-running', 'assets/cockroach-running.webp'],
       ['cockroach-dashing', 'assets/cockroach-dashing.webp'],

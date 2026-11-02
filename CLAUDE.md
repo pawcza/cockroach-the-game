@@ -13,7 +13,7 @@
 - `npm run dev` — Vite dev server + game server (concurrently)
 - `npx tsc --noEmit` — Type-check (run after changes)
 - `npm run build` — Production build
-- `./deploy.sh` — Pull, rebuild Docker, restart
+- `npm test` — Unit tests
 
 ## Structure
 

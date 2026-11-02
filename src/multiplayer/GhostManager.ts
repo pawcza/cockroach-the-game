@@ -38,9 +38,7 @@ export class GhostManager {
       if (player.id === myId) continue;
       const ghost = new GhostPlayer(scene, player.id, player.name, player.color, startX, floorBottomY);
       this.ghosts.set(player.id, ghost);
-      console.log(`[Ghost] Created ghost for ${player.name} (${player.id.slice(0, 8)})`);
     }
-    console.log(`[Ghost] Total ghosts: ${this.ghosts.size}, myId: ${myId.slice(0, 8)}`);
   }
 
   handleSwap(id: string, lane: string, x?: number): void {
@@ -94,10 +92,7 @@ export class GhostManager {
 
   handlePosition(id: string, x: number, t?: number): void {
     const ghost = this.ghosts.get(id);
-    if (!ghost) {
-      console.warn(`[Ghost] Position event for unknown ID ${id.slice(0, 8)}, known IDs: ${[...this.ghosts.keys()].map(k => k.slice(0, 8)).join(', ')}`);
-      return;
-    }
+    if (!ghost) return;
     if (ghost.alive) {
       ghost.pushPosition(x, t);
     }
