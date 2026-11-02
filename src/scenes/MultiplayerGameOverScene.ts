@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { mpClient } from '../multiplayer/MultiplayerClient';
+import { mpClient, type MPLobbyData, type MPRanking } from '../multiplayer/MultiplayerClient';
 import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
 import { COLORS, DEPTH } from '../config/constants';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, popupStyle, getScale, FONT_FAMILY } from '../utils/TextStyles';
@@ -12,16 +12,8 @@ import { showNameInput } from '../ui/NameInputOverlay';
 import { ReplayData } from '../systems/DeathReplay';
 import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
 
-interface MPGameOverRanking {
-  id: string;
-  name: string;
-  color: number;
-  score: number;
-  stats: Record<string, unknown>;
-}
-
 interface MPGameOverData {
-  rankings: MPGameOverRanking[];
+  rankings: MPRanking[];
   myId: string;
   isHost: boolean;
   replayData?: ReplayData | null;
@@ -61,7 +53,7 @@ const OBSTACLE_LABEL: Record<string, string> = {
 };
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
-  private lobbyUpdatedHandler: ((...args: any[]) => void) | null = null;
+  private lobbyUpdatedHandler: ((lobbyData: MPLobbyData) => void) | null = null;
   private replayData: ReplayData | null = null;
 
   constructor() {
@@ -397,7 +389,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     }
 
     // --- Socket listeners ---
-    this.lobbyUpdatedHandler = (lobbyData: { id: string; players: any[]; status: string }) => {
+    this.lobbyUpdatedHandler = (lobbyData) => {
       if (lobbyData.status === 'waiting') {
         sceneManager.goto(this, 'LobbyScene', { lobbyData }, () => {
           this.cleanupListeners();

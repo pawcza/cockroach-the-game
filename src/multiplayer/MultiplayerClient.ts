@@ -14,6 +14,17 @@ export interface MPLobbyData {
   status: string;
 }
 
+export interface MPRanking {
+  id: string;
+  name: string;
+  color: number;
+  score: number;
+  stats: Record<string, unknown>;
+}
+
+/** A socket listener with any payload shape; the caller's signature stays precise. */
+export type SocketHandler = (...args: never[]) => void;
+
 export interface MPLobbyListEntry {
   id: string;
   host: string;
@@ -69,7 +80,7 @@ class MultiplayerClient {
    * Helper: emit with ack callback wrapped in a Promise.
    * Rejects if socket is disconnected or if the server doesn't respond within timeout.
    */
-  private emitWithAck<T>(event: string, ...args: any[]): Promise<T> {
+  private emitWithAck<T>(event: string, ...args: unknown[]): Promise<T> {
     return new Promise((resolve, reject) => {
       if (!this.socket?.connected) {
         reject(new Error('Socket not connected'));
@@ -80,7 +91,7 @@ class MultiplayerClient {
         reject(new Error(`Timeout waiting for ${event}`));
       }, ACK_TIMEOUT);
 
-      const callback = (res: any) => {
+      const callback = (res: (T & { error?: string }) | undefined) => {
         clearTimeout(timer);
         if (res?.error) reject(new Error(res.error));
         else resolve(res as T);
@@ -153,12 +164,12 @@ class MultiplayerClient {
   sendBossRage(): void { this.socket?.emit('game:boss-rage'); }
 
   // Event listeners
-  on(event: string, handler: (...args: any[]) => void): void {
-    this.socket?.on(event, handler);
+  on(event: string, handler: SocketHandler): void {
+    this.socket?.on(event, handler as (...args: unknown[]) => void);
   }
 
-  off(event: string, handler?: (...args: any[]) => void): void {
-    if (handler) this.socket?.off(event, handler);
+  off(event: string, handler?: SocketHandler): void {
+    if (handler) this.socket?.off(event, handler as (...args: unknown[]) => void);
     else this.socket?.removeAllListeners(event);
   }
 }

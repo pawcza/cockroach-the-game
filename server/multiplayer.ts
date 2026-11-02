@@ -2,6 +2,14 @@ import { Server, Socket } from 'socket.io';
 import { LobbyManager } from './lobby';
 import { spawnBotForLobby } from './debug-bot';
 
+interface BossProjectile {
+  lane: 'top' | 'bottom';
+  speed: number;
+  faceIdx: number;
+  indestructible: boolean;
+  volley: boolean;
+}
+
 function serializeLobby(lobbies: LobbyManager, lobbyId: string) {
   const lobby = lobbies.getLobby(lobbyId);
   if (!lobby) return null;
@@ -71,8 +79,8 @@ export function setupMultiplayer(io: Server): void {
       });
       broadcastLobbyList();
 
-      // Auto-spawn debug bot when "debug" player creates a lobby
-      if (playerName === 'debug') {
+      // Local testing: with DEBUG_BOT=1, a player named "debug" gets a bot in their lobby.
+      if (process.env.DEBUG_BOT === '1' && playerName === 'debug') {
         setTimeout(() => spawnBotForLobby(io, lobby.id, socket), 500);
       }
     });
@@ -144,7 +152,6 @@ export function setupMultiplayer(io: Server): void {
       }
 
       const players = lobbies.serializePlayers(lobby);
-      console.log(`[game:start] Lobby ${lobby.id} — ${players.length} players:`, players.map(p => `${p.name}(${p.id.slice(0,8)})`).join(', '));
       // Clear any stale death data for this lobby
       lobbyDeathData.set(lobby.id, new Map());
 
@@ -163,25 +170,25 @@ export function setupMultiplayer(io: Server): void {
       socket.to(lobbyId).emit('game:swap', { id: socket.id, lane: data.lane, x: data.x });
     });
 
-    socket.on('game:dash-start', (data: any) => {
+    socket.on('game:dash-start', (data: { x?: number } | undefined) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
       socket.to(lobbyId).emit('game:dash-start', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:dash-end', (data: any) => {
+    socket.on('game:dash-end', (data: { x?: number } | undefined) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
       socket.to(lobbyId).emit('game:dash-end', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:pill-start', (data: any) => {
+    socket.on('game:pill-start', (data: { x?: number } | undefined) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
       socket.to(lobbyId).emit('game:pill-start', { id: socket.id, x: data?.x });
     });
 
-    socket.on('game:pill-end', (data: any) => {
+    socket.on('game:pill-end', (data: { x?: number } | undefined) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
       socket.to(lobbyId).emit('game:pill-end', { id: socket.id, x: data?.x });
@@ -189,10 +196,7 @@ export function setupMultiplayer(io: Server): void {
 
     socket.on('game:position', (data: { x: number; lane: string; t?: number }) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
-      if (!lobbyId) {
-        console.warn(`[game:position] No lobby for socket ${socket.id} (name: ${playerName})`);
-        return;
-      }
+      if (!lobbyId) return;
       socket.to(lobbyId).emit('game:position', { id: socket.id, x: data.x, lane: data.lane, t: data.t });
     });
 
@@ -225,7 +229,7 @@ export function setupMultiplayer(io: Server): void {
       io.to(lobbyId).emit('game:boss-start', { triggerX: data.triggerX, hp: scaledHp, hostId: socket.id });
     });
 
-    socket.on('game:boss-projectile', (data: any) => {
+    socket.on('game:boss-projectile', (data: BossProjectile) => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       if (!lobbyId) return;
       const bossState = lobbyBossState.get(lobbyId);

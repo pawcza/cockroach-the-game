@@ -1,4 +1,5 @@
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
+import { io as ioClient } from 'socket.io-client';
 
 // Mirror the game's speed constants
 const COCKROACH_BASE_SPEED = 200;
@@ -39,12 +40,7 @@ function getPositionAtTime(elapsedSeconds: number, startX: number): number {
   return startX + B * elapsedSeconds + M * (elapsedSeconds + T * Math.exp(-elapsedSeconds / T) - T);
 }
 
-export function setupDebugBot(_io: Server): void {
-  // Placeholder — bot spawning is triggered from multiplayer.ts
-}
-
-export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any): void {
-  const { io: ioClient } = require('socket.io-client');
+export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: Socket): void {
 
   const port = process.env.PORT || 3456;
   const bot = ioClient(`http://localhost:${port}`, {
@@ -64,30 +60,26 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
 
   bot.on('connect', () => {
     bot.emit('set-name', 'DebugBot');
-    bot.emit('lobby:join', lobbyId, (res: any) => {
+    bot.emit('lobby:join', lobbyId, (res: { error?: string } | undefined) => {
       if (res?.error) {
-        console.log('[DebugBot] Failed to join lobby:', res.error);
         bot.disconnect();
         return;
       }
-      console.log('[DebugBot] Joined lobby', lobbyId);
       bot.emit('lobby:ready', true, () => {});
     });
 
     // If the debug player leaves, bot becomes host of an empty lobby — disconnect
-    bot.on('lobby:updated', (lobbyData: any) => {
+    bot.on('lobby:updated', (lobbyData: { players?: Array<{ name: string }> } | undefined) => {
       if (!lobbyData) return;
       const players = lobbyData.players || [];
-      const botPlayer = players.find((p: any) => p.name === 'DebugBot');
+      const botPlayer = players.find((p) => p.name === 'DebugBot');
       if (players.length <= 1 && botPlayer) {
-        console.log('[DebugBot] Alone in lobby, disconnecting');
         bot.disconnect();
       }
     });
   });
 
   bot.on('game:start', () => {
-    console.log('[DebugBot] Game started, waiting for countdown...');
     gameStarted = true;
     alive = true;
     x = 150;
@@ -160,7 +152,6 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
           maxLevel: getLevelForDistance(distance),
         },
       });
-      console.log('[DebugBot] Died at distance', distance, 'score', score);
     };
 
     bot.on('game:death', () => {
@@ -173,12 +164,10 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
 
   bot.on('game:over', () => {
     gameStarted = false;
-    console.log('[DebugBot] Game over, disconnecting');
     setTimeout(() => bot.disconnect(), 2000);
   });
 
-  bot.on('game:boss-start', (data: any) => {
-    console.log('[DebugBot] Boss fight started');
+  bot.on('game:boss-start', (data: { triggerX: number }) => {
     x = data.triggerX;
     const shootInterval = setInterval(() => {
       if (!alive || !gameStarted) {
@@ -195,7 +184,6 @@ export function spawnBotForLobby(io: Server, lobbyId: string, hostSocket?: any):
   });
 
   bot.on('disconnect', () => {
-    console.log('[DebugBot] Disconnected');
     gameStarted = false;
     alive = false;
   });

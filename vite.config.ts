@@ -9,8 +9,7 @@ export default defineConfig({
     port: 5678,
     proxy: {
       '/api': {
-        target: 'https://cockroach.wszystko.app',
-        changeOrigin: true,
+        target: 'http://localhost:3456',
       },
       '/socket.io': {
         target: 'http://localhost:3456',

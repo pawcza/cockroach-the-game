@@ -1,4 +1,4 @@
-import { mpClient } from './MultiplayerClient';
+import { mpClient, type MPRanking, type SocketHandler } from './MultiplayerClient';
 
 export interface BossProjectileData {
   lane: 'top' | 'bottom';
@@ -6,6 +6,32 @@ export interface BossProjectileData {
   faceIdx: number;
   indestructible: boolean;
   volley: boolean;
+}
+
+export interface GameOverData {
+  rankings: MPRanking[];
+  hostId: string;
+}
+
+/** What the server sends for each game event. */
+interface GameSocketEvents {
+  'game:swap': { id: string; lane: string; x?: number };
+  'game:dash-start': { id: string; x?: number };
+  'game:dash-end': { id: string; x?: number };
+  'game:pill-start': { id: string; x?: number };
+  'game:pill-end': { id: string; x?: number };
+  'game:position': { id: string; x: number; lane: string; t?: number };
+  'game:pickup': { id: string; x: number; score: number; combo?: number };
+  'game:death': { id: string; score: number; stats: Record<string, unknown> };
+  'game:player-left': { id: string };
+  'game:over': GameOverData;
+  'game:boss-start': { triggerX: number; hp: number; hostId: string };
+  'game:boss-projectile': BossProjectileData;
+  'game:boss-shoot': { id: string };
+  'game:boss-hit': { id: string; hp: number };
+  'game:boss-rage': undefined;
+  'game:boss-end': { result: 'victory' | 'defeat'; bonus: number };
+  'game:boss-host-transfer': { newHostId: string };
 }
 
 export interface GameEventCallbacks {
@@ -18,7 +44,7 @@ export interface GameEventCallbacks {
   onGhostPickup: (id: string, x: number, score: number, combo?: number) => void;
   onGhostDeath: (id: string, score: number, stats: Record<string, unknown>) => void;
   onPlayerLeft: (id: string) => void;
-  onGameOver: (data: { rankings: any[]; hostId: string }) => void;
+  onGameOver: (data: GameOverData) => void;
   onBossStart: (data: { triggerX: number; hp: number; hostId: string }) => void;
   onBossProjectile: (data: BossProjectileData) => void;
   onBossShoot: (id: string) => void;
@@ -30,7 +56,7 @@ export interface GameEventCallbacks {
 
 export class GameEventBridge {
   private multiplayer: boolean;
-  private listeners: Array<{ event: string; handler: (...args: any[]) => void }> = [];
+  private listeners: Array<{ event: string; handler: SocketHandler }> = [];
 
   constructor(multiplayer: boolean) {
     this.multiplayer = multiplayer;
@@ -95,28 +121,31 @@ export class GameEventBridge {
   setupListeners(callbacks: GameEventCallbacks): void {
     if (!this.multiplayer) return;
 
-    const listen = (event: string, handler: (...args: any[]) => void): void => {
+    const listen = <E extends keyof GameSocketEvents>(
+      event: E,
+      handler: (data: GameSocketEvents[E]) => void,
+    ): void => {
       this.listeners.push({ event, handler });
       mpClient.on(event, handler);
     };
 
-    listen('game:swap', (data: any) => callbacks.onGhostSwap(data.id, data.lane, data.x));
-    listen('game:dash-start', (data: any) => callbacks.onGhostDashStart(data.id, data.x));
-    listen('game:dash-end', (data: any) => callbacks.onGhostDashEnd(data.id, data.x));
-    listen('game:pill-start', (data: any) => callbacks.onGhostPillStart(data.id, data.x));
-    listen('game:pill-end', (data: any) => callbacks.onGhostPillEnd(data.id, data.x));
-    listen('game:position', (data: any) => callbacks.onGhostPosition(data.id, data.x, data.lane, data.t));
-    listen('game:pickup', (data: any) => callbacks.onGhostPickup(data.id, data.x, data.score, data.combo));
-    listen('game:death', (data: any) => callbacks.onGhostDeath(data.id, data.score, data.stats));
-    listen('game:player-left', (data: any) => callbacks.onPlayerLeft(data.id));
-    listen('game:over', (data: any) => callbacks.onGameOver(data));
-    listen('game:boss-start', (data: any) => callbacks.onBossStart(data));
-    listen('game:boss-projectile', (data: any) => callbacks.onBossProjectile(data));
-    listen('game:boss-shoot', (data: any) => callbacks.onBossShoot(data.id));
-    listen('game:boss-hit', (data: any) => callbacks.onBossHit(data));
+    listen('game:swap', (data) => callbacks.onGhostSwap(data.id, data.lane, data.x));
+    listen('game:dash-start', (data) => callbacks.onGhostDashStart(data.id, data.x));
+    listen('game:dash-end', (data) => callbacks.onGhostDashEnd(data.id, data.x));
+    listen('game:pill-start', (data) => callbacks.onGhostPillStart(data.id, data.x));
+    listen('game:pill-end', (data) => callbacks.onGhostPillEnd(data.id, data.x));
+    listen('game:position', (data) => callbacks.onGhostPosition(data.id, data.x, data.lane, data.t));
+    listen('game:pickup', (data) => callbacks.onGhostPickup(data.id, data.x, data.score, data.combo));
+    listen('game:death', (data) => callbacks.onGhostDeath(data.id, data.score, data.stats));
+    listen('game:player-left', (data) => callbacks.onPlayerLeft(data.id));
+    listen('game:over', (data) => callbacks.onGameOver(data));
+    listen('game:boss-start', (data) => callbacks.onBossStart(data));
+    listen('game:boss-projectile', (data) => callbacks.onBossProjectile(data));
+    listen('game:boss-shoot', (data) => callbacks.onBossShoot(data.id));
+    listen('game:boss-hit', (data) => callbacks.onBossHit(data));
     listen('game:boss-rage', () => callbacks.onBossRage());
-    listen('game:boss-end', (data: any) => callbacks.onBossEnd(data));
-    listen('game:boss-host-transfer', (data: any) => callbacks.onBossHostTransfer(data));
+    listen('game:boss-end', (data) => callbacks.onBossEnd(data));
+    listen('game:boss-host-transfer', (data) => callbacks.onBossHostTransfer(data));
   }
 
   // ── Cleanup ─────────────────────────────────────────────────────
