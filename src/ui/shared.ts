@@ -1,13 +1,5 @@
 import Phaser from 'phaser';
 
-/** Shared font family used across all UI scenes. */
-export const FONT_FAMILY = '"Press Start 2P", monospace';
-
-/** Returns a UI scale factor. */
-export function getScale(): number {
-  return 1;
-}
-
 /** Create a styled button with grimy cockroach aesthetic and scrolling texture. */
 export function createButton(
   scene: Phaser.Scene,
@@ -78,11 +70,11 @@ export function createButton(
   drawButton(baseColor, 0.9);
 
   // Scroll the texture when hovered/pressed
-  scene.events.on('update', () => {
-    if (scrolling) {
-      tile.tilePositionX += 1;
-    }
-  });
+  const scrollTile = (): void => {
+    if (scrolling) tile.tilePositionX += 1;
+  };
+  scene.events.on('update', scrollTile);
+  tile.once('destroy', () => scene.events.off('update', scrollTile));
 
   // Invisible hit area
   const hitZone = scene.add.rectangle(x, y, w, h, 0x000000, 0)
@@ -125,42 +117,6 @@ export function createButton(
   return { bg, txt, hitZone, all: [bg, tile, maskGfx, hitZone, txt], setColor };
 }
 
-/** Create an HTML button styled to match the in-game buttons (for DOM overlays). */
-export function createHtmlButton(text: string, bgColor: string): HTMLButtonElement {
-  const btn = document.createElement('button');
-  btn.textContent = text;
-  btn.style.cssText = `font-family:"Press Start 2P",monospace;font-size:18px;padding:14px 32px;color:#ddd;border:none;cursor:pointer;border-radius:8px;background-color:${bgColor};background-image:url("assets/btn.webp");background-size:auto 100%;background-repeat:repeat-x;background-blend-mode:overlay;box-shadow:2px 3px 0 rgba(0,0,0,0.5);`;
-  btn.addEventListener('mouseenter', () => {
-    btn.style.color = '#ffff00';
-    btn.style.textShadow = '0 0 6px #ffff00';
-    btn.style.filter = 'brightness(1.3)';
-    btn.dataset.scrollAnim = 'true';
-    let pos = 0;
-    const scroll = (): void => {
-      if (btn.dataset.scrollAnim !== 'true') return;
-      pos -= 1;
-      btn.style.backgroundPositionX = `${pos}px`;
-      requestAnimationFrame(scroll);
-    };
-    requestAnimationFrame(scroll);
-  });
-  btn.addEventListener('mouseleave', () => {
-    btn.style.color = '#ddd';
-    btn.style.textShadow = 'none';
-    btn.style.filter = 'none';
-    btn.dataset.scrollAnim = 'false';
-  });
-  btn.addEventListener('mousedown', () => {
-    btn.style.transform = 'translateY(1px)';
-    btn.style.boxShadow = '1px 1px 0 rgba(0,0,0,0.5)';
-  });
-  btn.addEventListener('mouseup', () => {
-    btn.style.transform = 'none';
-    btn.style.boxShadow = '2px 3px 0 rgba(0,0,0,0.5)';
-  });
-  return btn;
-}
-
 /** Obstacle type to texture key mapping. */
 export const OBSTACLE_TEXTURE: Record<string, string> = {
   bird: 'bird',
@@ -174,6 +130,7 @@ export const OBSTACLE_TEXTURE: Record<string, string> = {
   pope: 'pope',
   bison: 'bison',
   blackhole: 'black-hole',
+  boss: 'boss-face2',
 };
 
 /** Polish death cause labels. */
@@ -189,5 +146,6 @@ export const OBSTACLE_LABEL: Record<string, string> = {
   pope: 'Papież',
   bison: 'Żubr',
   blackhole: 'Czarna dziura',
+  boss: 'Bestia spod Zlewu',
   fall: 'Spadł',
 };

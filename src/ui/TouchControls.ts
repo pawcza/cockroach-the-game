@@ -9,18 +9,19 @@ export interface TouchControlCallbacks {
   isDashAllowed: () => boolean;
 }
 
+const BTN_RADIUS = 50;
+const BTN_MARGIN = 16;
+
 export class TouchControls {
   private scene: Phaser.Scene;
   private isMobile: boolean;
   private callbacks: TouchControlCallbacks;
 
-  private touchDashBtn!: Phaser.GameObjects.Rectangle;
-  private touchDashLabel!: Phaser.GameObjects.Text;
-  private touchSwapBtn!: Phaser.GameObjects.Arc;
-  private touchSwapLabel!: Phaser.GameObjects.Text;
-
-  // On mobile, the dash circle is separate from the invisible rect
+  // Mobile only
+  private swapZone: Phaser.GameObjects.Rectangle | null = null;
+  private dashZone: Phaser.GameObjects.Rectangle | null = null;
   private dashCircle: Phaser.GameObjects.Arc | null = null;
+  private dashLabel: Phaser.GameObjects.Text | null = null;
 
   constructor(scene: Phaser.Scene, isMobile: boolean, callbacks: TouchControlCallbacks) {
     this.scene = scene;
@@ -28,55 +29,30 @@ export class TouchControls {
     this.callbacks = callbacks;
   }
 
-  get dashButton(): Phaser.GameObjects.Rectangle {
-    return this.touchDashBtn;
-  }
-
-  get dashLabel(): Phaser.GameObjects.Text {
-    return this.touchDashLabel;
-  }
-
-  get swapButton(): Phaser.GameObjects.Arc {
-    return this.touchSwapBtn;
-  }
-
   create(): void {
-    const sw = this.scene.cameras.main.width;
-    const sh = this.scene.cameras.main.height;
+    if (!this.isMobile) return;
 
-    if (this.isMobile) {
-      this.createMobileUI(sw, sh);
-    } else {
-      this.createDesktopUI(sw, sh);
-    }
-  }
-
-  private createMobileUI(sw: number, sh: number): void {
-    const btnRadius = 50;
-    const btnMargin = 16;
-    const btnCenterY = sh - btnMargin - btnRadius;
+    const { width: sw, height: sh } = this.scene.cameras.main;
 
     // SWAP: invisible zone covering left 50% of screen
-    const swapZone = this.scene.add.rectangle(0, 0, sw / 2, sh, 0x000000, 0)
+    this.swapZone = this.scene.add.rectangle(0, 0, sw / 2, sh, 0x000000, 0)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(DEPTH.TOUCH_ZONE)
       .setInteractive();
 
-    swapZone.on('pointerdown', () => {
+    this.swapZone.on('pointerdown', () => {
       if (this.callbacks.isDisabled()) return;
       this.callbacks.onSwap();
     });
 
     // SWAP button -- bottom-left circle (visual only)
-    this.touchSwapBtn = this.scene.add.circle(
-      btnMargin + btnRadius, btnCenterY, btnRadius, 0xff6600, 0.5,
-    )
+    this.scene.add.circle(BTN_MARGIN + BTN_RADIUS, sh - BTN_MARGIN - BTN_RADIUS, BTN_RADIUS, 0xff6600, 0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.TOUCH_BUTTON);
 
-    this.touchSwapLabel = this.scene.add.text(
-      btnMargin + btnRadius, btnCenterY, '\u21c5',
+    this.scene.add.text(
+      BTN_MARGIN + BTN_RADIUS, sh - BTN_MARGIN - BTN_RADIUS, '\u21c5',
       popupStyle({ fontSize: '28px', color: '#ff6600', strokeThickness: 4 }),
     )
       .setOrigin(0.5)
@@ -84,13 +60,13 @@ export class TouchControls {
       .setDepth(DEPTH.TOUCH_LABEL);
 
     // DASH: invisible zone covering right 50% of screen
-    const dashZone = this.scene.add.rectangle(sw / 2, 0, sw / 2, sh, 0x000000, 0)
+    this.dashZone = this.scene.add.rectangle(sw / 2, 0, sw / 2, sh, 0x000000, 0)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(DEPTH.TOUCH_ZONE)
       .setInteractive();
 
-    dashZone.on('pointerdown', () => {
+    this.dashZone.on('pointerdown', () => {
       if (this.callbacks.isDisabled()) return;
       if (this.callbacks.isDashAllowed()) {
         this.callbacks.onDash();
@@ -98,33 +74,28 @@ export class TouchControls {
     });
 
     // DASH button -- bottom-right circle (visual only)
-    this.dashCircle = this.scene.add.circle(
-      sw - btnMargin - btnRadius, btnCenterY, btnRadius, 0x00ffff, 0.5,
-    )
+    this.dashCircle = this.scene.add.circle(sw - BTN_MARGIN - BTN_RADIUS, sh - BTN_MARGIN - BTN_RADIUS, BTN_RADIUS, 0x00ffff, 0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.TOUCH_BUTTON);
 
-    // Invisible rectangle just to satisfy type for touchDashBtn (used in update loop)
-    this.touchDashBtn = this.scene.add.rectangle(0, 0, 1, 1, 0x000000, 0)
-      .setVisible(false);
-
-    this.touchDashLabel = this.scene.add.text(
-      sw - btnMargin - btnRadius, btnCenterY, '\u25b6',
+    this.dashLabel = this.scene.add.text(
+      sw - BTN_MARGIN - BTN_RADIUS, sh - BTN_MARGIN - BTN_RADIUS, '\u25b6',
       popupStyle({ fontSize: '28px', color: '#00ffff', strokeThickness: 4 }),
     )
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(DEPTH.TOUCH_LABEL);
-
-    // Store circle ref for color updates
-    this.touchDashBtn.setData('circle', this.dashCircle);
   }
 
-  private createDesktopUI(_sw: number, _sh: number): void {
-    this.touchSwapBtn = this.scene.add.circle(0, 0, 1, 0x000000, 0).setVisible(false) as Phaser.GameObjects.Arc;
-    this.touchSwapLabel = this.scene.add.text(0, 0, '').setVisible(false);
-    this.touchDashBtn = this.scene.add.rectangle(0, 0, 1, 1, 0x000000, 0).setVisible(false);
-    this.touchDashLabel = this.scene.add.text(0, 0, '').setVisible(false);
+  layout(width: number, height: number): void {
+    if (!this.swapZone || !this.dashZone) return;
+    for (const zone of [this.swapZone, this.dashZone]) {
+      zone.setSize(width / 2, height);
+      (zone.input!.hitArea as Phaser.Geom.Rectangle).setSize(width / 2, height);
+    }
+    this.dashZone.x = width / 2;
+    const dashX = width - BTN_MARGIN - BTN_RADIUS;
+    this.dashCircle?.setX(dashX);
+    this.dashLabel?.setX(dashX);
   }
-
 }

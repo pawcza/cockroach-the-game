@@ -4,6 +4,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { MultiplayerMenuScene } from './scenes/MultiplayerMenuScene';
 import { LobbyScene } from './scenes/LobbyScene';
 import { GameScene } from './scenes/GameScene';
+import { DeferredLoadScene, DEFERRED_LOAD_SCENE } from './scenes/DeferredLoadScene';
 import { MultiplayerGameOverScene } from './scenes/MultiplayerGameOverScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { GAME_HEIGHT, PIXEL_BLOCK } from './config/constants';
@@ -32,7 +33,7 @@ const config: Phaser.Types.Core.GameConfig = {
   plugins: {
     scene: [{ key: 'PixelCameras', plugin: PixelCameras, mapping: 'pixelCameras' }],
   },
-  scene: [BootScene, MenuScene, MultiplayerMenuScene, LobbyScene, GameScene, MultiplayerGameOverScene, GameOverScene],
+  scene: [BootScene, MenuScene, MultiplayerMenuScene, LobbyScene, GameScene, MultiplayerGameOverScene, GameOverScene, DeferredLoadScene],
   scale: {
     mode: Phaser.Scale.NONE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -77,8 +78,10 @@ document.fonts.ready.then(() => {
       lastWidth = window.innerWidth;
       lastHeight = window.innerHeight;
       if (widthChanged && heightChanged) {
-        const activeScene = game.scene.getScenes(true)[0];
-        if (activeScene) activeScene.scene.restart();
+        const activeScene = game.scene.getScenes(true).find((s) => s.scene.key !== DEFERRED_LOAD_SCENE);
+        // A run survives rotation: GameScene lays itself out again from the resize, the others are rebuilt
+        if (activeScene instanceof GameScene) activeScene.pauseIfRunning();
+        else activeScene?.scene.restart();
       }
     }, 200);
   };

@@ -30,7 +30,7 @@ import { ScoreTracker } from '../systems/ScoreTracker';
 import { sceneManager } from '../systems/SceneManager';
 import { SpawnManager } from '../systems/SpawnManager';
 import { SpectateController } from '../systems/SpectateController';
-import { BootScene } from './BootScene';
+import { areDeferredAssetsLoaded, DEFERRED_LOADED_EVENT } from './DeferredLoadScene';
 
 interface GameSceneData {
   multiplayer?: boolean;
@@ -89,12 +89,6 @@ export class GameScene extends Phaser.Scene {
     this.createWorld();
     this.createHud();
 
-    (this.scene.get('BootScene') as BootScene).loadDeferred(this);
-    this.game.events.once('deferred-loaded', () => {
-      this.floorManager.regenerateFloorTextures();
-      this.levels.applyDeferredLevel(this.getDistance());
-    });
-
     this.createPlaySystems();
     this.createEncounters(data);
     this.listenForLifecycle();
@@ -148,10 +142,11 @@ export class GameScene extends Phaser.Scene {
     this.seed = this.isMultiplayer ? data?.seed ?? null : null;
     this.rng = this.seed !== null ? new SeededRNG(this.seed) : null;
 
-    // Defensive cleanup of prior run
+    // Defensive cleanup of prior run. The Clock outlives a restart, so leaving a paused run would freeze this one.
     this.clock?.destroy();
     this.clock = new GameClock(this);
     this.time.timeScale = 1.0;
+    this.time.paused = false;
     this.session?.destroy();
     this.boss?.destroy();
 
@@ -176,7 +171,7 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, this.audio, this.floorManager.topColliderY, this.floorManager.bottomColliderY);
     this.player.create();
     this.player.resetState();
-    this.ambient.attachTo(this.player);
+    this.ambient.attachTo(this.player, this.audio);
 
     this.groups = {
       obstacles: this.physics.add.group(),
@@ -235,8 +230,7 @@ export class GameScene extends Phaser.Scene {
     collisions.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
     collisions.setupOverlaps(apples, beers, pills, obstacles);
 
-    const obstacleSpawner = new ObstacleSpawner(this, obstacles);
-    if (this.rng) obstacleSpawner.setRNG(this.rng);
+    const obstacleSpawner = new ObstacleSpawner(this, obstacles, this.audio, this.rng);
     this.spawnManager = new SpawnManager(
       this, obstacles, apples, beers, pills,
       obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
@@ -244,9 +238,13 @@ export class GameScene extends Phaser.Scene {
     this.magnet = new PickupMagnet(this, this.player, [apples, beers, pills]);
 
     this.pauseManager = new PauseManager(this, this.hud, this.isMultiplayer,
-      () => { this.clock.pause(); },
+      () => {
+        this.clock.pause();
+        this.levels.setPaused(true);
+      },
       (pausedMs) => {
         this.clock.resume();
+        this.levels.setPaused(false);
         this.player.adjustTimersForPause(pausedMs);
       },
     );
@@ -275,7 +273,6 @@ export class GameScene extends Phaser.Scene {
 
     this.boss = new BossEncounter(this, {
       ...shared,
-      vfx: this.vfx,
       hud: this.hud,
       score: this.score,
       floorTopY: this.floorTopY,
@@ -294,22 +291,43 @@ export class GameScene extends Phaser.Scene {
   private listenForLifecycle(): void {
     // Auto-pause on tab losing focus (singleplayer only)
     const onVisibilityChange = () => {
-      if (document.hidden && !this.run.isDead && !this.run.isCountingDown) {
-        this.pauseManager.pause();
-      }
+      if (document.hidden) this.pauseIfRunning();
     };
     if (!this.isMultiplayer) {
       document.addEventListener('visibilitychange', onVisibilityChange);
     }
 
-    this.events.on('shutdown', () => {
+    const regenerateFloors = () => this.floorManager.regenerateFloorTextures();
+    if (!areDeferredAssetsLoaded(this.game)) this.game.events.once(DEFERRED_LOADED_EVENT, regenerateFloors);
+
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.relayout, this);
+
+    this.events.once('shutdown', () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      this.game.events.off(DEFERRED_LOADED_EVENT, regenerateFloors);
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.relayout, this);
       this.clock?.destroy();
       this.eventBridge?.destroy();
       this.levels?.destroy();
       this.boss?.destroy();
       this.session?.destroy();
     });
+  }
+
+  /** Multiplayer runs can't pause, so there this does nothing. */
+  pauseIfRunning(): void {
+    if (!this.run.isDead && !this.run.isCountingDown) this.pauseManager.pause();
+  }
+
+  private relayout(gameSize: Phaser.Structs.Size): void {
+    const { width, height } = gameSize;
+    this.hud.layout(width, height);
+    this.background.resize(width, height);
+    this.floorManager.resize(width);
+    this.player.resize(width, height);
+    this.vfx.resize(width, height);
+    this.levels.resize();
+    this.gameInput.layout(width, height);
   }
 
   private startRun(): void {

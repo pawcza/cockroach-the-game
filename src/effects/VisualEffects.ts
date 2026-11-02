@@ -1,7 +1,20 @@
 import Phaser from 'phaser';
 import { COLORS, DEPTH } from '../config/constants';
-import { burstParticles } from '../utils/TweenPatterns';
 import { popupStyle } from '../utils/TextStyles';
+
+// Speed tops out near 3.4x (3.05x on reaching level 10), so each effect starts where its level is reached.
+const TINT_FROM = 2.5; // ~Lv7
+const BREATHE_FROM = 2.6;
+const VIGNETTE_FROM = 2.7; // ~Lv8
+const EDGE_FROM = 2.85; // ~Lv9
+const INVERT_FROM = 3.0;
+const GLITCH_FROM = 3.15; // well into Lv10
+const PSYCHEDELIC_FROM = 3.3;
+const MAX_SPEED = 3.4;
+
+const COLLECT_TEXTURE = 'collect-spark';
+/** The camera's horizontal offset during a run, set by GameScene. */
+const RUN_FOLLOW_OFFSET_X = -200;
 
 export class VisualEffects {
   private scene: Phaser.Scene;
@@ -10,6 +23,7 @@ export class VisualEffects {
   private vignetteGraphics!: Phaser.GameObjects.Graphics;
   private flashOverlay!: Phaser.GameObjects.Rectangle;
   private borderOverlay!: Phaser.GameObjects.Graphics;
+  private collectBurst!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   private initialized = false;
   private colorCycleTime = 0;
@@ -17,7 +31,7 @@ export class VisualEffects {
   private glitchTimer = 0;
   private invertFlashActive = false;
   private invertTimer = 0;
-  private was20xShaking = false;
+  private wasPsychedelic = false;
   private deathSlowMoTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(scene: Phaser.Scene) {
@@ -51,7 +65,26 @@ export class VisualEffects {
     this.borderOverlay.setDepth(DEPTH.VFX_BORDER);
     this.borderOverlay.setAlpha(0);
 
+    if (!this.scene.textures.exists(COLLECT_TEXTURE)) {
+      this.scene.make.graphics({}, false).fillStyle(0xffffff).fillCircle(3, 3, 3)
+        .generateTexture(COLLECT_TEXTURE, 6, 6).destroy();
+    }
+    this.collectBurst = this.scene.add.particles(0, 0, COLLECT_TEXTURE, {
+      emitting: false,
+      speed: { min: 120, max: 260 },
+      lifespan: { min: 330, max: 500 },
+      scale: { start: 1, end: 0.1 },
+      alpha: { start: 1, end: 0 },
+      tint: [...COLORS.COLLECT],
+    }).setDepth(DEPTH.VFX_TEXT);
+
     this.initialized = true;
+  }
+
+  resize(width: number, height: number): void {
+    this.tintOverlay.setPosition(width / 2, height / 2).setSize(width, height);
+    this.flashOverlay.setPosition(width / 2, height / 2).setSize(width, height);
+    this.drawVignette();
   }
 
   private drawVignette(): void {
@@ -82,9 +115,9 @@ export class VisualEffects {
     this.colorCycleTime += delta * 0.001;
     this.breatheTime += delta * 0.001;
 
-    // ~Lv7 (3.5x): Subtle camera tint shift
-    if (speedMultiplier >= 3.5) {
-      const intensity = Math.min((speedMultiplier - 3.5) / 3, 1.0);
+    // Subtle camera tint shift
+    if (speedMultiplier >= TINT_FROM) {
+      const intensity = Math.min((speedMultiplier - TINT_FROM) / 0.6, 1.0);
       const cycleSpeed = 0.5 + speedMultiplier * 0.05;
       const t = (Math.sin(this.colorCycleTime * cycleSpeed) + 1) / 2;
       const r = Math.floor(Phaser.Math.Linear(80, 20, t));
@@ -96,32 +129,32 @@ export class VisualEffects {
       this.tintOverlay.setFillStyle(0x000000, 0);
     }
 
-    // ~Lv7 (4.0x): Background "breathes"
-    if (speedMultiplier >= 4.0) {
-      const breatheIntensity = Math.min((speedMultiplier - 4.0) / 4, 1.0);
+    // Background "breathes"
+    if (speedMultiplier >= BREATHE_FROM) {
+      const breatheIntensity = Math.min((speedMultiplier - BREATHE_FROM) / (MAX_SPEED - BREATHE_FROM), 1.0);
       const breatheAmount = Math.sin(this.breatheTime * 2) * 0.08 * breatheIntensity;
       this.scene.data.set('breatheFactor', 1.0 + breatheAmount);
     } else {
       this.scene.data.set('breatheFactor', 1.0);
     }
 
-    // ~Lv8 (5.0x): Vignette effect
-    if (speedMultiplier >= 5.0) {
-      const vignetteAlpha = Math.min((speedMultiplier - 5.0) / 6, 0.7);
+    // Vignette effect
+    if (speedMultiplier >= VIGNETTE_FROM) {
+      const vignetteAlpha = Math.min((speedMultiplier - VIGNETTE_FROM) / (MAX_SPEED - VIGNETTE_FROM), 1) * 0.7;
       const pulse = Math.sin(this.colorCycleTime * 1.5) * 0.08;
       this.vignetteGraphics.setAlpha(vignetteAlpha + pulse);
     } else {
       this.vignetteGraphics.setAlpha(0);
     }
 
-    // ~Lv9 (6.0x): Pulsing edge glow
-    if (speedMultiplier >= 6.0) {
-      const edgeIntensity = Math.min((speedMultiplier - 6.0) / 5, 0.6);
+    // Pulsing edge glow
+    if (speedMultiplier >= EDGE_FROM) {
+      const edgeIntensity = Math.min((speedMultiplier - EDGE_FROM) / (MAX_SPEED - EDGE_FROM), 1) * 0.6;
       const edgePulse = (Math.sin(this.colorCycleTime * 3) + 1) / 2;
       const edgeAlpha = edgeIntensity * edgePulse;
 
       this.borderOverlay.clear();
-      const edgeColor = speedMultiplier >= 12 ? 0xff0000 : speedMultiplier >= 9 ? 0xff6600 : 0xff00ff;
+      const edgeColor = speedMultiplier >= GLITCH_FROM ? 0xff0000 : speedMultiplier >= INVERT_FROM ? 0xff6600 : 0xff00ff;
       this.borderOverlay.lineStyle(3, edgeColor, edgeAlpha);
       this.borderOverlay.strokeRect(1, 1, this.scene.cameras.main.width - 2, this.scene.cameras.main.height - 2);
       this.borderOverlay.setAlpha(1);
@@ -129,10 +162,10 @@ export class VisualEffects {
       this.borderOverlay.clear();
     }
 
-    // ~Lv9-10 (8.0x): Color inversion flashes
-    if (speedMultiplier >= 8.0) {
+    // Color inversion flashes
+    if (speedMultiplier >= INVERT_FROM) {
       this.invertTimer += delta;
-      const invertInterval = Math.max(4000 - speedMultiplier * 100, 1000);
+      const invertInterval = Math.max(3200 - (speedMultiplier - INVERT_FROM) * 2000, 1000);
 
       if (!this.invertFlashActive && this.invertTimer >= invertInterval) {
         this.invertTimer = 0;
@@ -149,10 +182,10 @@ export class VisualEffects {
       }
     }
 
-    // ~Lv10+ (12.0x): Reality breaks
-    if (speedMultiplier >= 12.0) {
+    // Reality breaks
+    if (speedMultiplier >= GLITCH_FROM) {
       this.glitchTimer += delta;
-      const glitchInterval = Math.max(2500 - speedMultiplier * 50, 600);
+      const glitchInterval = Math.max(1900 - (speedMultiplier - GLITCH_FROM) * 3000, 600);
 
       if (this.glitchTimer >= glitchInterval) {
         this.glitchTimer = 0;
@@ -173,12 +206,12 @@ export class VisualEffects {
           );
         });
 
-        camera.shake(120, 0.004 * Math.min(speedMultiplier / 12, 1.5));
+        camera.shake(120, 0.004);
       }
     }
 
-    // 20.0x+: Full psychedelic mode
-    if (speedMultiplier >= 20.0) {
+    // Full psychedelic mode
+    if (speedMultiplier >= PSYCHEDELIC_FROM) {
       const rapidCycle = this.colorCycleTime * 5;
       const r = Math.floor((Math.sin(rapidCycle) + 1) * 127);
       const g = Math.floor((Math.sin(rapidCycle + 2.094) + 1) * 127);
@@ -192,26 +225,22 @@ export class VisualEffects {
 
       const shakeX = Math.sin(time * 0.01) * 2;
       const shakeY = Math.cos(time * 0.013) * 1.5;
-      this.scene.cameras.main.setFollowOffset(shakeX, shakeY);
+      this.scene.cameras.main.setFollowOffset(RUN_FOLLOW_OFFSET_X + shakeX, shakeY);
 
       const trailAlpha = 0.02 + Math.sin(time * 0.005) * 0.01;
       this.scene.cameras.main.setAlpha(1.0 - trailAlpha);
-      this.was20xShaking = true;
-    } else if (this.was20xShaking) {
-      this.scene.cameras.main.setFollowOffset(0, 0);
-      this.was20xShaking = false;
+      this.wasPsychedelic = true;
+    } else if (this.wasPsychedelic) {
+      this.scene.cameras.main.setFollowOffset(RUN_FOLLOW_OFFSET_X, 0);
+      this.scene.cameras.main.setAlpha(1);
+      this.wasPsychedelic = false;
     }
   }
 
   pickupCollectEffect(x: number, y: number): void {
     if (!this.initialized) return;
 
-    burstParticles(this.scene, x, y, COLORS.COLLECT, 12, {
-      radius: 3,
-      speed: 110,
-      duration: 500,
-      depth: DEPTH.VFX_TEXT,
-    });
+    this.collectBurst.explode(12, x, y);
 
     this.flashOverlay.setBlendMode(Phaser.BlendModes.NORMAL);
     this.flashOverlay.setFillStyle(0xffffff, 0.3);
@@ -325,6 +354,7 @@ export class VisualEffects {
     this.vignetteGraphics.destroy();
     this.flashOverlay.destroy();
     this.borderOverlay.destroy();
+    this.collectBurst.destroy();
     this.initialized = false;
   }
 }

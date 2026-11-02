@@ -93,7 +93,6 @@ export class CollisionManager {
       score: number;
       popupColor?: string | (() => string);
       onCollected: () => void;
-      beforeDestroy?: (sprite: Phaser.Physics.Arcade.Sprite) => void;
       afterScore?: (px: number, py: number) => void;
     },
   ): void {
@@ -103,7 +102,6 @@ export class CollisionManager {
     this.callbacks.onPickupCollected?.(px, py, sprite.texture.key);
     this.vfx.pickupCollectEffect(px, py);
     config.sound?.();
-    config.beforeDestroy?.(sprite);
     sprite.destroy();
 
     this.callbacks.incrementCombo();
@@ -141,7 +139,7 @@ export class CollisionManager {
     beer: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     this.collectPickup(_cockroach, beer, {
-      sound: () => this.scene.sound.play('burp', { volume: 0.8 }),
+      sound: () => this.audio.playSfx('burp', 0.8),
       score: BEER_SCORE,
       popupColor: '#ffdd00',
       onCollected: () => this.callbacks.onBeerCollected(),
@@ -155,10 +153,6 @@ export class CollisionManager {
     this.collectPickup(_cockroach, pill, {
       score: PILL_SCORE,
       onCollected: () => this.callbacks.onPillCollected(),
-      beforeDestroy: (sprite) => {
-        const glowTween = sprite.getData('glowTween');
-        if (glowTween) glowTween.destroy();
-      },
       afterScore: (px, py) => {
         this.player.activatePill(px, py);
         this.callbacks.onPillStart();

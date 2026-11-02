@@ -49,18 +49,19 @@ export class LevelProgression {
     }
   }
 
-  /** Applies the current level's backgrounds if they were skipped while deferred assets loaded. */
-  applyDeferredLevel(distance: number): void {
-    const config = getLevelForDistance(distance);
-    if (config.level > 3) {
-      this.switchLevel(config);
-    }
+  setPaused(paused: boolean): void {
+    this.weather.setPaused(paused);
+  }
+
+  resize(): void {
+    this.weather.resize();
   }
 
   destroy(): void {
     this.weather.destroy();
   }
 
+  /** False while the level's assets are still downloading; update() tries again next frame. */
   private switchLevel(config: LevelConfig): boolean {
     if (!this.scene.textures.exists(`lv${config.level}-sky`)) {
       if (this.scene.cache.audio.exists(config.bgmKey)) {

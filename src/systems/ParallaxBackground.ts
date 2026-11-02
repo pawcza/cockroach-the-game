@@ -1,4 +1,4 @@
-/** The three parallax layers, their level crossfade, and the camera look that follows speed. */
+/** The three parallax layers, their level crossfade, and the sky's darkening with speed. */
 import Phaser from 'phaser';
 import { DEPTH } from '../config/constants';
 import { LevelConfig } from '../config/levels';
@@ -6,6 +6,7 @@ import { LevelConfig } from '../config/levels';
 const SKY_ALPHA = 0.8;
 const MID_ALPHA = 0.15;
 const FADE_DURATION = 3000;
+const DARKEN_FROM_SPEED = 2.5;
 
 export class ParallaxBackground {
   private scene: Phaser.Scene;
@@ -37,6 +38,12 @@ export class ParallaxBackground {
     this.nextFgBg = scene.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0)
       .setDepth(DEPTH.FG_BG).setAlpha(0);
     this.nextFgBg.setPipeline('Light2D');
+  }
+
+  resize(w: number, h: number): void {
+    for (const layer of [this.skyBg, this.midBg, this.fgBg, this.nextSkyBg, this.nextMidBg, this.nextFgBg]) {
+      layer.setSize(w, h);
+    }
   }
 
   crossfadeTo(config: LevelConfig): void {
@@ -83,18 +90,16 @@ export class ParallaxBackground {
       this.nextFgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
     }
 
-    const targetZoom = Math.max(0.88, 1 - Math.max(speedMultiplier - 5, 0) * 0.02);
-    camera.zoom = Phaser.Math.Linear(camera.zoom, targetZoom, 0.02);
-
-    const darkening = Math.min(Math.max(speedMultiplier - 3.5, 0) * 0.08, 0.5);
+    // Speed tops out near 3.4x, so the sky darkens over the last stretch of the run
+    const darkening = Math.min(Math.max(speedMultiplier - DARKEN_FROM_SPEED, 0) * 0.5, 0.5);
     if (darkening > 0) {
-      this.skyBg.setTint(
-        Phaser.Display.Color.GetColor(
-          Math.floor(255 * (1 - darkening)),
-          Math.floor(255 * (1 - darkening * 0.8)),
-          Math.floor(255 * (1 - darkening * 0.3)),
-        ),
+      const tint = Phaser.Display.Color.GetColor(
+        Math.floor(255 * (1 - darkening)),
+        Math.floor(255 * (1 - darkening * 0.8)),
+        Math.floor(255 * (1 - darkening * 0.3)),
       );
+      this.skyBg.setTint(tint);
+      this.nextSkyBg.setTint(tint);
     }
 
     camera.scrollY = 0;

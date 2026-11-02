@@ -11,6 +11,7 @@ import {
 import { getLevelForDistance } from '../config/levels';
 
 const COLLIDER_DROP = 8;
+const FLOOR_OVERHANG = 200;
 
 export class FloorManager {
   private scene: Phaser.Scene;
@@ -50,7 +51,7 @@ export class FloorManager {
 
     this.generateRoundedFloorTextures();
 
-    const FLOOR_WIDTH = camWidth + 200;
+    const FLOOR_WIDTH = camWidth + FLOOR_OVERHANG;
 
     this.floorTopBody = this.scene.add.rectangle(0, this.floorTopY + COLLIDER_DROP, FLOOR_WIDTH, FLOOR_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0);
@@ -60,8 +61,27 @@ export class FloorManager {
       .setOrigin(0, 0);
     this.scene.physics.add.existing(this.floorBottomBody, true);
 
-    const tilesNeeded = Math.ceil(FLOOR_WIDTH / FLOOR_TILE_STEP) + 2;
-    for (let i = 0; i < tilesNeeded; i++) {
+    this.addTiles(FLOOR_WIDTH);
+
+    this.floorHighlightTop = this.scene.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, FLOOR_WIDTH, FLOOR_TILE_H + 8, 0xffffff, 0)
+      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
+    this.floorHighlightBottom = this.scene.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, FLOOR_WIDTH, FLOOR_TILE_H + 8, 0xffffff, 0)
+      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
+  }
+
+  resize(camWidth: number): void {
+    const floorWidth = camWidth + FLOOR_OVERHANG;
+    this.floorTopBody.setSize(floorWidth, FLOOR_HEIGHT);
+    this.floorBottomBody.setSize(floorWidth, FLOOR_HEIGHT);
+    this.floorHighlightTop.setSize(floorWidth, FLOOR_TILE_H + 8);
+    this.floorHighlightBottom.setSize(floorWidth, FLOOR_TILE_H + 8);
+    this.addTiles(floorWidth);
+  }
+
+  /** Tiles are only ever added: on a narrower screen the spares sit off to the right. */
+  private addTiles(floorWidth: number): void {
+    const tilesNeeded = Math.ceil(floorWidth / FLOOR_TILE_STEP) + 2;
+    for (let i = this.floorTopSprites.length; i < tilesNeeded; i++) {
       const topTile = this.scene.add.image(i * FLOOR_TILE_STEP, this.floorTopY, 'floor-rounded-lv1')
         .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
       this.floorTopSprites.push(topTile);
@@ -70,12 +90,6 @@ export class FloorManager {
         .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
       this.floorBottomSprites.push(bottomTile);
     }
-
-    const highlightW = camWidth + 200;
-    this.floorHighlightTop = this.scene.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
-    this.floorHighlightBottom = this.scene.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, highlightW, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
   }
 
   update(
@@ -109,6 +123,9 @@ export class FloorManager {
         current.to = Math.max(current.to, trackX);
       }
     }
+
+    this.dropRangesBehind(camX - 100, this.steppedTopRanges);
+    this.dropRangesBehind(camX - 100, this.steppedBottomRanges);
 
     const firstTileX = Math.floor((camX - 100) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
     for (let i = 0; i < this.floorTopSprites.length; i++) {
@@ -183,6 +200,11 @@ export class FloorManager {
         this.scene.textures.addCanvas(key, canvas);
       }
     }
+  }
+
+  /** The newest range is the one still growing, so it always stays. */
+  private dropRangesBehind(x: number, ranges: { to: number }[]): void {
+    while (ranges.length > 1 && ranges[0].to < x) ranges.shift();
   }
 
   private isTileStepped(tx: number, ranges: { from: number; to: number }[]): boolean {

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ReplayData } from './DeathReplay';
 import { OBSTACLE_TEXTURE } from '../ui/shared';
+import { sfxVolume } from '../audio/AudioManager';
 import { popupStyle } from '../utils/TextStyles';
 import { DEPTH, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
 
@@ -22,6 +23,7 @@ export class DeathReplayPlayer {
     const { scene, data } = this;
     const { width, height } = scene.cameras.main;
     const cleanup = this.cleanup;
+    scene.events.once('shutdown', this.destroy, this);
 
     // Dark overlay
     const overlay = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85)
@@ -93,7 +95,7 @@ export class DeathReplayPlayer {
     cleanup.push(label);
 
     // Audio — heartbeat pulse
-    this.heartbeat = scene.sound.add('death', { volume: 0.15, loop: true, rate: 0.5 });
+    this.heartbeat = scene.sound.add('death', { volume: sfxVolume(0.15), loop: true, rate: 0.5 });
     this.heartbeat.play();
 
     let frameIndex = 0;
@@ -193,6 +195,7 @@ export class DeathReplayPlayer {
   }
 
   destroy(): void {
+    this.scene.events.off('shutdown', this.destroy, this);
     if (this.updateHandler) {
       this.scene.events.off('update', this.updateHandler);
       this.updateHandler = null;

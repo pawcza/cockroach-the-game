@@ -94,7 +94,8 @@ export function floatingText(
 
 // ── Glow helpers ────────────────────────────────────────────────────
 
-/** Create a standalone glow circle (additive blend). Returns the circle. */
+const GLOW_REACH = 10;
+
 /**
  * Attach a pulsing point light to a pickup sprite. Uses Phaser's Light2D
  * system for natural-looking illumination instead of additive-blend circles.
@@ -150,7 +151,8 @@ export function attachGlow(
 
 /**
  * Coloured outline glow around a sprite's silhouette, so pickups and obstacles read apart at a glance on busy
- * backgrounds. `distance` is in texture pixels: sprites are drawn at ~0.2 scale, so it has to be large to show.
+ * backgrounds. preFX glows always reach GLOW_REACH texture pixels (fx.glow.distance in the game config), so the
+ * padding only has to clear that: anything larger just buys a bigger render target for every sprite.
  */
 export function outlineGlow(
   scene: Phaser.Scene,
@@ -160,75 +162,11 @@ export function outlineGlow(
 ): void {
   const fx = sprite.preFX;
   if (!fx) return; // canvas renderer
-  const distance = 96;
-  fx.setPadding(distance);
-  const glow = fx.addGlow(color, 4, 0, false, 0.1, distance);
+  fx.setPadding(GLOW_REACH + 2);
+  const glow = fx.addGlow(color, 4);
   if (!pulsing) return;
   const tween = scene.tweens.add({
     targets: glow, outerStrength: 1.5, duration: 450, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
   });
   sprite.on('destroy', () => tween.destroy());
-}
-
-// ── Overlay / particles ─────────────────────────────────────────────
-
-/** Create a pulsing overlay (additive blend) that fades between alpha and pulseAlpha. */
-export function createPulsingOverlay(
-  scene: Phaser.Scene,
-  w: number,
-  h: number,
-  color: number,
-  alpha: number,
-  pulseAlpha: number,
-): Phaser.GameObjects.Rectangle {
-  const overlay = scene.add.rectangle(w / 2, h / 2, w, h, color, alpha)
-    .setScrollFactor(0)
-    .setDepth(DEPTH.VFX_VIGNETTE)
-    .setBlendMode(Phaser.BlendModes.ADD);
-  scene.tweens.add({
-    targets: overlay,
-    alpha: pulseAlpha,
-    duration: 2000,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  });
-  return overlay;
-}
-
-/** Emit a burst of circle particles that fly outward and fade. */
-export function burstParticles(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  colors: readonly number[],
-  count: number,
-  opts?: { radius?: number; speed?: number; duration?: number; depth?: number },
-): void {
-  const radius = opts?.radius ?? 3;
-  const speed = opts?.speed ?? 110;
-  const duration = opts?.duration ?? 500;
-  const depth = opts?.depth ?? DEPTH.VFX_TEXT;
-
-  for (let i = 0; i < count; i++) {
-    const color = colors[i % colors.length];
-    const particle = scene.add.circle(x, y, radius, color, 1);
-    particle.setDepth(depth);
-
-    const angle = (i / count) * Math.PI * 2;
-    const dist = (speed * 0.57) + Math.random() * (speed * 0.43);
-    const targetX = x + Math.cos(angle) * dist;
-    const targetY = y + Math.sin(angle) * dist;
-
-    scene.tweens.add({
-      targets: particle,
-      x: targetX,
-      y: targetY,
-      alpha: 0,
-      scale: 0.1,
-      duration: duration * 0.67 + Math.random() * duration * 0.33,
-      ease: 'Power2',
-      onComplete: () => particle.destroy(),
-    });
-  }
 }

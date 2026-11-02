@@ -104,8 +104,9 @@ export function createSceneBackground(
 
   let currentSpeed = scrollSpeed;
   const setScrollSpeed = (speed: number): void => { currentSpeed = speed; };
-  scene.events.on('update', () => { bg.tilePositionX += currentSpeed; });
-  scene.events.on('shutdown', () => { scene.events.off('update'); });
+  const scrollBg = (): void => { bg.tilePositionX += currentSpeed; };
+  scene.events.on('update', scrollBg);
+  scene.events.once('shutdown', () => scene.events.off('update', scrollBg));
 
   setupMenuLighting(scene, bg, lighting ?? { radiusMin: 400, radiusMax: 700, durationMin: 8000, durationMax: 14000 });
 
