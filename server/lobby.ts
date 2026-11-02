@@ -36,6 +36,8 @@ export const PLAYER_COLORS: number[] = [
   0xcccccc, // silver
 ];
 
+const MAX_LOBBIES = 200;
+
 function generateLobbyId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = '';
@@ -49,7 +51,9 @@ export class LobbyManager {
   private lobbies = new Map<string, Lobby>();
   private playerLobbyMap = new Map<string, string>();
 
-  createLobby(hostId: string, hostName: string): Lobby {
+  createLobby(hostId: string, hostName: string): Lobby | null {
+    if (this.playerLobbyMap.has(hostId) || this.lobbies.size >= MAX_LOBBIES) return null;
+
     let id = generateLobbyId();
     while (this.lobbies.has(id)) {
       id = generateLobbyId();
@@ -78,6 +82,8 @@ export class LobbyManager {
   }
 
   joinLobby(lobbyId: string, playerId: string, playerName: string): Lobby | null {
+    if (this.playerLobbyMap.has(playerId)) return null;
+
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
     if (lobby.status === 'ingame') return null;
@@ -152,7 +158,7 @@ export class LobbyManager {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
 
-    if (colorIndex < 0 || colorIndex >= PLAYER_COLORS.length) return null;
+    if (!Number.isInteger(colorIndex) || colorIndex < 0 || colorIndex >= PLAYER_COLORS.length) return null;
 
     // Check if color is taken by another player
     for (const [id, player] of lobby.players) {
@@ -196,7 +202,7 @@ export class LobbyManager {
 
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
-    if (lobby.hostId !== hostId) return null;
+    if (lobby.hostId !== hostId || lobby.status !== 'waiting') return null;
     if (lobby.players.size < 2) return null;
     if (!this.allReady(lobby)) return null;
 
@@ -219,7 +225,7 @@ export class LobbyManager {
 
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
-    if (lobby.hostId !== hostId) return null;
+    if (lobby.hostId !== hostId || lobby.status !== 'postgame') return null;
 
     lobby.status = 'waiting';
     lobby.seed = null;

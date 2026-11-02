@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyData, MPPlayer } from '../multiplayer/MultiplayerClient';
-import { MP_PLAYER_COLORS } from '../multiplayer/GhostPlayer';
+import { PLAYER_COLORS } from '../../server/lobby';
 import { COLORS } from '../config/constants';
 import { neonStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
 import { floatUpDown } from '../utils/TweenPatterns';
@@ -21,12 +21,15 @@ export class LobbyScene extends Phaser.Scene {
   private titleText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
   private gameStartHandler!: (data: { seed: number; players: MPPlayer[] }) => void;
+  private starting = false;
+
   constructor() {
     super({ key: 'LobbyScene' });
   }
 
   init(data: { lobbyData: MPLobbyData }): void {
     this.lobbyData = mpClient.freshestLobby(data.lobbyData);
+    this.starting = false;
   }
 
   create(): void {
@@ -95,7 +98,8 @@ export class LobbyScene extends Phaser.Scene {
 
     // "Rozpocznij Gre" button (host only, same position)
     const startBtn = createButton(this, width / 2, actionBtnY, 260, 36, 'Rozpocznij Gr\u0119', 0x008800, btnS, () => {
-      if (this.isStartEnabled()) {
+      if (this.isStartEnabled() && !this.starting) {
+        this.starting = true;
         mpClient.startGame().then((res) => {
           sceneManager.goto(this, 'GameScene', {
             multiplayer: true,
@@ -103,14 +107,17 @@ export class LobbyScene extends Phaser.Scene {
             players: res.players,
             myId: mpClient.myId,
           });
-        }).catch((err) => { console.error('startGame failed:', err); });
+        }).catch((err) => {
+          this.starting = false;
+          console.error('startGame failed:', err);
+        });
       }
     });
     this.startBtnAll = startBtn.all;
     this.startBtnTxt = startBtn.txt;
     this.startBtnHitZone = startBtn.hitZone;
 
-    // "Opusc" leave button
+    // "Opuść" leave button
     const { bg: leaveBg, txt: leaveTxt } = createButton(this, width / 2, height - 25, 200, 30, 'Opu\u015b\u0107', 0x660000, buttonStyle({ fontSize: '10px' }), () => {
       sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
         mpClient.leaveLobby();
@@ -143,10 +150,15 @@ export class LobbyScene extends Phaser.Scene {
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
     mpClient.on('game:start', this.gameStartHandler);
 
+    const stopWatchingDrop = mpClient.onDrop(() => {
+      sceneManager.goto(this, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' });
+    });
+
     // Cleanup on scene shutdown
-    this.events.on('shutdown', () => {
+    this.events.once('shutdown', () => {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       mpClient.off('game:start', this.gameStartHandler);
+      stopWatchingDrop();
       maskGraphics.destroy();
     });
   }
@@ -219,7 +231,7 @@ export class LobbyScene extends Phaser.Scene {
       const isMe = player.id === mpClient.myId;
 
       // Color swatch (24x24)
-      const swatchColor = MP_PLAYER_COLORS[player.color] ?? 0xffffff;
+      const swatchColor = PLAYER_COLORS[player.color] ?? 0xffffff;
       const swatch = this.add.rectangle(50, y + lineHeight / 2 - 4, 24, 24, swatchColor, 1);
 
       if (isMe) {
@@ -229,10 +241,10 @@ export class LobbyScene extends Phaser.Scene {
           const usedColors = new Set(
             this.lobbyData.players.filter(p => p.id !== player.id).map(p => p.color),
           );
-          let next = (player.color + 1) % MP_PLAYER_COLORS.length;
+          let next = (player.color + 1) % PLAYER_COLORS.length;
           const start = next;
           while (usedColors.has(next)) {
-            next = (next + 1) % MP_PLAYER_COLORS.length;
+            next = (next + 1) % PLAYER_COLORS.length;
             if (next === start) return;
           }
           mpClient.changeColor(next).then((updatedLobby) => {

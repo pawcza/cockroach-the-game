@@ -4,7 +4,7 @@ import { LobbyManager, PLAYER_COLORS } from '../server/lobby';
 
 function lobbyWith(...guests: string[]) {
   const manager = new LobbyManager();
-  const lobby = manager.createLobby('host', 'Host');
+  const lobby = manager.createLobby('host', 'Host')!;
   for (const guest of guests) manager.joinLobby(lobby.id, guest, guest);
   return { manager, lobby };
 }
@@ -48,4 +48,33 @@ test('only the host can start the game', () => {
   manager.setReady('host', true);
   assert.equal(manager.startGame('host')?.status, 'ingame');
   assert.equal(typeof manager.getLobby(lobby.id)?.seed, 'number');
+});
+
+test('a player can only be in one lobby at a time', () => {
+  const { manager, lobby } = lobbyWith('guest');
+  assert.equal(manager.createLobby('guest', 'Guest'), null);
+  const other = manager.createLobby('third', 'Third')!;
+  assert.equal(manager.joinLobby(other.id, 'guest', 'Guest'), null);
+  assert.equal(manager.joinLobby(lobby.id, 'guest', 'Guest'), null);
+});
+
+test('a game can only start from waiting and only restart from postgame', () => {
+  const { manager, lobby } = lobbyWith('guest');
+  manager.setReady('guest', true);
+  assert.equal(manager.restartLobby('host'), null);
+
+  manager.startGame('host');
+  const { seed } = lobby;
+  assert.equal(manager.startGame('host'), null);
+  assert.equal(manager.restartLobby('host'), null);
+  assert.equal(lobby.seed, seed);
+
+  manager.endGame(lobby.id);
+  assert.equal(manager.restartLobby('host')?.status, 'waiting');
+});
+
+test('colour changes must be a real palette index', () => {
+  const { manager } = lobbyWith();
+  for (const bad of [NaN, -1, 1.5, PLAYER_COLORS.length]) assert.equal(manager.changeColor('host', bad), null);
+  assert.ok(manager.changeColor('host', 3));
 });

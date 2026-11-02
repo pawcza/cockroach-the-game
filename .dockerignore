@@ -1,6 +1,13 @@
+.git
+.github
+.claude
+.worktrees
+.env*
+.playwright-mcp
 node_modules
 data
 dist
 dist-server
-.playwright-mcp
+docs
+tests
 *.log

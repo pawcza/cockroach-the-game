@@ -87,27 +87,4 @@ export function insertScore(
   return inserted;
 }
 
-export function insertScores(entries: Array<{
-  name: string;
-  score: number;
-  deathCause?: string | null;
-  distance?: number | null;
-  timeSurvived?: number | null;
-  applesCollected?: number | null;
-  tyskiesCollected?: number | null;
-  pillsCollected?: number | null;
-  maxLevel?: number | null;
-  maxCombo?: number | null;
-}>): void {
-  const stmt = db.prepare(
-    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-  );
-  const insertMany = db.transaction((rows: typeof entries) => {
-    for (const e of rows) {
-      stmt.run(e.name, e.score, e.deathCause ?? null, e.distance ?? null, e.timeSurvived ?? null, e.applesCollected ?? null, e.tyskiesCollected ?? null, e.pillsCollected ?? null, e.maxLevel ?? null, e.maxCombo ?? null);
-    }
-  });
-  insertMany(entries);
-}
-
 export default db;

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { mpClient, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
+import { mpClient, MPLobbyData, MPLobbyListEntry } from '../multiplayer/MultiplayerClient';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton } from '../ui/shared';
@@ -16,13 +16,16 @@ export class MultiplayerMenuScene extends Phaser.Scene {
   private maxScroll = 0;
   private lobbies: MPLobbyListEntry[] = [];
   private lobbiesHandler!: (lobbies: MPLobbyListEntry[]) => void;
+  private entering = false;
 
   constructor() {
     super({ key: 'MultiplayerMenuScene' });
   }
 
-  create(): void {
+  create(data?: { notice?: string }): void {
     const { width, height } = this.cameras.main;
+    this.entering = false;
+    this.scrollY = 0;
 
     // Background with all effects
     createSceneBackground(this, {
@@ -138,12 +141,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     // --- CONNECT AND LISTEN FOR LOBBY UPDATES ---
     mpClient.connect();
-    const name = getPlayerName();
-    if (name) {
-      mpClient.setName(name);
-    } else {
-      mpClient.setName(getPlayerNameOrDefault());
-    }
+    mpClient.setName(getPlayerNameOrDefault());
 
     // Render initial empty state
     this.renderLobbies();
@@ -160,11 +158,29 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     mpClient.onConnect(browseHandler);
 
     // Cleanup on scene shutdown
-    this.events.on('shutdown', () => {
+    this.events.once('shutdown', () => {
       mpClient.off('lobbies:updated', this.lobbiesHandler);
       mpClient.offConnect(browseHandler);
       mpClient.stopBrowsing();
       this.lobbyMaskGraphics.destroy();
+    });
+
+    if (data?.notice) this.showNotice(data.notice);
+  }
+
+  private showNotice(message: string): void {
+    const { width, height } = this.cameras.main;
+    const notice = this.add.text(width / 2, height - 115, message, smallStyle({
+      fontSize: '9px',
+      color: '#ff5555',
+      strokeThickness: 3,
+    })).setOrigin(0.5);
+    this.tweens.add({
+      targets: notice,
+      alpha: 0,
+      delay: 3000,
+      duration: 500,
+      onComplete: () => notice.destroy(),
     });
   }
 
@@ -176,8 +192,6 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     const lineHeight = 36;
 
     this.lobbyContainer.removeAll(true);
-    this.scrollY = 0;
-    this.lobbyContainer.y = 0;
 
     if (this.lobbies.length === 0) {
       const emptyTop = this.add.text(width / 2, listTop + listHeight / 2 - 16, 'Pusto tu...', titleStyle({
@@ -200,6 +214,8 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       });
       this.lobbyContainer.add([emptyTop, emptyBottom]);
       this.maxScroll = 0;
+      this.scrollY = 0;
+      this.lobbyContainer.y = 0;
       return;
     }
 
@@ -259,28 +275,28 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     const totalHeight = this.lobbies.length * lineHeight;
     this.maxScroll = Math.max(0, totalHeight - listHeight);
+    this.scrollY = Math.min(this.scrollY, this.maxScroll);
+    this.lobbyContainer.y = -this.scrollY;
   }
 
-  private async handleJoinLobby(lobbyId: string): Promise<void> {
-    const name = getPlayerName() || getPlayerNameOrDefault();
-    mpClient.setName(name);
+  private async enterLobby(request: () => Promise<MPLobbyData>, failure: string): Promise<void> {
+    if (this.entering) return;
+    this.entering = true;
+    mpClient.setName(getPlayerNameOrDefault());
     try {
-      const lobbyData = await mpClient.joinLobby(lobbyId);
+      const lobbyData = await request();
       sceneManager.goto(this, 'LobbyScene', { lobbyData });
     } catch {
-      // Could show error
+      this.entering = false;
+      this.showNotice(failure);
     }
   }
 
-  private async handleCreateLobby(): Promise<void> {
-    const name = getPlayerName() || getPlayerNameOrDefault();
-    mpClient.setName(name);
-    try {
-      const lobbyData = await mpClient.createLobby();
-      sceneManager.goto(this, 'LobbyScene', { lobbyData });
-    } catch {
-      // Could show error
-    }
+  private handleJoinLobby(lobbyId: string): void {
+    void this.enterLobby(() => mpClient.joinLobby(lobbyId), 'Nie udało się dołączyć do lobby');
   }
 
+  private handleCreateLobby(): void {
+    void this.enterLobby(() => mpClient.createLobby(), 'Nie udało się stworzyć lobby');
+  }
 }

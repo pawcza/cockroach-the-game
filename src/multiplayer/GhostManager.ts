@@ -2,14 +2,7 @@ import Phaser from 'phaser';
 import { DEPTH } from '../config/constants';
 import { smallStyle } from '../utils/TextStyles';
 import { GhostPlayer } from './GhostPlayer';
-
-// Import MPPlayer interface inline to avoid circular deps
-interface MPPlayer {
-  id: string;
-  name: string;
-  color: number;
-  isHost: boolean;
-}
+import type { MPPlayer } from './MultiplayerClient';
 
 export class GhostManager {
   private scene: Phaser.Scene;

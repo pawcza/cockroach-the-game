@@ -12,26 +12,7 @@ import {
 } from '../config/constants';
 import { smallStyle } from '../utils/TextStyles';
 import { getLevelForDistance } from '../config/levels';
-
-// Re-export for convenience — must match server/lobby.ts PLAYER_COLORS exactly
-export const MP_PLAYER_COLORS = [
-  0xff0000, // red
-  0x0000ff, // blue
-  0x00cc00, // green
-  0xffff00, // yellow
-  0xff8800, // orange
-  0x8800ff, // purple
-  0x00cccc, // cyan
-  0xff00ff, // magenta
-  0xff4488, // pink
-  0x88cc00, // lime
-  0x0088ff, // sky blue
-  0xcc4400, // brown
-  0x8888ff, // lavender
-  0x00ff88, // mint
-  0xffcc00, // gold
-  0xcccccc, // silver
-];
+import { PLAYER_COLORS } from '../../server/lobby';
 
 export class GhostPlayer {
   readonly id: string;
@@ -122,7 +103,7 @@ export class GhostPlayer {
     this.scene = scene;
     this.id = id;
     this.name = name;
-    this.color = MP_PLAYER_COLORS[colorIndex] ?? 0xffffff;
+    this.color = PLAYER_COLORS[colorIndex] ?? 0xffffff;
     this.startX = startX;
 
     this.sprite = scene.add.sprite(startX, floorBottomY - 20, 'cockroach-idle');
