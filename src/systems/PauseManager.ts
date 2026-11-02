@@ -44,7 +44,7 @@ export class PauseManager {
     this.hud.showPauseOverlay();
   }
 
-  toggle(getLastFrameTime: () => number, setLastFrameTime: (t: number) => void): void {
+  toggle(): void {
     if (this.isMultiplayer) return;
     if (this._isUnpauseCountdown) return;
 
@@ -65,7 +65,6 @@ export class PauseManager {
       this.hud.hidePauseOverlay();
       this.scene.tweens.resumeAll();
       this.scene.physics.resume();
-      setLastFrameTime(this.scene.time.now);
       if (this.onResume) this.onResume(pauseDuration);
       this.scene.time.delayedCall(100, () => {
         this._isUnpauseCountdown = false;

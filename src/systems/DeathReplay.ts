@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 export interface ReplayFrame {
   time: number;
   x: number;
@@ -52,7 +54,13 @@ export class DeathReplayRecorder {
     this.collectedPickups.push({ time, sprite: { worldX, y, textureKey } });
   }
 
-  getReplayData(obstacleType: string | null, obstacles: ReplaySprite[], alivePickups: ReplaySprite[]): ReplayData | null {
+  getReplayData(
+    obstacleType: string | null,
+    obstacleGroup: Phaser.Physics.Arcade.Group,
+    pickupGroups: Phaser.Physics.Arcade.Group[],
+  ): ReplayData | null {
+    const obstacles = snapshotGroup(obstacleGroup);
+    const alivePickups = pickupGroups.flatMap(snapshotGroup);
     if (this.frames.length < 2) return null;
     // Merge collected pickups (from buffer) with still-alive pickups
     const collected = this.collectedPickups.map(cp => cp.sprite);
@@ -63,4 +71,11 @@ export class DeathReplayRecorder {
       pickups: [...collected, ...alivePickups],
     };
   }
+}
+
+function snapshotGroup(group: Phaser.Physics.Arcade.Group): ReplaySprite[] {
+  return group.getChildren().map(obj => {
+    const s = obj as Phaser.Physics.Arcade.Sprite;
+    return { worldX: s.x, y: s.y, textureKey: s.texture.key };
+  });
 }
