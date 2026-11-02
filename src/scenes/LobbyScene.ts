@@ -26,7 +26,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   init(data: { lobbyData: MPLobbyData }): void {
-    this.lobbyData = data.lobbyData;
+    this.lobbyData = mpClient.freshestLobby(data.lobbyData);
   }
 
   create(): void {
