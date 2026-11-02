@@ -39,7 +39,7 @@ export class GameOverScene extends Phaser.Scene {
     pope: ['Okadzony przez papieża!', 'Kremówka ostatnia!', 'Santo subito... ale nie ty!'],
     bison: ['Żubr cię stratował!', 'Żubrówka na kopyta!', 'Byka złapałeś!'],
     blackhole: ['Wciągnięty w nicość!', 'Ssanie kosmiczne!', 'Karaluch w próżni!'],
-    boss: ['Bestia cię dopadła!', 'Wadowice zwyciężyły!', 'Kremówkowy armagedon!'],
+    boss: ['Bestia cię dopadła!', 'Zlew zwyciężył!', 'Kremówkowy armagedon!'],
   };
 
   private static readonly OBSTACLE_TEXTURE: Record<string, string> = {

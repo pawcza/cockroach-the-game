@@ -6,7 +6,7 @@ A multiplayer browser game where you are a cockroach and everything is trying to
 
 ![Gameplay](docs/media/gameplay.gif)
 
-Run through ten levels, dodge obstacles, grab pickups and fight a three-faced boss. Play alone or with friends in the same run: every player gets the same seed, so everyone sees the same level without the server sending it.
+Run through ten levels, dodge obstacles, grab pickups and, if you survive long enough, fight a three-headed boss. Play alone or with friends in the same run: every player gets the same seed, so everyone sees the same level without the server sending it.
 
 Built with TypeScript, Phaser 3, Node, Socket.IO and SQLite.
 
