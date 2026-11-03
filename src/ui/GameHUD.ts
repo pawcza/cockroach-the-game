@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { sfxVolume } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
 import { getLevelForDistance, getLevelProgress, getLevelDistances, LevelConfig } from '../config/levels';
-import { headingStyle, hudStyle, smallStyle, buttonStyle, popupStyle } from '../utils/TextStyles';
-import { createButton } from './shared';
+import { headingStyle, hudStyle, smallStyle, buttonStyle, popupStyle, UI_TEXT } from '../utils/TextStyles';
+import { createButton, UIButton } from './shared';
+import { MenuNav } from './MenuNav';
 
 export interface HUDUpdateData {
   score: number;
@@ -40,6 +41,8 @@ export class GameHUD {
   private onRestart: (() => void) | null;
   private onMenu: (() => void) | null;
   private pauseBtns: Phaser.GameObjects.GameObject[] = [];
+  private pauseButtons: UIButton[] = [];
+  private pauseNav!: MenuNav;
   private lastTitleScore = -1;
   private lastTitleSpeed = -1;
   private lastSpeedColor = -1;
@@ -118,21 +121,25 @@ export class GameHUD {
       .setDepth(DEPTH.HUD);
 
     // === PAUSE UI ===
-    this.pauseOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.6)
+    this.pauseOverlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x07050a, 0.72)
       .setScrollFactor(0).setDepth(DEPTH.PAUSE).setVisible(false)
       .setInteractive();
     this.pauseOverlay.on('pointerdown', () => { this.onTogglePause(); });
 
-    this.pauseText = this.scene.add.text(w / 2, h / 2 - 15, 'PAUZA!', popupStyle({ fontSize: '24px' }))
-      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
-    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 + 20, 'Walnij w ekran aby kontynuować bieg', smallStyle({ fontSize: '7px' }))
+    this.pauseText = this.scene.add.text(w / 2, h / 2 - 70, 'PAUZA', popupStyle({
+      fontSize: '24px',
+      color: UI_TEXT.bone,
+      strokeThickness: 6,
+      shadow: { offsetX: 0, offsetY: 4, color: '#5a0d0d', blur: 0, fill: true, stroke: true },
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
+    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 - 36, 'Esc albo stuknięcie w tło wraca do biegu', smallStyle({ fontSize: '7px', color: UI_TEXT.muted }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
 
-    // Pause menu buttons
-    const btnW = 120;
-    const btnH = 32;
-    const btnGap = 12;
-    const btnY = h / 2 + 55;
+    // Pause menu buttons, stacked: carry on first
+    const btnW = 220;
+    const btnH = 34;
+    const btnGap = 44;
+    let btnY = h / 2;
     const btnS = buttonStyle({ fontSize: '10px', strokeThickness: 3 });
 
     const setupPauseBtn = (btn: ReturnType<typeof createButton>): void => {
@@ -143,16 +150,19 @@ export class GameHUD {
         go.setVisible(false);
       }
       this.pauseBtns.push(...btn.all);
+      this.pauseButtons.push(btn);
+      btnY += btnGap;
     };
 
+    setupPauseBtn(createButton(this.scene, w / 2, btnY, btnW, btnH, 'Graj dalej', 0x006688, btnS, () => { this.onTogglePause(); }));
     if (this.onRestart) {
-      setupPauseBtn(createButton(this.scene, w / 2 - btnW / 2 - btnGap / 2, btnY, btnW, btnH, 'Od Nowa', 0x880000, btnS, () => { this.onRestart!(); }));
+      setupPauseBtn(createButton(this.scene, w / 2, btnY, btnW, btnH, 'Od nowa', 0x880000, btnS, () => { this.onRestart!(); }));
     }
-
     if (this.onMenu) {
-      const menuX = this.onRestart ? w / 2 + btnW / 2 + btnGap / 2 : w / 2;
-      setupPauseBtn(createButton(this.scene, menuX, btnY, btnW, btnH, 'Menu', 0x444444, btnS, () => { this.onMenu!(); }));
+      setupPauseBtn(createButton(this.scene, w / 2, btnY, btnW, btnH, 'Menu', 0x444444, btnS, () => { this.onMenu!(); }));
     }
+    this.pauseNav = new MenuNav(this.scene);
+    this.pauseNav.enabled = false;
 
     // Pause button — circular, top-right
     const pauseR = 18;
@@ -323,6 +333,8 @@ export class GameHUD {
     this.pauseText.setVisible(true).setScale(1).setAlpha(1);
     this.pauseSubtext.setVisible(true).setAlpha(0.7).setAngle(0);
     for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(true);
+    this.pauseNav.set(this.pauseButtons, { initial: this.pauseButtons[0] });
+    this.pauseNav.enabled = true;
 
     if (!this.cricketSound) {
       this.cricketSound = this.scene.sound.add('cricket', { volume: sfxVolume(0.4), loop: true });
@@ -335,6 +347,7 @@ export class GameHUD {
     this.pauseText.setVisible(false);
     this.pauseSubtext.setVisible(false);
     for (const obj of this.pauseBtns) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(false);
+    this.pauseNav.enabled = false;
 
     if (this.cricketSound) this.cricketSound.stop();
   }

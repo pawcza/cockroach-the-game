@@ -7,11 +7,25 @@ import {
   FLOOR_TILE_RADIUS,
   COCKROACH_START_X,
   DEPTH,
+  PIXEL_BLOCK,
 } from '../config/constants';
-import { getLevelForDistance } from '../config/levels';
+import { getLevelForDistance, LEVELS } from '../config/levels';
 
 const COLLIDER_DROP = 8;
 const FLOOR_OVERHANG = 200;
+
+// A painted ledge strip is one seamless image cut into tile-wide segments. Matches tools/art/levels.py.
+const LEDGE_SEGMENTS = 10;
+const LEDGE_SEGMENT_W = FLOOR_TILE_STEP / PIXEL_BLOCK;
+/** The strip's top row sits this far above the floor line, so feet land on its top surface. */
+const LEDGE_LIFT = 4;
+
+interface TileLook {
+  key: string;
+  frame?: string;
+  scale: number;
+  lift: number;
+}
 
 export class FloorManager {
   private scene: Phaser.Scene;
@@ -82,11 +96,11 @@ export class FloorManager {
   private addTiles(floorWidth: number): void {
     const tilesNeeded = Math.ceil(floorWidth / FLOOR_TILE_STEP) + 2;
     for (let i = this.floorTopSprites.length; i < tilesNeeded; i++) {
-      const topTile = this.scene.add.image(i * FLOOR_TILE_STEP, this.floorTopY, 'floor-rounded-lv1')
+      const topTile = this.scene.add.image(i * FLOOR_TILE_STEP, this.floorTopY, 'lv1-floor')
         .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
       this.floorTopSprites.push(topTile);
 
-      const bottomTile = this.scene.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, 'floor-rounded-lv1')
+      const bottomTile = this.scene.add.image(i * FLOOR_TILE_STEP, this.floorBottomY, 'lv1-floor')
         .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
       this.floorBottomSprites.push(bottomTile);
     }
@@ -133,22 +147,14 @@ export class FloorManager {
       this.floorTopSprites[i].x = tx;
       this.floorBottomSprites[i].x = tx;
 
-      const tileDistance = (tx - COCKROACH_START_X) / 50;
-      const tileLevelConfig = getLevelForDistance(tileDistance);
-      const tileTextureKey = `floor-rounded-lv${tileLevelConfig.level}`;
-
-      const hasTexture = this.scene.textures.exists(tileTextureKey);
+      const look = this.tileLook(tx);
       const topStepped = this.isTileStepped(tx, this.steppedTopRanges);
       this.floorTopSprites[i].setVisible(!topStepped);
-      if (!topStepped && hasTexture && this.floorTopSprites[i].texture.key !== tileTextureKey) {
-        this.floorTopSprites[i].setTexture(tileTextureKey);
-      }
+      if (!topStepped && look) this.dressTile(this.floorTopSprites[i], look, this.floorTopY);
 
       const bottomStepped = this.isTileStepped(tx, this.steppedBottomRanges);
       this.floorBottomSprites[i].setVisible(!bottomStepped);
-      if (!bottomStepped && hasTexture && this.floorBottomSprites[i].texture.key !== tileTextureKey) {
-        this.floorBottomSprites[i].setTexture(tileTextureKey);
-      }
+      if (!bottomStepped && look) this.dressTile(this.floorBottomSprites[i], look, this.floorBottomY);
     }
 
     for (const range of this.steppedTopRanges) {
@@ -169,11 +175,45 @@ export class FloorManager {
     this.generateRoundedFloorTextures();
   }
 
+  /** How the tile at this world x looks, or null while its level's art is still loading. */
+  private tileLook(tx: number): TileLook | null {
+    const config = getLevelForDistance((tx - COCKROACH_START_X) / 50);
+    if (config.painted) {
+      if (!this.scene.textures.exists(config.floorKey)) return null;
+      const index = Math.floor(tx / FLOOR_TILE_STEP);
+      const segment = ((index % LEDGE_SEGMENTS) + LEDGE_SEGMENTS) % LEDGE_SEGMENTS;
+      return { key: config.floorKey, frame: `segment-${segment}`, scale: PIXEL_BLOCK, lift: LEDGE_LIFT };
+    }
+    const key = `floor-rounded-lv${config.level}`;
+    return this.scene.textures.exists(key) ? { key, scale: 1, lift: 0 } : null;
+  }
+
+  private dressTile(tile: Phaser.GameObjects.Image, look: TileLook, floorY: number): void {
+    if (tile.texture.key !== look.key || (look.frame && tile.frame.name !== look.frame)) {
+      tile.setTexture(look.key, look.frame);
+    }
+    tile.setScale(look.scale);
+    tile.y = floorY - look.lift;
+  }
+
+  private cutLedgeSegments(key: string): void {
+    const texture = this.scene.textures.get(key);
+    if (texture.has('segment-0')) return;
+    const height = texture.source[0].height;
+    for (let i = 0; i < LEDGE_SEGMENTS; i++) {
+      texture.add(`segment-${i}`, 0, i * LEDGE_SEGMENT_W, 0, LEDGE_SEGMENT_W, height);
+    }
+  }
+
   private generateRoundedFloorTextures(): void {
     for (let i = 1; i <= 10; i++) {
       const key = `floor-rounded-lv${i}`;
       const sourceKey = `lv${i}-floor`;
       if (!this.scene.textures.exists(sourceKey)) continue;
+      if (LEVELS[i - 1].painted) {
+        this.cutLedgeSegments(sourceKey);
+        continue;
+      }
       const sourceImage = this.scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;
 
       if (this.scene.textures.exists(key)) {
@@ -202,6 +242,12 @@ export class FloorManager {
     }
   }
 
+  /** Whether the ledge under this world x has crumbled away behind a runner. */
+  isGap(x: number, floor: 'top' | 'bottom'): boolean {
+    const tileX = Math.floor(x / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    return this.isTileStepped(tileX, floor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges);
+  }
+
   /** The newest range is the one still growing, so it always stays. */
   private dropRangesBehind(x: number, ranges: { to: number }[]): void {
     while (ranges.length > 1 && ranges[0].to < x) ranges.shift();
@@ -223,13 +269,11 @@ export class FloorManager {
     let tilesSpawned = 0;
 
     while (startX + FLOOR_TILE_W < range.to && tilesSpawned < MAX_TILES_PER_FRAME) {
-      const tileDistance = (startX - COCKROACH_START_X) / 50;
-      const tileLevelConfig = getLevelForDistance(tileDistance);
-      const textureKey = `floor-rounded-lv${tileLevelConfig.level}`;
-      if (!this.scene.textures.exists(textureKey)) { startX += FLOOR_TILE_STEP; tilesSpawned++; continue; }
+      const look = this.tileLook(startX);
+      if (!look) { startX += FLOOR_TILE_STEP; tilesSpawned++; continue; }
 
-      const fallingTile = this.scene.add.image(startX, floorY, textureKey)
-        .setOrigin(0, 0).setDepth(DEPTH.FLOOR);
+      const fallingTile = this.scene.add.image(startX, floorY - look.lift, look.key, look.frame)
+        .setOrigin(0, 0).setScale(look.scale).setDepth(DEPTH.FLOOR);
 
       const spinDir = Math.random() > 0.5 ? 1 : -1;
       this.scene.tweens.add({

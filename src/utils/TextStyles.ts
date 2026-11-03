@@ -3,6 +3,14 @@ import Phaser from 'phaser';
 export const FONT_FAMILY = '"Press Start 2P", monospace';
 const BASE_FONT = FONT_FAMILY;
 
+/** The menus' text colours: warm bone on the dark scrim, never pure white or neon. */
+export const UI_TEXT = {
+  bone: '#f1e3c6',
+  muted: '#8a7d6b',
+  amber: '#e0a040',
+  named: '#9fe08a',
+};
+
 /** Returns a UI scale factor. */
 export function getScale(): number {
   return 1;
@@ -54,10 +62,4 @@ export function neonStyle(overrides?: Partial<Phaser.Types.GameObjects.Text.Text
     shadow: { offsetX: 2, offsetY: 2, color: '#00ffff', blur: 10, fill: true, stroke: true },
     ...overrides,
   };
-}
-
-/** Responsive title that scales with camera width. */
-export function adaptiveTitleStyle(cameraWidth: number, overrides?: Partial<Phaser.Types.GameObjects.Text.TextStyle>): Phaser.Types.GameObjects.Text.TextStyle {
-  const size = Math.max(16, Math.min(32, Math.floor(cameraWidth / 25)));
-  return titleStyle({ fontSize: `${size}px`, ...overrides });
 }

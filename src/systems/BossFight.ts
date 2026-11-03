@@ -8,6 +8,10 @@ import { BOSS_MAX_HP } from './boss/bossConfig';
 import { BossGunnery, FIRE_RATE_START } from './boss/BossGunnery';
 import { BossVisuals } from './boss/BossVisuals';
 
+// Half-sizes around the boss. Tall enough that a bullet from either lane lands: the lanes sit 136 apart.
+const BOSS_HIT_WIDTH = 60;
+const BOSS_HIT_HEIGHT = 100;
+
 type BossState = 'intro' | 'fighting' | 'victory' | 'done';
 
 export type BossFightRole = 'host' | 'client' | 'solo';
@@ -247,7 +251,7 @@ export class BossFight {
     const boss = this.visuals.bossContainer;
     for (const bullet of bullets) {
       if (!bullet.active) continue;
-      if (bullet.x >= boss.x - 60 && bullet.x <= boss.x + 60 && bullet.y >= boss.y - 80 && bullet.y <= boss.y + 80) {
+      if (Math.abs(bullet.x - boss.x) <= BOSS_HIT_WIDTH && Math.abs(bullet.y - boss.y) <= BOSS_HIT_HEIGHT) {
         bullet.destroy();
         this.onBulletHitsBoss();
       }

@@ -36,8 +36,10 @@ server/
   net.ts           # Real client IP, origin check, token bucket
 tests/
   support/         # Runs the real server for the socket and API tests
+art/sprites/       # Source renders for the atlas
+tools/art/         # Rigs and bake.py: rebuilds public/assets/sprites.webp + .json
 public/
-  assets/          # Sprites, backgrounds
+  assets/          # Baked sprite atlas, backgrounds
   audio/           # Sound effects and music (.ogg)
   levels/          # Per-level floor tiles and soundtracks
 ```
@@ -49,6 +51,7 @@ public/
 - Depth constants live in `DEPTH` enum in `src/config/constants.ts`. Never hardcode depth numbers.
 - Text styles use factories from `src/utils/TextStyles.ts` (`neonStyle`, `bodyStyle`, `smallStyle`, `popupStyle`, `buttonStyle`).
 - Audio files are `.ogg` format.
+- Sprites come from one atlas: use `src/config/sprites.ts` (`ATLAS`, `frameOf`, `playLoop`, `fitBody`). Frames are native pixels with their pivot on the baseline, so they draw at `SPRITE_SCALE` and are placed at the floor Y. Never rotate or glow them at runtime.
 
 ## Multiplayer
 

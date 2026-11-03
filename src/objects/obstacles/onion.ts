@@ -5,25 +5,15 @@ import { ObstacleKit } from './ObstacleKit';
 export function spawnOnion(kit: ObstacleKit, x: number): void {
   const { scene } = kit;
   const floor = kit.randomFloor();
-  const centerY = kit.centerY(floor);
+  const standY = kit.standY(floor);
 
-  const onion = kit.createSprite(x, centerY, 'onion', 'onion', floor);
+  const onion = kit.createSprite(x, standY, 'onion', 'onion', floor);
 
   const tweens: Phaser.Tweens.Tween[] = [];
   const stinks: Phaser.GameObjects.Arc[] = [];
 
-  // Gentle wobble
-  tweens.push(scene.tweens.add({
-    targets: onion,
-    angle: { from: -3, to: 3 },
-    duration: 1200,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  }));
-
   // Stink waves
-  const stinkStartY = centerY - onion.displayHeight * 0.3;
+  const stinkStartY = standY - onion.displayHeight * 0.75;
   for (let i = 0; i < 3; i++) {
     const offsetX = Phaser.Math.Between(-8, 8);
     const stink = scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
@@ -46,8 +36,8 @@ export function spawnOnion(kit: ObstacleKit, x: number): void {
     }));
   }
 
-  const tearStartY = centerY - onion.displayHeight * 0.2;
-  const tearEndY = centerY + onion.displayHeight * 0.4;
+  const tearStartY = standY - onion.displayHeight * 0.6;
+  const tearEndY = standY;
   const tearTimer = kit.emitWhileOnScreen(onion, 800, () => {
     const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
     const tear = scene.add.circle(x + side * Phaser.Math.Between(4, 10), tearStartY, Phaser.Math.Between(1, 3), 0x4488ff, 0.7);

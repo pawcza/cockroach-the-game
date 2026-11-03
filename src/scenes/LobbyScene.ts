@@ -1,22 +1,20 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyData, MPPlayer } from '../multiplayer/MultiplayerClient';
 import { PLAYER_COLORS } from '../../server/lobby';
-import { COLORS } from '../config/constants';
-import { neonStyle, bodyStyle, smallStyle, buttonStyle, FONT_FAMILY } from '../utils/TextStyles';
-import { floatUpDown } from '../utils/TweenPatterns';
-import { spawnFloatingParticle, setupMenuLighting } from '../ui/SceneBackground';
-import { createButton } from '../ui/shared';
+import { titleStyle, smallStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
+import { createSceneBackground } from '../ui/SceneBackground';
+import { createButton, createPanel, UIButton } from '../ui/shared';
+import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
 
 export class LobbyScene extends Phaser.Scene {
   private lobbyData!: MPLobbyData;
   private playerListContainer!: Phaser.GameObjects.Container;
-  private startBtnAll!: Phaser.GameObjects.GameObject[];
-  private startBtnTxt!: Phaser.GameObjects.Text;
-  private startBtnHitZone!: Phaser.GameObjects.Rectangle;
-  private readyBtnAll!: Phaser.GameObjects.GameObject[];
-  private readyBtnTxt!: Phaser.GameObjects.Text;
-  private readyBtnSetColor!: (c: number) => void;
+  private startBtn!: UIButton;
+  private readyBtn!: UIButton;
+  private colorBtn!: UIButton;
+  private leaveBtn!: UIButton;
+  private nav!: MenuNav;
   private playerCountText!: Phaser.GameObjects.Text;
   private titleText!: Phaser.GameObjects.Text;
   private lobbyUpdatedHandler!: (data: MPLobbyData) => void;
@@ -35,29 +33,21 @@ export class LobbyScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.cameras.main;
 
-    // Background — scale to cover the canvas
-    const mpBg = this.add.image(width / 2, height / 2, 'menu-bg-multiplayer');
-    mpBg.setScale(Math.max(width / mpBg.width, height / mpBg.height));
-    setupMenuLighting(this, mpBg);
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.4);
-
-    // Floating neon particles
-    for (let i = 0; i < 8; i++) {
-      spawnFloatingParticle(this, width, height, COLORS.NEON);
-    }
+    createSceneBackground(this, { level: 6, dim: 0.55 });
+    this.nav = new MenuNav(this);
 
     // --- TITLE ---
-    this.titleText = this.add.text(width / 2, 40, `${this.getHostName()}'s Lobby`, neonStyle({
+    this.titleText = this.add.text(Math.round(width / 2), 38, this.titleFor(), titleStyle({
       fontSize: '18px',
-      color: '#00ccff',
-      align: 'center',
+      color: UI_TEXT.bone,
+      strokeThickness: 6,
+      shadow: { offsetX: 0, offsetY: 3, color: '#0d2a3a', blur: 0, fill: true, stroke: true },
     })).setOrigin(0.5);
 
-    floatUpDown(this, this.titleText, 4, 1200);
-
     // --- PLAYER COUNT ---
-    this.playerCountText = this.add.text(width / 2, 70, '', smallStyle({
-      fontSize: '10px',
+    this.playerCountText = this.add.text(Math.round(width / 2), 66, '', smallStyle({
+      fontSize: '9px',
+      color: '#8fc7d8',
       strokeThickness: 3,
     })).setOrigin(0.5);
 
@@ -66,7 +56,7 @@ export class LobbyScene extends Phaser.Scene {
     const listBottom = height - 110;
     const listHeight = listBottom - listTop;
 
-    this.add.rectangle(width / 2, listTop + listHeight / 2, width - 40, listHeight, 0x111122, 0.5);
+    createPanel(this, 20, listTop, width - 40, listHeight);
 
     this.playerListContainer = this.add.container(0, 0);
 
@@ -79,10 +69,12 @@ export class LobbyScene extends Phaser.Scene {
     const btnS = buttonStyle({ fontSize: '11px' });
 
     // Main action button position
-    const actionBtnY = height - 63;
+    const actionBtnY = height - 66;
+    const sideW = 170;
+    const sideX = 300 / 2 + 12 + sideW / 2;
 
     // "Gotowy" ready toggle button (non-host only)
-    const readyBtn = createButton(this, width / 2, actionBtnY, 260, 36, 'Gotowy?', 0x886600, btnS, () => {
+    this.readyBtn = createButton(this, width / 2, actionBtnY, 300, 38, 'Gotowy?', 0x886600, btnS, () => {
       const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
       const newReady = !(me?.ready);
       mpClient.setReady(newReady).then((updatedLobby) => {
@@ -92,12 +84,9 @@ export class LobbyScene extends Phaser.Scene {
         this.updateReadyButton();
       }).catch((err) => { console.error('setReady failed:', err); });
     });
-    this.readyBtnAll = readyBtn.all;
-    this.readyBtnTxt = readyBtn.txt;
-    this.readyBtnSetColor = readyBtn.setColor;
 
     // "Rozpocznij Gre" button (host only, same position)
-    const startBtn = createButton(this, width / 2, actionBtnY, 260, 36, 'Rozpocznij Gr\u0119', 0x008800, btnS, () => {
+    this.startBtn = createButton(this, width / 2, actionBtnY, 300, 38, 'Rozpocznij Grę', 0x008800, btnS, () => {
       if (this.isStartEnabled() && !this.starting) {
         this.starting = true;
         mpClient.startGame().then((res) => {
@@ -113,26 +102,22 @@ export class LobbyScene extends Phaser.Scene {
         });
       }
     });
-    this.startBtnAll = startBtn.all;
-    this.startBtnTxt = startBtn.txt;
-    this.startBtnHitZone = startBtn.hitZone;
 
-    // "Opuść" leave button
-    const { bg: leaveBg, txt: leaveTxt } = createButton(this, width / 2, height - 25, 200, 30, 'Opu\u015b\u0107', 0x660000, buttonStyle({ fontSize: '10px' }), () => {
-      sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
-        mpClient.leaveLobby();
-      });
-    });
+    // Your colour, also from the keyboard: clicking your own swatch does the same
+    this.colorBtn = createButton(this, width / 2 + sideX, actionBtnY, sideW, 30, 'Zmień kolor', 0x444444, buttonStyle({ fontSize: '9px' }), () => this.cycleColor());
+
+    this.leaveBtn = createButton(this, width / 2, height - 24, 220, 30, 'Opuść', 0x660000, buttonStyle({ fontSize: '10px' }), () => this.leave());
 
     // --- RENDER INITIAL STATE ---
     this.renderPlayerList();
     this.updateStartButton();
     this.updateReadyButton();
+    this.refreshNav();
 
     // --- SOCKET EVENT LISTENERS ---
     this.lobbyUpdatedHandler = (data: MPLobbyData) => {
       this.lobbyData = data;
-      this.titleText.setText(`${this.getHostName()}'s Lobby`);
+      this.titleText.setText(this.titleFor());
       this.renderPlayerList();
       this.updateStartButton();
       this.updateReadyButton();
@@ -163,6 +148,39 @@ export class LobbyScene extends Phaser.Scene {
     });
   }
 
+  private titleFor(): string {
+    return `Lobby: ${this.getHostName()}`;
+  }
+
+  private leave(): void {
+    sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
+      mpClient.leaveLobby();
+    });
+  }
+
+  /** The action button is Start for the host and Ready for everyone else; the arrows only reach what's shown. */
+  private refreshNav(): void {
+    const action = this.isHost() ? this.startBtn : this.readyBtn;
+    this.nav.set([action, this.colorBtn, this.leaveBtn], { initial: action.enabled ? action : this.colorBtn, onBack: () => this.leave() });
+  }
+
+  private cycleColor(): void {
+    const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
+    if (!me) return;
+    const usedColors = new Set(this.lobbyData.players.filter(p => p.id !== me.id).map(p => p.color));
+    let next = (me.color + 1) % PLAYER_COLORS.length;
+    const start = next;
+    while (usedColors.has(next)) {
+      next = (next + 1) % PLAYER_COLORS.length;
+      if (next === start) return;
+    }
+    mpClient.changeColor(next).then((updatedLobby) => {
+      this.lobbyData = updatedLobby;
+      this.renderPlayerList();
+      this.updateStartButton();
+    }).catch(() => {});
+  }
+
   private getHostName(): string {
     const host = this.lobbyData.players.find(p => p.isHost);
     return host ? host.name : 'Unknown';
@@ -180,39 +198,22 @@ export class LobbyScene extends Phaser.Scene {
 
   private updateStartButton(): void {
     const isHostPlayer = this.isHost();
-    const enabled = this.isStartEnabled();
-
-    for (const obj of this.startBtnAll) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(isHostPlayer);
-
-    if (isHostPlayer) {
-      if (enabled) {
-        this.startBtnTxt.setColor('#dddddd');
-        for (const obj of this.startBtnAll) (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(1);
-        this.startBtnHitZone.setInteractive({ useHandCursor: true });
-      } else {
-        this.startBtnTxt.setColor('#666666');
-        for (const obj of this.startBtnAll) (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(0.4);
-        this.startBtnHitZone.disableInteractive();
-      }
-    }
+    for (const obj of this.startBtn.all) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(isHostPlayer);
+    const wasEnabled = this.startBtn.enabled;
+    this.startBtn.setEnabled(isHostPlayer && this.isStartEnabled());
+    this.startBtn.setLabel(this.startBtn.enabled ? 'Rozpocznij Grę' : 'Czekam na gotowych');
+    if (wasEnabled !== this.startBtn.enabled) this.refreshNav();
   }
 
   private updateReadyButton(): void {
     const isHost = this.isHost();
-    for (const obj of this.readyBtnAll) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(!isHost);
+    for (const obj of this.readyBtn.all) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(!isHost);
     if (isHost) return;
 
     const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
     const isReady = me?.ready ?? false;
-    if (isReady) {
-      this.readyBtnSetColor(0x008800);
-      this.readyBtnTxt.setText('Gotowy!');
-      this.readyBtnTxt.setColor('#00ff00');
-    } else {
-      this.readyBtnSetColor(0x886600);
-      this.readyBtnTxt.setText('Gotowy?');
-      this.readyBtnTxt.setColor('#dddddd');
-    }
+    this.readyBtn.setColor(isReady ? 0x008800 : 0x886600);
+    this.readyBtn.setLabel(isReady ? 'Gotowy!  (odznacz)' : 'Gotowy?');
   }
 
   private renderPlayerList(): void {
@@ -231,55 +232,36 @@ export class LobbyScene extends Phaser.Scene {
       const isMe = player.id === mpClient.myId;
 
       // Color swatch (24x24)
-      const swatchColor = PLAYER_COLORS[player.color] ?? 0xffffff;
-      const swatch = this.add.rectangle(50, y + lineHeight / 2 - 4, 24, 24, swatchColor, 1);
+      const rowY = Math.round(y + lineHeight / 2 - 4);
 
+      // Your own row is lit, like a focused button
       if (isMe) {
-        swatch.setInteractive({ useHandCursor: true });
-        swatch.setStrokeStyle(2, 0xffffff);
-        swatch.on('pointerdown', () => {
-          const usedColors = new Set(
-            this.lobbyData.players.filter(p => p.id !== player.id).map(p => p.color),
-          );
-          let next = (player.color + 1) % PLAYER_COLORS.length;
-          const start = next;
-          while (usedColors.has(next)) {
-            next = (next + 1) % PLAYER_COLORS.length;
-            if (next === start) return;
-          }
-          mpClient.changeColor(next).then((updatedLobby) => {
-            this.lobbyData = updatedLobby;
-            this.renderPlayerList();
-            this.updateStartButton();
-          }).catch(() => {});
-        });
-      }
-
-      // Player name
-      const nameColor = isMe ? '#00ff66' : '#ffffff';
-      const suffix = player.isHost ? ' (host)' : '';
-      const nameText = this.add.text(80, y + lineHeight / 2 - 4, player.name + suffix, smallStyle({
-        fontSize: '10px',
-        color: nameColor,
-      })).setOrigin(0, 0.5);
-
-      // Ready indicator on the right (skip for host)
-      let readyText: Phaser.GameObjects.Text | null = null;
-      if (!player.isHost) {
-        readyText = this.add.text(width - 30, y + lineHeight / 2 - 4, player.ready ? '\u2714' : '\u2022', smallStyle({
-          fontSize: player.ready ? '14px' : '10px',
-          color: player.ready ? '#00ff00' : '#666666',
-        })).setOrigin(0.5, 0.5);
-      }
-
-      // Row background highlight for self
-      if (isMe) {
-        const rowBg = this.add.rectangle(width / 2, y + lineHeight / 2 - 4, width - 60, lineHeight - 4, 0x003322, 0.3);
+        const rowBg = this.add.rectangle(width / 2, rowY, width - 64, lineHeight - 6, 0x2a1f18, 0.9);
         this.playerListContainer.add(rowBg);
       }
 
+      const swatchColor = PLAYER_COLORS[player.color] ?? 0xffffff;
+      const swatch = this.add.rectangle(52, rowY, 20, 20, swatchColor, 1);
+      if (isMe) {
+        swatch.setStrokeStyle(2, 0xfff1c2);
+        swatch.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.cycleColor());
+      }
+
+      const suffix = player.isHost ? '  · host' : '';
+      const nameText = this.add.text(78, rowY, player.name + suffix, smallStyle({
+        fontSize: '10px',
+        color: isMe ? '#fff1c2' : UI_TEXT.bone,
+        strokeThickness: 0,
+      })).setOrigin(0, 0.5);
+
       const items: Phaser.GameObjects.GameObject[] = [swatch, nameText];
-      if (readyText) items.push(readyText);
+      if (!player.isHost) {
+        items.push(this.add.text(width - 36, rowY, player.ready ? 'gotowy' : 'czeka', smallStyle({
+          fontSize: '8px',
+          color: player.ready ? '#9fe08a' : UI_TEXT.muted,
+          strokeThickness: 0,
+        })).setOrigin(1, 0.5));
+      }
       this.playerListContainer.add(items);
     }
   }

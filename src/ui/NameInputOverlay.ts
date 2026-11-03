@@ -13,6 +13,7 @@ export function showNameInput(
   scene: Phaser.Scene,
   onSubmit: (name: string) => void,
   defaultName?: string,
+  onClose?: () => void,
 ): void {
   const { width, height } = scene.cameras.main;
   const container = scene.add.container(0, 0).setDepth(DEPTH.PAUSE + 100).setScrollFactor(0);
@@ -24,11 +25,15 @@ export function showNameInput(
   container.add(backdrop);
 
   // Label
-  const label = scene.add.text(width / 2, height * 0.30, 'Twój nick:', popupStyle({
+  const label = scene.add.text(width / 2, height * 0.30, 'Twój nick', popupStyle({
     fontSize: '14px',
-    color: '#ffff00',
+    color: '#fff1c2',
   })).setOrigin(0.5).setScrollFactor(0);
-  container.add(label);
+  const hint = scene.add.text(width / 2, height * 0.58 + 36, 'Enter zapisuje  ·  Esc anuluje', smallStyle({
+    fontSize: '7px',
+    color: '#8a7d6b',
+  })).setOrigin(0.5).setScrollFactor(0);
+  container.add([label, hint]);
 
   // DOM input — positioned over the Phaser canvas
   const canvas = scene.game.canvas;
@@ -42,14 +47,14 @@ export function showNameInput(
     'font-family:"Press Start 2P",monospace',
     'font-size:20px',
     'padding:12px 16px',
-    'background:#111',
-    'color:#fff',
-    'border:3px solid #8b0000',
+    'background:#15100d',
+    'color:#fff1c2',
+    'border:4px solid #b9a78d',
+    'box-shadow:4px 6px 0 rgba(0,0,0,0.55)',
     'outline:none',
     'text-align:center',
     'width:300px',
     'max-width:80vw',
-    'border-radius:8px',
     `z-index:100000`,
     '-webkit-tap-highlight-color:transparent',
   ].join(';');
@@ -84,6 +89,7 @@ export function showNameInput(
   const cleanup = (): void => {
     if (input.parentNode) input.remove();
     if (container.active) container.destroy();
+    onClose?.();
   };
 
   const doSubmit = (): void => {

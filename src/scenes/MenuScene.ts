@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
+import { ATLAS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf } from '../config/sprites';
 import { DEPTH } from '../config/constants';
-import { titleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
-import { floatUpDown } from '../utils/TweenPatterns';
+import { titleStyle, bodyStyle, smallStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
-import { createButton } from '../ui/shared';
+import { createButton, UIButton } from '../ui/shared';
+import { MenuNav } from '../ui/MenuNav';
+import { addContactShadow } from '../effects/ContactShadow';
 import { sceneManager } from '../systems/SceneManager';
 import { getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
@@ -12,8 +14,20 @@ import { buildInfoPage } from './menu/infoPage';
 import { buildScorePage } from './menu/scorePage';
 import { buildSettingsPage } from './menu/settingsPage';
 
+const PAGE_MS = 400;
+const DRIFT = 0.4;
+const DRIFT_RUSH = 14;
+
+const BTN_W = 300;
+const BTN_H = 40;
+const BTN_GAP = 48;
+const BACK_W = 220;
+const BACK_H = 36;
+/** Clear of the longest name (20 characters). */
+const NAME_BTN_OFFSET = 160;
+
 export class MenuScene extends Phaser.Scene {
-  private bgScroll = { speed: 0.05 };
+  private bgScroll = { speed: DRIFT };
   private scoreCleanups: (() => void)[] = [];
 
   constructor() {
@@ -22,48 +36,45 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.cameras.main;
+    const cx = Math.round(width / 2);
 
-    // Menu background with all effects (scrolling, lighting, overlays, vignette)
-    const { setScrollSpeed } = createSceneBackground(this, {
-      textureKey: 'menu-bg',
-      lighting: { colors: [0xffcc66, 0xff8844, 0xffaa22, 0xffddaa, 0xdd6622] },
-    });
-    // Wire up bgScroll proxy so page-transition tweens can target bgScroll.speed
-    this.bgScroll.speed = 0.05;
+    const { setScrollSpeed } = createSceneBackground(this, { level: 1, scrollSpeed: DRIFT });
+    this.bgScroll.speed = DRIFT;
     const syncScroll = (): void => setScrollSpeed(this.bgScroll.speed);
     this.events.on('update', syncScroll);
 
     const isMobile = !this.sys.game.device.os.desktop;
+    const nav = new MenuNav(this);
 
-    // --- Main page container ---
     const mainPage = this.add.container(0, 0).setDepth(DEPTH.MENU_PAGE);
 
-    // --- TITLE ---
-    const title = this.add.text(width / 2, 140, 'KARALUCH', titleStyle({
-      fontSize: '32px',
-      color: '#8b0000',
+    // --- Title, and the roach running on the spot under it ---
+    const title = this.add.text(cx, 62, 'KARALUCH', titleStyle({
+      fontSize: '40px',
+      color: UI_TEXT.bone,
+      strokeThickness: 8,
+      shadow: { offsetX: 0, offsetY: 5, color: '#5a0d0d', blur: 0, fill: true, stroke: true },
     })).setOrigin(0.5);
-    mainPage.add(title);
-
-    floatUpDown(this, title, 10, 1500);
-
-    const subtitle = this.add.text(width / 2, 185, 'Gra przegra\u0144c\u00f3w', bodyStyle({
-      fontSize: '14px',
-      color: '#ff6600',
-      strokeThickness: 4,
+    const subtitle = this.add.text(cx, 104, 'Gra przegrańców', bodyStyle({
+      fontSize: '11px',
+      color: UI_TEXT.amber,
     })).setOrigin(0.5);
-    mainPage.add(subtitle);
+    mainPage.add([title, subtitle]);
 
-    this.tweens.add({
-      targets: subtitle,
-      angle: 3,
-      duration: 2000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-    subtitle.setAngle(-3);
+    const roachFeetY = 192;
+    const shadow = addContactShadow(this, cx, roachFeetY, 104).setDepth(0);
+    const roach = this.add.sprite(cx, roachFeetY - ROACH_FEET_OFFSET, ATLAS, frameOf('roach-run')).setScale(SPRITE_SCALE);
+    roach.play('roach-run');
+    mainPage.add([shadow, roach]);
 
+    // --- Name: shows who you are, and changes it ---
+    const nameText = this.add.text(cx, 216, getPlayerNameOrDefault(), bodyStyle({
+      fontSize: '10px',
+      color: isPlayerNameCustom() ? UI_TEXT.named : UI_TEXT.bone,
+    })).setOrigin(0.5);
+    mainPage.add(nameText);
+
+    // --- Buttons ---
     let startingGame = false;
     const startGame = (): void => {
       if (startingGame) return;
@@ -76,179 +87,118 @@ export class MenuScene extends Phaser.Scene {
       });
     };
 
-    // --- COCKROACH + PLAYER NAME (centered) ---
-    const cockroachImg = this.add.image(width / 2, 225, 'cockroach-idle');
-    cockroachImg.setScale(0.35).setOrigin(0.5);
-    mainPage.add(cockroachImg);
-
-    // Walking animation — alternate idle/running frames
-    let cockroachFrame = false;
-    this.time.addEvent({
-      delay: 200,
-      loop: true,
-      callback: () => {
-        cockroachFrame = !cockroachFrame;
-        cockroachImg.setTexture(cockroachFrame ? 'cockroach-running' : 'cockroach-idle');
-      },
-    });
-
-    const playerName = getPlayerNameOrDefault();
-    const nameText = this.add.text(width / 2, 255, playerName, bodyStyle({
-      fontSize: '12px',
-      color: isPlayerNameCustom() ? '#00ff66' : '#ffffff',
-      strokeThickness: 3,
-    })).setOrigin(0.5);
-    mainPage.add(nameText);
-
-    // Hint when name is not customized
-    const hintText = this.add.text(width / 2, 272, 'Nazwij mnie', smallStyle({
-      fontSize: '7px',
-      color: '#888888',
-      strokeThickness: 2,
-    })).setOrigin(0.5).setVisible(!isPlayerNameCustom());
-    mainPage.add(hintText);
-
-    // "Zmień" button — positioned to the right of the centered block
-    const changeNameBtn = createButton(this, width / 2 + 120, 255, 80, 22, 'Zmień', 0x444444, smallStyle({ fontSize: '7px' }), () => {
-      showNameInput(this, (newName) => {
-        nameText.setText(newName);
-        nameText.setColor('#00ff66');
-        hintText.setVisible(false);
-      });
-    });
-    mainPage.add(changeNameBtn.all);
-
-    // --- BUTTONS vertically stacked ---
     const btnS = buttonStyle({ fontSize: '11px', strokeThickness: 3 });
-    const btnW = 260;
-    const btnH = 38;
-    const btnStartY = 310;
-    const btnSpacing = 46;
-
-    const addBtn = (y: number, label: string, color: number, action: () => void): { bg: Phaser.GameObjects.Graphics; txt: Phaser.GameObjects.Text } => {
-      const { bg, txt, all } = createButton(this, width / 2, y, btnW, btnH, label, color, btnS, action);
-      mainPage.add(all);
-      return { bg, txt };
+    const firstY = 262;
+    const mainButtons: UIButton[] = [];
+    const addBtn = (label: string, color: number, action: () => void): UIButton => {
+      const button = createButton(this, cx, firstY + mainButtons.length * BTN_GAP, BTN_W, BTN_H, label, color, btnS, action);
+      mainPage.add(button.all);
+      mainButtons.push(button);
+      return button;
     };
 
-    const { bg: soloBtn } = addBtn(btnStartY, 'Jeden Karaluch', 0x880000, startGame);
+    const changeName = (): void => {
+      nav.enabled = false;
+      showNameInput(this, (newName) => {
+        nameText.setText(newName).setColor(UI_TEXT.named);
+      }, undefined, () => { nav.enabled = true; });
+    };
 
-    // Pulsing on "Jeden Karaluch" button
-    this.tweens.add({
-      targets: soloBtn,
-      alpha: { from: 0.85, to: 1 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
+    // Pages slide in from the side they're named for; the world rushes the other way
+    const rush = (direction: number): void => {
+      this.tweens.add({
+        targets: this.bgScroll, speed: DRIFT_RUSH * direction, duration: PAGE_MS / 2, ease: 'Power2',
+        onComplete: () => { this.tweens.add({ targets: this.bgScroll, speed: DRIFT, duration: PAGE_MS / 2, ease: 'Power2' }); },
+      });
+    };
+    const slide = (page: Phaser.GameObjects.Container, prop: 'x' | 'y', to: number, mainTo: number): void => {
+      this.tweens.add({ targets: mainPage, [prop]: mainTo, duration: PAGE_MS, ease: 'Power2' });
+      this.tweens.add({ targets: page, [prop]: to, duration: PAGE_MS, ease: 'Power2' });
+    };
+    const backButton = (page: Phaser.GameObjects.Container, label: string, onBack: () => void): UIButton => {
+      const back = createButton(this, cx, height - 40, BACK_W, BACK_H, label, 0x444444, buttonStyle({ fontSize: '10px' }), onBack);
+      page.add(back.all);
+      return back;
+    };
+    const backToMain = (from: UIButton): void => nav.set(mainButtons, { initial: from, onBack: undefined });
 
-    addBtn(btnStartY + btnSpacing, 'Zjazd Karaluch\u00f3w', 0x006688, () => {
-      sceneManager.goto(this, 'MultiplayerMenuScene');
-    });
-
-    // --- Scoreboard page container (off-screen to the left) ---
+    // Scores, to the left
     const scorePage = this.add.container(-width, 0).setDepth(DEPTH.MENU_PAGE);
+    let scoresBtn: UIButton;
     const showScores = (): void => {
-      // Clean up previous score page resources
       this.scoreCleanups.forEach(fn => fn());
-      this.scoreCleanups = [];
       scorePage.removeAll(true);
       this.scoreCleanups = buildScorePage(this, scorePage, width, height);
-      const scoreBack = createButton(this, width / 2, height - 40, 200, 36, 'Powr\u00f3t \u2192', 0x444444, buttonStyle({ fontSize: '10px' }), hideScores);
-      scorePage.add(scoreBack.all);
-      this.tweens.add({ targets: mainPage, x: width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: scorePage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this.bgScroll, speed: -6, duration: 200, ease: 'Power2',
-        onComplete: () => {
-          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
-        },
-      });
+      const back = backButton(scorePage, 'Powrót', hideScores);
+      nav.set([back], { onBack: hideScores });
+      slide(scorePage, 'x', 0, width);
+      rush(-1);
     };
-
     const hideScores = (): void => {
-      this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: scorePage, x: -width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this.bgScroll, speed: 6, duration: 200, ease: 'Power2',
-        onComplete: () => {
-          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
-        },
-      });
+      slide(scorePage, 'x', -width, 0);
+      rush(1);
+      backToMain(scoresBtn);
     };
 
-    addBtn(btnStartY + btnSpacing * 2, 'Bycze Karaluchy', 0x664400, showScores);
-
-    // --- Info page container (off-screen to the right) ---
+    // Info, to the right
     const infoPage = this.add.container(width, 0).setDepth(DEPTH.MENU_PAGE);
-    let infoBuilt = false;
-
+    let infoBack: UIButton | null = null;
+    let infoBtn: UIButton;
     const showInfo = (): void => {
-      if (!infoBuilt) {
+      if (!infoBack) {
         buildInfoPage(this, infoPage, width, height, isMobile);
-        // Back button
-        const infoBack = createButton(this, width / 2, height - 40, 200, 36, '\u2190 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideInfo);
-        infoPage.add(infoBack.all);
-        infoBuilt = true;
+        infoBack = backButton(infoPage, 'Powrót', hideInfo);
       }
-      this.tweens.add({ targets: mainPage, x: -width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: infoPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this.bgScroll, speed: 6, duration: 200, ease: 'Power2',
-        onComplete: () => {
-          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
-        },
-      });
+      nav.set([infoBack], { onBack: hideInfo });
+      slide(infoPage, 'x', 0, -width);
+      rush(1);
     };
-
     const hideInfo = (): void => {
-      this.tweens.add({ targets: mainPage, x: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: infoPage, x: width, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: this.bgScroll, speed: -6, duration: 200, ease: 'Power2',
-        onComplete: () => {
-          this.tweens.add({ targets: this.bgScroll, speed: 0.05, duration: 200, ease: 'Power2' });
-        },
-      });
+      slide(infoPage, 'x', width, 0);
+      rush(-1);
+      backToMain(infoBtn);
     };
 
-    addBtn(btnStartY + btnSpacing * 3, 'O co chodzi?', 0x335555, showInfo);
-
-    // --- Settings page container (off-screen below) ---
+    // Settings, from below
     const settingsPage = this.add.container(0, height).setDepth(DEPTH.MENU_PAGE);
-    let settingsBuilt = false;
-
+    let settingsButtons: UIButton[] | null = null;
+    let settingsBtn: UIButton;
     const showSettings = (): void => {
-      if (!settingsBuilt) {
-        buildSettingsPage(this, settingsPage, width, height);
-        const settingsBack = createButton(this, width / 2, height - 40, 200, 36, '\u2191 Powr\u00f3t', 0x444444, buttonStyle({ fontSize: '10px' }), hideSettings);
-        settingsPage.add(settingsBack.all);
-        settingsBuilt = true;
+      if (!settingsButtons) {
+        const sliders = buildSettingsPage(this, settingsPage, width, height);
+        settingsButtons = [...sliders, backButton(settingsPage, 'Powrót', hideSettings)];
       }
-      this.tweens.add({ targets: mainPage, y: -height, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: settingsPage, y: 0, duration: 400, ease: 'Power2' });
+      nav.set(settingsButtons, { onBack: hideSettings });
+      slide(settingsPage, 'y', 0, -height);
     };
-
     const hideSettings = (): void => {
-      this.tweens.add({ targets: mainPage, y: 0, duration: 400, ease: 'Power2' });
-      this.tweens.add({ targets: settingsPage, y: height, duration: 400, ease: 'Power2' });
+      slide(settingsPage, 'y', height, 0);
+      backToMain(settingsBtn);
     };
 
-    // Gear icon top-right
-    const gear = this.add.text(width - 45, 50, '\u2699', {
-      fontSize: '32px', color: '#888888',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    gear.on('pointerover', () => gear.setColor('#ffffff'));
-    gear.on('pointerout', () => gear.setColor('#888888'));
-    gear.on('pointerdown', () => { settingsPage.y === 0 ? hideSettings() : showSettings(); });
-    mainPage.add(gear);
+    const soloBtn = addBtn('Jeden Karaluch', 0x880000, startGame);
+    addBtn('Zjazd Karaluchów', 0x006688, () => sceneManager.goto(this, 'MultiplayerMenuScene'));
+    scoresBtn = addBtn('Bycze Karaluchy', 0x664400, showScores);
+    infoBtn = addBtn('O co chodzi?', 0x335555, showInfo);
+    settingsBtn = addBtn('Ustawienia', 0x444444, showSettings);
 
-    // Version
-    const ver = this.add.text(width - 10, height - 5, 'v0.4.2 THE KARALUCH PROJECT', smallStyle({
-      fontSize: '6px',
-      color: '#ffffff',
-    })).setOrigin(1, 1);
-    mainPage.add(ver);
+    // The name button sits beside the name, not in the column, so the column stays about playing
+    const nameBtn = createButton(this, cx + NAME_BTN_OFFSET, 216, 72, 22, 'Zmień', 0x444444, smallStyle({ fontSize: '7px' }), changeName);
+    mainPage.add(nameBtn.all);
+    mainButtons.unshift(nameBtn);
 
-    // Keyboard shortcuts
-    this.input.keyboard!.once('keydown-SPACE', startGame);
+    nav.set(mainButtons, { initial: soloBtn });
+
+    // --- Footer ---
+    const footerY = height - 14;
+    const hint = this.add.text(16, footerY, isMobile ? '' : 'Strzałki wybierają   Enter wchodzi   Esc wraca', smallStyle({
+      fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 2,
+    })).setOrigin(0, 0.5);
+    const ver = this.add.text(width - 16, footerY, 'v0.5 THE KARALUCH PROJECT', smallStyle({
+      fontSize: '6px', color: UI_TEXT.muted, strokeThickness: 2,
+    })).setOrigin(1, 0.5);
+    mainPage.add([hint, ver]);
+
     this.input.keyboard!.on('keydown-T', () => { scorePage.x === 0 ? hideScores() : showScores(); });
 
     this.events.once('shutdown', () => {

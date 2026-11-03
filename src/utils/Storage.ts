@@ -56,8 +56,11 @@ export function setMusicVolume(vol: number): void {
   localStorage.setItem(KEYS.MUSIC_VOLUME, vol.toString());
 }
 
+/** Effects start a step under the music, so they sit in the mix until the player chooses otherwise. */
+const DEFAULT_SFX_VOLUME = '0.8';
+
 export function getSfxVolume(): number {
-  return parseFloat(localStorage.getItem(KEYS.SFX_VOLUME) ?? '1');
+  return parseFloat(localStorage.getItem(KEYS.SFX_VOLUME) ?? DEFAULT_SFX_VOLUME);
 }
 
 export function setSfxVolume(vol: number): void {

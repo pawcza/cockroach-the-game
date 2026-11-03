@@ -41,16 +41,14 @@ export class BossVisuals {
         sprite.setVelocity(0, 0);
         onStopped();
         this.scene.cameras.main.stopFollow();
+        this.player.enterBossStance();
 
         this.scene.tweens.add({
           targets: sprite,
           angle: -90,
           duration: 500,
           ease: 'Power2',
-          onComplete: () => {
-            sprite.setTexture('cockroach-standing');
-            this.descendGlock(onArrived);
-          },
+          onComplete: () => this.descendGlock(onArrived),
         });
       },
     });
