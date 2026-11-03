@@ -4,13 +4,20 @@ import path from 'path';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { Server } from 'socket.io';
 import db, { getTopScores, getPlayerBest, insertScore } from './db';
+import { createAuth, type AuthOptions } from './auth';
 import { setupMultiplayer, type MultiplayerOptions } from './multiplayer';
 import { clientIp, originAllowed } from './net';
 import { parseScoreSubmission } from './validate';
 
+export interface GameServerOptions extends MultiplayerOptions {
+  /** Google sign-in. Without it nobody can sign in, so nobody can save a score. */
+  auth?: AuthOptions | null;
+}
+
 /** Builds the HTTP and socket server without starting it, so tests can run it on a spare port. */
-export function createGameServer(options: MultiplayerOptions = {}) {
+export function createGameServer(options: GameServerOptions = {}) {
   const app = express();
+  const auth = createAuth(options.auth ?? null);
   app.disable('x-powered-by');
   app.use(express.json({ limit: '4kb' }));
 
@@ -34,12 +41,17 @@ export function createGameServer(options: MultiplayerOptions = {}) {
     },
   }));
 
-  // Rate limit score submissions: 1 per 5 seconds per visitor
+  app.use('/api', auth.router);
+
+  // Rate limit score submissions: 1 per 5 seconds per player (per visitor before sign-in is checked)
   const submitLimiter = rateLimit({
     windowMs: 5000,
     limit: 1,
     message: { error: 'Too many submissions, wait a moment' },
-    keyGenerator: (req) => ipKeyGenerator(clientIp(req.socket.remoteAddress, req.headers)),
+    keyGenerator: (req) => {
+      const user = auth.userOf(req);
+      return user ? `user:${user.id}` : ipKeyGenerator(clientIp(req.socket.remoteAddress, req.headers));
+    },
     validate: { xForwardedForHeader: false },
   });
 
@@ -54,8 +66,13 @@ export function createGameServer(options: MultiplayerOptions = {}) {
     res.json(getPlayerBest(req.params.playerName));
   });
 
-  // POST /api/scores
+  // POST /api/scores: only signed-in players make the board, under their account's name
   app.post('/api/scores', submitLimiter, (req, res) => {
+    const user = auth.userOf(req);
+    if (!user) {
+      res.status(401).json({ error: 'Sign in to save a score' });
+      return;
+    }
     const submission = parseScoreSubmission(req.body);
     if ('error' in submission) {
       res.status(400).json({ error: submission.error });
@@ -63,7 +80,8 @@ export function createGameServer(options: MultiplayerOptions = {}) {
     }
 
     res.status(201).json(insertScore(
-      submission.name,
+      user.id,
+      user.name,
       submission.score,
       submission.deathCause,
       submission.distance,
@@ -74,6 +92,11 @@ export function createGameServer(options: MultiplayerOptions = {}) {
       submission.maxLevel,
       submission.maxCombo,
     ));
+  });
+
+  // The privacy policy, at the address given on Google's consent screen
+  app.get('/privacy', (_req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'privacy.html'));
   });
 
   app.use('/api', (_req, res) => {

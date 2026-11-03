@@ -8,8 +8,8 @@ import { addObstacleArt, createButton, createPanel, OBSTACLE_LABEL, UIButton } f
 import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
 import { fetchScores } from '../ui/Scoreboard';
-import { updateHighScoreIfBetter, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
-import { showNameInput } from '../ui/NameInputOverlay';
+import { updateHighScoreIfBetter } from '../utils/Storage';
+import { account, signIn, signInAvailable, submitScore, type ScoreSubmission } from '../ui/Account';
 import { ReplayData } from '../systems/DeathReplay';
 import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
 
@@ -184,48 +184,44 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
       fetchScores().then((scores) => {
         const inTop100 = scores.length < 100 || myRanking.score > scores[scores.length - 1].score;
-        if (inTop100) {
+        // The board is for signed-in players. A guest goes to Google, which leaves the lobby; the score is saved back at the menu
+        const user = account();
+        if (inTop100 && (user || signInAvailable())) {
           const saveBtnX = colScore - Math.round(60 * s);
           const saveBtnY = myRowY - Math.round(12 * s);
-
-          const doSave = async (name: string): Promise<void> => {
-            const stats = myRanking.stats || {};
-            const saved = await fetch('/api/scores', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name,
-                score: myRanking.score,
-                deathCause: stats.obstacleType || null,
-                distance: typeof stats.distance === 'number' ? stats.distance : null,
-                timeSurvived: typeof stats.timeSurvived === 'number' ? stats.timeSurvived : null,
-                applesCollected: typeof stats.applesCollected === 'number' ? stats.applesCollected : null,
-                tyskiesCollected: typeof stats.tyskiesCollected === 'number' ? stats.tyskiesCollected : null,
-                pillsCollected: typeof stats.pillsCollected === 'number' ? stats.pillsCollected : null,
-                maxLevel: typeof stats.maxLevel === 'number' ? stats.maxLevel : null,
-                maxCombo: typeof stats.maxCombo === 'number' ? stats.maxCombo : null,
-              }),
-            }).then((res) => res.ok, () => false);
-
-            if (!this.scene.isActive()) return;
-            this.add.text(saveBtnX, saveBtnY, saved ? 'OK!' : 'Nie zapisano', smallStyle({
-              fontSize: `${Math.round(8 * s)}px`,
-              color: saved ? '#00ff00' : '#ff5555',
-            })).setOrigin(0.5);
+          const stats = myRanking.stats || {};
+          const num = (value: unknown): number | null => (typeof value === 'number' ? value : null);
+          const submission: ScoreSubmission = {
+            score: myRanking.score,
+            deathCause: typeof stats.obstacleType === 'string' ? stats.obstacleType : null,
+            distance: num(stats.distance),
+            timeSurvived: num(stats.timeSurvived),
+            applesCollected: num(stats.applesCollected),
+            tyskiesCollected: num(stats.tyskiesCollected),
+            pillsCollected: num(stats.pillsCollected),
+            maxLevel: num(stats.maxLevel),
+            maxCombo: num(stats.maxCombo),
           };
 
-          const saveBtn = createButton(this, saveBtnX, saveBtnY, Math.round(76 * s), Math.round(22 * s), 'Zapisz', 0x008800, buttonStyle({
+          const saveBtn = createButton(this, saveBtnX, saveBtnY, Math.round((user ? 76 : 150) * s), Math.round(22 * s), user ? 'Zapisz' : 'Zaloguj i zapisz', 0x008800, buttonStyle({
             fontSize: `${Math.round(8 * s)}px`,
             strokeThickness: 2,
           }), () => {
+            if (!user) {
+              this.cleanupListeners();
+              mpClient.leaveLobby();
+              signIn(submission);
+              return;
+            }
             for (const obj of saveBtn.all) obj.destroy();
             setNav(bottomButtons);
-            if (!isPlayerNameCustom()) {
-              nav.enabled = false;
-              showNameInput(this, (name) => { void doSave(name); }, myRanking.name, () => { nav.enabled = true; });
-            } else {
-              void doSave(getPlayerNameOrDefault());
-            }
+            void submitScore(submission).then((saved) => {
+              if (!this.scene.isActive()) return;
+              this.add.text(saveBtnX, saveBtnY, saved ? 'Zapisano' : 'Nie zapisano', smallStyle({
+                fontSize: `${Math.round(8 * s)}px`,
+                color: saved ? UI_TEXT.named : '#e07a6a',
+              })).setOrigin(0.5);
+            });
           });
           setNav([saveBtn, ...bottomButtons]);
         }

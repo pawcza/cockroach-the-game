@@ -7,8 +7,8 @@ import { MenuNav } from '../ui/MenuNav';
 import { addContactShadow } from '../effects/ContactShadow';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { sceneManager } from '../systems/SceneManager';
-import { getHighScore, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
-import { showNameInput } from '../ui/NameInputOverlay';
+import { getHighScore } from '../utils/Storage';
+import { account, signIn, signInAvailable, submitScore, type ScoreSubmission } from '../ui/Account';
 import { ReplayData } from '../systems/DeathReplay';
 import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
 
@@ -267,29 +267,26 @@ export class GameOverScene extends Phaser.Scene {
     const again = buttons[buttons.length - 1];
     this.nav.set(buttons, { initial: again, onBack: () => this.goToMenu() });
 
-    // "Zapisz" button below the highscore text when score qualifies for top 100
-    if (canSave) {
+    // Saving to the board, under the high score, when the run makes the top 100. The board is for signed-in
+    // players: a guest is sent to Google and the score is saved when they come back to the menu
+    const user = account();
+    if (canSave && (user || signInAvailable())) {
       const saveY = height * 0.42 + 56;
+      const submission = this.submissionOf(data);
 
-      const save = (name: string): void => {
-        this.submitScore(name, data).then((saved) => {
-          if (saved || !this.scene.isActive()) return;
-          this.add.text(width / 2, saveY, 'Nie udało się zapisać', smallStyle({ color: '#ff4444' })).setOrigin(0.5);
-        });
-      };
-
-      const saveBtn = createButton(this, width / 2, saveY, 160, 30, 'Zapisz wynik', 0x008800, buttonStyle({
+      const saveBtn = createButton(this, width / 2, saveY, 200, 30, user ? 'Zapisz wynik' : 'Zaloguj i zapisz', 0x008800, buttonStyle({
         fontSize: '10px',
         strokeThickness: 2,
       }), () => {
+        if (!user) { signIn(submission); return; }
         for (const obj of saveBtn.all) obj.destroy();
         this.nav.set(buttons, { initial: again, onBack: () => this.goToMenu() });
-        if (!isPlayerNameCustom()) {
-          this.nav.enabled = false;
-          showNameInput(this, save, undefined, () => { this.nav.enabled = true; });
-        } else {
-          save(getPlayerNameOrDefault());
-        }
+        void submitScore(submission).then((saved) => {
+          if (!this.scene.isActive()) return;
+          this.add.text(width / 2, saveY, saved ? `Zapisano jako ${user.name}` : 'Nie udało się zapisać', smallStyle({
+            color: saved ? UI_TEXT.named : '#e07a6a',
+          })).setOrigin(0.5);
+        });
       });
       this.nav.set([saveBtn, ...buttons], { initial: again, onBack: () => this.goToMenu() });
     }
@@ -312,29 +309,18 @@ export class GameOverScene extends Phaser.Scene {
     this.replay.play();
   }
 
-  // -- Network ----------------------------------------------------------------
-
-  private async submitScore(name: string, data: GameOverData): Promise<boolean> {
-    try {
-      const res = await fetch('/api/scores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          score: data.score,
-          deathCause: data.obstacleType || null,
-          distance: data.distance || null,
-          timeSurvived: data.timeSurvived || null,
-          applesCollected: data.pickupCounts?.apples ?? null,
-          tyskiesCollected: data.pickupCounts?.beers ?? null,
-          pillsCollected: data.pickupCounts?.pills ?? null,
-          maxLevel: data.level ?? null,
-          maxCombo: data.maxCombo ?? null,
-        }),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
+  /** The run as POST /api/scores takes it. The name comes from the signed-in account, on the server. */
+  private submissionOf(data: GameOverData): ScoreSubmission {
+    return {
+      score: data.score,
+      deathCause: data.obstacleType || null,
+      distance: data.distance || null,
+      timeSurvived: data.timeSurvived || null,
+      applesCollected: data.pickupCounts?.apples ?? null,
+      tyskiesCollected: data.pickupCounts?.beers ?? null,
+      pillsCollected: data.pickupCounts?.pills ?? null,
+      maxLevel: data.level ?? null,
+      maxCombo: data.maxCombo ?? null,
+    };
   }
 }

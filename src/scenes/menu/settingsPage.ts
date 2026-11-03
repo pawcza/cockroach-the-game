@@ -2,6 +2,10 @@ import Phaser from 'phaser';
 import { buttonStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
 import { getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from '../../utils/Storage';
 import { createButton, UIButton } from '../../ui/shared';
+import { account, deleteAccount } from '../../ui/Account';
+
+/** How long the delete button waits for the second press before it backs off. */
+const CONFIRM_MS = 4000;
 
 const ROW_W = 320;
 const BAR_H = 8;
@@ -9,13 +13,23 @@ const KEY_STEP = 0.1;
 const FILL = 0xb9a78d;
 const TRACK = 0x2a1f18;
 
-/** Volume sliders. Each is a focusable row: the arrows left and right turn it, the mouse drags its bar. */
+export interface SettingsPage {
+  buttons: UIButton[];
+  /** Shows or hides what depends on being signed in. Call it each time the page opens. */
+  refresh: () => void;
+}
+
+/**
+ * Volume sliders, each a focusable row: the arrows left and right turn it, the mouse drags its bar. Below them the
+ * privacy policy and, signed in, deleting the account.
+ */
 export function buildSettingsPage(
   scene: Phaser.Scene,
   container: Phaser.GameObjects.Container,
   width: number,
   height: number,
-): UIButton[] {
+  onAccountDeleted: () => void,
+): SettingsPage {
   container.add(scene.add.text(Math.round(width / 2), 44, 'USTAWIENIA', headingStyle({
     fontSize: '20px',
     color: UI_TEXT.bone,
@@ -82,9 +96,40 @@ export function buildSettingsPage(
   });
   const sfx = createSlider(startY + 84, 'Efekty', getSfxVolume, setSfxVolume);
 
-  container.add(scene.add.text(Math.round(width / 2), startY + 150, 'Strzałki w bok zmieniają głośność', smallStyle({
+  container.add(scene.add.text(Math.round(width / 2), startY + 150, 'Strzałki w bok: głośność', smallStyle({
     fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 0,
   })).setOrigin(0.5));
 
-  return [music, sfx];
+  const rowY = startY + 196;
+  const smallBtn = buttonStyle({ fontSize: '8px' });
+  const privacy = createButton(scene, width / 2 - 90, rowY, 160, 28, 'Prywatność', 0x444444, smallBtn, () => {
+    window.open('/privacy', '_blank', 'noopener');
+  });
+  container.add(privacy.all);
+
+  // Two presses, so nobody deletes their account by accident
+  let armed = false;
+  let disarm: Phaser.Time.TimerEvent | null = null;
+  const remove = createButton(scene, width / 2 + 90, rowY, 160, 28, 'Usuń konto', 0x880000, smallBtn, () => {
+    if (!armed) {
+      armed = true;
+      remove.setLabel('Na pewno?');
+      disarm = scene.time.delayedCall(CONFIRM_MS, () => { armed = false; remove.setLabel('Usuń konto'); });
+      return;
+    }
+    disarm?.remove();
+    armed = false;
+    remove.setLabel('Usuń konto');
+    void deleteAccount().then((ok) => { if (ok) { refresh(); onAccountDeleted(); } });
+  });
+  container.add(remove.all);
+
+  const refresh = (): void => {
+    const signedIn = account() !== null;
+    remove.setEnabled(signedIn);
+    remove.all.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(signedIn));
+  };
+  refresh();
+
+  return { buttons: [music, sfx, privacy, remove], refresh };
 }

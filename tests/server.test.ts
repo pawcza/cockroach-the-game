@@ -5,14 +5,18 @@ import { ack, flush, inGame, inLobby, next, startServer, type Harness } from './
 
 let harness: Harness;
 let visitor = 0;
+let session = '';
 
-before(async () => { harness = await startServer(); });
+before(async () => {
+  harness = await startServer();
+  session = await harness.signIn('google-real', 'Real');
+});
 after(() => harness.stop());
 
-function post(body: string, ip = `203.0.113.${++visitor}`): Promise<Response> {
+function post(body: string, cookie = session, ip = `203.0.113.${++visitor}`): Promise<Response> {
   return fetch(`${harness.url}/api/scores`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip, cookie },
     body,
   });
 }
@@ -203,9 +207,9 @@ test('only the boss host can send projectiles', async () => {
 });
 
 test('scores are validated before they are stored', async () => {
-  assert.equal((await post(JSON.stringify({ name: 'x', score: 1e308 }))).status, 400);
+  assert.equal((await post(JSON.stringify({ score: 1e308 }), await harness.signIn('google-huge'))).status, 400);
 
-  const res = await post(JSON.stringify({ name: 'Real', score: 42, deathCause: { evil: true }, distance: 'far' }));
+  const res = await post(JSON.stringify({ name: 'Faked', score: 42, deathCause: { evil: true }, distance: 'far' }));
   assert.equal(res.status, 201);
   const entry = await res.json();
   assert.deepEqual([entry.name, entry.score, entry.death_cause, entry.distance], ['Real', 42, null, null]);
@@ -219,9 +223,11 @@ test('bad requests get a short JSON error, no stack trace', async () => {
   assert.equal((await fetch(`${harness.url}/api/nope`)).status, 404);
 });
 
-test('the score limit applies per visitor', async () => {
-  const body = JSON.stringify({ name: 'Rate', score: 1 });
-  assert.equal((await post(body, '203.0.113.200')).status, 201);
-  assert.equal((await post(body, '203.0.113.200')).status, 429);
-  assert.equal((await post(body, '203.0.113.201')).status, 201);
+test('the score limit applies per player', async () => {
+  const body = JSON.stringify({ score: 1 });
+  const first = await harness.signIn('google-rate-1');
+  const second = await harness.signIn('google-rate-2');
+  assert.equal((await post(body, first, '203.0.113.200')).status, 201);
+  assert.equal((await post(body, first, '203.0.113.201')).status, 429);
+  assert.equal((await post(body, second, '203.0.113.200')).status, 201);
 });

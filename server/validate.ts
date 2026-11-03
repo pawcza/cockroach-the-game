@@ -91,8 +91,8 @@ export function parseBossProjectile(value: unknown): BossProjectile | null {
   return { lane, speed, faceIdx, indestructible, volley };
 }
 
+/** A finished run as a client reports it. The name on the board comes from the signed-in account, not from here. */
 export interface ScoreSubmission {
-  name: string;
   score: number;
   deathCause: string | null;
   distance: number | null;
@@ -107,14 +107,10 @@ export interface ScoreSubmission {
 export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: string } {
   if (!isRecord(body)) return { error: 'Invalid body' };
 
-  const name = cleanName(body.name);
-  if (!name || name.length > MAX_NAME_LENGTH) return { error: `Name must be 1-${MAX_NAME_LENGTH} characters` };
-
   const score = parseScore(body.score);
   if (score === null) return { error: `Score must be an integer from 0 to ${MAX_SCORE}` };
 
   return {
-    name,
     score,
     deathCause: parseDeathCause(body.deathCause),
     distance: wholeStat(body.distance),

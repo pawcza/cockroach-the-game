@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A multiplayer cockroach runner for the browser, built with Phaser 3, TypeScript and Socket.IO",
   "scripts": {
-    "dev": "concurrently -n client,server -c cyan,yellow \"vite\" \"tsx watch server/index.ts\"",
+    "dev": "concurrently -n client,server -c cyan,yellow \"vite\" \"tsx watch --env-file-if-exists=.env server/index.ts\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "server:dev": "tsx server/index.ts",
