@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { inGame, next, startServer } from './support/harness';
 
 test('a player who goes silent is counted dead, so the lobby does not hang', async () => {
-  const harness = await startServer({ stallMs: 300, sweepMs: 50 });
+  const harness = await startServer({ stallMs: 300, sweepMs: 50, auth: null });
   try {
     const [a, b] = await inGame(harness, 2);
     b.emit('game:pickup', { x: 1, score: 77 });

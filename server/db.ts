@@ -28,8 +28,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(score DESC);
 `);
 
-// Add new columns if missing (existing DBs)
-for (const col of ['apples_collected', 'tyskies_collected', 'pills_collected', 'max_level', 'max_combo']) {
+// Players who signed in with Google. Only the stable Google id is kept, never the email
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    google_sub TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// Add new columns if missing (existing DBs). user_id is null for the scores saved before sign-in existed
+for (const col of ['apples_collected', 'tyskies_collected', 'pills_collected', 'max_level', 'max_combo', 'user_id']) {
   try {
     db.exec(`ALTER TABLE scores ADD COLUMN ${col} INTEGER`);
   } catch {
@@ -52,6 +62,34 @@ export interface ScoreEntry {
   created_at: string;
 }
 
+export interface User {
+  id: number;
+  name: string;
+}
+
+export function getUser(id: number): User | null {
+  return (db.prepare('SELECT id, name FROM users WHERE id = ?').get(id) as User | undefined) ?? null;
+}
+
+/** The account behind a Google id, created on the first sign-in with Google's first name as its name. */
+export function findOrCreateGoogleUser(googleSub: string, name: string): User {
+  db.prepare('INSERT OR IGNORE INTO users (google_sub, name) VALUES (?, ?)').run(googleSub, name);
+  return db.prepare('SELECT id, name FROM users WHERE google_sub = ?').get(googleSub) as User;
+}
+
+/** Renames a player everywhere, their scores on the board included. */
+export const renameUser = db.transaction((id: number, name: string): User => {
+  db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, id);
+  db.prepare('UPDATE scores SET name = ? WHERE user_id = ?').run(name, id);
+  return getUser(id)!;
+});
+
+/** Forgets a player completely: the account and every score it saved. */
+export const deleteUser = db.transaction((id: number): void => {
+  db.prepare('DELETE FROM scores WHERE user_id = ?').run(id);
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+});
+
 export function getTopScores(limit: number = 100): ScoreEntry[] {
   const stmt = db.prepare('SELECT * FROM scores ORDER BY score DESC LIMIT ?');
   return stmt.all(limit) as ScoreEntry[];
@@ -68,6 +106,7 @@ export function getPlayerBest(name: string): { entry: ScoreEntry | null; rank: n
 }
 
 export function insertScore(
+  userId: number,
   name: string,
   score: number,
   deathCause: string | null,
@@ -80,9 +119,9 @@ export function insertScore(
   maxCombo: number | null = null,
 ): ScoreEntry {
   const stmt = db.prepare(
-    'INSERT INTO scores (name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO scores (user_id, name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
-  const info = stmt.run(name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected, maxLevel, maxCombo);
+  const info = stmt.run(userId, name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected, maxLevel, maxCombo);
   const inserted = db.prepare('SELECT * FROM scores WHERE id = ?').get(info.lastInsertRowid) as ScoreEntry;
   return inserted;
 }

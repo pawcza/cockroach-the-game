@@ -8,9 +8,8 @@ test('names lose control characters and surrounding space', () => {
   assert.equal(cleanName(123), null);
 });
 
-test('a score submission needs a sane name and score', () => {
-  for (const body of [null, [], {}, { name: 'a', score: 1e308 }, { name: 'a', score: -1 }, { name: 'a', score: 1.5 },
-    { name: 'a', score: MAX_SCORE + 1 }, { name: 'a'.repeat(21), score: 1 }, { name: {}, score: 1 }]) {
+test('a score submission needs a sane score', () => {
+  for (const body of [null, [], {}, { score: 1e308 }, { score: -1 }, { score: 1.5 }, { score: MAX_SCORE + 1 }, { score: '5' }]) {
     assert.ok('error' in parseScoreSubmission(body), JSON.stringify(body));
   }
 });

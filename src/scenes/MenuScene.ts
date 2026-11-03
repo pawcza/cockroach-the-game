@@ -10,9 +10,10 @@ import { sceneManager } from '../systems/SceneManager';
 import { getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 import { mpClient } from '../multiplayer/MultiplayerClient';
+import { account, loadAccount, renameAccount, signIn, signInAvailable, signOut, submitScore, takePendingScore, takeSignInResult } from '../ui/Account';
 import { buildInfoPage } from './menu/infoPage';
 import { buildScorePage } from './menu/scorePage';
-import { buildSettingsPage } from './menu/settingsPage';
+import { buildSettingsPage, type SettingsPage } from './menu/settingsPage';
 
 const PAGE_MS = 400;
 const DRIFT = 0.4;
@@ -97,11 +98,25 @@ export class MenuScene extends Phaser.Scene {
       return button;
     };
 
+    // A short line in the footer for what just happened: signed in, score saved, rename failed
+    const toast = this.add.text(cx, height - 14, '', smallStyle({ fontSize: '8px', color: UI_TEXT.amber, strokeThickness: 3 }))
+      .setOrigin(0.5).setAlpha(0);
+    mainPage.add(toast);
+    const say = (message: string, color: string = UI_TEXT.amber): void => {
+      this.tweens.killTweensOf(toast);
+      toast.setText(message).setColor(color).setAlpha(1);
+      this.tweens.add({ targets: toast, alpha: 0, delay: 3500, duration: 500 });
+    };
+
     const changeName = (): void => {
       nav.enabled = false;
       showNameInput(this, (newName) => {
         nameText.setText(newName).setColor(UI_TEXT.named);
-      }, undefined, () => { nav.enabled = true; });
+        // Signed in, the name is the account's: on the board too
+        if (account()) {
+          void renameAccount(newName).then((ok) => { if (!ok) say('Nie udało się zmienić nazwy', '#e07a6a'); });
+        }
+      }, account()?.name, () => { nav.enabled = true; });
     };
 
     // Pages slide in from the side they're named for; the world rushes the other way
@@ -161,13 +176,18 @@ export class MenuScene extends Phaser.Scene {
 
     // Settings, from below
     const settingsPage = this.add.container(0, height).setDepth(DEPTH.MENU_PAGE);
-    let settingsButtons: UIButton[] | null = null;
+    let settings: SettingsPage | null = null;
+    let settingsButtons: UIButton[] = [];
     let settingsBtn: UIButton;
     const showSettings = (): void => {
-      if (!settingsButtons) {
-        const sliders = buildSettingsPage(this, settingsPage, width, height);
-        settingsButtons = [...sliders, backButton(settingsPage, 'Powrót', hideSettings)];
+      if (!settings) {
+        settings = buildSettingsPage(this, settingsPage, width, height, () => {
+          refreshAccount();
+          say('Konto usunięte razem z wynikami');
+        });
+        settingsButtons = [...settings.buttons, backButton(settingsPage, 'Powrót', hideSettings)];
       }
+      settings.refresh();
       nav.set(settingsButtons, { onBack: hideSettings });
       slide(settingsPage, 'y', 0, -height);
     };
@@ -187,11 +207,46 @@ export class MenuScene extends Phaser.Scene {
     mainPage.add(nameBtn.all);
     mainButtons.unshift(nameBtn);
 
+    // Signing in, on the other side of the name. Guests play everything; the board needs an account
+    const accountBtn = createButton(this, cx - NAME_BTN_OFFSET, 216, 96, 22, 'Zaloguj', 0x2f8a3a, smallStyle({ fontSize: '7px' }), () => {
+      if (!account()) { signIn(); return; }
+      void signOut().then(() => { refreshAccount(); say('Wylogowano'); });
+    });
+    mainPage.add(accountBtn.all);
+    mainButtons.unshift(accountBtn);
+
+    const refreshAccount = (): void => {
+      const user = account();
+      nameText.setText(user?.name ?? getPlayerNameOrDefault()).setColor(user || isPlayerNameCustom() ? UI_TEXT.named : UI_TEXT.bone);
+      accountBtn.setLabel(user ? 'Wyloguj' : 'Zaloguj');
+      accountBtn.setColor(user ? 0x444444 : 0x2f8a3a);
+      const shown = !!user || signInAvailable();
+      accountBtn.setEnabled(shown);
+      accountBtn.all.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(shown));
+    };
+    refreshAccount();
+
     nav.set(mainButtons, { initial: soloBtn });
+
+    // Back from Google: say how it went, and save the score that sent the player there
+    const signInResult = takeSignInResult();
+    const pending = takePendingScore();
+    void loadAccount().then(async (user) => {
+      if (!this.scene.isActive()) return;
+      refreshAccount();
+      if (signInResult === 'failed') { say('Nie udało się zalogować', '#e07a6a'); return; }
+      if (!user) return;
+      if (pending) {
+        const saved = await submitScore(pending);
+        if (this.scene.isActive()) say(saved ? `Zapisano wynik: ${pending.score}` : 'Nie udało się zapisać wyniku', saved ? UI_TEXT.named : '#e07a6a');
+      } else if (signInResult === 'ok') {
+        say(`Zalogowano jako ${user.name}`, UI_TEXT.named);
+      }
+    });
 
     // --- Footer ---
     const footerY = height - 14;
-    const hint = this.add.text(16, footerY, isMobile ? '' : 'Strzałki wybierają   Enter wchodzi   Esc wraca', smallStyle({
+    const hint = this.add.text(16, footerY, isMobile ? '' : 'Strzałki: wybór   Enter: wejście   Esc: powrót', smallStyle({
       fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 2,
     })).setOrigin(0, 0.5);
     const ver = this.add.text(width - 16, footerY, 'v0.5 THE KARALUCH PROJECT', smallStyle({

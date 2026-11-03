@@ -3,16 +3,34 @@ import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { io, type Socket } from 'socket.io-client';
-import type { MultiplayerOptions } from '../../server/multiplayer';
+import type { GameServerOptions } from '../../server/app';
 
 export interface Harness {
   url: string;
+  /** Signs in as this Google account through the real callback and returns the session cookie. */
+  signIn: (googleSub: string, name?: string) => Promise<string>;
   connect: (headers?: Record<string, string>) => Promise<Socket>;
   stop: () => Promise<void>;
 }
 
 /** Runs the real server on a spare port with a throwaway database. */
-export async function startServer(options?: MultiplayerOptions): Promise<Harness> {
+/** A stand-in for Google: the authorization code is the account id, with an optional name after a colon. */
+export const TEST_AUTH = {
+  clientId: 'test-client',
+  clientSecret: 'test-secret',
+  sessionSecret: 'test-session-secret',
+  publicUrl: 'http://127.0.0.1',
+  exchangeCode: async (code: string) => {
+    const [sub, name] = code.split(':');
+    return { sub, name: name ?? null };
+  },
+};
+
+export function cookiesOf(res: Response): string {
+  return res.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
+}
+
+export async function startServer(options: GameServerOptions = { auth: TEST_AUTH }): Promise<Harness> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockroach-test-'));
   process.env.DB_PATH = path.join(dir, 'scores.db');
   const { createGameServer } = await import('../../server/app');
@@ -23,6 +41,16 @@ export async function startServer(options?: MultiplayerOptions): Promise<Harness
 
   return {
     url,
+    signIn: async (googleSub, name) => {
+      const start = await fetch(`${url}/api/auth/google`, { redirect: 'manual' });
+      const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
+      const code = encodeURIComponent(name ? `${googleSub}:${name}` : googleSub);
+      const back = await fetch(`${url}/api/auth/google/callback?code=${code}&state=${state}`, {
+        redirect: 'manual',
+        headers: { cookie: cookiesOf(start) },
+      });
+      return cookiesOf(back).split('; ').find(c => c.startsWith('kc_session=')) ?? '';
+    },
     connect: (headers) => new Promise((resolve, reject) => {
       const socket = io(url, { transports: ['websocket'], forceNew: true, reconnection: false, extraHeaders: headers });
       sockets.push(socket);
