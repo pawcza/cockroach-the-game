@@ -65,6 +65,8 @@ export function createButton(
   const txt = scene.add.text(x, y, label, { ...style, color: TEXT_IDLE, stroke: '#000000' }).setOrigin(0.5);
 
   const draw = (): void => {
+    // A button its own action destroyed still gets unfocused by the MenuNav; a destroyed text can't redraw
+    if (!txt.active) return;
     const lit = enabled && (focused || hovered);
     const dy = pressed ? 2 : 0;
     const left = x - w / 2;
