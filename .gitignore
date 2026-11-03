@@ -6,3 +6,4 @@ data/
 .playwright-mcp/
 .claude/
 .worktrees/
+__pycache__/

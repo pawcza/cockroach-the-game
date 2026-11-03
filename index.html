@@ -44,14 +44,16 @@
     }
 
     #portrait-overlay .cockroach-anim {
-      width: 160px;
-      height: 80px;
+      width: 176px;
+      height: 110px;
+      background: url('/assets/roach-run.png') 0 0 / 800% 100%;
       image-rendering: pixelated;
       position: absolute;
       top: 20%;
-      animation: roach-run-across 3s linear infinite;
+      animation: roach-run-across 3s linear infinite, roach-legs .5s steps(8) infinite;
     }
 
+    @keyframes roach-legs { to { background-position-x: 800%; } }
     @keyframes roach-run-across {
       0% { left: -160px; }
       100% { left: 100%; }
@@ -139,7 +141,7 @@
 </head>
 <body>
   <div id="portrait-overlay">
-    <img class="cockroach-anim" src="/assets/cockroach-idle.png" alt="">
+    <div class="cockroach-anim"></div>
     <div class="message">Karaluch zaleca<br>trzymać telefon<br>poziomo</div>
     <div class="phone-hint">
       <div class="phone-rect"></div>
@@ -149,11 +151,6 @@
   </div>
   <script>
     (function() {
-      var img = document.querySelector('#portrait-overlay .cockroach-anim');
-      var frames = ['/assets/cockroach-idle.png', '/assets/cockroach-running.png'];
-      var f = 0;
-      setInterval(function() { f = 1 - f; img.src = frames[f]; }, 200);
-
       var overlay = document.getElementById('portrait-overlay');
       function dismissOverlay() {
         overlay.classList.add('dismissed');
