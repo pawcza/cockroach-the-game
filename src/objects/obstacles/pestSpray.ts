@@ -1,42 +1,30 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../../config/constants';
+import { frameOf } from '../../config/sprites';
 import { ObstacleKit } from './ObstacleKit';
+
+/** The first jolt of the baked shake (tools/art/objects.py), when the can kicks. */
+const SQUIRT_FRAME = 1;
+const HAZE_ALPHA = 0.15;
 
 export function spawnPestSpray(kit: ObstacleKit, x: number): void {
   const { scene } = kit;
   const floor = kit.randomFloor();
-  const centerY = kit.centerY(floor);
+  const standY = kit.standY(floor);
 
-  const spray = kit.createSprite(x, centerY, 'pest-spray', 'spray', floor);
+  const spray = kit.createSprite(x, standY, 'spray', 'spray', floor);
   kit.playSoundOnVisible(spray, 'spray-sfx', 0.3);
 
-  // Persistent green haze behind spray
-  const haze = scene.add.circle(x, centerY, 30, 0x88dd44, 0.15);
+  // Green haze behind the can, brightening with each squirt
+  const haze = scene.add.circle(x, standY - spray.displayHeight * 0.4, 30, 0x88dd44, HAZE_ALPHA);
   haze.setDepth(DEPTH.OBSTACLES - 1);
   haze.setBlendMode(Phaser.BlendModes.ADD);
-  scene.tweens.add({
-    targets: haze,
-    alpha: { from: 0.15, to: 0.3 },
-    scale: { from: 1, to: 1.2 },
-    duration: 600,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  });
 
-  // Vibration
-  const vibrationTween = scene.tweens.add({
-    targets: spray,
-    x: spray.x + 1.5,
-    duration: 50,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  });
-
-  // Mist from nozzle
-  const nozzleY = centerY - spray.displayHeight * 0.45;
-  const mistTimer = kit.emitWhileOnScreen(spray, 300, () => {
+  // Mist leaves the nozzle on the can's jolt, once per loop of its shake, so the two keep time
+  const nozzleY = standY - spray.displayHeight * 0.8;
+  const squirt = (_anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame): void => {
+    if (frame.textureFrame !== frameOf('spray', SQUIRT_FRAME) || !kit.isOnScreen(spray)) return;
+    scene.tweens.add({ targets: haze, alpha: HAZE_ALPHA * 2, scale: 1.2, duration: 120, yoyo: true, ease: 'Sine.easeOut' });
     for (let i = 0; i < 7; i++) {
       const droplet = scene.add.circle(
         spray.x + Phaser.Math.Between(-3, 3),
@@ -57,7 +45,8 @@ export function spawnPestSpray(kit: ObstacleKit, x: number): void {
         onComplete: () => droplet.destroy(),
       });
     }
-  });
+  };
+  spray.on(Phaser.Animations.Events.ANIMATION_UPDATE, squirt);
 
-  kit.track(spray, { tweens: [vibrationTween], timers: [mistTimer], objects: [haze] });
+  kit.track(spray, { objects: [haze] });
 }

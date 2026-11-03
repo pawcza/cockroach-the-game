@@ -1,13 +1,17 @@
 /** What every obstacle needs to exist: its sprite, its floor, cleanup, and a shared source of randomness. */
 import Phaser from 'phaser';
 import { AudioManager } from '../../audio/AudioManager';
-import { COLORS, DEPTH } from '../../config/constants';
+import { DEPTH } from '../../config/constants';
+import { addContactShadow } from '../../effects/ContactShadow';
+import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../../config/sprites';
 import { SeededRNG } from '../../multiplayer/SeededRNG';
-import { outlineGlow } from '../../utils/TweenPatterns';
 import { Floor } from '../Player';
 
-/** Vertical offset from floor Y to center obstacles on the running lane. */
-const OBSTACLE_OFFSET = 25;
+/** Obstacles stand this far into the floor's top edge, like the roach's feet. */
+const OBSTACLE_SINK = 6;
+
+/** Contact shadow width against the obstacle's hitbox. */
+const SHADOW_WIDTH = 1.5;
 
 /** Default hitbox ratios used by most obstacles. */
 const DEFAULT_HITBOX = { w: 0.6, h: 0.7 };
@@ -61,14 +65,15 @@ export class ObstacleKit {
   // ── Positions ────────────────────────────────────────────────────────
 
   get topY(): number {
-    return this.scene.floorTopY - OBSTACLE_OFFSET;
+    return this.scene.floorTopY + OBSTACLE_SINK;
   }
 
   get bottomY(): number {
-    return this.scene.floorBottomY - OBSTACLE_OFFSET;
+    return this.scene.floorBottomY + OBSTACLE_SINK;
   }
 
-  centerY(floor: Floor): number {
+  /** Where an obstacle's baseline sits on this floor. */
+  standY(floor: Floor): number {
     return floor === 'top' ? this.topY : this.bottomY;
   }
 
@@ -83,31 +88,51 @@ export class ObstacleKit {
   createSprite(
     x: number,
     y: number,
-    texture: string,
+    art: string,
     type: string,
     floor: Floor | null,
-    opts?: { scale?: number; hitbox?: { w: number; h: number } },
+    opts?: { hitbox?: { w: number; h: number } },
   ): Phaser.Physics.Arcade.Sprite {
-    const hitbox = opts?.hitbox ?? DEFAULT_HITBOX;
-
-    const sprite = this.obstacles.create(x, y, texture) as Phaser.Physics.Arcade.Sprite;
-    sprite.setOrigin(0.5, 0.5);
-    sprite.setScale(opts?.scale ?? 0.2);
+    const sprite = this.obstacles.create(x, y, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
+    sprite.setScale(SPRITE_SCALE);
     sprite.setDepth(DEPTH.OBSTACLES);
     sprite.setImmovable(true);
     sprite.setData('floor', floor);
     sprite.setData('type', type);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    sprite.body!.setSize(sprite.width * hitbox.w, sprite.height * hitbox.h);
-    outlineGlow(this.scene, sprite, COLORS.OBSTACLE_OUTLINE, false);
+    // Centred in the art, so the forgiving margin is even all round. A swinging obstacle's box doesn't swing
+    fitBody(sprite, opts?.hitbox ?? DEFAULT_HITBOX, true);
+    playLoop(sprite, art);
+    if (floor) this.plant(sprite, floor);
 
     return sprite;
+  }
+
+  /** Adds a contact shadow that follows the obstacle along its ledge. */
+  private plant(sprite: Phaser.Physics.Arcade.Sprite, floor: Floor): void {
+    const shadow = addContactShadow(this.scene, sprite.x, this.standY(floor), sprite.body!.width * SHADOW_WIDTH);
+    sprite.setData('shadow', shadow);
+    this.track(sprite, { updates: [() => { shadow.x = sprite.x; }], objects: [shadow] });
+  }
+
+  /**
+   * An update that turns a patrolling sprite to face the way it is moving, the frame it turns. The cat and bison art
+   * face left, so moving right is the flipped one.
+   */
+  faceTravel(sprite: Phaser.Physics.Arcade.Sprite): () => void {
+    let lastX = sprite.x;
+    return () => {
+      const dx = sprite.x - lastX;
+      lastX = sprite.x;
+      if (dx > 0) sprite.setFlipX(true);
+      else if (dx < 0) sprite.setFlipX(false);
+    };
   }
 
   /** An obstacle that floats between the two floors. */
   createFloater(
     x: number,
-    texture: string,
+    art: string,
     type: string,
     duration: number,
     sound: { key: string; volume: number },
@@ -115,7 +140,7 @@ export class ObstacleKit {
   ): { sprite: Phaser.Physics.Arcade.Sprite; floatTween: Phaser.Tweens.Tween } {
     const startTop = this.random() > 0.5;
 
-    const sprite = this.createSprite(x, startTop ? this.topY : this.bottomY, texture, type, null, opts);
+    const sprite = this.createSprite(x, startTop ? this.topY : this.bottomY, art, type, null, opts);
     this.playSoundOnVisible(sprite, sound.key, sound.volume);
 
     const floatTween = this.scene.tweens.add({

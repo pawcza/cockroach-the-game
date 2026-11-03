@@ -1,4 +1,4 @@
-/** Cosmetic life around the cockroach: dust, its light, the bird cameo and ambient noise. */
+/** Cosmetic life around the cockroach: dust, the bird cameo and ambient noise. */
 import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
@@ -8,7 +8,6 @@ export class AmbientEffects {
   private scene: Phaser.Scene;
   private player!: Player;
   private audio!: AudioManager;
-  private light: Phaser.GameObjects.Light | null = null;
 
   private dustTimer = 0;
   private birdOverlookTimer = 0;
@@ -33,8 +32,6 @@ export class AmbientEffects {
   attachTo(player: Player, audio: AudioManager): void {
     this.player = player;
     this.audio = audio;
-    // Warm white glow
-    this.light = this.scene.lights.addLight(player.x, player.y, 300, 0xfff0dd, 1.5);
   }
 
   updateDust(): void {
@@ -68,10 +65,6 @@ export class AmbientEffects {
       }
     }
 
-    if (this.light) {
-      this.light.x = this.player.x;
-      this.light.y = this.player.y;
-    }
   }
 
   private spawnDustParticle(): void {

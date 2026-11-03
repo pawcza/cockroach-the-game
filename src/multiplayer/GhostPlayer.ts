@@ -10,6 +10,7 @@ import {
   SPEED_BOOST_PER_LEVEL,
   DEPTH,
 } from '../config/constants';
+import { ATLAS, HOP_MS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf, hopY } from '../config/sprites';
 import { smallStyle } from '../utils/TextStyles';
 import { getLevelForDistance } from '../config/levels';
 import { PLAYER_COLORS } from '../../server/lobby';
@@ -49,10 +50,7 @@ export class GhostPlayer {
   private _inBossFight = false;
   private bossGlockSprite: Phaser.GameObjects.Image | null = null;
 
-  // Animation
-  private runFrames = ['cockroach-idle', 'cockroach-running'];
-  private animFrame = 0;
-  private animTimer = 0;
+  private laneTween: Phaser.Tweens.Tween | null = null;
 
   get alive(): boolean { return this._alive; }
   get score(): number { return this._score; }
@@ -106,14 +104,15 @@ export class GhostPlayer {
     this.color = PLAYER_COLORS[colorIndex] ?? 0xffffff;
     this.startX = startX;
 
-    this.sprite = scene.add.sprite(startX, floorBottomY - 20, 'cockroach-idle');
-    this.sprite.setScale(0.30);
+    this.sprite = scene.add.sprite(startX, floorBottomY - ROACH_FEET_OFFSET, ATLAS, frameOf('roach-run'));
+    this.sprite.setScale(SPRITE_SCALE);
+    this.sprite.play('roach-run');
     this.sprite.setAlpha(0.2);
     this.sprite.setTint(this.color);
     this.sprite.setDepth(DEPTH.GHOST_SPRITE);
 
     const colorStr = '#' + this.color.toString(16).padStart(6, '0');
-    this.nameLabel = scene.add.text(startX, floorBottomY - 45, name, smallStyle({ color: colorStr }));
+    this.nameLabel = scene.add.text(startX, floorBottomY - 100, name, smallStyle({ color: colorStr }));
     this.nameLabel.setOrigin(0.5, 1);
     this.nameLabel.setAlpha(0.5);
     this.nameLabel.setDepth(DEPTH.GHOST_LABEL);
@@ -138,8 +137,9 @@ export class GhostPlayer {
   enterBossFight(targetX: number, floorTopY: number, floorBottomY: number): void {
     this._inBossFight = true;
 
-    const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - 20;
-    this.sprite.setTexture('cockroach-standing');
+    const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - ROACH_FEET_OFFSET;
+    this.sprite.stop();
+    this.sprite.setFrame(frameOf('roach-idle'));
     this.sprite.setAngle(-90);
     this.sprite.x = targetX;
     this.sprite.y = targetY;
@@ -155,7 +155,7 @@ export class GhostPlayer {
 
   leaveBossFight(): void {
     this._inBossFight = false;
-    this.sprite.setTexture('cockroach-idle');
+    this.sprite.play('roach-run');
     this.sprite.setAngle(0);
     this.updateAlpha();
     if (this.bossGlockSprite) {
@@ -166,14 +166,24 @@ export class GhostPlayer {
 
   setLane(lane: string, floorTopY: number, floorBottomY: number): void {
     this.currentFloor = lane;
-    const targetY = (lane === 'top' ? floorTopY : floorBottomY) - 20;
-    const targets: object[] = [this.sprite];
-    if (this._inBossFight && this.bossGlockSprite) targets.push(this.bossGlockSprite);
-    this.scene.tweens.add({
-      targets,
-      y: targetY,
-      duration: 120,
-      ease: 'Power2',
+    const targetY = (lane === 'top' ? floorTopY : floorBottomY) - ROACH_FEET_OFFSET;
+    const fromY = this.sprite.y;
+    this.laneTween?.destroy();
+    if (!this._inBossFight && this._alive) {
+      this.sprite.anims.timeScale = 1;
+      this.sprite.play('roach-hop');
+    }
+    this.laneTween = this.scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: HOP_MS,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        const y = hopY(fromY, targetY, tween.getValue() ?? 0);
+        this.sprite.y = y;
+        if (this._inBossFight && this.bossGlockSprite) this.bossGlockSprite.y = y;
+      },
+      onComplete: () => { this.laneTween = null; },
     });
   }
 
@@ -198,7 +208,7 @@ export class GhostPlayer {
         repeat: Math.floor(DASH_DURATION / 80) - 1,
         callback: () => {
           if (!this._alive) return;
-          const afterimage = this.scene.add.sprite(this.sprite.x, this.sprite.y, this.sprite.texture.key);
+          const afterimage = this.scene.add.sprite(this.sprite.x, this.sprite.y, ATLAS, this.sprite.frame.name);
           afterimage.setScale(this.sprite.scaleX, this.sprite.scaleY);
           afterimage.setAlpha(this._isSpectated ? 0.3 : 0.15);
           afterimage.setTint(this.color);
@@ -245,12 +255,14 @@ export class GhostPlayer {
       this.dashTrailTimer = null;
     }
 
-    this.sprite.setTint(0x444444);
+    this.laneTween?.destroy();
+    this.laneTween = null;
+    this.sprite.anims.timeScale = 1;
+    this.sprite.play('roach-death');
     this.nameLabel.setVisible(false);
     this.scene.tweens.add({
       targets: this.sprite,
       y: this.sprite.y - 80,
-      angle: 720,
       alpha: 0,
       duration: 800,
       ease: 'Quad.easeOut',
@@ -290,7 +302,7 @@ export class GhostPlayer {
     if (!this._alive) return;
 
     if (this._inBossFight) {
-      this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
+      this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 60);
       if (this.bossGlockSprite) {
         this.bossGlockSprite.setPosition(this.sprite.x + 15, this.sprite.y);
       }
@@ -320,20 +332,13 @@ export class GhostPlayer {
     this.sprite.x = predictedX + this.visualOffset;
 
     // Keep name label above sprite
-    this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 25);
+    this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 60);
 
-    // Run animation
-    if (this._isDashing) {
-      this.sprite.setTexture('cockroach-dashing');
-    } else {
-      const speedMult = speed / COCKROACH_BASE_SPEED;
-      const frameInterval = Math.max(60, 200 / speedMult);
-      this.animTimer += delta;
-      if (this.animTimer >= frameInterval) {
-        this.animTimer = 0;
-        this.animFrame = (this.animFrame + 1) % this.runFrames.length;
-        this.sprite.setTexture(this.runFrames[this.animFrame]);
-      }
+    // Legs follow the run speed; a hop plays out first
+    if (!this.laneTween && !this._inBossFight) {
+      const animation = this._isDashing ? 'roach-dash' : 'roach-run';
+      if (this.sprite.anims.getName() !== animation) this.sprite.play(animation);
+      this.sprite.anims.timeScale = this._isDashing ? 1 : speed / COCKROACH_BASE_SPEED;
     }
   }
 
@@ -342,6 +347,7 @@ export class GhostPlayer {
       this.bossGlockSprite.destroy();
       this.bossGlockSprite = null;
     }
+    this.laneTween?.destroy();
     this.scene.tweens.killTweensOf(this.sprite);
     this.scene.tweens.killTweensOf(this.nameLabel);
     if (this.dashTrailTimer) {

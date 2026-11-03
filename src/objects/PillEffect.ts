@@ -1,10 +1,11 @@
 /** The pill power-up's screen and trail effects. Player owns the state that gameplay reads; this owns the show. */
 import Phaser from 'phaser';
 import { COLORS, DEPTH, PILL_DURATION, PILL_SCORE, PILL_WARN_TIME } from '../config/constants';
+import { SPRITE_SCALE } from '../config/sprites';
 import { neonStyle, popupStyle } from '../utils/TextStyles';
 import { fadeAndDestroy, floatingText } from '../utils/TweenPatterns';
 
-const BASE_SCALE = 0.30;
+const THROB = 0.13;
 
 export class PillEffect {
   private scene: Phaser.Scene;
@@ -79,11 +80,11 @@ export class PillEffect {
       const fade = 1 - warnProgress;
       this.cockroach.setTint(color);
       this.cockroach.setAlpha(0.4 + fade * 0.6);
-      this.cockroach.setScale(BASE_SCALE);
+      this.cockroach.setScale(SPRITE_SCALE);
       this.overlay.setFillStyle(color, fade * 0.15);
     } else {
       this.overlay.setFillStyle(color, 0.15 + Math.sin(t * 1.5) * 0.05);
-      this.cockroach.setScale(BASE_SCALE + Math.sin(this.scene.time.now * 0.01) * 0.02);
+      this.cockroach.setScale(SPRITE_SCALE + Math.sin(this.scene.time.now * 0.01) * THROB);
     }
   }
 
@@ -108,7 +109,7 @@ export class PillEffect {
 
   showEnd(): void {
     this.cockroach.clearTint();
-    this.cockroach.setScale(BASE_SCALE);
+    this.cockroach.setScale(SPRITE_SCALE);
     this.scene.cameras.main.flash(200, 255, 255, 255);
 
     const { width, height } = this.scene.cameras.main;

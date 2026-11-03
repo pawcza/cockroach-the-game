@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ReplayData } from './DeathReplay';
-import { OBSTACLE_TEXTURE } from '../ui/shared';
+import { ATLAS, SPRITE_SCALE } from '../config/sprites';
+import { addObstacleArt } from '../ui/shared';
 import { sfxVolume } from '../audio/AudioManager';
 import { popupStyle } from '../utils/TextStyles';
 import { DEPTH, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
@@ -60,33 +61,29 @@ export class DeathReplayPlayer {
     for (let i = 0; i < data.obstacles.length; i++) {
       if (i === killerObsIndex) continue;
       const obs = data.obstacles[i];
-      if (!scene.textures.exists(obs.textureKey)) continue;
-      const img = scene.add.image(0, obs.y, obs.textureKey)
-        .setScale(0.22).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.7).setTint(0x4488ff);
+      const img = scene.add.image(0, obs.y, ATLAS, obs.frameName)
+        .setScale(SPRITE_SCALE).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.7).setTint(0x4488ff);
       cleanup.push(img);
       worldSprites.push({ img, worldX: obs.worldX, baseY: obs.y });
     }
 
     for (const pk of data.pickups) {
-      if (!scene.textures.exists(pk.textureKey)) continue;
-      const img = scene.add.image(0, pk.y, pk.textureKey)
-        .setScale(0.15).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.7).setTint(0x44ff44);
+      const img = scene.add.image(0, pk.y, ATLAS, pk.frameName)
+        .setScale(SPRITE_SCALE).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.7).setTint(0x44ff44);
       cleanup.push(img);
       worldSprites.push({ img, worldX: pk.worldX, baseY: pk.y });
     }
 
     // Killer obstacle — red pulsing
-    const killerTexture = data.obstacleType ? OBSTACLE_TEXTURE[data.obstacleType] : null;
-    let killerSprite: Phaser.GameObjects.Image | null = null;
-    if (killerTexture && scene.textures.exists(killerTexture)) {
-      killerSprite = scene.add.image(0, lastFrame.y, killerTexture)
-        .setScale(0.25).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.9);
+    const killerSprite = data.obstacleType ? addObstacleArt(scene, 0, lastFrame.y, data.obstacleType) : null;
+    if (killerSprite) {
+      killerSprite.setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.9);
       cleanup.push(killerSprite);
     }
 
     // Ghost cockroach
-    const ghost = scene.add.sprite(COCKROACH_SCREEN_X, data.frames[0].y, 'cockroach-idle')
-      .setScale(0.30).setAlpha(0.7).setTint(0x8888ff).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_TEXT);
+    const ghost = scene.add.sprite(COCKROACH_SCREEN_X, data.frames[0].y, ATLAS, data.frames[0].frameName)
+      .setScale(SPRITE_SCALE).setAlpha(0.7).setTint(0x8888ff).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_TEXT);
     cleanup.push(ghost);
 
     // Countdown label
@@ -126,7 +123,7 @@ export class DeathReplayPlayer {
 
       const frame = data.frames[frameIndex];
       ghost.setPosition(COCKROACH_SCREEN_X, frame.y);
-      ghost.setTexture(frame.texture);
+      ghost.setFrame(frame.frameName);
       if (frame.isDashing) ghost.setTint(0xffffff);
       else if (frame.isPillActive) ghost.setTint(0xff00ff);
       else ghost.setTint(0x8888ff);

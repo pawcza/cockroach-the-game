@@ -7,8 +7,8 @@ export const PIXEL_BLOCK = 2;
 
 
 // Floor positions (Y coordinates)
-export const FLOOR_BOTTOM_Y = 396;
-export const FLOOR_TOP_Y = 296;
+export const FLOOR_BOTTOM_Y = 408;
+export const FLOOR_TOP_Y = 272;
 export const FLOOR_HEIGHT = 32;
 
 // Floor tile rendering
@@ -54,8 +54,6 @@ export const PILL_SCORE = 100;
 // ── Color palettes ──────────────────────────────────────────────────
 
 export const COLORS = {
-  /** Neon accent colors */
-  NEON: [0xff00ff, 0x00ffff, 0xffff00, 0x00ff88],
   /** Full rainbow spectrum */
   RAINBOW: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x00ffff, 0x0088ff, 0xff00ff],
   /** Confetti burst colors */
@@ -70,16 +68,6 @@ export const COLORS = {
   PILL_LINES: [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88],
   /** Pill pickup glow */
   PILL_GLOW: 0xff00ff,
-  /** Beer pickup glow */
-  BEER_GLOW: 0xffdd00,
-  /** Apple pickup glow */
-  APPLE_GLOW: 0x00ff44,
-  /** Outline on everything that can be picked up */
-  PICKUP_OUTLINE: 0x2cff5a,
-  /** Outline on everything that kills */
-  OBSTACLE_OUTLINE: 0xff2b3a,
-  /** Death particle color */
-  DEATH_PARTICLE: 0xff0000,
 } as const;
 
 // ── Depth layers ────────────────────────────────────────────────────
@@ -90,10 +78,12 @@ export const DEPTH = {
   FG_BG: 2,
   FLOOR_HIGHLIGHT: 2,
   FLOOR: 3,
+  CONTACT_SHADOW: 4,
   GODRAY: 8,
   GLOW: 9,
   PICKUPS: 11,
   OBSTACLES: 10,
+  NEAR_LAYER: 50,
   MENU_PAGE: 10,
   DISCO_STROBE: 90,
   VIGNETTE_MENU: 100,
@@ -102,9 +92,7 @@ export const DEPTH = {
   GHOST_LABEL: 501,
   PILL_SPEED_LINES: 988,
   PILL_OVERLAY: 989,
-  VFX_TINT: 990,
   VFX_VIGNETTE: 991,
-  VFX_BORDER: 993,
   VFX_FLASH: 995,
   VFX_TEXT: 996,
   SCORE_MILESTONE: 998,

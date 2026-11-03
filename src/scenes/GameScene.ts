@@ -95,7 +95,7 @@ export class GameScene extends Phaser.Scene {
 
     this.gameInput = new GameInput(this, this.run, this.player, this.hud, this.pauseManager, this.eventBridge, this.boss);
     this.spectate = new SpectateController(this, this.gameInput, this.levels, this.gameOverHandler, this.hud, () => {
-      this.background.update(this.player.speedMultiplier);
+      this.background.update();
       this.updateFloors();
       this.spawnManager.handleSpawning(this.cameraRight);
       this.cleanupOffscreen();
@@ -116,10 +116,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.gameInput.pausePressed()) this.pauseManager.toggle();
-    if (this.pauseManager.isPaused) {
-      this.gameInput.handlePausedKeys();
-      return;
-    }
+    // While paused the pause menu's own MenuNav has the keyboard
+    if (this.pauseManager.isPaused) return;
 
     // Active play time stands still during a boss fight
     if (!this.boss.isActive) {
@@ -159,7 +157,6 @@ export class GameScene extends Phaser.Scene {
   private createWorld(): void {
     const { width, height } = this.cameras.main;
 
-    this.lights.enable().setAmbientColor(0x808080);
     this.background = new ParallaxBackground(this, width, height);
 
     this.floorManager = new FloorManager(this, this.floorTopY, this.floorBottomY);
@@ -225,7 +222,7 @@ export class GameScene extends Phaser.Scene {
       onPickup: (x, score) => this.eventBridge.onPickup(x, score, run.pickupCombo),
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
-      onPickupCollected: (x, y, textureKey) => this.replayRecorder.recordPickupCollected(this.time.now, x, y, textureKey),
+      onPickupCollected: (x, y, frameName) => this.replayRecorder.recordPickupCollected(this.time.now, x, y, frameName),
     });
     collisions.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
     collisions.setupOverlaps(apples, beers, pills, obstacles);
@@ -370,13 +367,13 @@ export class GameScene extends Phaser.Scene {
     this.countdown.update();
     this.updateFloors();
     this.spawnManager.handleSpawning(this.cameraRight);
-    this.background.update(this.player.speedMultiplier);
+    this.background.update();
   }
 
   private updateBossFight(fight: BossFight): void {
     this.gameInput.handleBossKeys(fight);
     fight.update(this.game.loop.delta);
-    this.background.update(this.player.speedMultiplier);
+    this.background.update();
     this.updateFloors();
     this.updateHud(this.getDistance());
   }
@@ -386,7 +383,7 @@ export class GameScene extends Phaser.Scene {
 
     player.updateSpeed(this.run.activePlayTime, this.run.currentLevel);
     this.ambient.updateDust();
-    this.background.update(player.speedMultiplier);
+    this.background.update();
     this.updateFloors();
 
     // Off-screen death
@@ -405,7 +402,7 @@ export class GameScene extends Phaser.Scene {
     this.replayRecorder.sample(
       this.time.now, player.x, player.y,
       player.currentFloor, player.isDashing,
-      player.isPillActive, player.sprite.texture.key,
+      player.isPillActive, player.sprite.frame.name,
     );
 
     this.score.tickSurvival();
@@ -464,6 +461,7 @@ export class GameScene extends Phaser.Scene {
       player.currentFloor,
       this.time.now,
     );
+    this.spawnManager.dropObstaclesOverGaps((x, floor) => this.floorManager.isGap(x, floor));
   }
 
   private cleanupOffscreen(): void {

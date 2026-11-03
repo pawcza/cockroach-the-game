@@ -16,27 +16,13 @@ export function spawnDiscoBall(kit: ObstacleKit, x: number): void {
   const startTop = kit.random() > 0.5;
   let currentFloor: Floor = startTop ? 'top' : 'bottom';
 
-  const disco = kit.createSprite(x, startTop ? topY : bottomY, 'disco-ball', 'disco', currentFloor, {
+  const disco = kit.createSprite(x, startTop ? topY : bottomY, 'disco', 'disco', currentFloor, {
     hitbox: { w: 0.6, h: 0.6 },
   });
   kit.playSoundOnVisible(disco, 'disco-sfx', 0.4);
 
   const tweens: Phaser.Tweens.Tween[] = [];
   const timers: Phaser.Time.TimerEvent[] = [];
-
-  // Constant spin
-  tweens.push(scene.tweens.add({ targets: disco, angle: 360, duration: 2000, repeat: -1, ease: 'Linear' }));
-
-  // Pulsing scale
-  tweens.push(scene.tweens.add({
-    targets: disco,
-    scaleX: 0.23,
-    scaleY: 0.23,
-    duration: 500,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  }));
 
   const scheduleSwap = (): void => {
     timers.push(scene.time.delayedCall(WAIT_MS, doSwapCycle));
@@ -60,7 +46,7 @@ export function spawnDiscoBall(kit: ObstacleKit, x: number): void {
 
     // Phase 1: Warmup — pink tint + silhouette at destination
     disco.setTint(0xff00ff);
-    const silhouette = scene.add.circle(disco.x, targetY, 20, 0xff00ff, 0);
+    const silhouette = scene.add.circle(disco.x, targetY - disco.displayHeight * 0.45, 20, 0xff00ff, 0);
     silhouette.setDepth(DEPTH.GLOW);
     silhouette.setBlendMode(Phaser.BlendModes.ADD);
 
@@ -112,14 +98,14 @@ export function spawnDiscoBall(kit: ObstacleKit, x: number): void {
   timers.push(kit.emitWhileOnScreen(disco, 150, () => {
     const angle = Math.random() * Math.PI * 2;
     const color = rayColors[Phaser.Math.Between(0, rayColors.length - 1)];
-    const ray = scene.add.rectangle(disco.x, disco.y, Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20), color, 0.6);
+    const ray = scene.add.rectangle(disco.x, disco.y - disco.displayHeight * 0.45, Phaser.Math.Between(2, 4), Phaser.Math.Between(8, 20), color, 0.6);
     ray.setDepth(DEPTH.GLOW);
     ray.setRotation(angle);
     const dist = 40 + Math.random() * 30;
     scene.tweens.add({
       targets: ray,
       x: disco.x + Math.cos(angle) * dist,
-      y: disco.y + Math.sin(angle) * dist,
+      y: ray.y + Math.sin(angle) * dist,
       alpha: 0,
       duration: 400,
       ease: 'Sine.easeOut',

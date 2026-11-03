@@ -7,14 +7,14 @@ export interface ReplayFrame {
   floor: 'top' | 'bottom';
   isDashing: boolean;
   isPillActive: boolean;
-  texture: string;
+  frameName: string;
 }
 
 export interface ReplaySprite {
   /** World X at time of snapshot */
   worldX: number;
   y: number;
-  textureKey: string;
+  frameName: string;
 }
 
 export interface ReplayData {
@@ -36,10 +36,10 @@ export class DeathReplayRecorder {
   private collectedPickups: { time: number; sprite: ReplaySprite }[] = [];
 
   sample(time: number, x: number, y: number, floor: 'top' | 'bottom',
-         isDashing: boolean, isPillActive: boolean, texture: string): void {
+         isDashing: boolean, isPillActive: boolean, frameName: string): void {
     const last = this.frames[this.frames.length - 1];
     if (last && time - last.time < SAMPLE_INTERVAL) return;
-    this.frames.push({ time, x, y, floor, isDashing, isPillActive, texture });
+    this.frames.push({ time, x, y, floor, isDashing, isPillActive, frameName });
     const cutoff = time - BUFFER_DURATION;
     while (this.frames.length > 0 && this.frames[0].time < cutoff) {
       this.frames.shift();
@@ -50,8 +50,8 @@ export class DeathReplayRecorder {
     }
   }
 
-  recordPickupCollected(time: number, worldX: number, y: number, textureKey: string): void {
-    this.collectedPickups.push({ time, sprite: { worldX, y, textureKey } });
+  recordPickupCollected(time: number, worldX: number, y: number, frameName: string): void {
+    this.collectedPickups.push({ time, sprite: { worldX, y, frameName } });
   }
 
   getReplayData(
@@ -76,6 +76,6 @@ export class DeathReplayRecorder {
 function snapshotGroup(group: Phaser.Physics.Arcade.Group): ReplaySprite[] {
   return group.getChildren().map(obj => {
     const s = obj as Phaser.Physics.Arcade.Sprite;
-    return { worldX: s.x, y: s.y, textureKey: s.texture.key };
+    return { worldX: s.x, y: s.y, frameName: s.frame.name };
   });
 }

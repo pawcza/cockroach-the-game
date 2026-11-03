@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { fetchScores } from '../ui/Scoreboard';
 import { COLORS } from '../config/constants';
-import { adaptiveTitleStyle, bodyStyle, smallStyle, buttonStyle } from '../utils/TextStyles';
-import { createButton, OBSTACLE_TEXTURE } from '../ui/shared';
+import { titleStyle, bodyStyle, smallStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
+import { addObstacleArt, createButton, createPanel, UIButton } from '../ui/shared';
+import { MenuNav } from '../ui/MenuNav';
+import { addContactShadow } from '../effects/ContactShadow';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { sceneManager } from '../systems/SceneManager';
 import { getHighScore, getPlayerNameOrDefault, isPlayerNameCustom } from '../utils/Storage';
@@ -26,6 +28,7 @@ export class GameOverScene extends Phaser.Scene {
   private restartBound = false;
   private replayData: ReplayData | null = null;
   private replay: DeathReplayPlayer | null = null;
+  private nav!: MenuNav;
 
   private static readonly DEATH_TEXT: Record<string, string[]> = {
     bird: ['Srak cię optakał', 'Gołąb zemsty!', 'Bombardowanie z góry!'],
@@ -55,7 +58,9 @@ export class GameOverScene extends Phaser.Scene {
     this.replay = null;
 
     this.cameras.main.setBackgroundColor('#0a0a0a');
-    this.setupBackground(width, height);
+    // You see the level you died in, darker
+    createSceneBackground(this, { level: data?.level ?? 1, dim: 0.62, scrollSpeed: 0.15 });
+    this.nav = new MenuNav(this);
 
     const texts = data?.obstacleType ? GameOverScene.DEATH_TEXT[data.obstacleType] : null;
     const deathMessage = texts
@@ -86,49 +91,21 @@ export class GameOverScene extends Phaser.Scene {
 
   // -- Background & atmosphere -----------------------------------------------
 
-  private setupBackground(width: number, height: number): void {
-    createSceneBackground(this, {
-      textureKey: 'menu-bg',
-      cycleColorFrom: 0x440000,
-      cycleColorTo: 0x880022,
-      lighting: { colors: [0xff2222, 0xcc0000, 0xff4444, 0x880000, 0xff6644] },
-    });
-
-    this.tweens.add({
-      targets: this.cameras.main,
-      zoom: 1.02,
-      duration: 2000,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    for (let i = 0; i < 12; i++) {
-      this.spawnDeathParticle(width, height);
-    }
-  }
-
   private setupDeathTitle(width: number, height: number, message: string): number {
     const titleText = this.add
-      .text(width / 2, height * 0.12, message, adaptiveTitleStyle(width))
+      .text(Math.round(width / 2), Math.round(height * 0.1), message, titleStyle({
+        fontSize: `${Math.max(16, Math.min(26, Math.floor(width / 30)))}px`,
+        color: UI_TEXT.bone,
+        strokeThickness: 7,
+        shadow: { offsetX: 0, offsetY: 4, color: '#5a0d0d', blur: 0, fill: true, stroke: true },
+      }))
       .setOrigin(0.5);
-
-    const baseX = titleText.x;
-    const baseY = titleText.y;
-    this.time.addEvent({
-      delay: 100,
-      loop: true,
-      callback: () => {
-        titleText.x = baseX + Phaser.Math.Between(-2, 2);
-        titleText.y = baseY + Phaser.Math.Between(-2, 2);
-      },
-    });
 
     return titleText.y;
   }
 
   private setupObstacleImage(width: number, titleY: number, data: GameOverData): void {
-    if (!data?.obstacleType || !OBSTACLE_TEXTURE[data.obstacleType]) return;
+    if (!data?.obstacleType) return;
 
     if (data.obstacleType === 'boss') {
       const faces = ['boss-face1', 'boss-face2', 'boss-face3'];
@@ -151,9 +128,11 @@ export class GameOverScene extends Phaser.Scene {
       return;
     }
 
-    const textureKey = OBSTACLE_TEXTURE[data.obstacleType];
-    const img = this.add.image(width / 2, titleY + 30, textureKey);
-    img.setScale(0.25).setOrigin(0.5, 0);
+    // The culprit stands on its own shadow, like in the game
+    const feetY = titleY + 118;
+    const img = addObstacleArt(this, width / 2, feetY, data.obstacleType);
+    if (!img) return;
+    addContactShadow(this, width / 2, feetY, 90);
 
     this.tweens.add({
       targets: img,
@@ -179,14 +158,15 @@ export class GameOverScene extends Phaser.Scene {
     width: number, height: number,
     finalScore: number, highScore: number, isNewRecord: boolean,
   ): void {
-    const scoreY = height * 0.42;
+    const scoreY = Math.round(height * 0.42);
 
     // Animated count-up
     const counter = { value: 0 };
     const scoreText = this.add
       .text(width / 2, scoreY, 'Punkciory: 0', bodyStyle({
-        fontSize: '16px',
-        strokeThickness: 4,
+        fontSize: '18px',
+        color: UI_TEXT.bone,
+        strokeThickness: 5,
       }))
       .setOrigin(0.5);
 
@@ -205,46 +185,39 @@ export class GameOverScene extends Phaser.Scene {
     const hsText = this.add
       .text(width / 2, hsY, `Najlepsiejszy wynik: ${highScore}`, smallStyle({
         fontSize: '11px',
-        color: isNewRecord ? '#ffff00' : '#ff8800',
+        color: isNewRecord ? '#ffe066' : UI_TEXT.amber,
         strokeThickness: 3,
       }))
       .setOrigin(0.5);
 
     if (isNewRecord) {
-      hsText.setFontSize(16);
-      hsText.setColor('#ffff00');
-      this.tweens.add({
-        targets: hsText,
-        scaleX: { from: 1, to: 1.1 },
-        scaleY: { from: 1, to: 1.1 },
-        duration: 800,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
+      hsText.setText(`Nowy rekord!  Było ${highScore}`);
     }
   }
 
   private setupStats(width: number, height: number, data: GameOverData): void {
-    const fontSize = '10px';
-    const lineHeight = 20;
-    const startY = height * 0.58;
+    const fontSize = '9px';
+    const lineHeight = 18;
+    const startY = Math.round(height * 0.6);
 
     const stats: { label: string; value: string; color: string }[] = [];
-    if (data?.timeSurvived !== undefined) stats.push({ label: 'Czas Przeżywalności', value: `${data.timeSurvived}s`, color: '#00ccff' });
-    if (data?.distance !== undefined) stats.push({ label: 'Dystansik', value: `${Math.floor(data.distance)}m`, color: '#ff6600' });
-    if (data?.level !== undefined) stats.push({ label: 'Poziom', value: `${data.level}`, color: '#ffff00' });
-    if (data?.topSpeed !== undefined) stats.push({ label: 'Maks Szybkóść', value: `${data.topSpeed.toFixed(1)}x`, color: '#cc66ff' });
-    if (data?.maxCombo !== undefined && data.maxCombo > 0) stats.push({ label: 'Maks Kombo', value: `x${data.maxCombo}`, color: '#ff00ff' });
+    if (data?.timeSurvived !== undefined) stats.push({ label: 'Czas Przeżywalności', value: `${data.timeSurvived}s`, color: '#8fc7d8' });
+    if (data?.distance !== undefined) stats.push({ label: 'Dystansik', value: `${Math.floor(data.distance)}m`, color: '#e0a040' });
+    if (data?.level !== undefined) stats.push({ label: 'Poziom', value: `${data.level}`, color: '#f1e3c6' });
+    if (data?.topSpeed !== undefined) stats.push({ label: 'Maks Szybkóść', value: `${data.topSpeed.toFixed(1)}x`, color: '#c9a0dc' });
+    if (data?.maxCombo !== undefined && data.maxCombo > 0) stats.push({ label: 'Maks Kombo', value: `x${data.maxCombo}`, color: '#e08aa8' });
     if (data?.pickupCounts) {
       const p = data.pickupCounts;
-      stats.push({ label: 'Jabłka / Piwa / Pigułki', value: `${p.apples} / ${p.beers} / ${p.pills}`, color: '#44ff44' });
+      stats.push({ label: 'Jabłka / Piwa / Pigułki', value: `${p.apples} / ${p.beers} / ${p.pills}`, color: '#9fe08a' });
     }
 
+    if (stats.length === 0) return;
+    const panelW = 520;
+    createPanel(this, width / 2 - panelW / 2, startY - 16, panelW, stats.length * lineHeight + 14);
     stats.forEach((stat, i) => {
       const y = startY + i * lineHeight;
-      this.add.text(width / 2 - 8, y, stat.label, smallStyle({ fontSize, color: '#aaaaaa' })).setOrigin(1, 0.5);
-      this.add.text(width / 2 + 8, y, stat.value, smallStyle({ fontSize, color: stat.color, strokeThickness: 2 })).setOrigin(0, 0.5);
+      this.add.text(width / 2 - 8, y, stat.label, smallStyle({ fontSize, color: UI_TEXT.muted, strokeThickness: 0 })).setOrigin(1, 0.5);
+      this.add.text(width / 2 + 8, y, stat.value, smallStyle({ fontSize, color: stat.color, strokeThickness: 0 })).setOrigin(0, 0.5);
     });
   }
 
@@ -256,15 +229,13 @@ export class GameOverScene extends Phaser.Scene {
       const size = Phaser.Math.Between(3, 8);
       const confetti = this.add.rectangle(
         Phaser.Math.Between(0, width), -20,
-        size, size * 2, color, 0.9,
+        size, size, color, 0.9,
       );
-      confetti.setAngle(Phaser.Math.Between(0, 360));
 
       this.tweens.add({
         targets: confetti,
         y: height + 20,
         x: confetti.x + Phaser.Math.Between(-100, 100),
-        angle: confetti.angle + Phaser.Math.Between(-360, 360),
         duration: Phaser.Math.Between(1500, 3000),
         delay: Phaser.Math.Between(0, 1000),
         ease: 'Cubic.easeIn',
@@ -287,16 +258,14 @@ export class GameOverScene extends Phaser.Scene {
     const hasReplay = this.replayData && this.replayData.frames.length > 0;
     const btnW = 150;
 
-    if (hasReplay) {
-      const totalW = btnW * 3 + gap * 2;
-      const startX = width / 2 - totalW / 2 + btnW / 2;
-      createButton(this, startX, btnY, btnW, btnH, 'Menu', 0x666666, btnS, () => this.goToMenu());
-      createButton(this, startX + btnW + gap, btnY, btnW, btnH, 'Powtórka', 0x333366, btnS, () => this.playReplay());
-      createButton(this, startX + (btnW + gap) * 2, btnY, btnW, btnH, 'Jeszcze raz!', 0x880000, btnS, () => this.restartGame());
-    } else {
-      createButton(this, width / 2 - btnW / 2 - gap / 2, btnY, btnW, btnH, 'Menu', 0x666666, btnS, () => this.goToMenu());
-      createButton(this, width / 2 + btnW / 2 + gap / 2, btnY, btnW, btnH, 'Jeszcze raz!', 0x880000, btnS, () => this.restartGame());
-    }
+    const row: [string, number, () => void][] = [['Menu', 0x666666, () => this.goToMenu()]];
+    if (hasReplay) row.push(['Powtórka', 0x333366, () => this.playReplay()]);
+    row.push(['Jeszcze raz!', 0x880000, () => this.restartGame()]);
+    const totalW = btnW * row.length + gap * (row.length - 1);
+    const buttons: UIButton[] = row.map(([label, color, action], i) =>
+      createButton(this, width / 2 - totalW / 2 + btnW / 2 + i * (btnW + gap), btnY, btnW, btnH, label, color, btnS, action));
+    const again = buttons[buttons.length - 1];
+    this.nav.set(buttons, { initial: again, onBack: () => this.goToMenu() });
 
     // "Zapisz" button below the highscore text when score qualifies for top 100
     if (canSave) {
@@ -309,32 +278,23 @@ export class GameOverScene extends Phaser.Scene {
         });
       };
 
-      const saveBtn = createButton(this, width / 2, saveY, 120, 32, 'Zapisz', 0x008800, buttonStyle({
-        fontSize: '12px',
+      const saveBtn = createButton(this, width / 2, saveY, 160, 30, 'Zapisz wynik', 0x008800, buttonStyle({
+        fontSize: '10px',
         strokeThickness: 2,
       }), () => {
         for (const obj of saveBtn.all) obj.destroy();
+        this.nav.set(buttons, { initial: again, onBack: () => this.goToMenu() });
         if (!isPlayerNameCustom()) {
-          showNameInput(this, save);
+          this.nav.enabled = false;
+          showNameInput(this, save, undefined, () => { this.nav.enabled = true; });
         } else {
           save(getPlayerNameOrDefault());
         }
       });
-
-      this.tweens.add({
-        targets: saveBtn.all,
-        alpha: { from: 0.7, to: 1 },
-        duration: 600,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
+      this.nav.set([saveBtn, ...buttons], { initial: again, onBack: () => this.goToMenu() });
     }
 
-    // Keyboard shortcuts
-    this.input.keyboard!.once('keydown-SPACE', () => this.restartGame());
     this.input.keyboard!.once('keydown-R', () => this.restartGame());
-    this.input.keyboard!.once('keydown-ESC', () => this.goToMenu());
   }
 
   private restartGame(): void {
@@ -376,28 +336,5 @@ export class GameOverScene extends Phaser.Scene {
     } catch {
       return false;
     }
-  }
-
-  // -- Particles --------------------------------------------------------------
-
-  private spawnDeathParticle(sceneWidth: number, sceneHeight: number): void {
-    const size = Phaser.Math.Between(2, 6);
-    const x = Phaser.Math.Between(0, sceneWidth);
-    const y = Phaser.Math.Between(sceneHeight * 0.5, sceneHeight);
-
-    const particle = this.add.circle(x, y, size, COLORS.DEATH_PARTICLE, 0.5);
-    particle.setBlendMode(Phaser.BlendModes.ADD);
-
-    this.tweens.add({
-      targets: particle,
-      y: y - Phaser.Math.Between(100, 300),
-      alpha: 0,
-      duration: Phaser.Math.Between(2000, 5000),
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        particle.destroy();
-        this.spawnDeathParticle(sceneWidth, sceneHeight);
-      },
-    });
   }
 }

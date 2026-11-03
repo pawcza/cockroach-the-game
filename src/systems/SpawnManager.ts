@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { addContactShadow } from '../effects/ContactShadow';
 import {
   COCKROACH_START_X,
   APPLE_SPAWN_CHANCE,
@@ -6,21 +7,29 @@ import {
   BEER_SPAWN_CHANCE,
   SPAWN_DISTANCE_AHEAD,
   MIN_OBSTACLE_SPACING,
-  COLORS,
   DEPTH,
 } from '../config/constants';
+import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../config/sprites';
 import { getLevelForDistance } from '../config/levels';
-import { floatUpDown, pulse, attachGlow, outlineGlow } from '../utils/TweenPatterns';
 import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { Floor } from '../objects/Player';
 
-/** Spawned objects stay hidden until this close to the screen: their outline shader isn't culled by Phaser. */
-const SHOW_MARGIN = 250;
+/** Pickups stand this far into the floor's top edge, like the roach's feet. */
+const PICKUP_SINK = 6;
+const PICKUP_HITBOX = { w: 0.9, h: 0.9 };
+
+/** Dev only: with `?pill` in the address, every solo run's first slot is a pill, for testing it. */
+const FIRST_PILL = import.meta.env.DEV && new URLSearchParams(window.location.search).has('pill');
+
+/** How far and how long an obstacle falls when its ledge crumbles, like the falling tiles. */
+const FALL_DROP = 250;
+const FALL_MS = 800;
 
 export class SpawnManager {
   private scene: Phaser.Scene;
+  private firstSlot = true;
   private obstacles: Phaser.Physics.Arcade.Group;
   private apples: Phaser.Physics.Arcade.Group;
   private beers: Phaser.Physics.Arcade.Group;
@@ -71,7 +80,9 @@ export class SpawnManager {
       this.nextSpawnX += MIN_OBSTACLE_SPACING;
 
       const roll = this.rng?.next() ?? Math.random();
-      if (roll < PILL_SPAWN_CHANCE) {
+      const testPill = FIRST_PILL && this.firstSlot && !this.rng;
+      this.firstSlot = false;
+      if (testPill || roll < PILL_SPAWN_CHANCE) {
         this.spawnPill(slotX);
       } else if (roll < PILL_SPAWN_CHANCE + BEER_SPAWN_CHANCE) {
         this.spawnBeer(slotX);
@@ -87,13 +98,30 @@ export class SpawnManager {
         x => !this.destroyPickupNear(x),
       );
     }
+  }
 
-    const showBefore = cameraRight + SHOW_MARGIN;
-    for (const group of [this.obstacles, this.apples, this.beers, this.pills]) {
-      for (const obj of group.getChildren()) {
-        const sprite = obj as Phaser.Physics.Arcade.Sprite;
-        sprite.setVisible(sprite.x < showBefore);
-      }
+  /**
+   * An obstacle standing where the ledge has crumbled falls with it, harmless from the first frame. Cosmetic only:
+   * nothing seeded is drawn here.
+   */
+  dropObstaclesOverGaps(isGap: (x: number, floor: Floor) => boolean): void {
+    for (const obj of this.obstacles.getChildren()) {
+      const sprite = obj as Phaser.Physics.Arcade.Sprite;
+      const floor = sprite.getData('floor') as Floor | null;
+      if (!floor || sprite.getData('falling') || !isGap(sprite.x, floor)) continue;
+      sprite.setData('falling', true);
+      (sprite.body as Phaser.Physics.Arcade.Body).enable = false;
+      this.scene.tweens.killTweensOf(sprite);
+      (sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false);
+      this.scene.tweens.add({
+        targets: sprite,
+        y: sprite.y + FALL_DROP,
+        angle: (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 40),
+        alpha: 0,
+        duration: FALL_MS,
+        ease: 'Quad.easeIn',
+        onComplete: () => sprite.destroy(),
+      });
     }
   }
 
@@ -171,85 +199,30 @@ export class SpawnManager {
     }
   }
 
-  private spawnPickup(
-    group: Phaser.Physics.Arcade.Group,
-    x: number,
-    textureKey: string,
-    config: {
-      scale: number;
-      floatDistance: number;
-      floatDuration: number;
-      glowRadius: number;
-      glowColor: number;
-      glowIntensity: number;
-      glowPulse?: { toAlpha: number; toScale?: number; duration: number };
-      pulse?: { toScale: number; duration: number };
-    },
-  ): Phaser.Physics.Arcade.Sprite {
+  private spawnPickup(group: Phaser.Physics.Arcade.Group, x: number, art: string): void {
     const floor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
-    const y = (floor === 'top' ? this.floorTopY : this.floorBottomY) - 30;
-    const sprite = group.create(x, y, textureKey) as Phaser.Physics.Arcade.Sprite;
-    sprite.setScale(config.scale);
+    const y = (floor === 'top' ? this.floorTopY : this.floorBottomY) + PICKUP_SINK;
+    const sprite = group.create(x, y, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
+    sprite.setScale(SPRITE_SCALE);
     sprite.setDepth(DEPTH.PICKUPS);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     sprite.setImmovable(true);
-    sprite.once('destroy', () => this.scene.tweens.killTweensOf(sprite));
-    floatUpDown(this.scene, sprite, config.floatDistance, config.floatDuration);
-    attachGlow(this.scene, sprite, config.glowRadius, config.glowColor, config.glowIntensity, config.glowPulse);
-    outlineGlow(this.scene, sprite, COLORS.PICKUP_OUTLINE, true);
-    if (config.pulse) {
-      pulse(this.scene, sprite, config.pulse.toScale, config.pulse.duration);
-    }
-    return sprite;
+    fitBody(sprite, PICKUP_HITBOX);
+    playLoop(sprite, art);
+
+    const shadow = addContactShadow(this.scene, x, y, sprite.body!.width * 1.5);
+    sprite.once('destroy', () => shadow.destroy());
   }
 
   private spawnPill(slotX: number): void {
-    const pill = this.spawnPickup(this.pills, slotX, 'pill', {
-      scale: 0.15,
-      floatDistance: 10,
-      floatDuration: 400,
-      glowRadius: 28,
-      glowColor: COLORS.PILL_GLOW,
-      glowIntensity: 0.5,
-      glowPulse: { toAlpha: 0.18, toScale: 1.3, duration: 400 },
-      pulse: { toScale: 0.18, duration: 300 },
-    });
-    const pillGlowTween = this.scene.tweens.addCounter({
-      from: 0,
-      to: 360,
-      duration: 1500,
-      repeat: -1,
-      onUpdate: (tween) => {
-        const hue = tween.getValue() ?? 0;
-        pill.setTint(Phaser.Display.Color.HSLToColor(hue / 360, 1, 0.5).color);
-      },
-    });
-    pill.once('destroy', () => pillGlowTween.destroy());
+    this.spawnPickup(this.pills, slotX, 'pill');
   }
 
   private spawnBeer(slotX: number): void {
-    const beerKey = `beer-${Phaser.Math.Between(1, 6)}`;
-    this.spawnPickup(this.beers, slotX, beerKey, {
-      scale: 0.18,
-      floatDistance: 8,
-      floatDuration: 400,
-      glowRadius: 24,
-      glowColor: COLORS.BEER_GLOW,
-      glowIntensity: 0.4,
-      glowPulse: { toAlpha: 0.15, duration: 600 },
-      pulse: { toScale: 0.22, duration: 600 },
-    });
+    this.spawnPickup(this.beers, slotX, `beer-${Phaser.Math.Between(1, 6)}`);
   }
 
   private spawnApple(slotX: number): void {
-    this.spawnPickup(this.apples, slotX, 'apple', {
-      scale: 0.15,
-      floatDistance: 8,
-      floatDuration: 500,
-      glowRadius: 22,
-      glowColor: COLORS.APPLE_GLOW,
-      glowIntensity: 0.35,
-      glowPulse: { toAlpha: 0.12, duration: 500 },
-    });
+    this.spawnPickup(this.apples, slotX, 'apple');
   }
 }

@@ -12,7 +12,6 @@ import { RunState } from './RunState';
 const { JustDown } = Phaser.Input.Keyboard;
 
 export class GameInput {
-  private scene: Phaser.Scene;
   private run: RunState;
   private player: Player;
   private hud: GameHUD;
@@ -37,7 +36,6 @@ export class GameInput {
     eventBridge: GameEventBridge,
     boss: BossEncounter,
   ) {
-    this.scene = scene;
     this.run = run;
     this.player = player;
     this.hud = hud;
@@ -85,14 +83,6 @@ export class GameInput {
 
   pausePressed(): boolean {
     return JustDown(this.escKey);
-  }
-
-  handlePausedKeys(): void {
-    this.pauseManager.handlePausedInput(
-      this.scene.input.keyboard!.keys,
-      Phaser.Input.Keyboard.KeyCodes.ESC,
-      () => this.pauseManager.toggle(),
-    );
   }
 
   handleRunKeys(): void {

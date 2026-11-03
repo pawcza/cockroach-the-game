@@ -8,21 +8,11 @@ export function spawnJellyfish(kit: ObstacleKit, x: number): void {
     hitbox: { w: 0.7, h: 0.85 },
   });
 
-  // Pulsing transparency
-  const pulseTween = scene.tweens.add({
-    targets: jelly,
-    alpha: { from: 0.6, to: 1.0 },
-    duration: 800,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  });
-
   // Trailing tentacle particles
   const particlesTimer = kit.emitWhileOnScreen(jelly, 200, () => {
     const particle = scene.add.circle(
       jelly.x + Phaser.Math.Between(-10, 10),
-      jelly.y + jelly.displayHeight * 0.3,
+      jelly.y - 8,
       Phaser.Math.Between(1, 3),
       0x8844ff,
       0.5,
@@ -38,5 +28,5 @@ export function spawnJellyfish(kit: ObstacleKit, x: number): void {
     });
   });
 
-  kit.track(jelly, { tweens: [floatTween, pulseTween], timers: [particlesTimer] });
+  kit.track(jelly, { tweens: [floatTween], timers: [particlesTimer] });
 }

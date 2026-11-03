@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
+import { ATLAS, frameOf } from '../../config/sprites';
 import { getLevelForDistance } from '../../config/levels';
 import { fetchScores } from '../../ui/Scoreboard';
-import { bodyStyle, headingStyle, smallStyle } from '../../utils/TextStyles';
-import { floatUpDown } from '../../utils/TweenPatterns';
+import { bodyStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
+import { createPanel } from '../../ui/shared';
+
+const PODIUM = ['#e8c15a', '#c9c9c9', '#c98a52'];
 
 /** Fills the page and returns what must be undone before it is rebuilt or left. */
 export function buildScorePage(
@@ -12,12 +15,15 @@ export function buildScorePage(
   height: number,
 ): (() => void)[] {
   const cleanups: (() => void)[] = [];
-  const title = scene.add.text(width / 2, 30, 'BYCZE KARALUCHY', headingStyle()).setOrigin(0.5);
+  const title = scene.add.text(Math.round(width / 2), 30, 'BYCZE KARALUCHY', headingStyle({
+    color: UI_TEXT.bone,
+    strokeThickness: 6,
+    shadow: { offsetX: 0, offsetY: 3, color: '#5a0d0d', blur: 0, fill: true, stroke: true },
+  })).setOrigin(0.5);
   container.add(title);
+  container.add(createPanel(scene, 8, 48, width - 16, height - 48 - 66));
 
-  floatUpDown(scene, title, 4, 1200);
-
-  const loadingText = scene.add.text(width / 2, height / 2, '\u0141adowanie...', bodyStyle({ color: '#888888' })).setOrigin(0.5);
+  const loadingText = scene.add.text(width / 2, height / 2, 'Ładowanie...', bodyStyle({ color: UI_TEXT.muted })).setOrigin(0.5);
   container.add(loadingText);
 
   fetchScores().then((scores) => {
@@ -26,7 +32,7 @@ export function buildScorePage(
     if (scores.length === 0) {
       const emptyText = scene.add.text(width / 2, height / 2, 'Jeszcze pusto...\nB\u0105d\u017a pierwszy!', bodyStyle({
         fontSize: '14px',
-        color: '#888888',
+        color: UI_TEXT.muted,
         align: 'center',
       })).setOrigin(0.5);
       container.add(emptyText);
@@ -44,24 +50,20 @@ export function buildScorePage(
     const colBeer = width * 0.67;
     const colPill = width * 0.74;
     const colScore = width - 15;
-    const iconScale = 0.10;
+    const iconScale = 0.5;
 
     // Fixed header row (outside scroll area)
     const headerY = 60;
-    const headerStyle = smallStyle({ fontSize: '7px', color: '#666666', strokeThickness: 1 });
+    const headerStyle = smallStyle({ fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 0 });
     container.add(scene.add.text(colLv, headerY, 'Lv', headerStyle).setOrigin(0.5, 0.5));
     container.add(scene.add.text(colTime, headerY, 'Czas', headerStyle).setOrigin(0.5, 0.5));
     container.add(scene.add.text(colDist, headerY, 'Dyst', headerStyle).setOrigin(0.5, 0.5));
     container.add(scene.add.text(colCombo, headerY, 'Kmb', headerStyle).setOrigin(0.5, 0.5));
-    if (scene.textures.exists('apple')) {
-      container.add(scene.add.image(colApple, headerY, 'apple').setScale(iconScale).setOrigin(0.5, 0.5));
-    }
-    if (scene.textures.exists('beer-1')) {
-      container.add(scene.add.image(colBeer, headerY, 'beer-1').setScale(iconScale).setOrigin(0.5, 0.5));
-    }
-    if (scene.textures.exists('pill')) {
-      container.add(scene.add.image(colPill, headerY, 'pill').setScale(iconScale).setOrigin(0.5, 0.5));
-    }
+    const headerIcon = (x: number, art: string) =>
+      container.add(scene.add.image(x, headerY, ATLAS, frameOf(art)).setScale(iconScale).setOrigin(0.5, 0.5));
+    headerIcon(colApple, 'apple');
+    headerIcon(colBeer, 'beer-1');
+    headerIcon(colPill, 'pill');
     container.add(scene.add.text(colScore, headerY, 'PKT', headerStyle).setOrigin(1, 0.5));
 
     // Scrollable list container (below header)
@@ -76,7 +78,6 @@ export function buildScorePage(
     maskShape.fillRect(0, listTop, width, listBottom - listTop);
     scrollContainer.setMask(new Phaser.Display.Masks.GeometryMask(scene, maskShape));
 
-    const timeEvents: Phaser.Time.TimerEvent[] = [];
     const dataStartY = listTop + 4;
 
     for (let i = 0; i < scores.length; i++) {
@@ -88,21 +89,13 @@ export function buildScorePage(
       let fontSize: string;
       let strokeThickness: number;
 
-      if (rank === 1) {
-        color = '#ff0000';
-        fontSize = '16px';
-        strokeThickness = 5;
-      } else if (rank === 2) {
-        color = '#ff6600';
-        fontSize = '14px';
-        strokeThickness = 4;
-      } else if (rank === 3) {
-        color = '#ffdd00';
-        fontSize = '13px';
+      if (rank <= 3) {
+        color = PODIUM[rank - 1];
+        fontSize = '12px';
         strokeThickness = 3;
       } else {
-        color = '#cccccc';
-        fontSize = '11px';
+        color = UI_TEXT.bone;
+        fontSize = '10px';
         strokeThickness = 2;
       }
 
@@ -126,50 +119,6 @@ export function buildScorePage(
       const pillText = scene.add.text(colPill, y, entry.pills_collected != null ? String(entry.pills_collected) : '-', smallStatStyle).setOrigin(0.5, 0);
       const scoreText = scene.add.text(colScore, y, String(entry.score), style).setOrigin(1, 0);
       scrollContainer.add([rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText]);
-
-      // Top 3 effects — constrained wobble for rank 1
-      if (rank === 1) {
-        const elements = [rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText];
-        const colors = ['#ff0000', '#ff00ff', '#ffff00', '#00ffff', '#ff6600'];
-        let ci = 0;
-        timeEvents.push(scene.time.addEvent({
-          delay: 150,
-          loop: true,
-          callback: () => {
-            ci = (ci + 1) % colors.length;
-            elements.forEach(el => el.setColor(colors[ci]));
-          },
-        }));
-        scene.tweens.add({
-          targets: elements,
-          scaleX: { from: 1, to: 1.05 },
-          scaleY: { from: 1, to: 1.05 },
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      } else if (rank === 2) {
-        const elements = [rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText];
-        scene.tweens.add({
-          targets: elements,
-          alpha: { from: 0.7, to: 1 },
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      } else if (rank === 3) {
-        const elements = [rankText, nameText, lvText, timeText, distText, comboText, appleText, beerText, pillText, scoreText];
-        scene.tweens.add({
-          targets: elements,
-          alpha: { from: 0.8, to: 1 },
-          duration: 1000,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      }
     }
 
     // Scroll with mouse wheel / touch drag
@@ -180,7 +129,6 @@ export function buildScorePage(
 
     // Register cleanups for time events and mask
     cleanups.push(
-      () => timeEvents.forEach(te => te.destroy()),
       () => maskShape.destroy(),
     );
 
@@ -191,6 +139,17 @@ export function buildScorePage(
       };
       scene.input.on('wheel', wheelHandler);
       cleanups.push(() => scene.input.off('wheel', wheelHandler));
+
+      // Up and down scroll from the keyboard too
+      const keyHandler = (event: KeyboardEvent): void => {
+        if (container.x !== 0) return;
+        const step = event.code === 'ArrowDown' ? 1 : event.code === 'ArrowUp' ? -1 : 0;
+        if (step === 0) return;
+        scrollY = Phaser.Math.Clamp(scrollY + step * lineHeight * 3, 0, maxScroll);
+        scrollContainer.y = -scrollY;
+      };
+      scene.input.keyboard?.on('keydown', keyHandler);
+      cleanups.push(() => scene.input.keyboard?.off('keydown', keyHandler));
 
       // Touch drag scrolling
       let dragStartY = 0;

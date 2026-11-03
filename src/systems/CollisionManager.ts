@@ -4,6 +4,11 @@ import { popupStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
+/** How far a punted obstacle flies, and for how long. Ahead of the roach, so it stays in view as it spins off. */
+const CRUSH_FLING_X = 500;
+const CRUSH_FLING_Y = 220;
+const CRUSH_MS = 750;
+
 export interface CollisionCallbacks {
   getScore: () => number;
   addScore: (points: number) => void;
@@ -16,7 +21,7 @@ export interface CollisionCallbacks {
   onPickup: (x: number, score: number) => void;
   onPillStart: () => void;
   onDie: (obstacleType?: string | null) => void;
-  onPickupCollected?: (x: number, y: number, textureKey: string) => void;
+  onPickupCollected?: (x: number, y: number, frameName: string) => void;
 }
 
 export class CollisionManager {
@@ -65,6 +70,10 @@ export class CollisionManager {
       this.player.sprite, obstacles,
       this.hitObstacle as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
       (_cockroach, obstacle) => {
+        if (this.player.crushesObstacles) {
+          this.crushObstacle(obstacle as Phaser.Physics.Arcade.Sprite);
+          return false;
+        }
         if (this.player.isDashing || this.player.isInvulnerable) return false;
         const obstacleFloor = (obstacle as Phaser.Physics.Arcade.Sprite).getData('floor');
         return !obstacleFloor || obstacleFloor === this.player.currentFloor;
@@ -77,11 +86,12 @@ export class CollisionManager {
     floorTopBody: Phaser.GameObjects.Rectangle,
     floorBottomBody: Phaser.GameObjects.Rectangle,
   ): void {
+    // Mid-hop the roach passes through the top ledge on its way up, so neither floor holds it until it lands
     this.scene.physics.add.collider(this.player.sprite, floorTopBody, undefined, () => {
-      return this.player.currentFloor === 'top';
+      return this.player.currentFloor === 'top' && !this.player.isHopping;
     }, this.scene);
     this.scene.physics.add.collider(this.player.sprite, floorBottomBody, undefined, () => {
-      return this.player.currentFloor === 'bottom';
+      return this.player.currentFloor === 'bottom' && !this.player.isHopping;
     }, this.scene);
   }
 
@@ -99,7 +109,7 @@ export class CollisionManager {
     const sprite = pickup as Phaser.Physics.Arcade.Sprite;
     const px = sprite.x;
     const py = sprite.y;
-    this.callbacks.onPickupCollected?.(px, py, sprite.texture.key);
+    this.callbacks.onPickupCollected?.(px, py, sprite.frame.name);
     this.vfx.pickupCollectEffect(px, py);
     config.sound?.();
     sprite.destroy();
@@ -157,6 +167,36 @@ export class CollisionManager {
         this.player.activatePill(px, py);
         this.callbacks.onPillStart();
       },
+    });
+  }
+
+  /**
+   * On the pill the roach punts whatever it runs into: up and ahead, spinning, gone. Cosmetic and local, so no seeded
+   * randomness; the obstacle stops colliding at once.
+   */
+  private crushObstacle(obstacle: Phaser.Physics.Arcade.Sprite): void {
+    if (obstacle.getData('falling')) return;
+    obstacle.setData('falling', true);
+    (obstacle.body as Phaser.Physics.Arcade.Body).enable = false;
+    this.scene.tweens.killTweensOf(obstacle);
+    (obstacle.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false);
+    obstacle.setDepth(DEPTH.POPUP - 1);
+    this.audio.playSfx('flipper-sfx', 0.5);
+    const spin = Math.random() > 0.5 ? 1 : -1;
+    this.scene.tweens.add({
+      targets: obstacle,
+      x: obstacle.x + CRUSH_FLING_X + Math.random() * 200,
+      angle: spin * (540 + Math.random() * 360),
+      duration: CRUSH_MS,
+      ease: 'Quad.easeOut',
+    });
+    this.scene.tweens.add({
+      targets: obstacle,
+      y: obstacle.y - CRUSH_FLING_Y - Math.random() * 120,
+      alpha: 0,
+      duration: CRUSH_MS,
+      ease: 'Cubic.easeOut',
+      onComplete: () => obstacle.destroy(),
     });
   }
 

@@ -9,6 +9,7 @@ export class PauseManager {
   private _isPaused = false;
   private _isUnpauseCountdown = false;
   private pauseStartTime = 0;
+  private frozenEmitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
 
   get isPaused(): boolean { return this._isPaused; }
   get isUnpauseCountdown(): boolean { return this._isUnpauseCountdown; }
@@ -33,6 +34,9 @@ export class PauseManager {
     this.scene.physics.pause();
     this.scene.tweens.pauseAll();
     this.scene.time.paused = true;
+    this.scene.anims.pauseAll();
+    this.frozenEmitters = this.runningEmitters();
+    this.frozenEmitters.forEach(emitter => emitter.pause());
     if (this.onPause) this.onPause();
     this.hud.showPauseOverlay();
   }
@@ -52,19 +56,20 @@ export class PauseManager {
     this.hud.hidePauseOverlay();
     this.scene.tweens.resumeAll();
     this.scene.physics.resume();
+    this.scene.anims.resumeAll();
+    this.frozenEmitters.forEach(emitter => emitter.resume());
+    this.frozenEmitters = [];
     if (this.onResume) this.onResume(pauseDuration);
     this.scene.time.delayedCall(100, () => {
       this._isUnpauseCountdown = false;
     });
   }
 
-  handlePausedInput(keys: Phaser.Input.Keyboard.Key[], escKeyCode: number, onUnpause: () => void): boolean {
-    for (const key of keys) {
-      if (key && Phaser.Input.Keyboard.JustDown(key) && key.keyCode !== escKeyCode) {
-        onUnpause();
-        return true;
-      }
-    }
-    return false;
+  /** Emitters don't run on the scene clock, so each has to be held by hand. */
+  private runningEmitters(): Phaser.GameObjects.Particles.ParticleEmitter[] {
+    return this.scene.children.list.filter(
+      (child): child is Phaser.GameObjects.Particles.ParticleEmitter =>
+        child instanceof Phaser.GameObjects.Particles.ParticleEmitter && child.active,
+    );
   }
 }

@@ -1,106 +1,119 @@
 /** The three parallax layers, their level crossfade, and the sky's darkening with speed. */
 import Phaser from 'phaser';
-import { DEPTH } from '../config/constants';
-import { LevelConfig } from '../config/levels';
+import { DEPTH, GAME_HEIGHT, PIXEL_BLOCK } from '../config/constants';
+import { LevelConfig, LEVELS } from '../config/levels';
 
-const SKY_ALPHA = 0.8;
-const MID_ALPHA = 0.15;
 const FADE_DURATION = 3000;
-const DARKEN_FROM_SPEED = 2.5;
+
+const OLD_SKY_ALPHA = 0.8;
+const OLD_MID_ALPHA = 0.15;
+
+const SKY_SCROLL = 0.1;
+const MID_SCROLL = 0.4;
+const OLD_FG_SCROLL = 0.7;
+const NEAR_SCROLL = 1.2;
+
+interface Layers {
+  sky: Phaser.GameObjects.TileSprite;
+  mid: Phaser.GameObjects.TileSprite;
+  fg: Phaser.GameObjects.TileSprite;
+}
 
 export class ParallaxBackground {
   private scene: Phaser.Scene;
 
   // A second set of layers sits behind the first so levels can crossfade.
-  private skyBg: Phaser.GameObjects.TileSprite;
-  private midBg: Phaser.GameObjects.TileSprite;
-  private fgBg: Phaser.GameObjects.TileSprite;
-  private nextSkyBg: Phaser.GameObjects.TileSprite;
-  private nextMidBg: Phaser.GameObjects.TileSprite;
-  private nextFgBg: Phaser.GameObjects.TileSprite;
+  private current: Layers;
+  private next: Layers;
+  private config: LevelConfig = LEVELS[0];
+  private nextConfig: LevelConfig = LEVELS[0];
   private transitioning = false;
 
   constructor(scene: Phaser.Scene, w: number, h: number) {
     this.scene = scene;
+    this.current = this.createLayers(w, h);
+    this.next = this.createLayers(w, h);
+    this.show(this.current, LEVELS[0]);
+    this.hide(this.next);
+  }
 
-    // Lit by normal maps when available
-    this.skyBg = scene.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(SKY_ALPHA);
-    this.skyBg.setPipeline('Light2D');
-    this.midBg = scene.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
-      .setDepth(DEPTH.MID_BG).setAlpha(MID_ALPHA).setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
-    this.fgBg = scene.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FG_BG);
-    this.fgBg.setPipeline('Light2D');
+  private createLayers(w: number, h: number): Layers {
+    const layer = (key: string, depth: number) =>
+      this.scene.add.tileSprite(0, 0, w, h, key).setOrigin(0, 0).setScrollFactor(0).setDepth(depth);
+    return { sky: layer('lv1-sky', DEPTH.SKY_BG), mid: layer('lv1-bg', DEPTH.MID_BG), fg: layer('lv1-fg', DEPTH.FG_BG) };
+  }
 
-    this.nextSkyBg = scene.add.tileSprite(0, 0, w, h, 'lv1-sky').setOrigin(0, 0).setScrollFactor(0).setAlpha(0);
-    this.nextSkyBg.setPipeline('Light2D');
-    this.nextMidBg = scene.add.tileSprite(0, 0, w, h, 'lv1-bg').setOrigin(0, 0).setScrollFactor(0)
-      .setDepth(DEPTH.MID_BG).setAlpha(0).setBlendMode(Phaser.BlendModes.SOFT_LIGHT);
-    this.nextFgBg = scene.add.tileSprite(0, 0, w, h, 'lv1-fg').setOrigin(0, 0).setScrollFactor(0)
-      .setDepth(DEPTH.FG_BG).setAlpha(0);
-    this.nextFgBg.setPipeline('Light2D');
+  /** Dresses the layers for a level: painted plates are native pixels, older ones are logical. */
+  private dress(layers: Layers, config: LevelConfig): void {
+    const plates: [Phaser.GameObjects.TileSprite, string][] = [
+      [layers.sky, config.skyKey], [layers.mid, config.bgKey], [layers.fg, config.fgKey],
+    ];
+    for (const [layer, key] of plates) {
+      const scale = GAME_HEIGHT / this.scene.textures.getFrame(key).height;
+      layer.setTexture(key).setTileScale(scale, scale);
+    }
+    layers.mid.setBlendMode(config.painted ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.SOFT_LIGHT);
+    layers.fg.setDepth(config.painted ? DEPTH.NEAR_LAYER : DEPTH.FG_BG);
+  }
+
+  private show(layers: Layers, config: LevelConfig): void {
+    this.dress(layers, config);
+    layers.sky.setAlpha(config.painted ? 1 : OLD_SKY_ALPHA);
+    layers.mid.setAlpha(config.painted ? 1 : OLD_MID_ALPHA);
+    layers.fg.setAlpha(1);
+  }
+
+  private hide(layers: Layers): void {
+    layers.sky.setAlpha(0);
+    layers.mid.setAlpha(0);
+    layers.fg.setAlpha(0);
   }
 
   resize(w: number, h: number): void {
-    for (const layer of [this.skyBg, this.midBg, this.fgBg, this.nextSkyBg, this.nextMidBg, this.nextFgBg]) {
-      layer.setSize(w, h);
+    for (const layers of [this.current, this.next]) {
+      layers.sky.setSize(w, h);
+      layers.mid.setSize(w, h);
+      layers.fg.setSize(w, h);
     }
   }
 
   crossfadeTo(config: LevelConfig): void {
-    this.nextSkyBg.setTexture(config.skyKey);
-    this.nextMidBg.setTexture(config.bgKey);
-    this.nextFgBg.setTexture(config.fgKey);
-    this.nextFgBg.setDepth(DEPTH.FG_BG);
+    this.dress(this.next, config);
+    this.nextConfig = config;
     this.transitioning = true;
 
     const fade = { duration: FADE_DURATION, ease: 'Sine.easeInOut' };
     const tweens = this.scene.tweens;
-    tweens.add({ targets: this.nextSkyBg, alpha: SKY_ALPHA, ...fade });
-    tweens.add({ targets: this.nextMidBg, alpha: MID_ALPHA, ...fade });
-    tweens.add({ targets: this.nextFgBg, alpha: 1, ...fade });
+    tweens.add({ targets: this.next.sky, alpha: config.painted ? 1 : OLD_SKY_ALPHA, ...fade });
+    tweens.add({ targets: this.next.mid, alpha: config.painted ? 1 : OLD_MID_ALPHA, ...fade });
+    tweens.add({ targets: this.next.fg, alpha: 1, ...fade });
 
-    tweens.add({ targets: this.skyBg, alpha: 0, ...fade });
-    tweens.add({ targets: this.midBg, alpha: 0, ...fade });
+    tweens.add({ targets: this.current.sky, alpha: 0, ...fade });
+    tweens.add({ targets: this.current.mid, alpha: 0, ...fade });
     tweens.add({
-      targets: this.fgBg, alpha: 0, ...fade,
+      targets: this.current.fg, alpha: 0, ...fade,
       onComplete: () => {
-        this.skyBg.setTexture(config.skyKey).setAlpha(SKY_ALPHA);
-        this.midBg.setTexture(config.bgKey).setAlpha(MID_ALPHA);
-        this.fgBg.setTexture(config.fgKey).setAlpha(1);
-        this.fgBg.setDepth(DEPTH.FG_BG);
-        this.nextSkyBg.setAlpha(0);
-        this.nextMidBg.setAlpha(0);
-        this.nextFgBg.setAlpha(0);
+        this.show(this.current, config);
+        this.config = config;
+        this.hide(this.next);
         this.transitioning = false;
       },
     });
   }
 
-  update(speedMultiplier: number): void {
-    const breatheFactor = this.scene.data.get('breatheFactor') ?? 1.0;
+  private scroll(layers: Layers, config: LevelConfig, scrollX: number): void {
+    const snapped = (layer: Phaser.GameObjects.TileSprite, rate: number): number =>
+      Math.round(scrollX * rate / PIXEL_BLOCK) * PIXEL_BLOCK / layer.tileScaleX;
+    layers.sky.tilePositionX = snapped(layers.sky, SKY_SCROLL);
+    layers.mid.tilePositionX = snapped(layers.mid, MID_SCROLL);
+    layers.fg.tilePositionX = snapped(layers.fg, config.painted ? NEAR_SCROLL : OLD_FG_SCROLL);
+  }
+
+  update(): void {
     const camera = this.scene.cameras.main;
     const scrollX = camera.scrollX;
-    this.skyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
-    this.midBg.tilePositionX = scrollX * 0.4 * breatheFactor;
-    this.fgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
-
-    if (this.transitioning) {
-      this.nextSkyBg.tilePositionX = scrollX * 0.1 * breatheFactor;
-      this.nextMidBg.tilePositionX = scrollX * 0.4 * breatheFactor;
-      this.nextFgBg.tilePositionX = scrollX * 0.7 * breatheFactor;
-    }
-
-    // Speed tops out near 3.4x, so the sky darkens over the last stretch of the run
-    const darkening = Math.min(Math.max(speedMultiplier - DARKEN_FROM_SPEED, 0) * 0.5, 0.5);
-    if (darkening > 0) {
-      const tint = Phaser.Display.Color.GetColor(
-        Math.floor(255 * (1 - darkening)),
-        Math.floor(255 * (1 - darkening * 0.8)),
-        Math.floor(255 * (1 - darkening * 0.3)),
-      );
-      this.skyBg.setTint(tint);
-      this.nextSkyBg.setTint(tint);
-    }
+    this.scroll(this.current, this.config, scrollX);
+    if (this.transitioning) this.scroll(this.next, this.nextConfig, scrollX);
 
     camera.scrollY = 0;
   }

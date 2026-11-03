@@ -9,27 +9,12 @@ const FRAME_MS = 1000 / 60;
 
 export function spawnBlackHole(kit: ObstacleKit, x: number): void {
   const { scene } = kit;
-  const centerY = (kit.topY + kit.bottomY) / 2;
-
-  const hole = kit.createSprite(x, centerY, 'black-hole', 'blackhole', null, {
-    scale: 0.25,
+  const hole = kit.createSprite(x, 0, 'blackhole', 'blackhole', null, {
     hitbox: { w: 0.5, h: 0.5 },
   });
+  const centerY = (kit.topY + kit.bottomY) / 2;
+  hole.y = centerY + hole.displayHeight * (hole.originY - 0.5);
   kit.playSoundOnVisible(hole, 'blackhole-sfx', 0.5);
-
-  // Constant slow rotation
-  const spinTween = scene.tweens.add({ targets: hole, angle: 360, duration: 3000, repeat: -1, ease: 'Linear' });
-
-  // Pulsing scale
-  const pulseTween = scene.tweens.add({
-    targets: hole,
-    scaleX: 0.3,
-    scaleY: 0.3,
-    duration: 1500,
-    yoyo: true,
-    repeat: -1,
-    ease: 'Sine.easeInOut',
-  });
 
   // Gravitational pull on cockroach. Vertical only: the run's speed overwrites horizontal velocity every frame.
   const gravityUpdate = (_time: number, delta: number): void => {
@@ -38,10 +23,10 @@ export function spawnBlackHole(kit: ObstacleKit, x: number): void {
     if (hole.x < camera.scrollX - 200 || hole.x > camera.scrollX + camera.width + 200) return;
     const cockroach = scene.cockroach;
     if (!cockroach) return;
-    const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, hole.x, hole.y);
+    const dist = Phaser.Math.Distance.Between(cockroach.x, cockroach.y, hole.x, centerY);
     if (dist < PULL_RADIUS && dist > 0) {
       const force = PULL_STRENGTH * (1 - dist / PULL_RADIUS) * (delta / FRAME_MS);
-      const angle = Phaser.Math.Angle.Between(cockroach.x, cockroach.y, hole.x, hole.y);
+      const angle = Phaser.Math.Angle.Between(cockroach.x, cockroach.y, hole.x, centerY);
       (cockroach.body as Phaser.Physics.Arcade.Body).velocity.y += Math.sin(angle) * force;
     }
   };
@@ -52,7 +37,7 @@ export function spawnBlackHole(kit: ObstacleKit, x: number): void {
     const dist = 30 + Math.random() * 40;
     const particle = scene.add.circle(
       hole.x + Math.cos(angle) * dist,
-      hole.y + Math.sin(angle) * dist,
+      centerY + Math.sin(angle) * dist,
       Phaser.Math.Between(1, 3),
       0x6600cc,
       0.7,
@@ -61,7 +46,7 @@ export function spawnBlackHole(kit: ObstacleKit, x: number): void {
     scene.tweens.add({
       targets: particle,
       x: hole.x,
-      y: hole.y,
+      y: centerY,
       alpha: 0,
       scale: 0.1,
       duration: 500,
@@ -70,5 +55,5 @@ export function spawnBlackHole(kit: ObstacleKit, x: number): void {
     });
   });
 
-  kit.track(hole, { tweens: [spinTween, pulseTween], timers: [particlesTimer], updates: [gravityUpdate] });
+  kit.track(hole, { timers: [particlesTimer], updates: [gravityUpdate] });
 }

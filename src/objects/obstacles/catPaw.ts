@@ -4,7 +4,7 @@ export function spawnCatPaw(kit: ObstacleKit, x: number): void {
   const { scene } = kit;
   const floor = kit.randomFloor();
 
-  const paw = kit.createSprite(x, kit.centerY(floor), 'cat-paw', 'cat', floor, {
+  const paw = kit.createSprite(x, kit.standY(floor), 'cat', 'cat', floor, {
     hitbox: { w: 0.5, h: 0.5 },
   });
   kit.playSoundOnVisible(paw, 'cat-sfx', 0.5);
@@ -20,7 +20,7 @@ export function spawnCatPaw(kit: ObstacleKit, x: number): void {
     repeat: -1,
   });
 
-  const flipUpdate = (): void => { paw.setFlipX(paw.x > x); };
+  const flipUpdate = kit.faceTravel(paw);
 
   kit.track(paw, { tweens: [patrolTween], updates: [flipUpdate] });
 }
