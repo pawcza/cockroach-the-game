@@ -36,7 +36,8 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, MultiplayerMenuScene, LobbyScene, GameScene, MultiplayerGameOverScene, GameOverScene, DeferredLoadScene],
   scale: {
     mode: Phaser.Scale.NONE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // The page centres the canvas (body is a flexbox); Phaser's margins on top of that pushed a letterboxed one off-centre
+    autoCenter: Phaser.Scale.NO_CENTER,
   },
 };
 
@@ -45,18 +46,26 @@ const config: Phaser.Types.Core.GameConfig = {
  * of device pixels, as many as fit the window's height. The width fills the window. A window too short for
  * that to fill most of it falls back to an exact fit, where native pixels differ by at most one device pixel.
  */
+/** 4:3: the narrowest screen every page is laid out for. */
+const MIN_WIDTH = Math.ceil((GAME_HEIGHT * 4) / 3);
+
 const fit = (game: Phaser.Game): void => {
   const dpr = window.devicePixelRatio || 1;
   const nativeRows = GAME_HEIGHT / PIXEL_BLOCK;
   const perNative = Math.max(1, Math.floor((window.innerHeight * dpr) / nativeRows));
   let zoom = (perNative / PIXEL_BLOCK) / dpr; // CSS px per logical px
   if (GAME_HEIGHT * zoom < window.innerHeight * 0.8) zoom = window.innerHeight / GAME_HEIGHT;
-  game.scale.resize(Math.ceil(window.innerWidth / zoom), GAME_HEIGHT);
+  // Narrower than 4:3 (a phone held upright) the menus would be cut off: fit the width instead, bars above and below
+  if (window.innerWidth / zoom < MIN_WIDTH) zoom = window.innerWidth / MIN_WIDTH;
+  game.scale.resize(Math.max(MIN_WIDTH, Math.ceil(window.innerWidth / zoom)), GAME_HEIGHT);
   game.scale.setZoom(zoom);
 };
 
-document.fonts.ready.then(() => {
-  const game = new Phaser.Game({ ...config, width: Math.ceil(window.innerWidth / (window.innerHeight / GAME_HEIGHT)) });
+// Canvas text draws with whatever is loaded at that moment: the font, Polish letters included, before the game
+const FONT_READY = document.fonts.load('16px "Tiny5"', 'Aaąę').catch(() => []);
+
+FONT_READY.then(() => document.fonts.ready).then(() => {
+  const game = new Phaser.Game({ ...config, width: Math.max(MIN_WIDTH, Math.ceil(window.innerWidth / (window.innerHeight / GAME_HEIGHT))) });
   fit(game);
   if (import.meta.env.DEV) (window as unknown as { game: Phaser.Game }).game = game;
 

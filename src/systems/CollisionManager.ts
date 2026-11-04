@@ -22,6 +22,7 @@ export interface CollisionCallbacks {
   onPillStart: () => void;
   onDie: (obstacleType?: string | null) => void;
   onPickupCollected?: (x: number, y: number, frameName: string) => void;
+  onDashThrough: (obstacle: Phaser.Physics.Arcade.Sprite) => void;
 }
 
 export class CollisionManager {
@@ -74,9 +75,15 @@ export class CollisionManager {
           this.crushObstacle(obstacle as Phaser.Physics.Arcade.Sprite);
           return false;
         }
-        if (this.player.isDashing || this.player.isInvulnerable) return false;
-        const obstacleFloor = (obstacle as Phaser.Physics.Arcade.Sprite).getData('floor');
-        return !obstacleFloor || obstacleFloor === this.player.currentFloor;
+        const sprite = obstacle as Phaser.Physics.Arcade.Sprite;
+        const obstacleFloor = sprite.getData('floor');
+        const inLane = !obstacleFloor || obstacleFloor === this.player.currentFloor;
+        if (this.player.isDashing) {
+          if (inLane) this.callbacks.onDashThrough(sprite);
+          return false;
+        }
+        if (this.player.isInvulnerable) return false;
+        return inLane;
       },
       this,
     );
@@ -208,7 +215,7 @@ export class CollisionManager {
     this.callbacks.onDie(obstacleType);
   }
 
-  private showPickupPopup(x: number, y: number, text: string, color: string): void {
+  showPickupPopup(x: number, y: number, text: string, color: string): void {
     const popup = this.scene.add.text(x, y - 20, text, popupStyle({ color }));
     popup.setOrigin(0.5);
     popup.setDepth(DEPTH.POPUP);

@@ -29,6 +29,7 @@ export function buildSettingsPage(
   width: number,
   height: number,
   onAccountDeleted: () => void,
+  onPrivacy: () => void,
 ): SettingsPage {
   container.add(scene.add.text(Math.round(width / 2), 44, 'USTAWIENIA', headingStyle({
     fontSize: '20px',
@@ -96,15 +97,13 @@ export function buildSettingsPage(
   });
   const sfx = createSlider(startY + 84, 'Efekty', getSfxVolume, setSfxVolume);
 
-  container.add(scene.add.text(Math.round(width / 2), startY + 150, 'Strzałki w bok: głośność', smallStyle({
+  if (scene.sys.game.device.os.desktop) container.add(scene.add.text(Math.round(width / 2), startY + 150, 'Strzałki w bok: głośność', smallStyle({
     fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 0,
   })).setOrigin(0.5));
 
   const rowY = startY + 196;
   const smallBtn = buttonStyle({ fontSize: '8px' });
-  const privacy = createButton(scene, width / 2 - 90, rowY, 160, 28, 'Prywatność', 0x444444, smallBtn, () => {
-    window.open('/privacy', '_blank', 'noopener');
-  });
+  const privacy = createButton(scene, width / 2 - 90, rowY, 160, 28, 'Prywatność', 0x444444, smallBtn, onPrivacy);
   container.add(privacy.all);
 
   // Two presses, so nobody deletes their account by accident

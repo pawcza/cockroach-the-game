@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../../config/constants';
 import { ObstacleKit } from './ObstacleKit';
+import { Floor } from '../Player';
 
-export function spawnOnion(kit: ObstacleKit, x: number): void {
+export function spawnOnion(kit: ObstacleKit, x: number, lane?: Floor): void {
   const { scene } = kit;
-  const floor = kit.randomFloor();
+  const floor = lane ?? kit.randomFloor();
   const standY = kit.standY(floor);
 
   const onion = kit.createSprite(x, standY, 'onion', 'onion', floor);

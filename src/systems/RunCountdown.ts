@@ -4,29 +4,41 @@ import { DEPTH } from '../config/constants';
 import { popupStyle } from '../utils/TextStyles';
 
 const STEP_MS = 600;
+
 const STEPS = ['3', '2', '1', 'JAZDA!'];
+/** A retry already knows the drill. */
+const QUICK_STEPS = ['JAZDA!'];
 
 export class RunCountdown {
   private scene: Phaser.Scene;
   private onFinished: () => void;
-  private startReal = performance.now();
+  private startReal: number;
   private lastShown = -1;
+  private steps: string[];
 
-  constructor(scene: Phaser.Scene, onFinished: () => void) {
+  /** `endsAt` (Date.now time) pins when it finishes; a client that gets here late joins it partway. */
+  constructor(scene: Phaser.Scene, onFinished: () => void, quick = false, endsAt?: number) {
     this.scene = scene;
     this.onFinished = onFinished;
+    this.steps = quick ? QUICK_STEPS : STEPS;
+    this.startReal = endsAt !== undefined ? endsAt - this.steps.length * STEP_MS : Date.now();
+  }
+
+  /** When it finishes, in Date.now time. */
+  get endsAt(): number {
+    return this.startReal + this.steps.length * STEP_MS;
   }
 
   update(): void {
-    const elapsed = performance.now() - this.startReal;
+    const elapsed = Date.now() - this.startReal;
     const step = Math.floor(elapsed / STEP_MS);
 
-    if (step < STEPS.length && step > this.lastShown) {
+    if (step < this.steps.length && step > this.lastShown) {
       this.lastShown = step;
-      this.showStep(STEPS[step]);
+      this.showStep(this.steps[step]);
     }
 
-    if (elapsed >= STEPS.length * STEP_MS) {
+    if (elapsed >= this.steps.length * STEP_MS) {
       this.onFinished();
     }
   }

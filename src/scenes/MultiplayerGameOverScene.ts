@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
-import { mpClient, type MPLobbyData, type MPRanking } from '../multiplayer/MultiplayerClient';
+import { mpClient, type MPLobbyData, type MPPlayer, type MPRanking } from '../multiplayer/MultiplayerClient';
+import { MP_START_LEAD_MS } from '../../server/lobby';
 import { PLAYER_COLORS } from '../../server/lobby';
 import { DEPTH } from '../config/constants';
-import { titleStyle, smallStyle, buttonStyle, getScale, FONT_FAMILY, UI_TEXT } from '../utils/TextStyles';
+import { titleStyle, smallStyle, buttonStyle, getScale, UI_TEXT } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
-import { addObstacleArt, createButton, createPanel, OBSTACLE_LABEL, UIButton } from '../ui/shared';
+import { addObstacleArt, createButton, createPanel, OBSTACLE_LABEL, showAchievement, UIButton } from '../ui/shared';
+import { recordMatch } from '../systems/Profile';
 import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
 import { fetchScores } from '../ui/Scoreboard';
@@ -22,6 +24,7 @@ interface MPGameOverData {
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((lobbyData: MPLobbyData) => void) | null = null;
+  private gameStartHandler: ((data: { seed: number; players: MPPlayer[] }) => void) | null = null;
   private replayData: ReplayData | null = null;
 
   constructor() {
@@ -48,6 +51,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
 
     // --- Update local highscore ---
     const myRanking = rankings.find(r => r.id === myId);
+    // A match you played (not one you only watched) counts, and a win when you top it
+    if (myRanking && rankings.length > 1) {
+      for (const achievement of recordMatch(rankings[0].id === myId)) showAchievement(this, achievement);
+    }
     if (myRanking) {
       updateHighScoreIfBetter(myRanking.score);
     }
@@ -96,13 +103,11 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
         strokeThickness = Math.round(2 * s);
       }
 
-      const rowStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      const rowStyle = smallStyle({
         fontSize: `${fontSize}px`,
         color,
-        fontFamily: FONT_FAMILY,
-        stroke: '#000000',
         strokeThickness,
-      };
+      });
 
       // Row background for self
       if (isMe) {
@@ -203,16 +208,23 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
             maxCombo: num(stats.maxCombo),
           };
 
-          const saveBtn = createButton(this, saveBtnX, saveBtnY, Math.round((user ? 76 : 150) * s), Math.round(22 * s), user ? 'Zapisz' : 'Zaloguj i zapisz', 0x008800, buttonStyle({
-            fontSize: `${Math.round(8 * s)}px`,
-            strokeThickness: 2,
-          }), () => {
-            if (!user) {
+          // A guest gets Google's own button (its branding rules), on the score's line just left of it
+          const signInW = 180;
+          const scoreGap = Math.round(110 * s);
+          const saveBtn = user
+            ? createButton(this, saveBtnX, saveBtnY, Math.round(76 * s), Math.round(22 * s), 'Zapisz', 0x008800, buttonStyle({
+              fontSize: `${Math.round(8 * s)}px`,
+              strokeThickness: 2,
+            }), () => save())
+            : createButton(this, colScore - scoreGap - signInW / 2, myRowY, signInW, 26, 'Zaloguj przez Google', 0, buttonStyle({
+              fontSize: '7px',
+              strokeThickness: 2,
+            }), () => {
               this.cleanupListeners();
               mpClient.leaveLobby();
               signIn(submission);
-              return;
-            }
+            }, { google: true });
+          const save = (): void => {
             for (const obj of saveBtn.all) obj.destroy();
             setNav(bottomButtons);
             void submitScore(submission).then((saved) => {
@@ -222,7 +234,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
                 color: saved ? UI_TEXT.named : '#e07a6a',
               })).setOrigin(0.5);
             });
-          });
+          };
           setNav([saveBtn, ...bottomButtons]);
         }
       }).catch(() => { /* offline is fine */ });
@@ -234,9 +246,8 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       strokeThickness: Math.round(3 * s),
     });
 
-    const btnW = Math.round(170 * s);
-    const btnH = Math.round(38 * s);
     const btnGap = Math.round(12 * s);
+    const btnH = Math.round(38 * s);
     const btnY = height - Math.round(36 * s);
 
     const leave = (): void => {
@@ -246,55 +257,90 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       });
     };
 
-    // Left to right: leave, watch, play again. Only the host can start the rematch
+    // Back to the lobby screen, for anyone; the others see you moved
+    const toLobby = (): void => {
+      void mpClient.setPlace('lobby').catch(() => null).then(() => {
+        const lobbyData = mpClient.lobby;
+        if (!lobbyData || !this.scene.isActive()) return;
+        sceneManager.goto(this, 'LobbyScene', { lobbyData }, () => this.cleanupListeners());
+      });
+    };
+
+    const startRun = (data: { seed: number; players: MPPlayer[] }): void => {
+      sceneManager.goto(this, 'GameScene', {
+        multiplayer: true,
+        seed: data.seed,
+        players: data.players,
+        myId: mpClient.myId,
+        startsAt: Date.now() + MP_START_LEAD_MS,
+      }, () => this.cleanupListeners());
+    };
+
+    // The rematch happens right here: guests ready up with it, the host starts once they all are
+    let lobby = mpClient.lobby;
+    const me = (): MPPlayer | undefined => lobby?.players.find(p => p.id === myId);
+    const amHost = (): boolean => me()?.isHost ?? isHost;
+    const guests = (): MPPlayer[] => lobby?.players.filter(p => !p.isHost) ?? [];
+    const canStart = (): boolean => lobby?.status === 'waiting' && guests().length > 0 && guests().every(p => p.ready);
+    let starting = false;
+    const rematchAction = (): void => {
+      if (amHost()) {
+        if (!canStart() || starting) return;
+        starting = true;
+        mpClient.startGame().then(startRun).catch(() => { starting = false; });
+        return;
+      }
+      mpClient.setReady(!(me()?.ready ?? false)).then((updated) => { lobby = updated; refresh(); }).catch(() => {});
+    };
+
+    // Left to right: leave, watch, the lobby screen, play again
     const row: [string, number, () => void][] = [['Opuść', 0x666666, leave]];
-    if (this.replayData && this.replayData.frames.length > 0) row.push(['Powtórka', 0x333366, () => this.playReplay()]);
-    if (isHost) row.push(['Rewanżyk (5)', 0x880000, () => { mpClient.restartLobby().catch((err) => { console.error('restartLobby failed:', err); }); }]);
+    if (this.replayData && this.replayData.frames.length > 0) row.push(['Odtwórz śmierć', 0x333366, () => this.playReplay()]);
+    row.push(['Lobby', 0x335555, toLobby]);
+    row.push(['Rewanżyk', 0x880000, rematchAction]);
+    const btnW = Math.min(Math.round(170 * s), Math.floor((width - 40 - btnGap * (row.length - 1)) / row.length));
     const totalW = btnW * row.length + btnGap * (row.length - 1);
     const bottomButtons: UIButton[] = row.map(([label, color, action], i) =>
       createButton(this, width / 2 - totalW / 2 + btnW / 2 + i * (btnW + btnGap), btnY, btnW, btnH, label, color, btnS, action));
-    const rematch = isHost ? bottomButtons[bottomButtons.length - 1] : null;
-    let currentNav = bottomButtons;
+    const rematch = bottomButtons[bottomButtons.length - 1];
     const setNav = (buttons: UIButton[]): void => {
-      currentNav = buttons;
-      nav.set(buttons, { initial: rematch?.enabled ? rematch : buttons[buttons.length - 1], onBack: leave });
+      nav.set(buttons, { initial: rematch, onBack: leave });
     };
 
-    if (rematch) {
-      // A short wait, so nobody is dragged into a rematch before seeing the results
-      rematch.setEnabled(false);
-      let countdown = 5;
-      this.time.addEvent({
-        delay: 1000,
-        repeat: 4,
-        callback: () => {
-          countdown--;
-          rematch.setLabel(countdown > 0 ? `Rewanżyk (${countdown})` : 'Rewanżyk');
-          if (countdown === 0) {
-            rematch.setEnabled(true);
-            setNav(currentNav);
-          }
-        },
-      });
-    } else {
-      this.add.text(width / 2, btnY - btnH, 'Czekamy, aż gospodarz da rewanż...', smallStyle({
-        fontSize: `${Math.round(8 * s)}px`,
-        color: UI_TEXT.muted,
-        strokeThickness: Math.round(2 * s),
-        align: 'center',
-      })).setOrigin(0.5);
-    }
+    const hint = this.add.text(width / 2, btnY - btnH, '', smallStyle({
+      fontSize: `${Math.round(8 * s)}px`,
+      color: UI_TEXT.muted,
+      strokeThickness: Math.round(2 * s),
+      align: 'center',
+    })).setOrigin(0.5);
+
+    const refresh = (): void => {
+      const ready = guests().filter(p => p.ready).length;
+      const total = guests().length;
+      if (amHost()) {
+        rematch.setLabel(`Rewanżyk (${ready}/${total})`);
+        rematch.setColor(0x880000);
+        rematch.setEnabled(canStart());
+        hint.setText(total === 0 ? 'Nie ma z kim grać: wszyscy wyszli' : canStart() ? 'Wszyscy gotowi!' : 'Czekamy, aż wszyscy dadzą Rewanżyk');
+      } else {
+        const isReady = me()?.ready ?? false;
+        rematch.setLabel(isReady ? 'Gotowy!' : 'Rewanżyk');
+        rematch.setColor(isReady ? 0x008800 : 0x880000);
+        rematch.setEnabled(lobby?.status === 'waiting');
+        hint.setText(isReady ? 'Czekamy, aż gospodarz zacznie...' : 'Rewanżyk = gotowy na kolejny zjazd');
+      }
+    };
+    refresh();
     setNav(bottomButtons);
 
     // --- Socket listeners ---
     this.lobbyUpdatedHandler = (lobbyData) => {
-      if (lobbyData.status === 'waiting') {
-        sceneManager.goto(this, 'LobbyScene', { lobbyData }, () => {
-          this.cleanupListeners();
-        });
-      }
+      lobby = lobbyData;
+      refresh();
     };
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
+    this.gameStartHandler = startRun;
+    mpClient.on('game:start', this.gameStartHandler);
 
     const stopWatchingDrop = mpClient.onDrop(() => {
       sceneManager.goto(this, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' });
@@ -315,6 +361,10 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     if (this.lobbyUpdatedHandler) {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       this.lobbyUpdatedHandler = null;
+    }
+    if (this.gameStartHandler) {
+      mpClient.off('game:start', this.gameStartHandler);
+      this.gameStartHandler = null;
     }
   }
 }

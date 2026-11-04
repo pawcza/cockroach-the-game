@@ -40,7 +40,9 @@ test('malformed packets cannot take the server down', async () => {
   socket.emit('lobby:color', 'red');
   socket.emit('lobby:ready', 'yes');
   socket.emit('lobby:start');
-  socket.emit('lobby:restart');
+  socket.emit('lobby:place');
+  socket.emit('lobby:place', 'game');
+  socket.emit('lobby:place', { evil: 1 });
   for (const event of ['swap', 'dash-start', 'position', 'pickup', 'boss-start', 'boss-projectile', 'death']) {
     socket.emit(`game:${event}`);
     socket.emit(`game:${event}`, 'junk');
@@ -120,7 +122,64 @@ test('the game ends when everyone is dead, with cleaned stats', async () => {
   const over = next<{ rankings: Array<{ id: string; score: number }> }>(a, 'game:over');
   b.emit('game:death', { score: 70, stats: {} });
   assert.deepEqual((await over).rankings.map((r) => [r.id, r.score]), [[b.id, 70], [a.id, 50]]);
-  assert.deepEqual(await ack(a, 'lobby:restart'), { ok: true });
+
+  // The rematch: the guest readies up on the results, the host starts from there
+  assert.equal((await ack(a, 'lobby:start')).ok, undefined, 'not before the guest is ready');
+  await ack(b, 'lobby:ready', true);
+  const start = next<{ seed: number }>(b, 'game:start');
+  assert.equal((await ack(a, 'lobby:start')).ok, true);
+  assert.equal(typeof (await start).seed, 'number');
+});
+
+test('someone joining a game in progress watches it without holding it up', async () => {
+  const [a, b] = await inGame(harness, 2);
+  a.emit('game:death', { score: 5, stats: {} });
+  await flush(a);
+
+  const { lobby } = await ack<{ lobby: { id: string } }>(a, 'lobby:color', 5);
+  const watcher = await harness.connect({ 'x-forwarded-for': '198.51.100.99' });
+  watcher.emit('set-name', 'Watcher');
+  const joined = await ack<{ game: { seed: number; players: Array<{ id: string }>; elapsedMs: number; dead: string[] } }>(
+    watcher, 'lobby:join', lobby.id);
+  assert.equal(typeof joined.game.seed, 'number');
+  assert.deepEqual(joined.game.players.map((p) => p.id).sort(), [a.id, b.id].sort());
+  assert.deepEqual(joined.game.dead, [a.id]);
+  assert.equal(typeof joined.game.elapsedMs, 'number');
+
+  // A watcher's game events go nowhere, and the run ends without them dying
+  const seen = await collect(a, 'game:swap');
+  watcher.emit('game:swap', { lane: 'top' });
+  await flush(watcher);
+  assert.deepEqual(seen, []);
+  const over = next<{ rankings: Array<{ id: string }> }>(watcher, 'game:over');
+  b.emit('game:death', { score: 9, stats: {} });
+  assert.deepEqual((await over).rankings.map((r) => r.id).sort(), [a.id, b.id].sort());
+});
+
+test('Karaluch Dnia has its own board: one best run per player, and only for an open day', async () => {
+  const daily = await (await fetch(`${harness.url}/api/daily`)).json() as { date: string; seed: number };
+  assert.match(daily.date, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(typeof daily.seed, 'number');
+
+  const save = async (cookie: string, score: number, day: string | null, ip: string) => fetch(`${harness.url}/api/scores`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Forwarded-For': ip },
+    body: JSON.stringify({ score, daily: day }),
+  });
+  const ola = await harness.signIn('google-daily-ola', 'Ola');
+  const jan = await harness.signIn('google-daily-jan', 'Jan');
+  const late = await harness.signIn('google-daily-late', 'Late');
+  assert.equal((await save(ola, 300, daily.date, '203.0.113.50')).status, 201);
+  assert.equal((await save(jan, 400, daily.date, '203.0.113.52')).status, 201);
+  assert.equal((await save(late, 999, '2001-01-01', '203.0.113.53')).status, 400, 'a day long over');
+  // One save per account every 5 s: Ola's better run comes after that
+  await new Promise((resolve) => setTimeout(resolve, 5100));
+  assert.equal((await save(ola, 500, daily.date, '203.0.113.51')).status, 201);
+
+  const board = await (await fetch(`${harness.url}/api/scores?daily=${daily.date}`)).json() as Array<{ name: string; score: number }>;
+  assert.deepEqual(board.map((e) => [e.name, e.score]), [['Ola', 500], ['Jan', 400]]);
+  const allTime = await (await fetch(`${harness.url}/api/scores`)).json() as Array<{ score: number }>;
+  assert.ok(!allTime.some((e) => [300, 400, 500].includes(e.score)), 'daily runs stay off the all-time board');
 });
 
 test('a second death from the same player changes nothing', async () => {
@@ -154,7 +213,7 @@ test('starting twice does not reseed a running game', async () => {
   const sockets = await inLobby(harness, 2);
   assert.equal((await ack(sockets[0], 'lobby:start')).ok, true);
   assert.deepEqual(await ack(sockets[0], 'lobby:start'), { error: 'Cannot start game' });
-  assert.deepEqual(await ack(sockets[0], 'lobby:restart'), { error: 'Cannot restart lobby' });
+  assert.deepEqual(await ack(sockets[1], 'lobby:place', 'lobby'), { error: 'Cannot move' });
 });
 
 test('the server sets boss health, whatever a client claims', async () => {
@@ -230,4 +289,23 @@ test('the score limit applies per player', async () => {
   assert.equal((await post(body, first, '203.0.113.200')).status, 201);
   assert.equal((await post(body, first, '203.0.113.201')).status, 429);
   assert.equal((await post(body, second, '203.0.113.200')).status, 201);
+});
+
+test('a signed-in profile is stored as sent, junk is refused, and it goes with the account', async () => {
+  const cookie = await harness.signIn('google-profile', 'Prof');
+  const put = (body: unknown) => fetch(`${harness.url}/api/me/profile`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body),
+  });
+  assert.equal((await fetch(`${harness.url}/api/me/profile`)).status, 401);
+  const profile = { stats: { runs: 3, distance: 1200 }, achievements: { 'pierwszy-bieg': 1700000000000 } };
+  assert.equal((await put(profile)).status, 200);
+  const got = await (await fetch(`${harness.url}/api/me/profile`, { headers: { Cookie: cookie } })).json() as { profile: unknown };
+  assert.deepEqual(got.profile, profile);
+  for (const junk of [{}, { stats: { runs: -1 }, achievements: {} }, { stats: { 'bad key!': 1 }, achievements: {} }, { stats: { runs: 'x' }, achievements: {} }]) {
+    assert.equal((await put(junk)).status, 400, JSON.stringify(junk));
+  }
+  assert.equal((await fetch(`${harness.url}/api/me`, { method: 'DELETE', headers: { Cookie: cookie } })).status, 200);
+  const again = await harness.signIn('google-profile', 'Prof');
+  const fresh = await (await fetch(`${harness.url}/api/me/profile`, { headers: { Cookie: again } })).json() as { profile: unknown };
+  assert.equal(fresh.profile, null, 'a deleted account takes its profile with it');
 });

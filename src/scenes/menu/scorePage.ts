@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { ATLAS, frameOf } from '../../config/sprites';
 import { getLevelForDistance } from '../../config/levels';
-import { fetchScores } from '../../ui/Scoreboard';
-import { bodyStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
+import { fetchDaily, fetchScores } from '../../ui/Scoreboard';
+import { bodyStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
 import { createPanel } from '../../ui/shared';
 
 const PODIUM = ['#e8c15a', '#c9c9c9', '#c98a52'];
@@ -13,24 +13,22 @@ export function buildScorePage(
   container: Phaser.GameObjects.Container,
   width: number,
   height: number,
+  daily = false,
 ): (() => void)[] {
   const cleanups: (() => void)[] = [];
-  const title = scene.add.text(Math.round(width / 2), 30, 'BYCZE KARALUCHY', headingStyle({
-    color: UI_TEXT.bone,
-    strokeThickness: 6,
-    shadow: { offsetX: 0, offsetY: 3, color: '#5a0d0d', blur: 0, fill: true, stroke: true },
-  })).setOrigin(0.5);
-  container.add(title);
+  // The tabs above say which board this is
   container.add(createPanel(scene, 8, 48, width - 16, height - 48 - 66));
 
   const loadingText = scene.add.text(width / 2, height / 2, 'Ładowanie...', bodyStyle({ color: UI_TEXT.muted })).setOrigin(0.5);
   container.add(loadingText);
 
-  fetchScores().then((scores) => {
+  // Today's board is the server's today, whatever this device's clock says
+  const load = daily ? fetchDaily().then((day) => (day ? fetchScores(day.date) : [])) : fetchScores();
+  load.then((scores) => {
     loadingText.destroy();
 
     if (scores.length === 0) {
-      const emptyText = scene.add.text(width / 2, height / 2, 'Jeszcze pusto...\nB\u0105d\u017a pierwszy!', bodyStyle({
+      const emptyText = scene.add.text(width / 2, height / 2, daily ? 'Dziś jeszcze nikt...\nBądź pierwszy!' : 'Jeszcze pusto...\nBądź pierwszy!', bodyStyle({
         fontSize: '14px',
         color: UI_TEXT.muted,
         align: 'center',

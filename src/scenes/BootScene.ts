@@ -2,10 +2,12 @@ import Phaser from 'phaser';
 import { ATLAS, createSpriteAnimations } from '../config/sprites';
 import { sceneManager } from '../systems/SceneManager';
 import { DEFERRED_LOAD_SCENE } from './DeferredLoadScene';
+import { GOOGLE_G } from '../ui/shared';
+import { ANCHORS_KEY, createItemAnimations } from '../config/skins';
 
 /** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
  * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
-const ASSET_REV = '?v=3';
+const ASSET_REV = '?v=6';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -24,7 +26,7 @@ export class BootScene extends Phaser.Scene {
       <div class="load-text">ładowanko...</div>
       <div class="load-bar-box"><div class="load-bar-fill"></div></div>
     `;
-    loadOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;font-family:"Press Start 2P",monospace;';
+    loadOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;font-family:"Tiny5",monospace;';
 
     const style = document.createElement('style');
     style.textContent = `
@@ -36,7 +38,7 @@ export class BootScene extends Phaser.Scene {
       }
       @keyframes load-roach-run { 0% { left: -176px; } 100% { left: 100%; } }
       @keyframes load-roach-legs { to { background-position-x: 800%; } }
-      #load-overlay .load-text { font-size: 28px; color: #8b0000; text-shadow: 0 0 12px #8b0000; }
+      #load-overlay .load-text { font-size: 32px; color: #8b0000; text-shadow: 0 0 12px #8b0000; }
       #load-overlay .load-bar-box { width: 320px; height: 24px; background: #111; border-radius: 4px; overflow: hidden; }
       #load-overlay .load-bar-fill { width: 0%; height: 100%; background: #8b0000; transition: width 0.1s; }
     `;
@@ -62,9 +64,12 @@ export class BootScene extends Phaser.Scene {
     // --- Sprites ---
     const images: [string, string][] = [
       ['bird-overlook', 'assets/bird-overlook.webp'],
+      [GOOGLE_G, 'assets/google-g.png'],
     ];
     for (const [key, path] of images) this.load.image(key, path + ASSET_REV);
     this.load.atlas(ATLAS, 'assets/sprites.webp' + ASSET_REV, 'assets/sprites.json' + ASSET_REV);
+    // Where worn items sit on the roach in every frame, and how each is worn: baked with the atlas
+    this.load.json(ANCHORS_KEY, 'assets/anchors.json' + ASSET_REV);
 
 
     // --- Level 1: the rest of the levels and the boss load in DeferredLoadScene ---
@@ -112,6 +117,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     createSpriteAnimations(this);
+    createItemAnimations(this);
     this.scene.launch(DEFERRED_LOAD_SCENE);
     sceneManager.goto(this, 'MenuScene');
   }

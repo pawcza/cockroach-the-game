@@ -44,8 +44,8 @@ export function showNameInput(
   input.value = defaultName ?? getPlayerName();
   input.style.cssText = [
     'position:fixed',
-    'font-family:"Press Start 2P",monospace',
-    'font-size:20px',
+    'font-family:"Tiny5",monospace',
+    'font-size:24px',
     'padding:12px 16px',
     'background:#15100d',
     'color:#fff1c2',

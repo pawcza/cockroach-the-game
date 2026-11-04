@@ -58,8 +58,14 @@ const ANIMATIONS: Record<string, { frames: number; fps: number; once?: boolean }
 
 export const frameOf = (name: string, index = 0): string => `${name}_${index}`;
 
+/** The shop's skins, baked as roach-<skin>-<anim>: the same timing as the plain roach. Matches skins.ts. */
+const SKINS = ['zombie', 'lodowy', 'robot', 'lawa', 'metal', 'kosmiczny'];
+
 export function createSpriteAnimations(scene: Phaser.Scene): void {
-  for (const [key, { frames, fps, once }] of Object.entries(ANIMATIONS)) {
+  const skinned = Object.entries(ANIMATIONS)
+    .filter(([key]) => key.startsWith('roach-'))
+    .flatMap(([key, config]) => SKINS.map(skin => [key.replace('roach-', `roach-${skin}-`), config] as const));
+  for (const [key, { frames, fps, once }] of [...Object.entries(ANIMATIONS), ...skinned]) {
     if (scene.anims.exists(key)) continue;
     scene.anims.create({
       key,

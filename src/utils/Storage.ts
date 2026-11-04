@@ -1,6 +1,12 @@
+import type { RunTrack } from '../systems/BestRunGhost';
+
 const KEYS = {
   PLAYER_NAME: 'cockroach-mp-name',
   HIGH_SCORE: 'cockroach-highscore',
+  BEST_DISTANCE: 'cockroach-best-distance',
+  DAILY_BEST: 'cockroach-daily-best',
+  BEST_RUN: 'cockroach-best-run',
+  DAILY_BEST_RUN: 'cockroach-daily-best-run',
   GAMES_PLAYED: 'cockroach-games-played',
   MUSIC_VOLUME: 'cockroach-music-vol',
   SFX_VOLUME: 'cockroach-sfx-vol',
@@ -38,6 +44,50 @@ export function updateHighScoreIfBetter(score: number): boolean {
     return true;
   }
   return false;
+}
+
+export function getBestDistance(): number {
+  return parseInt(localStorage.getItem(KEYS.BEST_DISTANCE) || '0', 10);
+}
+
+export function updateBestDistanceIfBetter(distance: number): void {
+  if (distance > getBestDistance()) localStorage.setItem(KEYS.BEST_DISTANCE, Math.floor(distance).toString());
+}
+
+/** Your best Karaluch Dnia score of this day; 0 on a new day. */
+export function getDailyBest(date: string): number {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEYS.DAILY_BEST) ?? 'null') as { date?: string; score?: number } | null;
+    return saved?.date === date && typeof saved.score === 'number' ? saved.score : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function updateDailyBestIfBetter(date: string, score: number): void {
+  if (score > getDailyBest(date)) localStorage.setItem(KEYS.DAILY_BEST, JSON.stringify({ date, score }));
+}
+
+/** The path of your record run, or of your best Karaluch Dnia run of that day, for its ghost. */
+export function loadBestTrack(daily?: string): RunTrack | null {
+  try {
+    if (daily) {
+      const saved = JSON.parse(localStorage.getItem(KEYS.DAILY_BEST_RUN) ?? 'null') as { date?: string; track?: RunTrack } | null;
+      return saved?.date === daily && saved.track ? saved.track : null;
+    }
+    return JSON.parse(localStorage.getItem(KEYS.BEST_RUN) ?? 'null') as RunTrack | null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveBestTrack(track: RunTrack, daily?: string): void {
+  try {
+    if (daily) localStorage.setItem(KEYS.DAILY_BEST_RUN, JSON.stringify({ date: daily, track }));
+    else localStorage.setItem(KEYS.BEST_RUN, JSON.stringify(track));
+  } catch {
+    // Storage full or blocked: the ghost is a nicety, the run is saved either way
+  }
 }
 
 export function getGamesPlayed(): number {

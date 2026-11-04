@@ -29,7 +29,7 @@ export class GhostManager {
     // Create ghosts for all OTHER players (skip myId)
     for (const player of players) {
       if (player.id === myId) continue;
-      const ghost = new GhostPlayer(scene, player.id, player.name, player.color, startX, floorBottomY);
+      const ghost = new GhostPlayer(scene, player.id, player.name, player.color, startX, floorBottomY, player.look);
       this.ghosts.set(player.id, ghost);
     }
   }
@@ -83,11 +83,13 @@ export class GhostManager {
     return this.ghosts.get(id)?.color ?? null;
   }
 
-  handlePosition(id: string, x: number, t?: number): void {
+  handlePosition(id: string, x: number, t?: number, lane?: string): void {
     const ghost = this.ghosts.get(id);
     if (!ghost) return;
     if (ghost.alive) {
       ghost.pushPosition(x, t);
+      // Someone who joined mid-run never saw this player's swaps: the reports carry the lane too
+      if (lane && lane !== ghost.lane && !ghost.inBossFight) ghost.setLane(lane, this.floorTopY, this.floorBottomY);
     }
   }
 

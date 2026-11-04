@@ -1,4 +1,6 @@
 import { io, Socket } from 'socket.io-client';
+import type { PlayerPlace } from '../../server/lobby';
+import type { Look } from '../config/skins';
 
 export interface MPPlayer {
   id: string;
@@ -6,12 +8,26 @@ export interface MPPlayer {
   color: number;
   isHost: boolean;
   ready: boolean;
+  place: PlayerPlace;
+  /** What their roach wears; null for a guest or the plain roach. */
+  look: Look | null;
 }
 
 export interface MPLobbyData {
   id: string;
   players: MPPlayer[];
   status: string;
+}
+
+/** A run already going when you joined its lobby: enough to watch it. */
+export interface MPRunInProgress {
+  seed: number;
+  /** The run's own players; you are not one of them. */
+  players: MPPlayer[];
+  /** How long it has been running, by the server's clock. */
+  elapsedMs: number;
+  /** Who is already out. */
+  dead: string[];
 }
 
 export interface MPRanking {
@@ -39,6 +55,7 @@ class MultiplayerClient {
   private socket: Socket | null = null;
   private _myId = '';
   private latestLobby: MPLobbyData | null = null;
+  private runInProgress: MPRunInProgress | null = null;
 
   get myId(): string { return this._myId; }
   get connected(): boolean { return this.socket?.connected ?? false; }
@@ -139,8 +156,16 @@ class MultiplayerClient {
 
   async joinLobby(lobbyId: string): Promise<MPLobbyData> {
     this.latestLobby = null;
-    const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:join', lobbyId);
+    const res = await this.emitWithAck<{ lobby: MPLobbyData; game?: MPRunInProgress }>('lobby:join', lobbyId);
+    this.runInProgress = res.game ?? null;
     return res.lobby;
+  }
+
+  /** The run that was going when you last joined, once: you watch it, then play the next one. */
+  takeRunInProgress(): MPRunInProgress | null {
+    const run = this.runInProgress;
+    this.runInProgress = null;
+    return run;
   }
 
   leaveLobby(): void {
@@ -149,20 +174,30 @@ class MultiplayerClient {
 
   async changeColor(colorIndex: number): Promise<MPLobbyData> {
     const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:color', colorIndex);
+    this.latestLobby = res.lobby;
     return res.lobby;
   }
 
   async setReady(ready: boolean): Promise<MPLobbyData> {
     const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:ready', ready);
+    this.latestLobby = res.lobby;
     return res.lobby;
+  }
+
+  /** Between runs: on the lobby screen, or still on the results. Everyone else sees where you are. */
+  async setPlace(place: 'lobby' | 'results'): Promise<MPLobbyData> {
+    const res = await this.emitWithAck<{ lobby: MPLobbyData }>('lobby:place', place);
+    this.latestLobby = res.lobby;
+    return res.lobby;
+  }
+
+  /** The newest state of the lobby you are in, as far as this client has heard. */
+  get lobby(): MPLobbyData | null {
+    return this.latestLobby;
   }
 
   async startGame(): Promise<{ seed: number; players: MPPlayer[] }> {
     return this.emitWithAck<{ ok: boolean; seed: number; players: MPPlayer[] }>('lobby:start');
-  }
-
-  async restartLobby(): Promise<void> {
-    await this.emitWithAck<{ ok: boolean }>('lobby:restart');
   }
 
   // Game events — send

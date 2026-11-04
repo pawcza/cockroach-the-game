@@ -25,6 +25,8 @@ export interface ObstacleScene extends Phaser.Scene {
   floorBottomY: number;
   cockroach: Phaser.Physics.Arcade.Sprite;
   isDead: boolean;
+  /** The run's own clock (ms of play, paused with the game). Every client of a match reads about the same value. */
+  runTime: number;
 }
 
 interface SpriteResources {
@@ -108,6 +110,11 @@ export class ObstacleKit {
     return sprite;
   }
 
+  /** A bare obstacle from its own texture, for one not drawn in the atlas. */
+  createPlain(x: number, y: number, key: string): Phaser.Physics.Arcade.Sprite {
+    return this.obstacles.create(x, y, key) as Phaser.Physics.Arcade.Sprite;
+  }
+
   /** Adds a contact shadow that follows the obstacle along its ledge. */
   private plant(sprite: Phaser.Physics.Arcade.Sprite, floor: Floor): void {
     const shadow = addContactShadow(this.scene, sprite.x, this.standY(floor), sprite.body!.width * SHADOW_WIDTH);
@@ -137,22 +144,29 @@ export class ObstacleKit {
     duration: number,
     sound: { key: string; volume: number },
     opts?: { hitbox?: { w: number; h: number } },
-  ): { sprite: Phaser.Physics.Arcade.Sprite; floatTween: Phaser.Tweens.Tween } {
+  ): Phaser.Physics.Arcade.Sprite {
     const startTop = this.random() > 0.5;
 
     const sprite = this.createSprite(x, startTop ? this.topY : this.bottomY, art, type, null, opts);
     this.playSoundOnVisible(sprite, sound.key, sound.volume);
+    this.track(sprite, { updates: [this.swing(sprite, 'y', sprite.y, startTop ? this.bottomY : this.topY, duration)] });
+    return sprite;
+  }
 
-    const floatTween = this.scene.tweens.add({
-      targets: sprite,
-      y: startTop ? this.bottomY : this.topY,
-      duration,
-      ease: 'Sine.easeInOut',
-      yoyo: true,
-      repeat: -1,
-    });
-
-    return { sprite, floatTween };
+  /**
+   * Moves a property from one value to another and back, eased, on the run's clock rather than from the moment this
+   * client spawned it: each client spawns an obstacle at its own moment, so a tween would put the same cat in a
+   * different place on every screen. Where in its swing it starts comes from its x, so neighbours don't move as one.
+   * Stops for good once the body is off (falling with its ledge, or punted by the pill), so those tweens own it.
+   */
+  swing(sprite: Phaser.Physics.Arcade.Sprite, prop: 'x' | 'y', from: number, to: number, halfMs: number): () => void {
+    const offset = (Math.abs(Math.round(from)) * 37) % (halfMs * 2);
+    return () => {
+      if (!sprite.body?.enable) return;
+      const t = ((this.scene.runTime + offset) % (halfMs * 2)) / halfMs;
+      const there = t <= 1 ? t : 2 - t;
+      sprite[prop] = from + (to - from) * (1 - Math.cos(Math.PI * there)) / 2;
+    };
   }
 
   /** Plays a sound once, when the sprite scrolls into view. */

@@ -26,6 +26,7 @@ import {
 import { AudioManager } from '../audio/AudioManager';
 import { addContactShadow } from '../effects/ContactShadow';
 import { fadeAndDestroy } from '../utils/TweenPatterns';
+import { dress, PLAIN, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
 import { PillEffect } from './PillEffect';
 
 export type Floor = 'top' | 'bottom';
@@ -80,6 +81,10 @@ export class Player {
   private hopTargetY = 0;
   private hopShadowY = 0;
   private hopLift = 0;
+  private _lastHop: { at: number; from: Floor } | null = null;
+  // What the roach wears: its skin's animations, and things on its head and back
+  private look: Look = PLAIN;
+  private worn: Worn[] = [];
   private inBossStance = false;
 
   constructor(
@@ -129,7 +134,7 @@ export class Player {
       COCKROACH_START_X,
       0, // positioned correctly below after offset is calculated
       ATLAS,
-      frameOf('roach-idle'),
+      frameOf(this.anim('idle')),
     );
     this.cockroach.setCollideWorldBounds(false);
     this.cockroach.setFlipY(false);
@@ -137,7 +142,8 @@ export class Player {
     this.cockroach.setDepth(DEPTH.PICKUPS);
     fitRoachBody(this.cockroach);
     this.cockroach.y = this.laneY('bottom');
-    this.cockroach.play('roach-idle');
+    this.cockroach.play(this.anim('idle'));
+    this.worn = dress(this.scene, this.cockroach, this.look);
 
     this.pill.create(this.cockroach);
 
@@ -164,6 +170,7 @@ export class Player {
   }
 
   resetState(): void {
+    this._lastHop = null;
     this._currentFloor = 'bottom';
     this._isDead = false;
     this._currentSpeed = COCKROACH_BASE_SPEED;
@@ -235,7 +242,7 @@ export class Player {
     this.updatePillGrace();
     // Legs speed up with the run. A hop plays out first, then the run picks up again
     if (!this._isDead && !this.hopTween) {
-      const animation = this._isDashing ? 'roach-dash' : 'roach-run';
+      const animation = this.anim(this._isDashing ? 'dash' : 'run');
       if (this.cockroach.anims.getName() !== animation) this.cockroach.play(animation);
       this.cockroach.anims.timeScale = this._isDashing ? 1 : this._speedMultiplier;
     }
@@ -249,6 +256,7 @@ export class Player {
 
   swapLane(): void {
     const toTop = this._currentFloor === 'bottom';
+    this._lastHop = { at: this.scene.time.now, from: this._currentFloor };
     this._currentFloor = toTop ? 'top' : 'bottom';
     this.cockroach.setVelocityY(0);
     if (toTop) this.audio.playJump();
@@ -261,6 +269,24 @@ export class Player {
   }
 
   get isHopping(): boolean { return this.hopTween !== null; }
+
+  private anim(name: RoachAnim): string {
+    return roachAnim(name, this.look);
+  }
+
+  /** Dresses the roach: its skin from the next animation on, and what it wears at once. */
+  setLook(look: Look): void {
+    this.look = look;
+    this.worn.forEach(item => item.destroy());
+    this.worn = this.cockroach ? dress(this.scene, this.cockroach, look) : [];
+    if (this.cockroach) {
+      const playing = /^roach-(?:[a-z]+-)?(run|idle|hop|dash|death)$/.exec(this.cockroach.anims.getName() ?? '');
+      if (playing) this.cockroach.play(this.anim(playing[1] as RoachAnim));
+    }
+  }
+
+  /** When the last lane change was pressed, and the lane it left. */
+  get lastHop(): { at: number; from: Floor } | null { return this._lastHop; }
 
   /**
    * The hitbox and shadow travel with the art, so what you see is what can hit you. The lane itself still counts from
@@ -279,7 +305,7 @@ export class Player {
     body.setVelocityY(0);
     if (!this.inBossStance) {
       this.cockroach.anims.timeScale = 1;
-      this.cockroach.play('roach-hop');
+      this.cockroach.play(this.anim('hop'));
     }
     this.hopTween = this.scene.tweens.addCounter({
       from: 0,
@@ -453,10 +479,18 @@ export class Player {
 
     // Dies where it stood, on the ledge and above the dimming world, so the flip and the kicking read
     this.cockroach.anims.timeScale = 1;
-    this.cockroach.play('roach-death');
+    this.cockroach.play(this.anim('death'));
     this.cockroach.setVelocity(0, 0);
     (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     this.cockroach.setAlpha(1).clearTint().setDepth(DEPTH.VFX_TEXT);
+  }
+
+  /** Watching a run you joined too late for: out of it from the start, unseen and untouchable. */
+  benchForWatching(): void {
+    this._isDead = true;
+    this.cockroach.setVisible(false);
+    this.shadow.setVisible(false);
+    (this.cockroach.body as Phaser.Physics.Arcade.Body).enable = false;
   }
 
   freezeForCountdown(): void {
@@ -475,7 +509,7 @@ export class Player {
   enterBossStance(): void {
     this.inBossStance = true;
     this.cockroach.stop();
-    this.cockroach.setFrame(frameOf('roach-idle'));
+    this.cockroach.setFrame(frameOf(this.anim('idle')));
   }
 
   /** Reset cockroach after boss fight. Only undoes the stance and angle. */

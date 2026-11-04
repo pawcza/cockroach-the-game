@@ -8,8 +8,10 @@ const DIRECTIONS: Record<string, [number, number]> = {
   ArrowRight: [1, 0], KeyD: [1, 0],
 };
 
-/** How much sideways drift counts against a candidate, against distance along the arrow. */
-const DRIFT_WEIGHT = 2;
+/** Among buttons in line, how much being off-centre counts against one, against the gap to it. */
+const DRIFT_WEIGHT = 0.1;
+/** Buttons whose faces don't line up come after every one that does. */
+const OFF_LINE_PENALTY = 10_000;
 
 /**
  * Keyboard focus for a screen's buttons: arrows (or WASD) move to the nearest button that way, Enter or Space
@@ -67,6 +69,11 @@ export class MenuNav {
     event.preventDefault();
   }
 
+  /**
+   * To the button that way whose face lines up with this one's (the nearest by the gap between their edges, then the
+   * best aligned), or failing that the nearest within 45° of the arrow. Edges rather than centres, so a wide button
+   * over a row of small ones goes to that row, not to whatever is centred under it further down.
+   */
   private move(dx: number, dy: number): void {
     const from = this.focused;
     if (!from) {
@@ -78,12 +85,16 @@ export class MenuNav {
     let bestScore = Infinity;
     for (const candidate of this.buttons) {
       if (candidate === from || !candidate.enabled) continue;
-      const ox = candidate.x - from.x;
-      const oy = candidate.y - from.y;
-      const along = ox * dx + oy * dy;
-      if (along <= 0) continue;
-      const drift = Math.abs(ox * dy - oy * dx);
-      const score = along + drift * DRIFT_WEIGHT;
+      const centreAlong = (candidate.x - from.x) * dx + (candidate.y - from.y) * dy;
+      if (centreAlong <= 0) continue;
+      // Edge to edge along the arrow, and how far apart the faces are across it (0 when they overlap)
+      const halfAlong = (b: UIButton): number => (dx !== 0 ? b.w : b.h) / 2;
+      const halfAcross = (b: UIButton): number => (dx !== 0 ? b.h : b.w) / 2;
+      const gap = Math.max(0, centreAlong - halfAlong(from) - halfAlong(candidate));
+      const centreAcross = Math.abs((candidate.x - from.x) * dy + (candidate.y - from.y) * dx);
+      const apart = Math.max(0, centreAcross - halfAcross(from) - halfAcross(candidate));
+      if (apart > 0 && centreAcross > centreAlong) continue;
+      const score = (apart > 0 ? OFF_LINE_PENALTY : 0) + gap + centreAcross * DRIFT_WEIGHT;
       if (score < bestScore) { bestScore = score; best = candidate; }
     }
     if (best) this.focus(best);

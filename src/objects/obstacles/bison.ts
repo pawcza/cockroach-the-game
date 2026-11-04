@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../../config/constants';
 import { ObstacleKit } from './ObstacleKit';
+import { Floor } from '../Player';
 
 const CHARGE_RANGE = 300;
 const CHARGE_MS = 1400;
 
-export function spawnBison(kit: ObstacleKit, x: number): void {
+export function spawnBison(kit: ObstacleKit, x: number, lane?: Floor): void {
   const { scene } = kit;
-  const floor = kit.randomFloor();
+  const floor = lane ?? kit.randomFloor();
   const standY = kit.standY(floor);
 
   const bison = kit.createSprite(x, standY, 'bison', 'bison', floor, {
@@ -16,15 +17,8 @@ export function spawnBison(kit: ObstacleKit, x: number): void {
   kit.playSoundOnVisible(bison, 'bison-sfx', 0.5);
 
   // Charge patrol. Fast enough to be a threat, slow and short enough to read and dodge on a lane change
-  bison.x = x - CHARGE_RANGE / 2;
-  const chargeTween = scene.tweens.add({
-    targets: bison,
-    x: x + CHARGE_RANGE / 2,
-    duration: CHARGE_MS,
-    ease: 'Sine.easeInOut',
-    yoyo: true,
-    repeat: -1,
-  });
+  const charge = kit.swing(bison, 'x', x - CHARGE_RANGE / 2, x + CHARGE_RANGE / 2, CHARGE_MS);
+  charge();
 
   const flipUpdate = kit.faceTravel(bison);
 
@@ -43,5 +37,5 @@ export function spawnBison(kit: ObstacleKit, x: number): void {
     });
   });
 
-  kit.track(bison, { tweens: [chargeTween], timers: [dustTimer], updates: [flipUpdate] });
+  kit.track(bison, { timers: [dustTimer], updates: [charge, flipUpdate] });
 }

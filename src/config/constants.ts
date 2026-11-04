@@ -26,8 +26,6 @@ export const COCKROACH_SPEED_TAU = 200; // seconds to reach ~63% of max boost
 
 // Spawning
 export const SPAWN_DISTANCE_AHEAD = 900;
-export const MIN_OBSTACLE_SPACING = 200;
-export const APPLE_SPAWN_CHANCE = 0.4;
 
 // Dash
 export const DASH_DURATION = 375;
@@ -35,7 +33,8 @@ export const DASH_COOLDOWN = 1200;
 export const DASH_SPEED_BOOST = 300; // flat px/s added during dash
 
 // Pill pickup
-export const PILL_SPAWN_CHANCE = 0.005; // 0.5% - 10x rarer than beer
+// Of the pickups the run's patterns lay out, how many are a pill or a beer instead of an apple
+export const PILL_CHANCE = 0.012;
 export const PILL_SPEED_MULTIPLIER = 1.5;
 export const PILL_DURATION = 5000; // 5 seconds
 export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
@@ -43,8 +42,7 @@ export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
 // Speed per level (added on top of time-based acceleration)
 export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed
 
-// Beer pickup
-export const BEER_SPAWN_CHANCE = 0.05; // 5% of slots get a beer
+export const BEER_CHANCE = 0.12;
 
 // Scoring
 export const APPLE_SCORE = 10;

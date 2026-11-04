@@ -1,11 +1,14 @@
 import Phaser from 'phaser';
 import { mpClient, MPLobbyData, MPPlayer } from '../multiplayer/MultiplayerClient';
-import { PLAYER_COLORS } from '../../server/lobby';
+import { MP_START_LEAD_MS, PLAYER_COLORS } from '../../server/lobby';
 import { titleStyle, smallStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton, createPanel, UIButton } from '../ui/shared';
 import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
+
+/** Where a player is, shown beside their name; nothing for the lobby itself. */
+const PLACE_LABEL: Record<string, string> = { game: 'w grze', watching: 'widz', results: 'na wynikach' };
 
 export class LobbyScene extends Phaser.Scene {
   private lobbyData!: MPLobbyData;
@@ -90,11 +93,13 @@ export class LobbyScene extends Phaser.Scene {
       if (this.isStartEnabled() && !this.starting) {
         this.starting = true;
         mpClient.startGame().then((res) => {
+          const startsAt = Date.now() + MP_START_LEAD_MS;
           sceneManager.goto(this, 'GameScene', {
             multiplayer: true,
             seed: res.seed,
             players: res.players,
             myId: mpClient.myId,
+            startsAt,
           });
         }).catch((err) => {
           this.starting = false;
@@ -129,11 +134,23 @@ export class LobbyScene extends Phaser.Scene {
         seed: data.seed,
         players: data.players,
         myId: mpClient.myId,
+        startsAt: Date.now() + MP_START_LEAD_MS,
       });
     };
 
     mpClient.on('lobby:updated', this.lobbyUpdatedHandler);
     mpClient.on('game:start', this.gameStartHandler);
+
+    // Arriving from the results: tell the others you're back in the lobby
+    const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
+    if (me && me.place !== 'lobby' && this.lobbyData.status === 'waiting') {
+      mpClient.setPlace('lobby').then((updated) => {
+        if (!this.scene.isActive()) return;
+        this.lobbyData = updated;
+        this.renderPlayerList();
+        this.updateStartButton();
+      }).catch(() => {});
+    }
 
     const stopWatchingDrop = mpClient.onDrop(() => {
       sceneManager.goto(this, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' });
@@ -255,6 +272,15 @@ export class LobbyScene extends Phaser.Scene {
       })).setOrigin(0, 0.5);
 
       const items: Phaser.GameObjects.GameObject[] = [swatch, nameText];
+      // Where they are, so nobody waits on someone still looking at the results or still running
+      const where = PLACE_LABEL[player.place];
+      if (where) {
+        items.push(this.add.text(width / 2 + 60, rowY, where, smallStyle({
+          fontSize: '8px',
+          color: player.place === 'game' ? '#e0a040' : '#8fc7d8',
+          strokeThickness: 0,
+        })).setOrigin(0, 0.5));
+      }
       if (!player.isHost) {
         items.push(this.add.text(width - 36, rowY, player.ready ? 'gotowy' : 'czeka', smallStyle({
           fontSize: '8px',

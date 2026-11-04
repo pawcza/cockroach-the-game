@@ -7,6 +7,14 @@ type Node = Phaser.GameObjects.GameObject & { depth?: number; cameraFilter: numb
 const isText = (go: Phaser.GameObjects.GameObject): boolean =>
   go instanceof Phaser.GameObjects.Text || go instanceof Phaser.GameObjects.BitmapText;
 
+const crisp = new WeakSet<Phaser.GameObjects.GameObject>();
+
+/** Draws this object on the ui camera like text, for artwork that must not be pixelated, such as a brand logo. */
+export function keepCrisp<T extends Phaser.GameObjects.GameObject>(go: T): T {
+  crisp.add(go);
+  return go;
+}
+
 /**
  * Every scene gets two cameras: the main one draws the world through PixelGridFX, and a `ui` camera on top,
  * kept in step with it, draws text and the top layers (popups, HUD, pause, overlays) at the finer logical grid
@@ -55,7 +63,7 @@ export class PixelCameras extends Phaser.Plugins.ScenePlugin {
           walk(go.list, depth);
           continue;
         }
-        const onUi = isText(go) || depth >= DEPTH.POPUP;
+        const onUi = isText(go) || crisp.has(go) || depth >= DEPTH.POPUP;
         go.cameraFilter = onUi ? main.id : ui.id;
       }
     };
