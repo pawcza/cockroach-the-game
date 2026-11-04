@@ -2,14 +2,15 @@ import Phaser from 'phaser';
 import { DEPTH } from '../../config/constants';
 import { frameOf } from '../../config/sprites';
 import { ObstacleKit } from './ObstacleKit';
+import { Floor } from '../Player';
 
 /** The first jolt of the baked shake (tools/art/objects.py), when the can kicks. */
 const SQUIRT_FRAME = 1;
 const HAZE_ALPHA = 0.15;
 
-export function spawnPestSpray(kit: ObstacleKit, x: number): void {
+export function spawnPestSpray(kit: ObstacleKit, x: number, lane?: Floor): void {
   const { scene } = kit;
-  const floor = kit.randomFloor();
+  const floor = lane ?? kit.randomFloor();
   const standY = kit.standY(floor);
 
   const spray = kit.createSprite(x, standY, 'spray', 'spray', floor);

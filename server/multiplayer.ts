@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { LobbyManager, type Lobby } from './lobby';
+import { LobbyManager, MP_START_LEAD_MS, type Lobby } from './lobby';
 import { clientIp, TokenBucket } from './net';
 import {
   cleanName, MAX_NAME_LENGTH, parseBossProjectile, parseCoord, parseLane, parseLobbyId, parseRunStats, parseScore,
@@ -32,7 +32,10 @@ interface BossState {
 /** What the server tracks for one game in progress. */
 interface Run {
   deaths: Map<string, DeathRecord>;
+  /** One entry per player in the run, and only them: someone who joined to watch is not in it. */
   lastSeen: Map<string, number>;
+  /** When the server started it; the clients' runs begin MP_START_LEAD_MS later. */
+  startedAt: number;
   lastScore: Map<string, number>;
   boss: BossState | null;
   bossDefeated: boolean;
@@ -41,6 +44,8 @@ interface Run {
 export interface MultiplayerOptions {
   stallMs?: number;
   sweepMs?: number;
+  /** What a connecting player's roach wears, from the account their cookie names; null for a guest. */
+  lookOf?: (headers: { cookie?: string }) => { skin: string | null; head: string | null; back: string | null } | null;
 }
 
 function ackOf(value: unknown): Ack {
@@ -85,9 +90,10 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
   function finishIfAllDead(lobbyId: string, run: Run): void {
     const lobby = lobbies.getLobby(lobbyId);
     if (lobby?.status !== 'ingame') return;
-    if (![...lobby.players.keys()].every((id) => run.deaths.has(id))) return;
+    // The run's own players: someone watching doesn't keep it going, and isn't ranked
+    if (![...run.lastSeen.keys()].every((id) => run.deaths.has(id))) return;
 
-    const rankings = [...lobby.players.values()].map((player) => ({
+    const rankings = [...lobby.players.values()].filter((player) => run.lastSeen.has(player.id)).map((player) => ({
       id: player.id,
       name: player.name,
       color: player.color,
@@ -98,6 +104,8 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
     lobbies.endGame(lobbyId);
     runs.delete(lobbyId);
     io.to(lobbyId).emit('game:over', { rankings, hostId: lobby.hostId });
+    // Everyone is on the results now, ready for a rematch from there
+    io.to(lobbyId).emit('lobby:updated', serializeLobby(lobbies, lobby));
     broadcastLobbyList();
   }
 
@@ -121,7 +129,7 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
       runs.delete(result.lobbyId);
     } else {
       io.to(result.lobbyId).emit('lobby:updated', serializeLobby(lobbies, lobby));
-      if (run) {
+      if (run?.lastSeen.has(socket.id)) {
         io.to(result.lobbyId).emit('game:player-left', { id: socket.id });
         run.deaths.delete(socket.id);
         run.lastSeen.delete(socket.id);
@@ -184,7 +192,8 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
     const activeGame = (): { lobbyId: string; run: Run } | null => {
       const lobbyId = lobbies.getPlayerLobbyId(socket.id);
       const run = lobbyId ? runs.get(lobbyId) : undefined;
-      if (!lobbyId || !run || run.deaths.has(socket.id)) return null;
+      // Only the run's own living players: a watcher's game events are ignored
+      if (!lobbyId || !run || !run.lastSeen.has(socket.id) || run.deaths.has(socket.id)) return null;
       run.lastSeen.set(socket.id, Date.now());
       return { lobbyId, run };
     };
@@ -220,7 +229,7 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
         return;
       }
 
-      const lobby = lobbies.createLobby(socket.id, playerName);
+      const lobby = lobbies.createLobby(socket.id, playerName, options.lookOf?.(socket.handshake.headers) ?? null);
       if (!lobby) {
         ack({ error: 'Cannot create lobby' });
         return;
@@ -248,7 +257,7 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
       }
 
       const lobbyId = parseLobbyId(id);
-      const lobby = lobbyId && lobbies.joinLobby(lobbyId, socket.id, playerName);
+      const lobby = lobbyId && lobbies.joinLobby(lobbyId, socket.id, playerName, options.lookOf?.(socket.handshake.headers) ?? null);
       if (!lobby) {
         ack({ error: 'Cannot join lobby' });
         return;
@@ -257,7 +266,15 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
       socket.join(lobby.id);
       socket.leave('lobby-browser');
       const lobbyData = serializeLobby(lobbies, lobby);
-      ack({ lobby: lobbyData });
+      // Joining a run in progress: what the newcomer needs to watch it, from the same seed and the run's own clock
+      const run = runs.get(lobby.id);
+      const game = lobby.status === 'ingame' && run ? {
+        seed: lobby.seed,
+        players: lobbies.serializePlayers(lobby).filter((player) => run.lastSeen.has(player.id)),
+        elapsedMs: Date.now() - (run.startedAt + MP_START_LEAD_MS),
+        dead: [...run.deaths.keys()],
+      } : undefined;
+      ack({ lobby: lobbyData, game });
       socket.to(lobby.id).emit('lobby:updated', lobbyData);
       broadcastLobbyList();
     });
@@ -302,6 +319,7 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
       runs.set(lobby.id, {
         deaths: new Map(),
         lastSeen: new Map([...lobby.players.keys()].map((id) => [id, now])),
+        startedAt: now,
         lastScore: new Map(),
         boss: null,
         bossDefeated: false,
@@ -313,17 +331,17 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
       broadcastLobbyList();
     });
 
-    on('lobby:restart', (callback) => {
+    on('lobby:place', (place, callback) => {
       const ack = ackOf(callback);
-      const lobby = lobbies.restartLobby(socket.id);
+      const lobby = place === 'lobby' || place === 'results' ? lobbies.setPlace(socket.id, place) : null;
       if (!lobby) {
-        ack({ error: 'Cannot restart lobby' });
+        ack({ error: 'Cannot move' });
         return;
       }
 
-      ack({ ok: true });
-      io.to(lobby.id).emit('lobby:updated', serializeLobby(lobbies, lobby));
-      broadcastLobbyList();
+      const lobbyData = serializeLobby(lobbies, lobby);
+      ack({ lobby: lobbyData });
+      socket.to(lobby.id).emit('lobby:updated', lobbyData);
     });
 
     relay('game:dash-start', relayX);

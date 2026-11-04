@@ -13,7 +13,17 @@ import {
 import { ATLAS, HOP_MS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf, hopY } from '../config/sprites';
 import { smallStyle } from '../utils/TextStyles';
 import { getLevelForDistance } from '../config/levels';
+import { dress, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
 import { PLAYER_COLORS } from '../../server/lobby';
+
+/** The name sits above the tallest thing a roach can wear (a balloon on its back). */
+const NAME_ABOVE = 84;
+/** How long a ghost keeps running past its last report before it waits for the next one. */
+const MAX_EXTRAPOLATE_S = 0.5;
+/** Further off than this, the ghost jumps to where it should be instead of easing there. */
+const SNAP_PX = 250;
+/** How quickly a ghost behind its target closes in. */
+const CATCH_UP_MS = 60;
 
 export class GhostPlayer {
   readonly id: string;
@@ -21,6 +31,9 @@ export class GhostPlayer {
   readonly color: number;
   readonly sprite: Phaser.GameObjects.Sprite;
   private nameLabel: Phaser.GameObjects.Text;
+  private ring: Phaser.GameObjects.Ellipse;
+  private look: Look | null;
+  private worn: Worn[];
 
   private scene: Phaser.Scene;
   private startX: number;
@@ -39,13 +52,15 @@ export class GhostPlayer {
   private pillSpeedBoost = 1;
   private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
 
-  // Dead reckoning — position recalculated each frame from last server snapshot
-  // No accumulation = no drift
-  private lastServerX = 0;         // X from last position event
-  private serverTime = 0;          // activePlayTime (ms) from last event
-  private serverTimeLocal = 0;     // Date.now() when event was received
-  private hasServerTime = false;   // don't move until first position event
-  private visualOffset = 0;        // smooth visual transition (decays to 0)
+  // Where the real player is, from their position reports (10 a second). Between reports the ghost runs on at the
+  // speed the reports themselves show, not the speed formula: a client whose game runs slow (a weaker laptop, a
+  // dropped frame, a background tab) covers less ground than the formula says, and trusting it made the ghost
+  // overshoot and snap back on every report.
+  private lastServerX = 0;         // X from the last report
+  private serverTime = 0;          // their activePlayTime (ms) at that report
+  private serverTimeLocal = 0;     // Date.now() when it arrived
+  private hasServerTime = false;   // don't move until the first report
+  private measuredSpeed = 0;       // px/s, smoothed from consecutive reports; 0 until there are two
 
   private _inBossFight = false;
   private bossGlockSprite: Phaser.GameObjects.Image | null = null;
@@ -53,6 +68,10 @@ export class GhostPlayer {
   private laneTween: Phaser.Tweens.Tween | null = null;
 
   get alive(): boolean { return this._alive; }
+
+  private anim(name: RoachAnim): string {
+    return roachAnim(name, this.look);
+  }
   get score(): number { return this._score; }
   get liveScore(): number { return this._liveScore; }
   get combo(): number { return this._combo; }
@@ -64,12 +83,18 @@ export class GhostPlayer {
     return this.getCurrentSpeed() / COCKROACH_BASE_SPEED;
   }
 
-  /** Receive authoritative position + time from real player */
+  /** A position report from the real player: x, and their run clock when they sent it. */
   pushPosition(x: number, activePlayTimeMs?: number): void {
     const now = Date.now();
 
-    if (this.hasServerTime) {
-      this.visualOffset = this.sprite.x - x;
+    if (this.hasServerTime && activePlayTimeMs != null) {
+      const dt = activePlayTimeMs - this.serverTime;
+      const dx = x - this.lastServerX;
+      // Their own clock, so network jitter doesn't show up as speed. Skip gaps a pause or a boss fight made
+      if (dt >= 50 && dt <= 1000 && dx >= 0) {
+        const speed = (dx / dt) * 1000;
+        this.measuredSpeed = this.measuredSpeed === 0 ? speed : this.measuredSpeed * 0.5 + speed * 0.5;
+      }
     }
 
     this.lastServerX = x;
@@ -81,8 +106,8 @@ export class GhostPlayer {
       // First event without t — assume t=0 so ghost can start moving
       this.serverTime = 0;
     }
-    // else: keep serverTime as-is, it gets extrapolated forward
 
+    if (!this.hasServerTime) this.sprite.x = x;
     this.hasServerTime = true;
   }
 
@@ -97,19 +122,22 @@ export class GhostPlayer {
     this.updateAlpha();
   }
 
-  constructor(scene: Phaser.Scene, id: string, name: string, colorIndex: number, startX: number, floorBottomY: number) {
+  constructor(scene: Phaser.Scene, id: string, name: string, colorIndex: number, startX: number, floorBottomY: number, look: Look | null = null) {
     this.scene = scene;
     this.id = id;
     this.name = name;
     this.color = PLAYER_COLORS[colorIndex] ?? 0xffffff;
     this.startX = startX;
 
-    this.sprite = scene.add.sprite(startX, floorBottomY - ROACH_FEET_OFFSET, ATLAS, frameOf('roach-run'));
+    // Their skin as they wear it; their lobby colour is the ring at their feet and their name, not a tint over the skin
+    this.look = look;
+    this.sprite = scene.add.sprite(startX, floorBottomY - ROACH_FEET_OFFSET, ATLAS, frameOf(this.anim('run')));
     this.sprite.setScale(SPRITE_SCALE);
-    this.sprite.play('roach-run');
+    this.sprite.play(this.anim('run'));
     this.sprite.setAlpha(0.2);
-    this.sprite.setTint(this.color);
     this.sprite.setDepth(DEPTH.GHOST_SPRITE);
+    this.worn = dress(scene, this.sprite, look);
+    this.ring = scene.add.ellipse(startX, floorBottomY, 54, 10).setStrokeStyle(2, this.color, 0.8).setDepth(DEPTH.CONTACT_SHADOW);
 
     const colorStr = '#' + this.color.toString(16).padStart(6, '0');
     this.nameLabel = scene.add.text(startX, floorBottomY - 100, name, smallStyle({ color: colorStr }));
@@ -139,7 +167,7 @@ export class GhostPlayer {
 
     const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - ROACH_FEET_OFFSET;
     this.sprite.stop();
-    this.sprite.setFrame(frameOf('roach-idle'));
+    this.sprite.setFrame(frameOf(this.anim('idle')));
     this.sprite.setAngle(-90);
     this.sprite.x = targetX;
     this.sprite.y = targetY;
@@ -155,7 +183,7 @@ export class GhostPlayer {
 
   leaveBossFight(): void {
     this._inBossFight = false;
-    this.sprite.play('roach-run');
+    this.sprite.play(this.anim('run'));
     this.sprite.setAngle(0);
     this.updateAlpha();
     if (this.bossGlockSprite) {
@@ -171,7 +199,7 @@ export class GhostPlayer {
     this.laneTween?.destroy();
     if (!this._inBossFight && this._alive) {
       this.sprite.anims.timeScale = 1;
-      this.sprite.play('roach-hop');
+      this.sprite.play(this.anim('hop'));
     }
     this.laneTween = this.scene.tweens.addCounter({
       from: 0,
@@ -202,7 +230,6 @@ export class GhostPlayer {
     this.updateAlpha();
 
     if (active) {
-      this.sprite.setTint(this.color);
       this.dashTrailTimer = this.scene.time.addEvent({
         delay: 80,
         repeat: Math.floor(DASH_DURATION / 80) - 1,
@@ -222,7 +249,7 @@ export class GhostPlayer {
         },
       });
     } else {
-      this.sprite.setTint(this._isPillActive ? 0xff00ff : this.color);
+      if (!this._isPillActive) this.sprite.clearTint();
       if (this.dashTrailTimer) {
         this.dashTrailTimer.destroy();
         this.dashTrailTimer = null;
@@ -237,9 +264,7 @@ export class GhostPlayer {
       this.sprite.setTint(0xff00ff);
     } else {
       this.pillSpeedBoost = 1;
-      if (!this._isDashing) {
-        this.sprite.setTint(this.color);
-      }
+      this.sprite.clearTint();
     }
   }
 
@@ -258,8 +283,9 @@ export class GhostPlayer {
     this.laneTween?.destroy();
     this.laneTween = null;
     this.sprite.anims.timeScale = 1;
-    this.sprite.play('roach-death');
+    this.sprite.play(this.anim('death'));
     this.nameLabel.setVisible(false);
+    this.ring.setVisible(false);
     this.scene.tweens.add({
       targets: this.sprite,
       y: this.sprite.y - 80,
@@ -302,7 +328,8 @@ export class GhostPlayer {
     if (!this._alive) return;
 
     if (this._inBossFight) {
-      this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 60);
+      this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - NAME_ABOVE);
+    this.ring.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y + ROACH_FEET_OFFSET));
       if (this.bossGlockSprite) {
         this.bossGlockSprite.setPosition(this.sprite.x + 15, this.sprite.y);
       }
@@ -319,24 +346,30 @@ export class GhostPlayer {
     // Don't move until we receive the first position event
     if (!this.hasServerTime) return;
 
-    // Dead reckoning: position = lastServerX + speed * elapsed
-    // Recalculated from scratch each frame — no accumulation, no drift
-    const speed = this.getCurrentSpeed();
-    const elapsed = (Date.now() - this.serverTimeLocal) / 1000;
-    const predictedX = this.lastServerX + speed * elapsed;
+    // Where they should be now: the last report carried on at their measured speed (the formula until there are two
+    // reports), for at most half a second, so a silent client doesn't run away
+    const speed = this.measuredSpeed || this.getCurrentSpeed();
+    const elapsed = Math.min((Date.now() - this.serverTimeLocal) / 1000, MAX_EXTRAPOLATE_S);
+    const target = this.lastServerX + speed * elapsed;
 
-    // Smooth visual transition (decays offset from prediction snap)
-    this.visualOffset *= 0.5;
-    if (Math.abs(this.visualOffset) < 0.5) this.visualOffset = 0;
-
-    this.sprite.x = predictedX + this.visualOffset;
+    // Shown moving forward only. Behind the target it closes in; ahead of it, it runs on at half speed until the
+    // target catches up. Only a big miss (a respawn, a long stall) jumps
+    const gap = target - this.sprite.x;
+    if (Math.abs(gap) > SNAP_PX) {
+      this.sprite.x = target;
+    } else if (gap >= 0) {
+      this.sprite.x += gap * (1 - Math.exp(-delta / CATCH_UP_MS));
+    } else {
+      this.sprite.x += (speed * 0.5 * delta) / 1000;
+    }
 
     // Keep name label above sprite
-    this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - 60);
+    this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - NAME_ABOVE);
+    this.ring.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y + ROACH_FEET_OFFSET));
 
     // Legs follow the run speed; a hop plays out first
     if (!this.laneTween && !this._inBossFight) {
-      const animation = this._isDashing ? 'roach-dash' : 'roach-run';
+      const animation = this.anim(this._isDashing ? 'dash' : 'run');
       if (this.sprite.anims.getName() !== animation) this.sprite.play(animation);
       this.sprite.anims.timeScale = this._isDashing ? 1 : speed / COCKROACH_BASE_SPEED;
     }
@@ -356,5 +389,7 @@ export class GhostPlayer {
     }
     this.sprite.destroy();
     this.nameLabel.destroy();
+    this.ring.destroy();
+    this.worn.forEach(item => item.destroy());
   }
 }

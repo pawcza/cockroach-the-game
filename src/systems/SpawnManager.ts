@@ -2,11 +2,9 @@ import Phaser from 'phaser';
 import { addContactShadow } from '../effects/ContactShadow';
 import {
   COCKROACH_START_X,
-  APPLE_SPAWN_CHANCE,
-  PILL_SPAWN_CHANCE,
-  BEER_SPAWN_CHANCE,
+  PILL_CHANCE,
+  BEER_CHANCE,
   SPAWN_DISTANCE_AHEAD,
-  MIN_OBSTACLE_SPACING,
   DEPTH,
 } from '../config/constants';
 import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../config/sprites';
@@ -15,6 +13,7 @@ import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { Floor } from '../objects/Player';
+import { Beat, RunPatterns, beatSpacing } from './RunPatterns';
 
 /** Pickups stand this far into the floor's top edge, like the roach's feet. */
 const PICKUP_SINK = 6;
@@ -27,6 +26,9 @@ const FIRST_PILL = import.meta.env.DEV && new URLSearchParams(window.location.se
 const FALL_DROP = 250;
 const FALL_MS = 800;
 
+/** How many walls of a run carry the DASH! hint. */
+const WALL_HINTS = 2;
+
 export class SpawnManager {
   private scene: Phaser.Scene;
   private firstSlot = true;
@@ -35,11 +37,14 @@ export class SpawnManager {
   private beers: Phaser.Physics.Arcade.Group;
   private pills: Phaser.Physics.Arcade.Group;
   private obstacleSpawner: ObstacleSpawner;
+  private patterns: RunPatterns;
   private rng: SeededRNG | null;
   private floorTopY: number;
   private floorBottomY: number;
 
   private nextSpawnX: number;
+  private wallsShown = 0;
+  private hints: Phaser.GameObjects.Text[] = [];
   private pendingPickupDestructions: number[] = [];
 
   constructor(
@@ -60,6 +65,7 @@ export class SpawnManager {
     this.pills = pills;
     this.obstacleSpawner = obstacleSpawner;
     this.rng = rng;
+    this.patterns = new RunPatterns(rng ?? { next: Math.random });
     this.floorTopY = floorTopY;
     this.floorBottomY = floorBottomY;
     this.nextSpawnX = COCKROACH_START_X + 400;
@@ -74,23 +80,14 @@ export class SpawnManager {
 
     while (this.nextSpawnX <= spawnHorizon) {
       const slotX = this.nextSpawnX;
-
       const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
-      const spawnLevel = getLevelForDistance(slotDistance).level;
-      this.nextSpawnX += MIN_OBSTACLE_SPACING;
+      const level = getLevelForDistance(slotDistance).level;
+      this.nextSpawnX += beatSpacing(level);
 
-      const roll = this.rng?.next() ?? Math.random();
       const testPill = FIRST_PILL && this.firstSlot && !this.rng;
       this.firstSlot = false;
-      if (testPill || roll < PILL_SPAWN_CHANCE) {
-        this.spawnPill(slotX);
-      } else if (roll < PILL_SPAWN_CHANCE + BEER_SPAWN_CHANCE) {
-        this.spawnBeer(slotX);
-      } else if (roll < PILL_SPAWN_CHANCE + BEER_SPAWN_CHANCE + APPLE_SPAWN_CHANCE) {
-        this.spawnApple(slotX);
-      } else {
-        this.obstacleSpawner.spawn(slotX, spawnLevel);
-      }
+      if (testPill) this.spawnPickup(this.pills, slotX, 'pill', 'bottom');
+      else this.fill(slotX, this.patterns.next(level), level);
     }
 
     if (this.pendingPickupDestructions.length > 0) {
@@ -125,7 +122,45 @@ export class SpawnManager {
     }
   }
 
+  private fill(x: number, beat: Beat, level: number): void {
+    const other = (lane: Floor): Floor => (lane === 'top' ? 'bottom' : 'top');
+    switch (beat.kind) {
+      case 'obstacle':
+        this.obstacleSpawner.spawn(x, level, { floor: beat.lane ?? undefined });
+        break;
+      case 'pickup':
+        this.spawnLanePickup(x, beat.lane);
+        break;
+      case 'pair':
+        this.obstacleSpawner.spawn(x, level, { floor: beat.obstacle });
+        this.spawnLanePickup(x, other(beat.obstacle));
+        break;
+      case 'wall':
+        this.obstacleSpawner.spawnWall(x, level);
+        if (this.wallsShown++ < WALL_HINTS) this.addWallHint(x);
+        break;
+      case 'empty':
+        break;
+    }
+  }
+
+  /** Over the first walls of a run: both lanes are shut, the dash is the way through. */
+  private addWallHint(x: number): void {
+    // Between the ledges, just above the lower obstacle's head
+    const y = (this.floorTopY + this.floorBottomY) / 2 - 12;
+    const hint = this.scene.add.text(x, y, 'DASH!', popupStyle({ fontSize: '14px', color: '#ffe066', strokeThickness: 4 }))
+      .setOrigin(0.5).setDepth(DEPTH.OBSTACLES + 1);
+    this.scene.tweens.add({ targets: hint, scale: 1.15, duration: 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.hints.push(hint);
+  }
+
   cleanupOffscreen(cameraLeft: number, onPickupMissed: (comboLost: number) => void, currentCombo: number): void {
+    this.hints = this.hints.filter((hint) => {
+      if (hint.x >= cameraLeft - 200) return true;
+      this.scene.tweens.killTweensOf(hint);
+      hint.destroy();
+      return false;
+    });
     this.obstacles.getChildren().forEach((obj) => {
       const sprite = obj as Phaser.Physics.Arcade.Sprite;
       if (sprite.x < cameraLeft - 200) sprite.destroy();
@@ -199,8 +234,15 @@ export class SpawnManager {
     }
   }
 
-  private spawnPickup(group: Phaser.Physics.Arcade.Group, x: number, art: string): void {
-    const floor: Floor = (this.rng?.next() ?? Math.random()) > 0.5 ? 'top' : 'bottom';
+  /** An apple, or now and then a beer or (rarely) a pill. */
+  private spawnLanePickup(x: number, floor: Floor): void {
+    const roll = this.rng?.next() ?? Math.random();
+    if (roll < PILL_CHANCE) this.spawnPickup(this.pills, x, 'pill', floor);
+    else if (roll < PILL_CHANCE + BEER_CHANCE) this.spawnPickup(this.beers, x, `beer-${Phaser.Math.Between(1, 6)}`, floor);
+    else this.spawnPickup(this.apples, x, 'apple', floor);
+  }
+
+  private spawnPickup(group: Phaser.Physics.Arcade.Group, x: number, art: string, floor: Floor): void {
     const y = (floor === 'top' ? this.floorTopY : this.floorBottomY) + PICKUP_SINK;
     const sprite = group.create(x, y, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
     sprite.setScale(SPRITE_SCALE);
@@ -212,17 +254,5 @@ export class SpawnManager {
 
     const shadow = addContactShadow(this.scene, x, y, sprite.body!.width * 1.5);
     sprite.once('destroy', () => shadow.destroy());
-  }
-
-  private spawnPill(slotX: number): void {
-    this.spawnPickup(this.pills, slotX, 'pill');
-  }
-
-  private spawnBeer(slotX: number): void {
-    this.spawnPickup(this.beers, slotX, `beer-${Phaser.Math.Between(1, 6)}`);
-  }
-
-  private spawnApple(slotX: number): void {
-    this.spawnPickup(this.apples, slotX, 'apple');
   }
 }

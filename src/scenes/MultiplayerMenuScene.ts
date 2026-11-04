@@ -191,12 +191,12 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     for (let i = 0; i < this.lobbies.length; i++) {
       const lobby = this.lobbies[i];
       const y = listTop + 12 + i * lineHeight + lineHeight / 2;
-      const canJoin = lobby.status === 'waiting' || lobby.status === 'postgame';
-      const status = lobby.status === 'waiting' ? 'czeka' : lobby.status === 'ingame' ? 'w grze' : 'po grze';
-      const color = lobby.status === 'waiting' ? 0x2f8a3a : lobby.status === 'ingame' ? 0x8a2f2f : 0x8a6a2f;
+      // A lobby in a run can be joined too: you watch until the next one
+      const playing = lobby.status === 'ingame';
+      const status = playing ? 'w grze · oglądaj' : 'czeka';
+      const color = playing ? 0x8a2f2f : 0x2f8a3a;
       const row = createButton(this, width / 2, y, width - 72, lineHeight - 8,
         `${lobby.host} — ${lobby.playerCount}/16 — ${status}`, color, rowStyle, () => this.handleJoinLobby(lobby.id));
-      row.setEnabled(canJoin);
       this.lobbyContainer.add(row.all);
       rows.push(row);
     }
@@ -214,7 +214,18 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     mpClient.setName(getPlayerNameOrDefault());
     try {
       const lobbyData = await request();
-      sceneManager.goto(this, 'LobbyScene', { lobbyData });
+      const run = mpClient.takeRunInProgress();
+      if (run) {
+        sceneManager.goto(this, 'GameScene', {
+          multiplayer: true,
+          seed: run.seed,
+          players: run.players,
+          myId: mpClient.myId,
+          watch: { elapsedMs: run.elapsedMs, dead: run.dead },
+        });
+      } else {
+        sceneManager.goto(this, 'LobbyScene', { lobbyData });
+      }
     } catch {
       this.entering = false;
       this.showNotice(failure);

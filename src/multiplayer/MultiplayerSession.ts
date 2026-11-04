@@ -1,7 +1,9 @@
 /** One run's link to the other players: ghosts, incoming events and outgoing player state. */
 import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
-import { COCKROACH_START_X } from '../config/constants';
+import { COCKROACH_START_X, DEPTH } from '../config/constants';
+import { PLAYER_COLORS } from '../../server/lobby';
+import { smallStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { BossEncounter } from '../systems/BossEncounter';
 import { GameOverHandler } from '../systems/GameOverHandler';
@@ -33,6 +35,8 @@ export class MultiplayerSession {
   private wasDashing = false;
   private wasPillActive = false;
   private stopWatchingDrop: (() => void) | null = null;
+  private selfLabel: Phaser.GameObjects.Text | null = null;
+  private followSelf: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene, deps: MultiplayerSessionDeps) {
     this.scene = scene;
@@ -53,7 +57,7 @@ export class MultiplayerSession {
       onGhostDashEnd: (id, x) => this.ghostManager?.handleDashEnd(id, x),
       onGhostPillStart: (id, x) => this.ghostManager?.handlePillStart(id, x),
       onGhostPillEnd: (id, x) => this.ghostManager?.handlePillEnd(id, x),
-      onGhostPosition: (id, x, _lane, t) => this.ghostManager?.handlePosition(id, x, t),
+      onGhostPosition: (id, x, lane, t) => this.ghostManager?.handlePosition(id, x, t, lane),
       onGhostPickup: (id, x, score, combo) => {
         this.ghostManager?.updateGhostScore(id, score, x, combo);
         if (run.isDead) {
@@ -77,6 +81,7 @@ export class MultiplayerSession {
       },
     });
     gameOverHandler.resetMpState();
+    this.labelSelf(players.find(p => p.id === myId));
 
     this.stopWatchingDrop = mpClient.onDrop(() => {
       sceneManager.goto(this.scene, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' }, () => {
@@ -113,7 +118,25 @@ export class MultiplayerSession {
     this.ghostManager?.update(this.scene.game.loop.delta, camera.scrollX, camera.width, camera.height);
   }
 
+  /** "TY" over your own roach in your lobby colour: the others carry their names, and yours looked like nobody's. */
+  private labelSelf(me: MPPlayer | undefined): void {
+    const { player } = this.deps;
+    const color = '#' + (PLAYER_COLORS[me?.color ?? 0] ?? 0xffffff).toString(16).padStart(6, '0');
+    const label = this.scene.add.text(player.x, player.y, 'TY', smallStyle({ fontSize: '12px', color, strokeThickness: 4 }))
+      .setOrigin(0.5, 1).setDepth(DEPTH.GHOST_LABEL);
+    this.selfLabel = label;
+    this.followSelf = () => {
+      label.setVisible(!player.isDead);
+      label.setPosition(Math.round(player.x), Math.round(player.y) - 84); // above a balloon, the tallest thing worn
+    };
+    this.scene.events.on('update', this.followSelf);
+  }
+
   destroy(): void {
+    if (this.followSelf) this.scene.events.off('update', this.followSelf);
+    this.followSelf = null;
+    this.selfLabel?.destroy();
+    this.selfLabel = null;
     this.stopWatchingDrop?.();
     this.stopWatchingDrop = null;
     this.ghostManager?.destroy();

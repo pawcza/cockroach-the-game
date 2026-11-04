@@ -4,7 +4,7 @@ import { ObstacleKit } from './ObstacleKit';
 
 export function spawnJellyfish(kit: ObstacleKit, x: number): void {
   const { scene } = kit;
-  const { sprite: jelly, floatTween } = kit.createFloater(x, 'jellyfish', 'jellyfish', 2500, { key: 'jellyfish-sfx', volume: 0.4 }, {
+  const jelly = kit.createFloater(x, 'jellyfish', 'jellyfish', 2500, { key: 'jellyfish-sfx', volume: 0.4 }, {
     hitbox: { w: 0.7, h: 0.85 },
   });
 
@@ -28,5 +28,5 @@ export function spawnJellyfish(kit: ObstacleKit, x: number): void {
     });
   });
 
-  kit.track(jelly, { tweens: [floatTween], timers: [particlesTimer] });
+  kit.track(jelly, { timers: [particlesTimer] });
 }

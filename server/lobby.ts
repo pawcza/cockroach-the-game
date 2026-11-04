@@ -1,12 +1,26 @@
+/**
+ * A multiplayer run starts this long after the server's start reaches each client: the crossfade, the countdown and a
+ * margin for a slow machine to build the scene. Every client counts down to the same moment, so their run clocks agree
+ * and the obstacles that move on that clock stand in the same place on every screen.
+ */
+export const MP_START_LEAD_MS = 3500;
+
+/** Where a player is: the lobby screen, a run, watching a run they joined too late for, or the last run's results. */
+export type PlayerPlace = 'lobby' | 'game' | 'watching' | 'results';
+
 export interface LobbyPlayer {
   id: string;
   name: string;
   color: number;
   isHost: boolean;
   ready: boolean;
+  place: PlayerPlace;
+  /** What their roach wears, from their account; null for a guest or the plain roach. */
+  look: { skin: string | null; head: string | null; back: string | null } | null;
 }
 
-export type LobbyStatus = 'waiting' | 'ingame' | 'postgame';
+/** Between runs a lobby is simply waiting: players ready up and the host starts from the lobby or the results. */
+export type LobbyStatus = 'waiting' | 'ingame';
 
 export interface Lobby {
   id: string;
@@ -51,7 +65,7 @@ export class LobbyManager {
   private lobbies = new Map<string, Lobby>();
   private playerLobbyMap = new Map<string, string>();
 
-  createLobby(hostId: string, hostName: string): Lobby | null {
+  createLobby(hostId: string, hostName: string, look: LobbyPlayer['look'] = null): Lobby | null {
     if (this.playerLobbyMap.has(hostId) || this.lobbies.size >= MAX_LOBBIES) return null;
 
     let id = generateLobbyId();
@@ -65,6 +79,8 @@ export class LobbyManager {
       color: 0,
       isHost: true,
       ready: false,
+      place: 'lobby',
+      look,
     };
 
     const lobby: Lobby = {
@@ -81,22 +97,12 @@ export class LobbyManager {
     return lobby;
   }
 
-  joinLobby(lobbyId: string, playerId: string, playerName: string): Lobby | null {
+  joinLobby(lobbyId: string, playerId: string, playerName: string, look: LobbyPlayer['look'] = null): Lobby | null {
     if (this.playerLobbyMap.has(playerId)) return null;
 
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
-    if (lobby.status === 'ingame') return null;
     if (lobby.players.size >= lobby.maxPlayers) return null;
-
-    // Joining a postgame lobby transitions it to waiting
-    if (lobby.status === 'postgame') {
-      lobby.status = 'waiting';
-      lobby.seed = null;
-      for (const player of lobby.players.values()) {
-        player.ready = false;
-      }
-    }
 
     const usedColors = new Set([...lobby.players.values()].map((p) => p.color));
     let colorIndex = 0;
@@ -110,6 +116,9 @@ export class LobbyManager {
       color: colorIndex,
       isHost: false,
       ready: false,
+      // Too late for a run in progress: they watch it, and play the next one
+      place: lobby.status === 'ingame' ? 'watching' : 'lobby',
+      look,
     };
 
     lobby.players.set(playerId, player);
@@ -137,15 +146,6 @@ export class LobbyManager {
       const newHost = lobby.players.values().next().value!;
       newHost.isHost = true;
       lobby.hostId = newHost.id;
-    }
-
-    // Transition postgame → waiting when a player leaves
-    if (lobby.status === 'postgame') {
-      lobby.status = 'waiting';
-      lobby.seed = null;
-      for (const player of lobby.players.values()) {
-        player.ready = false;
-      }
     }
 
     return { lobbyId, disbanded: false };
@@ -208,31 +208,36 @@ export class LobbyManager {
 
     lobby.seed = Date.now();
     lobby.status = 'ingame';
+    // Everyone is pulled in, from the lobby or the results; the next run needs a fresh ready
+    for (const player of lobby.players.values()) {
+      player.place = 'game';
+      player.ready = false;
+    }
     return lobby;
   }
 
+  /** The run is over: everyone is on the results, and the lobby is open for the next one straight away. */
   endGame(lobbyId: string): Lobby | null {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return null;
 
-    lobby.status = 'postgame';
+    lobby.status = 'waiting';
+    lobby.seed = null;
+    for (const player of lobby.players.values()) {
+      player.place = 'results';
+      player.ready = false;
+    }
     return lobby;
   }
 
-  restartLobby(hostId: string): Lobby | null {
-    const lobbyId = this.playerLobbyMap.get(hostId);
-    if (!lobbyId) return null;
+  /** A player moving between the lobby screen and the results, between runs. */
+  setPlace(playerId: string, place: PlayerPlace): Lobby | null {
+    const lobbyId = this.playerLobbyMap.get(playerId);
+    const lobby = lobbyId ? this.lobbies.get(lobbyId) : undefined;
+    const player = lobby?.players.get(playerId);
+    if (!lobby || !player || lobby.status !== 'waiting' || place === 'game') return null;
 
-    const lobby = this.lobbies.get(lobbyId);
-    if (!lobby) return null;
-    if (lobby.hostId !== hostId || lobby.status !== 'postgame') return null;
-
-    lobby.status = 'waiting';
-    lobby.seed = null;
-    // Reset all players' ready state
-    for (const player of lobby.players.values()) {
-      player.ready = false;
-    }
+    player.place = place;
     return lobby;
   }
 

@@ -4,7 +4,7 @@ import { ObstacleKit } from './ObstacleKit';
 export function spawnBird(kit: ObstacleKit, x: number): void {
   const { scene, topY, bottomY } = kit;
 
-  const { sprite: bird, floatTween } = kit.createFloater(x, 'bird', 'bird', 1200, { key: 'bird-sfx', volume: 0.4 }, {
+  const bird = kit.createFloater(x, 'bird', 'bird', 1200, { key: 'bird-sfx', volume: 0.4 }, {
     hitbox: { w: 0.75, h: 0.42 }, // the body only: the raised wings don't kill
   });
 
@@ -18,5 +18,5 @@ export function spawnBird(kit: ObstacleKit, x: number): void {
     shadow.setAlpha(0.1 + progress * 0.3);
   };
 
-  kit.track(bird, { tweens: [floatTween], updates: [shadowUpdate], objects: [shadow] });
+  kit.track(bird, { updates: [shadowUpdate], objects: [shadow] });
 }

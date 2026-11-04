@@ -8,3 +8,6 @@ data/
 .worktrees/
 __pycache__/
 .env
+
+# ComfyUI output from tools/art/comfy.py; the chosen renders are copied to art/sprites/shop
+art/renders/

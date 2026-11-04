@@ -1,5 +1,10 @@
 import Phaser from 'phaser';
 import { ATLAS, SPRITE_SCALE, frameOf } from '../config/sprites';
+import { keepCrisp } from '../pixel/PixelCameras';
+import { capCentreShift, FONT_GRID, smallStyle } from '../utils/TextStyles';
+import { DEPTH } from '../config/constants';
+import type { Achievement } from '../systems/Profile';
+import { account } from './Account';
 
 export interface UIButton {
   bg: Phaser.GameObjects.Graphics;
@@ -9,6 +14,9 @@ export interface UIButton {
   /** Centre, in the coordinates of whatever holds the button. */
   x: number;
   y: number;
+  /** Size of its face, for keyboard navigation between buttons of different sizes. */
+  w: number;
+  h: number;
   setColor: (c: number) => void;
   setLabel: (label: string) => void;
   setEnabled: (enabled: boolean) => void;
@@ -17,6 +25,8 @@ export interface UIButton {
   activate: () => void;
   /** Set on rows like sliders: the arrows left and right turn it instead of moving focus. */
   adjust?: (direction: number) => void;
+  /** On a button made with a second line: changes that line. */
+  setSub?: (text: string) => void;
 }
 
 // One look for every button: a dark slab painted like the ledges, its colour only in a side bar and the focus rim
@@ -27,6 +37,22 @@ const TEXT_IDLE = '#cdbfa9';
 const TEXT_FOCUS = '#fff1c2';
 const TEXT_DISABLED = '#5f554b';
 const BAR_W = 4;
+/** With a second line, the label moves up this much and the line sits this far below the middle. */
+const SUB_LIFT = 9;
+const SUB_DROP = 11;
+const SUB_IDLE = '#a89a80';
+const SUB_FOCUS = '#e8c15a';
+
+// Sign in with Google keeps Google's dark-theme colours (branding guidelines): the fill must stay the one the G's
+// tile was drawn on, so focus shows only in the rim and the label
+export const GOOGLE_G = 'google-g';
+const GOOGLE_FILL = 0x131314;
+const GOOGLE_RIM = 0x8e918f;
+const GOOGLE_RIM_FOCUS = 0xe3e3e3;
+const GOOGLE_TEXT = '#e3e3e3';
+const GOOGLE_TEXT_FOCUS = '#ffffff';
+const GOOGLE_G_SIZE = 22;
+const GOOGLE_PAD = 4;
 
 /** The button colour lifted to a readable accent; greys become warm bone, so neutral buttons still read as buttons. */
 function accentOf(color: number): number {
@@ -50,6 +76,7 @@ export function createButton(
   color: number,
   style: Phaser.Types.GameObjects.Text.TextStyle,
   action: () => void,
+  opts: { google?: boolean; sub?: string; onFocus?: () => void } = {},
 ): UIButton {
   x = Math.round(x);
   y = Math.round(y);
@@ -61,8 +88,40 @@ export function createButton(
   let pressed = false;
   let enabled = true;
 
+  const google = opts.google === true;
   const bg = scene.add.graphics();
-  const txt = scene.add.text(x, y, label, { ...style, color: TEXT_IDLE, stroke: '#000000' }).setOrigin(0.5);
+  // Google's own 1x G, drawn unscaled on the crisp camera, never through the pixel grid
+  const gLeft = x - w / 2 + GOOGLE_PAD;
+  const g = google ? keepCrisp(scene.add.image(gLeft + GOOGLE_G_SIZE / 2, y, GOOGLE_G)) : null;
+  const txtX = google ? Math.round((gLeft + GOOGLE_G_SIZE + x + w / 2) / 2) : x;
+  const txt = scene.add.text(txtX, y, label, { ...style, color: google ? GOOGLE_TEXT : TEXT_IDLE, stroke: '#000000' }).setOrigin(0.5);
+  const labelSize = txt.style.fontSize;
+  // A label that doesn't fit steps down the font's grid instead of spilling over the frame
+  const room = google ? x + w / 2 - (gLeft + GOOGLE_G_SIZE) - 8 : w - BAR_W - 12;
+  // Centred on its letters, not on the font's line box, which sits them low
+  let shift = 0;
+  const fit = (): void => {
+    let size = parseFloat(String(txt.style.fontSize));
+    while (txt.width > room && size > FONT_GRID) {
+      size -= FONT_GRID;
+      txt.setFontSize(size);
+    }
+    shift = capCentreShift(txt) - (sub ? SUB_LIFT : 0);
+    txt.setY(y + shift);
+  };
+
+  // An optional second line under the label, smaller: what this button is up to, like today's standing
+  const sub = opts.sub === undefined ? null : scene.add.text(txtX, y, opts.sub, smallStyle({ fontSize: '7px', strokeThickness: 2 })).setOrigin(0.5);
+  const subSize = sub?.style.fontSize;
+  let subShift = 0;
+  const fitSub = (): void => {
+    if (!sub) return;
+    sub.setFontSize(subSize!);
+    if (sub.width > room) sub.setFontSize(parseFloat(String(subSize)) - FONT_GRID);
+    subShift = capCentreShift(sub) + SUB_DROP;
+  };
+  fitSub();
+  fit();
 
   const draw = (): void => {
     // A button its own action destroyed still gets unfocused by the MenuNav; a destroyed text can't redraw
@@ -73,16 +132,27 @@ export function createButton(
     const top = y - h / 2 + dy;
     bg.clear();
     if (!pressed) bg.fillStyle(0x000000, 0.55).fillRect(left + 2, top + 4, w, h);
+    if (google) {
+      frame(bg, left, top, w, h, lit ? GOOGLE_RIM_FOCUS : GOOGLE_RIM);
+      bg.fillStyle(GOOGLE_FILL, 1).fillRect(left, top, w, h);
+      g!.setY(y + dy).setAlpha(enabled ? 1 : 0.4);
+      txt.setY(y + dy + shift);
+      txt.setColor(!enabled ? TEXT_DISABLED : lit ? GOOGLE_TEXT_FOCUS : GOOGLE_TEXT);
+      return;
+    }
     frame(bg, left, top, w, h, lit ? accent : RIM);
     bg.fillStyle(lit ? SLAB_FOCUS : SLAB, enabled ? 0.96 : 0.8).fillRect(left, top, w, h);
     bg.fillStyle(0xffffff, lit ? 0.1 : 0.05).fillRect(left, top, w, 2);
     bg.fillStyle(0x000000, 0.35).fillRect(left, top + h - 2, w, 2);
     bg.fillStyle(accent, enabled ? (lit ? 1 : 0.7) : 0.25).fillRect(left, top, BAR_W, h);
-    txt.setY(y + dy);
+    txt.setY(y + dy + shift);
     txt.setColor(!enabled ? TEXT_DISABLED : lit ? TEXT_FOCUS : TEXT_IDLE);
+    sub?.setY(y + dy + subShift).setColor(!enabled ? TEXT_DISABLED : lit ? SUB_FOCUS : SUB_IDLE);
   };
 
-  const hitZone = scene.add.rectangle(x, y, w + 4, h + 4, 0x000000, 0).setInteractive({ useHandCursor: true });
+  // Fingers get the whole gap around a button (menus space them 8 apart), a mouse a little margin
+  const reach = scene.sys.game.device.os.desktop ? 4 : 8;
+  const hitZone = scene.add.rectangle(x, y, w + reach, h + reach, 0x000000, 0).setInteractive({ useHandCursor: true });
   hitZone.on('pointerover', () => { hovered = true; draw(); });
   hitZone.on('pointerout', () => { hovered = false; pressed = false; draw(); });
   hitZone.on('pointerdown', () => { if (enabled) { pressed = true; draw(); } });
@@ -96,12 +166,13 @@ export function createButton(
   draw();
 
   return {
-    bg, txt, hitZone, all: [bg, hitZone, txt], x, y,
+    bg, txt, hitZone, all: [bg, hitZone, ...(g ? [g] : []), txt, ...(sub ? [sub] : [])], x, y, w, h,
+    setSub: sub ? (text) => { sub.setText(text); fitSub(); draw(); } : undefined,
     setColor: (c) => { accent = accentOf(c); draw(); },
-    setLabel: (text) => { txt.setText(text); },
+    setLabel: (text) => { txt.setFontSize(labelSize); txt.setText(text); fit(); },
     setEnabled: (value) => { enabled = value; hitZone.input!.cursor = value ? 'pointer' : 'default'; draw(); },
     get enabled() { return enabled; },
-    setFocused: (value) => { focused = value; draw(); },
+    setFocused: (value) => { focused = value; draw(); if (value) opts.onFocus?.(); },
     // Straight away: the scene clock may be paused (the pause menu)
     activate: () => { if (enabled) action(); },
   };
@@ -152,4 +223,71 @@ export const OBSTACLE_LABEL: Record<string, string> = {
   blackhole: 'Czarna dziura',
   boss: 'Bestia spod Zlewu',
   fall: 'Spadł',
+  wall: 'Ściana',
 };
+
+const TOAST_W = 300;
+const TOAST_H = 44;
+/** Right side, below the band where level announcements and milestones show, so on a narrow screen they don't meet. */
+const TOAST_TOP = 120;
+const TOAST_MARGIN = 16;
+const TOAST_HOLD_MS = 2600;
+
+/**
+ * An achievement just earned: a gold slab in the top right corner that fades in, holds and goes. Several at once stack
+ * downwards instead of covering each other.
+ */
+export function showAchievement(scene: Phaser.Scene, achievement: Achievement): void {
+  showToast(scene, account() ? `${achievement.name}! +${achievement.reward} okruszków` : `Osiągnięcie: ${achievement.name}`, achievement.description);
+}
+
+/** A finished mission, with what it paid. */
+export function showMission(scene: Phaser.Scene, mission: { text: string; reward: number }): void {
+  showToast(scene, `Misja wykonana! +${mission.reward} okruszków`, mission.text);
+}
+
+/** At most this many toasts at once; the rest wait their turn, so a big run doesn't bury the screen. */
+const TOASTS_AT_ONCE = 3;
+
+interface ToastQueue { taken: boolean[]; waiting: [string, string][] }
+
+function showToast(scene: Phaser.Scene, heading: string, line: string): void {
+  const queue: ToastQueue = (scene.data.get('toasts') as ToastQueue | undefined)
+    ?? { taken: new Array<boolean>(TOASTS_AT_ONCE).fill(false), waiting: [] };
+  scene.data.set('toasts', queue);
+  const slot = queue.taken.indexOf(false);
+  if (slot < 0) {
+    queue.waiting.push([heading, line]);
+    return;
+  }
+  queue.taken[slot] = true;
+  const camera = scene.cameras.main;
+  const x = Math.round(camera.width - TOAST_W - TOAST_MARGIN);
+  const y = TOAST_TOP + slot * (TOAST_H + 6);
+
+  const panel = scene.add.graphics();
+  frame(panel, x, y, TOAST_W, TOAST_H, 0xe8c15a);
+  panel.fillStyle(SLAB, 0.95).fillRect(x, y, TOAST_W, TOAST_H).fillStyle(0xe8c15a, 1).fillRect(x, y, BAR_W, TOAST_H);
+  const title = scene.add.text(x + 14, y + 13, heading, smallStyle({ fontSize: '7px', color: '#e8c15a', strokeThickness: 0 }))
+    .setOrigin(0, 0.5);
+  const detail = scene.add.text(x + 14, y + 31, line, smallStyle({ fontSize: '7px', color: TEXT_IDLE, strokeThickness: 0 }))
+    .setOrigin(0, 0.5);
+  const parts = [panel, title, detail];
+  for (const part of parts) part.setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setAlpha(0);
+
+  scene.tweens.add({
+    targets: parts, alpha: 1, duration: 200,
+    onComplete: () => {
+      scene.tweens.add({
+        targets: parts, alpha: 0, delay: TOAST_HOLD_MS, duration: 400,
+        onComplete: () => {
+          parts.forEach(part => part.destroy());
+          // Its place goes to the next one waiting
+          queue.taken[slot] = false;
+          const next = queue.waiting.shift();
+          if (next) showToast(scene, next[0], next[1]);
+        },
+      });
+    },
+  });
+}

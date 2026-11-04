@@ -16,7 +16,9 @@ from scipy import ndimage as ni
 sys.path.insert(0, str(Path(__file__).parent))
 from creatures import CREATURES  # noqa: E402
 from objects import OBJECTS  # noqa: E402
-from roach import ANIMATIONS, baked  # noqa: E402
+from roach import ANIMATIONS, CELL, baked, frames_with_anchors, painted  # noqa: E402
+from skins import PAINTED  # noqa: E402
+from worn import ITEMS, bake as bake_item  # noqa: E402
 
 OUT = Path("public/assets")
 AREA = 620        # visible native px every object is scaled to
@@ -28,7 +30,7 @@ GLOW_ALPHA = .8
 RED = (255, 40, 50)
 GREEN = (50, 255, 110)
 PICKUPS = {"apple", "pill", *(f"beer-{n}" for n in range(1, 7))}
-ATLAS_WIDTH = 1024
+ATLAS_WIDTH = 2048  # with the shop's skins; at most 2048 either way, which every phone takes
 
 
 def _drop_specks(frame: np.ndarray) -> np.ndarray:
@@ -69,19 +71,33 @@ def _with_glow(frame: Image.Image, colour: tuple[int, int, int]) -> Image.Image:
     return canvas
 
 
-def collect() -> dict[str, tuple[list[Image.Image], float]]:
-    """Animation name to (frames, pivot y)."""
+def collect() -> tuple[dict, dict]:
+    """Animation name to (frames, pivot y, or (x, y)); and the anchors file for what a roach wears."""
     sheet = {}
+    anchors = {"cell": list(CELL), "roach": {}, "items": {}}
     for name, make in ANIMATIONS.items():
-        sheet[f"roach-{name}"] = ([baked(f) for f in make()], .5)
+        rig_frames, frame_anchors = frames_with_anchors(make)
+        frames = [baked(f) for f in rig_frames]
+        sheet[f"roach-{name}"] = (frames, .5)
+        anchors["roach"][name] = frame_anchors
+        # Shop skins: every painted skin from its own body on the rig
+        for skin, source in PAINTED.items():
+            with painted(source):
+                sheet[f"roach-{skin}-{name}"] = ([baked(f) for f in make()], .5)
+    # What a roach wears: each its own looping animation, its pivot where it meets the roach
+    for item_id, item in ITEMS.items():
+        frames, pivot = bake_item(item)
+        sheet[f"acc-{item_id}"] = (frames, pivot)
+        anchors["items"][item_id] = {"anchor": item.anchor, "behind": item.behind, "frames": len(frames), "fps": item.fps,
+                                     "with": list(item.companions)}
     for name, make in {**CREATURES, **OBJECTS}.items():
         colour = GREEN if name in PICKUPS else RED
         frames = [_with_glow(f, colour) for f in _resize(make(), name)]
         sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
-    return sheet
+    return sheet, anchors
 
 
-def pack(sheet) -> None:
+def pack(sheet, anchors) -> None:
     placed, x, y, shelf = {}, 0, 0, 0
     for name, (frames, pivot) in sheet.items():
         for i, frame in enumerate(frames):
@@ -95,13 +111,15 @@ def pack(sheet) -> None:
     for key, (frame, fx, fy, pivot) in placed.items():
         atlas.paste(frame, (fx, fy))
         w, h = frame.size
+        px, py = pivot if isinstance(pivot, tuple) else (.5, pivot)
         meta[key] = {
             "frame": {"x": fx, "y": fy, "w": w, "h": h}, "rotated": False, "trimmed": False,
             "spriteSourceSize": {"x": 0, "y": 0, "w": w, "h": h}, "sourceSize": {"w": w, "h": h},
-            "pivot": {"x": .5, "y": round(pivot, 4)},
+            "pivot": {"x": round(px, 4), "y": round(py, 4)},
         }
     atlas.save(OUT / "sprites.webp", lossless=True, quality=100, exact=True)
     (OUT / "sprites.json").write_text(json.dumps({"frames": meta, "meta": {"image": "sprites.webp", "scale": "1"}}))
+    (OUT / "anchors.json").write_text(json.dumps(anchors))
     strip = Image.new("RGBA", (sum(f.width for f in sheet["roach-run"][0]), sheet["roach-run"][0][0].height))
     for i, frame in enumerate(sheet["roach-run"][0]):
         strip.paste(frame, (i * frame.width, 0))
@@ -110,4 +128,4 @@ def pack(sheet) -> None:
 
 
 if __name__ == "__main__":
-    pack(collect())
+    pack(*collect())

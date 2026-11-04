@@ -13,6 +13,9 @@ export class RunState {
   applesCollected = 0;
   beersCollected = 0;
   pillsCollected = 0;
+  nearMisses = 0;
+  dashThroughs = 0;
+  wallsBroken = 0;
 
   reset(now: number): void {
     this.isDead = false;
@@ -26,6 +29,9 @@ export class RunState {
     this.applesCollected = 0;
     this.beersCollected = 0;
     this.pillsCollected = 0;
+    this.nearMisses = 0;
+    this.dashThroughs = 0;
+    this.wallsBroken = 0;
   }
 }
 

@@ -4,7 +4,7 @@ import { ObstacleKit } from './ObstacleKit';
 
 export function spawnPope(kit: ObstacleKit, x: number): void {
   const { scene } = kit;
-  const { sprite: pope, floatTween } = kit.createFloater(x, 'pope', 'pope', 1800, { key: 'pope-sfx', volume: 0.4 });
+  const pope = kit.createFloater(x, 'pope', 'pope', 1800, { key: 'pope-sfx', volume: 0.4 });
 
   // Smoke trail
   const smokeTimer = kit.emitWhileOnScreen(pope, 150, () => {
@@ -26,5 +26,5 @@ export function spawnPope(kit: ObstacleKit, x: number): void {
     });
   });
 
-  kit.track(pope, { tweens: [floatTween], timers: [smokeTimer] });
+  kit.track(pope, { timers: [smokeTimer] });
 }

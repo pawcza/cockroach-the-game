@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import type { Request, Response, Router } from 'express';
 import express from 'express';
 import { deleteUser, findOrCreateGoogleUser, getUser, renameUser, type User } from './db';
+import { forgetPlayer } from './economy';
 import { cleanName, isRecord, MAX_NAME_LENGTH } from './validate';
 
 const SESSION_COOKIE = 'kc_session';
@@ -70,7 +71,8 @@ function idTokenPayload(token: unknown): Record<string, unknown> | null {
 export interface Auth {
   router: Router;
   /** The signed-in player behind this request, or null. */
-  userOf: (req: Request) => User | null;
+  /** The signed-in player behind a request or a socket handshake: only the cookie header is read. */
+  userOf: (req: { headers: { cookie?: string } }) => User | null;
 }
 
 export function createAuth(options: AuthOptions | null): Auth {
@@ -84,7 +86,7 @@ export function createAuth(options: AuthOptions | null): Auth {
     res.cookie(name, value, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: maxAgeMs });
   };
 
-  const userOf = (req: Request): User | null => {
+  const userOf = (req: { headers: { cookie?: string } }): User | null => {
     if (!options) return null;
     const raw = parseCookies(req.headers.cookie)[SESSION_COOKIE];
     if (!raw) return null;
@@ -184,6 +186,7 @@ export function createAuth(options: AuthOptions | null): Auth {
     const user = userOf(req);
     if (!user) { res.status(401).json({ error: 'Sign in first' }); return; }
     deleteUser(user.id);
+    forgetPlayer(user.id);
     res.clearCookie(SESSION_COOKIE, { path: '/' });
     res.json({ ok: true });
   });

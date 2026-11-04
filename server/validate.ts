@@ -10,7 +10,7 @@ export type Lane = 'top' | 'bottom';
 
 const DEATH_CAUSES = new Set([
   'onion', 'spray', 'flipper', 'newspaper', 'bird', 'cat', 'disco',
-  'jellyfish', 'pope', 'bison', 'blackhole', 'boss', 'fall',
+  'jellyfish', 'pope', 'bison', 'blackhole', 'boss', 'fall', 'wall',
 ]);
 
 const NUMERIC_STATS = [
@@ -102,6 +102,8 @@ export interface ScoreSubmission {
   pillsCollected: number | null;
   maxLevel: number | null;
   maxCombo: number | null;
+  /** The day of a Karaluch Dnia run; null for an ordinary one. */
+  daily: string | null;
 }
 
 export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: string } {
@@ -120,5 +122,41 @@ export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: 
     pillsCollected: wholeStat(body.pillsCollected),
     maxLevel: wholeStat(body.maxLevel),
     maxCombo: wholeStat(body.maxCombo),
+    daily: parseDay(body.daily),
   };
+}
+
+/** A calendar day, YYYY-MM-DD; whether it is still open is the server's call. */
+export function parseDay(value: unknown): string | null {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+const MAX_PROFILE_STAT = 1_000_000_000;
+const MAX_ACHIEVEMENTS = 64;
+
+export interface ProfileData {
+  stats: Record<string, number>;
+  achievements: Record<string, number>;
+}
+
+/**
+ * A player's stats and achievements as the client keeps them. Only short ids and finite numbers get through, so
+ * nothing else can be stored or shown to anyone.
+ */
+export function parseProfile(body: unknown): ProfileData | null {
+  if (!isRecord(body) || !isRecord(body.stats) || !isRecord(body.achievements)) return null;
+  const pick = (source: Record<string, unknown>, limit: number): Record<string, number> | null => {
+    const out: Record<string, number> = {};
+    const entries = Object.entries(source);
+    if (entries.length > limit) return null;
+    for (const [key, value] of entries) {
+      if (!/^[a-zA-Z0-9-]{1,32}$/.test(key)) return null;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > (limit === MAX_ACHIEVEMENTS ? Number.MAX_SAFE_INTEGER : MAX_PROFILE_STAT)) return null;
+      out[key] = Math.floor(value);
+    }
+    return out;
+  };
+  const stats = pick(body.stats, 32);
+  const achievements = pick(body.achievements, MAX_ACHIEVEMENTS);
+  return stats && achievements ? { stats, achievements } : null;
 }

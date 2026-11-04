@@ -34,7 +34,7 @@ export class GameHUD {
   private pauseText!: Phaser.GameObjects.Text;
   private pauseSubtext!: Phaser.GameObjects.Text;
   private touchPauseBtn!: Phaser.GameObjects.Arc;
-  private touchPauseBtnLabel!: Phaser.GameObjects.Text;
+  private touchPauseBtnLabel!: Phaser.GameObjects.Graphics;
   private cricketSound: Phaser.Sound.BaseSound | null = null;
 
   private onTogglePause: () => void;
@@ -165,13 +165,15 @@ export class GameHUD {
     this.pauseNav.enabled = false;
 
     // Pause button — circular, top-right
-    const pauseR = 18;
+    const pauseR = 22;
     const pauseX = w - pauseR - 12;
     const pauseY = pauseR + 12;
-    this.touchPauseBtn = this.scene.add.circle(pauseX, pauseY, pauseR, 0x888888, 0.2)
-      .setScrollFactor(0).setDepth(DEPTH.PAUSE_BTN).setInteractive();
-    this.touchPauseBtnLabel = this.scene.add.text(pauseX, pauseY, '\u23f8', hudStyle({ fontSize: '12px' }))
-      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_BTN_LABEL).setAlpha(0.4);
+    this.touchPauseBtn = this.scene.add.circle(pauseX, pauseY, pauseR, 0x000000, 0.35)
+      .setStrokeStyle(2, 0xf1e3c6, 0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_BTN).setInteractive();
+    // Two bars, drawn: the pixel font has no pause sign
+    this.touchPauseBtnLabel = this.scene.add.graphics({ x: pauseX, y: pauseY })
+      .fillStyle(0xf1e3c6, 0.8).fillRect(-7, -8, 5, 16).fillRect(2, -8, 5, 16)
+      .setScrollFactor(0).setDepth(DEPTH.PAUSE_BTN_LABEL);
     this.touchPauseBtn.on('pointerdown', () => { this.onTogglePause(); });
 
     // Draw initial bar state so it's visible during countdown
@@ -377,6 +379,27 @@ export class GameHUD {
       },
     });
     this.scene.cameras.main.shake(200, 0.01);
+  }
+
+  /** Opens a Karaluch Dnia run: whose day it is, so a retry knows it is the same run as everyone's. */
+  showDailyBanner(date: string): void {
+    const w = this.scene.cameras.main.width;
+    const [year, month, day] = date.split('-').map(Number);
+    const title = this.scene.add.text(w / 2, 60, 'KARALUCH DNIA', headingStyle({
+      color: '#e8c15a', strokeThickness: 6,
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setAlpha(0);
+    const when = this.scene.add.text(w / 2, 92, `${day}.${month}.${year} · ten sam bieg dla wszystkich`, smallStyle({
+      fontSize: '8px', color: UI_TEXT.bone, strokeThickness: 3,
+    })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setAlpha(0);
+    this.scene.tweens.add({
+      targets: [title, when], alpha: 1, duration: 300,
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: [title, when], alpha: 0, duration: 500, delay: 2200,
+          onComplete: () => { title.destroy(); when.destroy(); },
+        });
+      },
+    });
   }
 
   showScoreMilestone(text: string, tier: number, threshold: number): void {

@@ -2,6 +2,16 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
+  plugins: [{
+    // In production Express serves the policy at /privacy; in development the same address, from public/
+    name: 'privacy-route',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url === '/privacy') req.url = '/privacy.html';
+        next();
+      });
+    },
+  }],
   build: {
     outDir: 'dist',
   },

@@ -22,8 +22,9 @@ export class GameClock {
   get isStarted(): boolean { return this._isStarted; }
   get isPaused(): boolean { return this._isPaused; }
 
-  start(): void {
-    this.wallClockStart = Date.now();
+  /** From `at` (Date.now time), so clients that agreed on a start moment read the same play time. */
+  start(at = Date.now()): void {
+    this.wallClockStart = at;
     this.pausedDuration = 0;
     this._isPaused = false;
     this._isStarted = true;

@@ -1,5 +1,6 @@
 """The roach: its painted body stays still while six jointed legs and two antennae are drawn per frame."""
 import math
+from contextlib import contextmanager
 
 import cv2
 import numpy as np
@@ -19,8 +20,11 @@ LIGHT = (196, 128, 66, 255)
 LEGS = [(300, -74, -136), (450, -20, -44), (570, 30, 92)]
 
 
-def _body() -> np.ndarray:
-    rgba = cut_white(SOURCE, erode=2)
+ANTENNA = (66, 30, 16, 255)
+
+
+def _body(source: str = SOURCE, teal_rim: bool = True) -> np.ndarray:
+    rgba = cut_white(source, erode=2)
     height, width = rgba.shape[:2]
     keep = np.zeros((height, width), bool)
     for x in range(width):
@@ -32,8 +36,9 @@ def _body() -> np.ndarray:
     out = rgba.copy()
     out[..., 3] = keep * 255
     # the render's teal rim would tint the roach on every level
-    teal = (out[..., 1].astype(int) > out[..., 0] + 12) & (out[..., 2].astype(int) > out[..., 0])
-    out[teal, 3] = 0
+    if teal_rim:
+        teal = (out[..., 1].astype(int) > out[..., 0] + 12) & (out[..., 2].astype(int) > out[..., 0])
+        out[teal, 3] = 0
     return out
 
 
@@ -67,11 +72,19 @@ def _antennae(img, sway, lift, y=0):
             angle += .10 + sway * .10 * segment
             x += 36 * length * math.cos(angle)
             py += 36 * length * math.sin(angle)
-        cv2.polylines(img, [np.int32(points)], False, (66, 30, 16, 255), 9, cv2.LINE_8)
+        cv2.polylines(img, [np.int32(points)], False, ANTENNA, 9, cv2.LINE_8)
+
+
+# Where things are worn, on the 768 px body: the top of the head, the middle of the back, the rear tip, the side just
+# behind the thorax, and the top of the thorax
+ANCHORS = {"head": (588, 304), "back": (360, 266), "tail": (70, 372), "side": (420, 330), "shoulder": (505, 275)}
+# Each frame's pose, as frames are made, so the anchors can follow it
+_poses: list[tuple[int, float, float, int]] = []
 
 
 def _frame(feet, bob=0, sway=0.0, lift=0.0, stretch=1.0, roll=0.0, hip_y=452, drop=0):
     """feet: per leg (dx, dy) offset of the foot; three near legs then three far ones."""
+    _poses.append((bob, stretch, roll, drop))
     canvas = np.zeros_like(BODY)
     for far in (True, False):
         for i, (hip, _, foot_reach) in enumerate(LEGS):
@@ -84,6 +97,11 @@ def _frame(feet, bob=0, sway=0.0, lift=0.0, stretch=1.0, roll=0.0, hip_y=452, dr
     solid = body[..., 3] > 128
     canvas[solid] = body[solid]
     _antennae(canvas, sway, lift, bob)
+    return _transform(canvas, stretch, roll, drop)
+
+
+def _transform(canvas, stretch, roll, drop):
+    """The dash's stretch and the death's roll, for the body and anything worn on it alike."""
     if stretch != 1.0:
         image = Image.fromarray(canvas)
         width = int(768 * stretch)
@@ -158,6 +176,92 @@ def death():
 
 
 ANIMATIONS = {"run": run, "idle": idle, "hop": hop, "dash": dash, "death": death}
+
+
+def _place(point, bob, stretch, roll, drop):
+    """Where a point of the body ends up in a frame: the same bob, stretch, roll and crop the pixels go through."""
+    x, y = point[0], point[1] + bob
+    if stretch != 1.0:
+        width, height = int(768 * stretch), int(768 / stretch ** .5)
+        x, y = x * width / 768 - (width - 768), y * height / 768 + (768 - height)
+    if roll:
+        matrix = cv2.getRotationMatrix2D((400, 400), roll, 1)
+        matrix[1, 2] += drop
+        x, y = matrix[0, 0] * x + matrix[0, 1] * y + matrix[0, 2], matrix[1, 0] * x + matrix[1, 1] * y + matrix[1, 2]
+    left, top, right, bottom = CROP
+    return round((x - left) * CELL[0] / (right - left), 2), round((y - top) * CELL[1] / (bottom - top), 2)
+
+
+def _aligned(paint: np.ndarray, inside: np.ndarray) -> np.ndarray:
+    """The repaint moved and scaled to lie best over the original outline (the most overlap): a repaint keeps the
+    pose but drifts a little in place and size. Searched on quarter-size masks."""
+    small = lambda mask: cv2.resize(mask.astype(np.uint8), (192, 192), interpolation=cv2.INTER_AREA) > 0  # noqa: E731
+    target, mask = small(inside), small(paint[..., 3] > 128)
+    best = (-1.0, 1.0, 0, 0)
+    for scale in np.arange(.86, 1.15, .02):
+        grown = cv2.resize(mask.astype(np.uint8), None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST) > 0
+        for dy in range(-14, 15):
+            for dx in range(-14, 15):
+                placed = np.zeros_like(target)
+                h, w = grown.shape
+                ox, oy = int(round((192 - w) / 2)) + dx, int(round((192 - h) / 2)) + dy
+                xs, ys = slice(max(0, ox), min(192, ox + w)), slice(max(0, oy), min(192, oy + h))
+                placed[ys, xs] = grown[ys.start - oy:ys.stop - oy, xs.start - ox:xs.stop - ox]
+                overlap = (placed & target).sum() / max(1, (placed | target).sum())
+                if overlap > best[0]:
+                    best = (overlap, scale, dx, dy)
+    _, scale, dx, dy = best
+    size = paint.shape[0]
+    matrix = np.float32([[scale, 0, (1 - scale) * size / 2 + dx * size / 192], [0, scale, (1 - scale) * size / 2 + dy * size / 192]])
+    return cv2.warpAffine(paint, matrix, (size, size), flags=cv2.INTER_NEAREST)
+
+
+def _repainted(body: np.ndarray, paint: np.ndarray) -> np.ndarray:
+    """The roach's own outline in the repaint's colours. A repaint drifts a little off the outline, and the legs and
+    antennae are drawn at fixed places, so the shape stays the original's: where the repaint has no pixel inside it,
+    the colour is filled in from the repaint around."""
+    inside = body[..., 3] > 128
+    paint = _aligned(paint, inside)
+    covered = paint[..., 3] > 128
+    # Everything the repaint didn't paint is unknown, its white background included, so only paint fills the gaps
+    holes = (~covered).astype(np.uint8) * 255
+    rgb = cv2.inpaint(np.ascontiguousarray(paint[..., :3]), holes, 9, cv2.INPAINT_TELEA)
+    out = np.zeros_like(body)
+    out[inside, :3] = rgb[inside]
+    out[inside, 3] = 255
+    return out
+
+
+# A painted body is fitted once per picture, not once per animation
+_painted_bodies: dict[str, np.ndarray] = {}
+
+
+@contextmanager
+def painted(source: str):
+    """A painted skin: its body for the frames made inside, and legs and antennae in its own dark, mid and light."""
+    global BODY, DARK, MID, LIGHT, ANTENNA
+    saved = BODY, DARK, MID, LIGHT, ANTENNA
+    # A repaint is blue or silver often (ice, chrome): only the original painting has the teal rim to strip
+    if source not in _painted_bodies:
+        _painted_bodies[source] = _repainted(BODY, _body(source, teal_rim=False))
+    BODY = _painted_bodies[source]
+    pixels = BODY[BODY[..., 3] > 128][:, :3]
+    order = np.argsort(pixels.astype(int).sum(1))
+    tone = lambda q: (*(int(v) for v in pixels[order[int(q * (len(order) - 1))]]), 255)  # noqa: E731
+    DARK, MID, LIGHT, ANTENNA = tone(.12), tone(.45), tone(.8), tone(.2)
+    try:
+        yield
+    finally:
+        BODY, DARK, MID, LIGHT, ANTENNA = saved
+
+
+def frames_with_anchors(make):
+    """An animation's frames, and for each where the head, back and tail are in the cell and how far it has rolled
+    (degrees, clockwise as the game turns sprites)."""
+    _poses.clear()
+    frames = make()
+    anchors = [{**{name: _place(point, *pose) for name, point in ANCHORS.items()}, "angle": -pose[2]} for pose in _poses]
+    return frames, anchors
 
 
 def baked(frame) -> Image.Image:

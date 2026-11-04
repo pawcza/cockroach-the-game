@@ -10,7 +10,12 @@ import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from './SceneManager';
 import { ReplayData } from './DeathReplay';
 import { GameHUD } from '../ui/GameHUD';
-import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed } from '../utils/Storage';
+import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed, getHighScore, getBestDistance, updateBestDistanceIfBetter, getDailyBest, updateDailyBestIfBetter, saveBestTrack } from '../utils/Storage';
+import type { DailyRun } from '../ui/Scoreboard';
+import type { RunTrack } from './BestRunGhost';
+import { recordRun, type RunSnapshot } from './Profile';
+import { showAchievement, showMission } from '../ui/shared';
+import { reportRun } from '../ui/Shop';
 
 const SCORE_MILESTONES = [
   { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
@@ -35,6 +40,8 @@ export class GameOverHandler {
   private audio: AudioManager;
   private hud: GameHUD;
   private isMultiplayer: boolean;
+  /** Karaluch Dnia: its score is measured against the day's best, never the all-time record. */
+  private daily: DailyRun | null;
 
   private _mpGameOverTriggered = false;
   private deathNotificationY = 80;
@@ -55,6 +62,8 @@ export class GameOverHandler {
   private cleanupBossFight: () => void;
   private onDeath: (score: number, stats: Record<string, unknown>) => void;
   private getReplayData: (obstacleType: string | null) => ReplayData | null;
+  private getRunTrack: () => RunTrack | null;
+  private getRunSnapshot: () => RunSnapshot;
 
   constructor(
     scene: Phaser.Scene,
@@ -63,6 +72,7 @@ export class GameOverHandler {
     audio: AudioManager,
     hud: GameHUD,
     isMultiplayer: boolean,
+    daily: DailyRun | null,
     callbacks: {
       getScore: () => number;
       getActivePlayTime: () => number;
@@ -77,6 +87,9 @@ export class GameOverHandler {
       onDeath: (score: number, stats: Record<string, unknown>) => void;
       cleanupBossFight: () => void;
       getReplayData: (obstacleType: string | null) => ReplayData | null;
+      /** This run's path, kept for its ghost when it beats the record. */
+      getRunTrack: () => RunTrack | null;
+      getRunSnapshot: () => RunSnapshot;
     },
   ) {
     this.scene = scene;
@@ -85,6 +98,7 @@ export class GameOverHandler {
     this.audio = audio;
     this.hud = hud;
     this.isMultiplayer = isMultiplayer;
+    this.daily = daily;
     this.getScore = callbacks.getScore;
     this.getActivePlayTime = callbacks.getActivePlayTime;
     this.getDistance = callbacks.getDistance;
@@ -98,6 +112,8 @@ export class GameOverHandler {
     this.onDeath = callbacks.onDeath;
     this.cleanupBossFight = callbacks.cleanupBossFight;
     this.getReplayData = callbacks.getReplayData;
+    this.getRunTrack = callbacks.getRunTrack;
+    this.getRunSnapshot = callbacks.getRunSnapshot;
     this.mpMyName = getPlayerNameOrDefault();
   }
 
@@ -105,6 +121,20 @@ export class GameOverHandler {
     if (this.player.isDead) return;
     this.setIsDead();
     this.player.die();
+    // Every run counts in your stats, solo or in a match. What it earns shows on the solo results; in a match the
+    // run stays on screen while you spectate, so it shows there
+    const snapshot = this.getRunSnapshot();
+    const earned = recordRun(snapshot);
+    if (this.isMultiplayer) for (const achievement of earned) showAchievement(this.scene, achievement);
+    // Signed in, the run counts towards your missions. Solo, the results show what it paid; in a match, whatever is
+    // on screen when the answer comes
+    const missions = reportRun(snapshot, this.isMultiplayer);
+    if (this.isMultiplayer) {
+      void missions.then((done) => {
+        const scene = this.scene.game.scene.getScenes(true)[0];
+        if (scene) for (const mission of done) showMission(scene, mission);
+      });
+    }
 
     const score = this.getScore();
     document.title = `ZGNIOTŁEŚ SIĘ! | ${score} pkt`;
@@ -151,9 +181,17 @@ export class GameOverHandler {
       return;
     }
 
-    // Solo mode
+    // Solo mode. The game over compares against the bests from before this run, so they are read before saving
+    const daily = this.daily;
+    const previousBest = daily ? getDailyBest(daily.date) : getHighScore();
+    const previousBestDistance = getBestDistance();
     incrementGamesPlayed();
-    updateHighScoreIfBetter(score);
+    if (daily) updateDailyBestIfBetter(daily.date, score);
+    else updateHighScoreIfBetter(score);
+    // A new best becomes the ghost the next run races
+    const track = score > previousBest ? this.getRunTrack() : null;
+    if (track) saveBestTrack(track, daily?.date);
+    updateBestDistanceIfBetter(this.getDistance());
     const replayData = this.getReplayData(obstacleType || null);
 
     // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)
@@ -168,6 +206,11 @@ export class GameOverHandler {
         maxCombo: this.getMaxCombo(),
         pickupCounts: this.getPickupCounts(),
         replayData,
+        previousBest,
+        previousBestDistance,
+        daily,
+        achievements: earned,
+        missions,
       }, () => {
         this.vfx.destroy();
         this.audio.destroy();
@@ -175,8 +218,11 @@ export class GameOverHandler {
     }, 1000);
   }
 
+  /** Watching a run you are not in: its end comes from the server, whose results don't include you. */
+  watchOnly = false;
+
   triggerMultiplayerGameOver(): void {
-    if (this._mpGameOverTriggered) return;
+    if (this._mpGameOverTriggered || this.watchOnly) return;
     this.cleanupBossFight();
     const replayData = this.getReplayData(null);
     this.scene.time.delayedCall(3000, () => {

@@ -58,19 +58,49 @@ test('a player can only be in one lobby at a time', () => {
   assert.equal(manager.joinLobby(lobby.id, 'guest', 'Guest'), null);
 });
 
-test('a game can only start from waiting and only restart from postgame', () => {
+test('a running game cannot be started again or reseeded', () => {
   const { manager, lobby } = lobbyWith('guest');
   manager.setReady('guest', true);
-  assert.equal(manager.restartLobby('host'), null);
-
   manager.startGame('host');
   const { seed } = lobby;
   assert.equal(manager.startGame('host'), null);
-  assert.equal(manager.restartLobby('host'), null);
   assert.equal(lobby.seed, seed);
+});
+
+test('a rematch readies up and starts straight from the results', () => {
+  const { manager, lobby } = lobbyWith('guest');
+  manager.setReady('guest', true);
+  manager.startGame('host');
+  assert.ok(manager.serializePlayers(lobby).every((p) => p.place === 'game' && !p.ready));
 
   manager.endGame(lobby.id);
-  assert.equal(manager.restartLobby('host')?.status, 'waiting');
+  assert.equal(lobby.status, 'waiting');
+  assert.ok(manager.serializePlayers(lobby).every((p) => p.place === 'results' && !p.ready));
+  assert.equal(manager.startGame('host'), null, 'not before the guest is ready again');
+  manager.setReady('guest', true);
+  assert.equal(manager.startGame('host')?.status, 'ingame');
+});
+
+test('between runs a player can go to the lobby screen and back, but not into a game', () => {
+  const { manager, lobby } = lobbyWith('guest');
+  manager.setReady('guest', true);
+  manager.startGame('host');
+  assert.equal(manager.setPlace('guest', 'lobby'), null, 'not during a run');
+  manager.endGame(lobby.id);
+  assert.equal(manager.setPlace('guest', 'lobby')?.players.get('guest')?.place, 'lobby');
+  assert.equal(manager.setPlace('guest', 'game'), null);
+  assert.equal(manager.setPlace('guest', 'results')?.players.get('guest')?.place, 'results');
+});
+
+test('someone joining during a run watches it, and after one waits in the lobby', () => {
+  const { manager, lobby } = lobbyWith('guest');
+  manager.setReady('guest', true);
+  manager.startGame('host');
+  assert.equal(manager.joinLobby(lobby.id, 'watcher', 'Watcher')?.players.get('watcher')?.place, 'watching');
+  manager.endGame(lobby.id);
+  assert.equal(lobby.players.get('watcher')?.place, 'results', 'and sees the results with everyone');
+  assert.equal(manager.joinLobby(lobby.id, 'late', 'Late')?.players.get('late')?.place, 'lobby');
+  assert.equal(lobby.players.get('host')?.place, 'results');
 });
 
 test('colour changes must be a real palette index', () => {

@@ -8,7 +8,8 @@ import { MultiplayerSession } from '../multiplayer/MultiplayerSession';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager } from '../audio/AudioManager';
 import { GameHUD } from '../ui/GameHUD';
-import { Player } from '../objects/Player';
+import { Player, type Floor } from '../objects/Player';
+import { ROACH_FEET_OFFSET } from '../config/sprites';
 import { GameClock } from '../utils/GameClock';
 import { AmbientEffects } from '../systems/AmbientEffects';
 import { BossEncounter } from '../systems/BossEncounter';
@@ -29,7 +30,15 @@ import { comboMultiplier, RunState } from '../systems/RunState';
 import { ScoreTracker } from '../systems/ScoreTracker';
 import { sceneManager } from '../systems/SceneManager';
 import { SpawnManager } from '../systems/SpawnManager';
+import { RiskBonus } from '../systems/RiskBonus';
 import { SpectateController } from '../systems/SpectateController';
+import type { DailyRun } from '../ui/Scoreboard';
+import { BestRunGhost, RunTrackRecorder } from '../systems/BestRunGhost';
+import { loadBestTrack } from '../utils/Storage';
+import { awardDuringRun, type RunSnapshot } from '../systems/Profile';
+import { showAchievement } from '../ui/shared';
+import { PLAIN, type Look } from '../config/skins';
+import { myLook } from '../ui/Shop';
 import { areDeferredAssetsLoaded, DEFERRED_LOADED_EVENT } from './DeferredLoadScene';
 
 interface GameSceneData {
@@ -37,15 +46,27 @@ interface GameSceneData {
   seed?: number;
   players?: MPPlayer[];
   myId?: string;
+  /** Straight back in from a solo game over: a short "JAZDA!" instead of the 3-2-1. */
+  retry?: boolean;
+  /** Multiplayer: when every client's run starts (Date.now time). */
+  startsAt?: number;
+  /** Joined while the run was going: watch it, from this far in, with these players already out. */
+  watch?: { elapsedMs: number; dead: string[] };
+  /** Karaluch Dnia: a solo run on the day's shared seed. */
+  daily?: DailyRun;
 }
 
 /** Builds a run in a fixed order and calls its systems in a fixed per-frame order. */
+
+/** How often a run checks what it has earned. */
+const ACHIEVEMENT_CHECK_MS = 500;
 export class GameScene extends Phaser.Scene {
   // Read by ObstacleSpawner
   public floorBottomY = FLOOR_BOTTOM_Y;
   public floorTopY = FLOOR_TOP_Y;
   public get cockroach(): Phaser.Physics.Arcade.Sprite { return this.player.sprite; }
   public get isDead(): boolean { return this.run.isDead; }
+  public get runTime(): number { return Math.max(0, this.clock?.activePlayTime ?? 0); }
 
   // These two outlive a run: restart resets them instead of replacing them.
   private readonly run = new RunState();
@@ -69,11 +90,22 @@ export class GameScene extends Phaser.Scene {
   private pauseManager!: PauseManager;
   private gameOverHandler!: GameOverHandler;
   private replayRecorder!: DeathReplayRecorder;
+  private runTrack!: RunTrackRecorder;
+  private bestGhost: BestRunGhost | null = null;
+  /** Running time as the world saw it: the frames the run actually played, excluding pauses and the boss. */
+  private raceTime = 0;
+  private nextAchievementCheck = 0;
   private score!: ScoreTracker;
   private levels!: LevelProgression;
   private boss!: BossEncounter;
   private session!: MultiplayerSession;
   private magnet!: PickupMagnet;
+  private risk!: RiskBonus;
+  private quickStart = false;
+  private startsAt: number | undefined;
+  private watching: { elapsedMs: number; dead: string[] } | undefined;
+  private daily: DailyRun | undefined;
+  private look: Look = PLAIN;
   private gameInput!: GameInput;
   private spectate!: SpectateController;
   private countdown!: RunCountdown;
@@ -135,9 +167,16 @@ export class GameScene extends Phaser.Scene {
 
   private resetRun(data: GameSceneData | undefined): void {
     this.isMultiplayer = data?.multiplayer ?? false;
+    this.quickStart = !this.isMultiplayer && data?.retry === true;
+    this.startsAt = this.isMultiplayer ? data?.startsAt : undefined;
+    this.watching = this.isMultiplayer ? data?.watch : undefined;
+    // Your skin: in a match as the lobby has it (what the others see too), solo from your account
+    this.look = this.isMultiplayer ? data?.players?.find(p => p.id === data?.myId)?.look ?? PLAIN : myLook();
     this.eventBridge?.destroy();
     this.eventBridge = new GameEventBridge(this.isMultiplayer);
-    this.seed = this.isMultiplayer ? data?.seed ?? null : null;
+    this.daily = this.isMultiplayer ? undefined : data?.daily;
+    // Multiplayer and Karaluch Dnia lay out the same run for everyone from one seed; a plain solo run doesn't
+    this.seed = this.isMultiplayer ? data?.seed ?? null : this.daily?.seed ?? null;
     this.rng = this.seed !== null ? new SeededRNG(this.seed) : null;
 
     // Defensive cleanup of prior run. The Clock outlives a restart, so leaving a paused run would freeze this one.
@@ -168,6 +207,7 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, this.audio, this.floorManager.topColliderY, this.floorManager.bottomColliderY);
     this.player.create();
     this.player.resetState();
+    this.player.setLook(this.look);
     this.ambient.attachTo(this.player, this.audio);
 
     this.groups = {
@@ -195,7 +235,7 @@ export class GameScene extends Phaser.Scene {
         if (this.run.isDead || this.run.isCountingDown) return;
         this.pauseManager.toggle();
       },
-      this.isMultiplayer ? undefined : () => leaveRun('GameScene', { multiplayer: false }),
+      this.isMultiplayer ? undefined : () => leaveRun('GameScene', { multiplayer: false, retry: true, daily: this.daily }),
       this.isMultiplayer ? undefined : () => leaveRun('MenuScene'),
     );
     this.hud.create();
@@ -204,6 +244,9 @@ export class GameScene extends Phaser.Scene {
     this.score = new ScoreTracker(this, this.run, this.hud, comboFeedback, this.audio, this.vfx);
     this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.seed);
     this.replayRecorder = new DeathReplayRecorder();
+    this.runTrack = new RunTrackRecorder();
+    this.bestGhost = null;
+    this.raceTime = 0;
   }
 
   private createPlaySystems(): void {
@@ -223,6 +266,7 @@ export class GameScene extends Phaser.Scene {
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
       onPickupCollected: (x, y, frameName) => this.replayRecorder.recordPickupCollected(this.time.now, x, y, frameName),
+      onDashThrough: (obstacle) => this.risk.dashedThrough(obstacle),
     });
     collisions.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
     collisions.setupOverlaps(apples, beers, pills, obstacles);
@@ -233,6 +277,18 @@ export class GameScene extends Phaser.Scene {
       obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
     );
     this.magnet = new PickupMagnet(this, this.player, [apples, beers, pills]);
+    // Close calls score like a pickup: they feed the combo and its multiplier
+    this.risk = new RiskBonus(this.player, obstacles, (base, label, x, y, color, kind) => {
+      if (kind === 'near') run.nearMisses++;
+      else {
+        run.dashThroughs++;
+        if (kind.dashed === 'wall') run.wallsBroken++;
+      }
+      this.score.incrementCombo();
+      const points = Math.round(base * comboMultiplier(run.pickupCombo));
+      this.score.addScore(points);
+      collisions.showPickupPopup(x, y, `${label} +${points}`, color);
+    });
 
     this.pauseManager = new PauseManager(this, this.hud, this.isMultiplayer,
       () => {
@@ -246,7 +302,7 @@ export class GameScene extends Phaser.Scene {
       },
     );
 
-    this.gameOverHandler = new GameOverHandler(this, this.player, this.vfx, this.audio, this.hud, this.isMultiplayer, {
+    this.gameOverHandler = new GameOverHandler(this, this.player, this.vfx, this.audio, this.hud, this.isMultiplayer, this.daily ?? null, {
       getScore: () => run.score,
       getActivePlayTime: () => run.activePlayTime,
       getDistance: () => this.getDistance(),
@@ -260,6 +316,8 @@ export class GameScene extends Phaser.Scene {
       onDeath: (score, stats) => this.eventBridge.onDeath(score, stats),
       cleanupBossFight: () => this.boss.cleanup(),
       getReplayData: (obstacleType) => this.replayRecorder.getReplayData(obstacleType, obstacles, [apples, beers, pills]),
+      getRunTrack: () => this.runTrack.track,
+      getRunSnapshot: () => this.runSnapshot(),
     });
   }
 
@@ -328,6 +386,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startRun(): void {
+    if (this.watching) {
+      this.startWatching(this.watching);
+      return;
+    }
     const camera = this.cameras.main;
     camera.startFollow(this.player.sprite, true, 1, 0);
     camera.setFollowOffset(-200, 0);
@@ -339,15 +401,65 @@ export class GameScene extends Phaser.Scene {
     const blinkTween = this.player.startInvulnerabilityBlink();
     this.time.delayedCall(1500, () => { this.player.endInvulnerability(blinkTween); });
 
+    if (this.daily) this.hud.showDailyBanner(this.daily.date);
+
+    // Solo: your record run (or today's best daily run) races beside you
+    const best = this.isMultiplayer ? null : loadBestTrack(this.daily?.date);
+    if (best) {
+      const laneY = (floor: Floor): number =>
+        (floor === 'top' ? this.floorManager.topColliderY : this.floorManager.bottomColliderY) - ROACH_FEET_OFFSET;
+      this.bestGhost = new BestRunGhost(this, best, laneY);
+    }
+
     this.player.freezeForCountdown();
-    this.countdown = new RunCountdown(this, () => this.beginRunning());
+    this.countdown = new RunCountdown(this, () => this.beginRunning(), this.quickStart, this.startsAt);
+  }
+
+  /**
+   * Into a run already going: no roach of your own, the run's clock at the run's time (so the moving obstacles stand
+   * where the players see them), and the camera on someone still alive. The arrows switch between them.
+   */
+  private startWatching(watch: { elapsedMs: number; dead: string[] }): void {
+    this.run.isCountingDown = false;
+    this.run.isDead = true;
+    this.player.benchForWatching();
+    this.clock.start(Date.now() - watch.elapsedMs);
+    this.audio.startBGM('bgm-lv1');
+    this.gameOverHandler.watchOnly = true;
+
+    const ghosts = this.session.ghostManager;
+    if (!ghosts) return;
+    for (const id of watch.dead) ghosts.handleDeath(id, 0, {});
+    ghosts.startSpectating();
+    const target = ghosts.spectateTargetPlayer;
+    if (target) this.spectate.follow(target.sprite);
+  }
+
+  /** The run so far, for stats and achievements. */
+  private runSnapshot(): RunSnapshot {
+    const { run } = this;
+    return {
+      score: run.score,
+      distance: Math.floor(this.getDistance()),
+      level: run.currentLevel,
+      combo: run.maxCombo,
+      apples: run.applesCollected,
+      beers: run.beersCollected,
+      pills: run.pillsCollected,
+      nearMisses: run.nearMisses,
+      dashThroughs: run.dashThroughs,
+      wallsBroken: run.wallsBroken,
+      seconds: Math.floor(run.activePlayTime / 1000),
+      daily: this.daily !== undefined,
+    };
   }
 
   private beginRunning(): void {
     this.run.isCountingDown = false;
     this.player.startRunning();
     this.run.activePlayTime = 0;
-    this.clock.start();
+    // The agreed moment, not this frame: a frame can land well after it on a slow machine
+    this.clock.start(this.countdown.endsAt);
     this.run.lastScoreTime = this.time.now;
     this.session.startPositionBroadcast();
   }
@@ -396,9 +508,20 @@ export class GameScene extends Phaser.Scene {
     player.updateDash();
     player.updatePill();
     this.magnet.update();
+    this.risk.update();
 
     this.session.sendEndedEffects();
     player.updateVisuals();
+    // The ghost's clock is the one that moves the world: frame time actually simulated, so a run with hitches
+    // doesn't fall behind a ghost that ran smoothly, or the other way round
+    this.raceTime += this.game.loop.delta;
+    this.runTrack.sample(this.raceTime, player.x, player.currentFloor);
+    this.bestGhost?.update(this.raceTime, player.x);
+    // Achievements the run earns as it goes: a distance, a level, a combo pop up the moment they're reached
+    if (this.time.now >= this.nextAchievementCheck) {
+      this.nextAchievementCheck = this.time.now + ACHIEVEMENT_CHECK_MS;
+      for (const earned of awardDuringRun(this.runSnapshot())) showAchievement(this, earned);
+    }
     this.replayRecorder.sample(
       this.time.now, player.x, player.y,
       player.currentFloor, player.isDashing,
