@@ -41,6 +41,8 @@ art/sprites/       # Source renders for the atlas (tracked; art/renders holds th
   enemies/         # Picked enemy stills, read by swatters.py and hopact.py
 tools/art/         # Rigs and bake.py: rebuilds public/assets/sprites.webp + .json
                    # portraits.py: boss portraits from art/sprites/bosses to public/boss/portraits (the versus splash)
+                   # strip_meta.py: strips PNG text/EXIF chunks losslessly; every PNG added must go through it
+                   # (ComfyUI embeds its workflow, private file names included). npm test fails on any that didn't
 public/
   assets/          # Baked sprite atlas, backgrounds
   audio/           # Sound effects and music (.ogg)
