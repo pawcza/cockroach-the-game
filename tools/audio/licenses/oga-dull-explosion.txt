@@ -1,0 +1,6 @@
+Pack: dull-explosion
+Page: https://opengameart.org/content/dull-explosion
+Author: qubodup (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  explosion_dull.flac  sha256 a463ff6b4cc37321f646ddbe9ff326aef244dea33d3951bc2a833a27cc611bf9

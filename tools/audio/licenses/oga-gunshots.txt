@@ -1,0 +1,9 @@
+Pack: gunshots
+Page: https://opengameart.org/content/gunshots
+Author: kurt (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  22 Pistol.wav  sha256 32f12645134c1d8716f84ea984677ba0ae2cceab5fbc7db736c7754c3a9f4ebb
+  22 Magnum.wav  sha256 132a491a1e52c30042cac867ff461fc895c1a31b5420dfff24f5af0f2185d5cc
+  Black Powder.wav  sha256 495eadf1c1e41a1264ff75f08a58de9004b3f9792391a174d70fc5c796c41744
+  Unkown.wav  sha256 65e22601c25186ca30aac6bf5d6f4220b84d0c7b45e0113cad3e15d36a75f0c1

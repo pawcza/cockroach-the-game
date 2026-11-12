@@ -1,0 +1,6 @@
+Pack: explosion-0
+Page: https://opengameart.org/content/explosion-0
+Author: TinyWorlds (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  explosion.wav  sha256 df2594dcef5cf8f8f9b131828224fc47c9e3fdaf677bd9211d1b372dfde47177

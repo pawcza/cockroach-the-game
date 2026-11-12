@@ -1,0 +1,6 @@
+Pack: 80-cc0-creature-sfx
+Page: https://opengameart.org/content/80-cc0-creature-sfx
+Author: rubberduck (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  80-CC0-creature-SFX_0.zip  sha256 5d4002eea42f278e76543bb36e8ddd2cb978588a13271984191d8228f5d26768

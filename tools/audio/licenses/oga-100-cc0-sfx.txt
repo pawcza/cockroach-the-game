@@ -1,0 +1,6 @@
+Pack: 100-cc0-sfx
+Page: https://opengameart.org/content/100-cc0-sfx
+Author: rubberduck (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  100-CC0-SFX_0.zip  sha256 a5c135878c132f1c59cca54e60061c296cd0ac27ad031ca2c41b8cd5cab3c706

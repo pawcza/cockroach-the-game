@@ -1,0 +1,6 @@
+Pack: 25-cc0-bang-firework-sfx
+Page: https://opengameart.org/content/25-cc0-bang-firework-sfx
+Author: rubberduck (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  25-CC0-bang-sfx.zip  sha256 c0c9ecc11e2dc0d190f0cced755569858234b8528286bc83becb6314c663407f

@@ -1,0 +1,5 @@
+# raw downloaded packs and zips; re-fetched by fetch_packs.py
+_packs/
+__pycache__/
+# built sounds: build.py regenerates them and install.py copies the picked ones into public/ (that copy is what ships)
+out/

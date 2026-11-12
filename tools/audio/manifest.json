@@ -1,0 +1,4535 @@
+{
+ "about": "Sound set for the game (install.py puts the picks from picks.json into public/). Loudness = K-weighted, ungated, whole clip (lib/dsp.py lufs).",
+ "groups": {
+  "jump": {
+   "section": "Gameplay",
+   "event": "Hop to the top lane (every jump)",
+   "current": [
+    {
+     "file": "audio/jump.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "hop-land": {
+   "section": "Gameplay",
+   "event": "Hop landing, back on the floor (new, no sound today)",
+   "current": []
+  },
+  "floor-switch": {
+   "section": "Gameplay",
+   "event": "Drop to the bottom lane",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "dash": {
+   "section": "Gameplay",
+   "event": "Dash starts",
+   "current": [
+    {
+     "file": "audio/dash.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "dash-ready": {
+   "section": "Gameplay",
+   "event": "Dash recharged",
+   "current": [
+    {
+     "file": "audio/dash-ready.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "death": {
+   "section": "Gameplay",
+   "event": "Roach dies",
+   "current": [
+    {
+     "file": "audio/death.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "hiss": {
+   "section": "Gameplay",
+   "event": "Roach hiss: moult, death, vents",
+   "current": [
+    {
+     "file": "audio/cockroach-hiss.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "roach-noise": {
+   "section": "Gameplay",
+   "event": "Roach ambient skitter (loops, every 20-35 s)",
+   "current": [
+    {
+     "file": "audio/cockroach-noise.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "cricket": {
+   "section": "Gameplay",
+   "event": "Pause screen cricket (loops)",
+   "current": [
+    {
+     "file": "audio/cricket.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "huh": {
+   "section": "Gameplay",
+   "event": "Bird overlook corner appears (\"huh?\")",
+   "current": [
+    {
+     "file": "audio/huh.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "heartbeat": {
+   "section": "Gameplay",
+   "event": "Death replay heartbeat (loops; the old death sound ran at half speed)",
+   "current": [
+    {
+     "file": "audio/death.ogg",
+     "note": "current, rate 0.5"
+    }
+   ]
+  },
+  "onion": {
+   "section": "Obstacles",
+   "event": "Onion obstacle on screen (new, no sound today)",
+   "current": []
+  },
+  "spray": {
+   "section": "Obstacles",
+   "event": "Pest spray on screen",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "flipper": {
+   "section": "Obstacles",
+   "event": "Flipper on screen / obstacle punted",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "newspaper": {
+   "section": "Obstacles",
+   "event": "Newspaper on screen",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "bird": {
+   "section": "Obstacles",
+   "event": "Bird on screen",
+   "current": [
+    {
+     "file": "audio/bird.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "cat": {
+   "section": "Obstacles",
+   "event": "Cat paw on screen",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "disco": {
+   "section": "Obstacles",
+   "event": "Disco ball on screen",
+   "current": [
+    {
+     "file": "audio/disco.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "jellyfish": {
+   "section": "Obstacles",
+   "event": "Jellyfish on screen",
+   "current": [
+    {
+     "file": "audio/jellyfish.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "bison": {
+   "section": "Obstacles",
+   "event": "Bison on screen",
+   "current": [
+    {
+     "file": "audio/bison.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "blackhole": {
+   "section": "Obstacles",
+   "event": "Black hole on screen",
+   "current": [
+    {
+     "file": "audio/blackhole.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "holy-choir": {
+   "section": "Obstacles",
+   "event": "\"Pope\" obstacle on screen: neutral synthetic holy choir sting",
+   "current": [
+    {
+     "file": "audio/pope.ogg",
+     "note": "current (pope.ogg)"
+    }
+   ]
+  },
+  "apple": {
+   "section": "Pickups & combo",
+   "event": "Pick up an apple (also the combo chime base)",
+   "current": [
+    {
+     "file": "audio/apple.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "beer": {
+   "section": "Pickups & combo",
+   "event": "Pick up a beer (6 flavours can share these 3)",
+   "current": [
+    {
+     "file": "audio/burp.ogg",
+     "note": "current burp (what beer plays today)"
+    }
+   ]
+  },
+  "burp": {
+   "section": "Pickups & combo",
+   "event": "Burp (after a beer; Eksterminator's last puff borrows it)",
+   "current": [
+    {
+     "file": "audio/burp.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "pill": {
+   "section": "Pickups & combo",
+   "event": "Pick up a pill",
+   "current": [
+    {
+     "file": "audio/pill.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "pill-end": {
+   "section": "Pickups & combo",
+   "event": "Pill wears off (new)",
+   "current": []
+  },
+  "combo-tick": {
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "current": [
+    {
+     "file": "audio/apple.ogg",
+     "note": "current (apple chime, pitched)"
+    }
+   ]
+  },
+  "mult-up": {
+   "section": "Pickups & combo",
+   "event": "Score multiplier goes up (new)",
+   "current": []
+  },
+  "combo-lost": {
+   "section": "Pickups & combo",
+   "event": "Combo lost",
+   "current": [
+    {
+     "file": "audio/combo-lost.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "combo-break": {
+   "section": "Pickups & combo",
+   "event": "Big combo shattered (bigger sibling of combo-lost, new)",
+   "current": []
+  },
+  "na-styk": {
+   "section": "Pickups & combo",
+   "event": "NA STYK! (close call)",
+   "current": [
+    {
+     "file": "audio/dash-ready.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "przebicie": {
+   "section": "Pickups & combo",
+   "event": "PRZEBICIE! (dash-through smash)",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ui-press": {
+   "section": "UI",
+   "event": "Button press",
+   "current": []
+  },
+  "ui-hover": {
+   "section": "UI",
+   "event": "Hover / select / focus",
+   "current": []
+  },
+  "ui-back": {
+   "section": "UI",
+   "event": "Back / close",
+   "current": []
+  },
+  "ui-slider": {
+   "section": "UI",
+   "event": "Slider tick (settings)",
+   "current": []
+  },
+  "ui-purchase": {
+   "section": "UI",
+   "event": "Purchase in the shop",
+   "current": []
+  },
+  "ui-error": {
+   "section": "UI",
+   "event": "Error / denied",
+   "current": []
+  },
+  "stinger-01": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 1 of 14",
+   "current": []
+  },
+  "stinger-02": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 2 of 14",
+   "current": []
+  },
+  "stinger-03": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 3 of 14",
+   "current": []
+  },
+  "stinger-04": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 4 of 14",
+   "current": []
+  },
+  "stinger-05": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 5 of 14",
+   "current": []
+  },
+  "stinger-06": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 6 of 14",
+   "current": []
+  },
+  "stinger-07": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 7 of 14",
+   "current": []
+  },
+  "stinger-08": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 8 of 14",
+   "current": []
+  },
+  "stinger-09": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 9 of 14",
+   "current": []
+  },
+  "stinger-10": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 10 of 14",
+   "current": []
+  },
+  "stinger-11": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 11 of 14",
+   "current": []
+  },
+  "stinger-12": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 12 of 14",
+   "current": []
+  },
+  "stinger-13": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 13 of 14",
+   "current": []
+  },
+  "stinger-14": {
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 14 of 14",
+   "current": []
+  },
+  "stinger-2137": {
+   "section": "Score milestones",
+   "event": "Score passes 2137 (joke)",
+   "current": [
+    {
+     "file": "audio/2137.ogg",
+     "note": "current clip"
+    }
+   ]
+  },
+  "boss-gun": {
+   "section": "Bosses: shared",
+   "event": "Gun shot (pistol; boss shots + VS screen)",
+   "current": [
+    {
+     "file": "boss/pistol.ogg",
+     "note": "current boss-pistol"
+    }
+   ]
+  },
+  "shell-casing": {
+   "section": "Bosses: shared",
+   "event": "Shell casing drops (new)",
+   "current": []
+  },
+  "bullet-hit": {
+   "section": "Bosses: shared",
+   "event": "Bullet hits the boss",
+   "current": [
+    {
+     "file": "boss/hurt-1.ogg",
+     "note": "current hurt (CC0 creature, keep?)"
+    },
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bullet-ricochet": {
+   "section": "Bosses: shared",
+   "event": "Bullet ricochets off armour",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "shot-down": {
+   "section": "Bosses: shared",
+   "event": "Boss projectile shot down",
+   "current": [
+    {
+     "file": "boss/explosion.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "vs-whoosh": {
+   "section": "Bosses: shared",
+   "event": "VS screen: panel whoosh (new)",
+   "current": []
+  },
+  "vs-slam-1": {
+   "section": "Bosses: shared",
+   "event": "VS screen: first portrait slams in",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "vs-slam-2": {
+   "section": "Bosses: shared",
+   "event": "VS screen: second portrait slams in",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "vs-burst": {
+   "section": "Bosses: shared",
+   "event": "VS screen: VS burst",
+   "current": [
+    {
+     "file": "boss/pistol.ogg",
+     "note": "current (versus shot)"
+    }
+   ]
+  },
+  "vs-name": {
+   "section": "Bosses: shared",
+   "event": "VS screen: boss name slam",
+   "current": [
+    {
+     "file": "boss/explosion.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "ability-reward": {
+   "section": "Bosses: shared",
+   "event": "Ability reward fanfare (icon lands + title slam)",
+   "current": [
+    {
+     "file": "audio/dash-ready.ogg",
+     "note": "current icon"
+    },
+    {
+     "file": "boss/explosion.ogg",
+     "note": "current title slam"
+    }
+   ]
+  },
+  "moult-pop": {
+   "section": "Bosses: shared",
+   "event": "Moult pop (shell crack + whoosh)",
+   "current": [
+    {
+     "file": "audio/cockroach-hiss.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "boss-defeat": {
+   "section": "Bosses: shared",
+   "event": "Boss defeat: explosion series",
+   "current": [
+    {
+     "file": "boss/explosion.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "victory": {
+   "section": "Bosses: shared",
+   "event": "Victory jingle",
+   "current": [
+    {
+     "file": "boss/victory.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "lodzia-whoosh": {
+   "section": "Boss: Lodzia",
+   "event": "Slipper whoosh (the wind-up)",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lodzia-slap": {
+   "section": "Boss: Lodzia",
+   "event": "Slipper slap on the floor/player",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lodzia-shockwave": {
+   "section": "Boss: Lodzia",
+   "event": "Lane shockwave rumble",
+   "current": [
+    {
+     "file": "audio/bison.ogg",
+     "note": "current stand-in (stamp)"
+    }
+   ]
+  },
+  "lodzia-pocket": {
+   "section": "Boss: Lodzia",
+   "event": "Rummages in her pocket",
+   "current": [
+    {
+     "file": "audio/huh.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lodzia-spin": {
+   "section": "Boss: Lodzia",
+   "event": "Thrown slipper spinning past",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "current stand-in (throw)"
+    }
+   ]
+  },
+  "lodzia-boomerang": {
+   "section": "Boss: Lodzia",
+   "event": "Slipper ricochets back like a boomerang",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lodzia-smack": {
+   "section": "Boss: Lodzia",
+   "event": "Slipper smacks her in the face",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lodzia-stomp": {
+   "section": "Boss: Lodzia",
+   "event": "Stomp",
+   "current": [
+    {
+     "file": "audio/bison.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lodzia-curler": {
+   "section": "Boss: Lodzia",
+   "event": "Hair curler bounces (new)",
+   "current": []
+  },
+  "bigos-thump": {
+   "section": "Boss: DJ Bigos",
+   "event": "Speaker thump (kick)",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current stand-in (bonk)"
+    }
+   ]
+  },
+  "bigos-charge": {
+   "section": "Boss: DJ Bigos",
+   "event": "Charge-up before the blast (new)",
+   "current": []
+  },
+  "bigos-blast": {
+   "section": "Boss: DJ Bigos",
+   "event": "Bass blast",
+   "current": [
+    {
+     "file": "boss/bomb-shot.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-beam": {
+   "section": "Boss: DJ Bigos",
+   "event": "Light beam hum (loops)",
+   "current": [
+    {
+     "file": "audio/disco.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-sizzle": {
+   "section": "Boss: DJ Bigos",
+   "event": "Overload sizzle",
+   "current": [
+    {
+     "file": "audio/cockroach-hiss.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-wreck": {
+   "section": "Boss: DJ Bigos",
+   "event": "Speaker wreck",
+   "current": [
+    {
+     "file": "boss/explosion.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-scratch": {
+   "section": "Boss: DJ Bigos",
+   "event": "Record scratch (new)",
+   "current": []
+  },
+  "zl-gurgle": {
+   "section": "Boss: Zlewiatan",
+   "event": "Drain gurgle rises (the boss appears)",
+   "current": []
+  },
+  "zl-creak": {
+   "section": "Boss: Zlewiatan",
+   "event": "Pipe creak",
+   "current": []
+  },
+  "zl-slab-launch": {
+   "section": "Boss: Zlewiatan",
+   "event": "Concrete slab launched",
+   "current": [
+    {
+     "file": "boss/bomb-shot.ogg",
+     "note": "current stand-in (slab shot)"
+    }
+   ]
+  },
+  "zl-slab-impact": {
+   "section": "Boss: Zlewiatan",
+   "event": "Concrete slab lands (new)",
+   "current": []
+  },
+  "zl-radiator": {
+   "section": "Boss: Zlewiatan",
+   "event": "Radiator clang",
+   "current": []
+  },
+  "zl-spit": {
+   "section": "Boss: Zlewiatan",
+   "event": "Sizzling, crackling spit",
+   "current": [
+    {
+     "file": "boss/creamcake-shot.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zl-splat": {
+   "section": "Boss: Zlewiatan",
+   "event": "Sour-cream splat",
+   "current": [
+    {
+     "file": "boss/creamcake-shot.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zl-fishbone": {
+   "section": "Boss: Zlewiatan",
+   "event": "Fishbone flick",
+   "current": [
+    {
+     "file": "boss/creamcake-shot.ogg",
+     "note": "current stand-in (carp head)"
+    }
+   ]
+  },
+  "zl-bubble-blow": {
+   "section": "Boss: Zlewiatan",
+   "event": "Bubble blown up",
+   "current": []
+  },
+  "zl-bubble-pop": {
+   "section": "Boss: Zlewiatan",
+   "event": "Bubble pops",
+   "current": []
+  },
+  "zl-roar": {
+   "section": "Boss: Zlewiatan",
+   "event": "Rage roar + steam",
+   "current": [
+    {
+     "file": "boss/boss-cue-1.ogg",
+     "note": "current cue (CC0 creature)"
+    }
+   ]
+  },
+  "zl-drain-away": {
+   "section": "Boss: Zlewiatan",
+   "event": "Drain-away (boss sinks out)",
+   "current": []
+  },
+  "ex-pump": {
+   "section": "Boss: Eksterminator",
+   "event": "Pump stroke",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-pressure": {
+   "section": "Boss: Eksterminator",
+   "event": "Pressure hiss",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "ex-stream": {
+   "section": "Boss: Eksterminator",
+   "event": "Spray stream (loops, seamless ~1 s)",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current"
+    }
+   ]
+  },
+  "ex-lob": {
+   "section": "Boss: Eksterminator",
+   "event": "Canister lobbed",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "current stand-in (throw)"
+    }
+   ]
+  },
+  "ex-canister-pop": {
+   "section": "Boss: Eksterminator",
+   "event": "Canister pops",
+   "current": [
+    {
+     "file": "boss/creamcake-shot.ogg",
+     "note": "current stand-in (splat)"
+    }
+   ]
+  },
+  "ex-gas": {
+   "section": "Boss: Eksterminator",
+   "event": "Gas cloud hiss (loops, seamless)",
+   "current": []
+  },
+  "ex-tank-ping": {
+   "section": "Boss: Eksterminator",
+   "event": "Tank ping",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-tank-vent": {
+   "section": "Boss: Eksterminator",
+   "event": "Tank vents",
+   "current": [
+    {
+     "file": "audio/cockroach-hiss.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-tank-burst": {
+   "section": "Boss: Eksterminator",
+   "event": "Tank bursts",
+   "current": [
+    {
+     "file": "boss/explosion.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-mask": {
+   "section": "Boss: Eksterminator",
+   "event": "Mask breath (new)",
+   "current": []
+  }
+ },
+ "sounds": [
+  {
+   "id": "jump-a",
+   "group": "jump",
+   "variant": "a",
+   "section": "Gameplay",
+   "event": "Hop to the top lane (every jump)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.8 > crush hold2 > norm -17LUFS peak<=-1.5",
+   "note": "chip hop: pulse slide up + boing body",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.209,
+   "peak_dbfs": -7.82,
+   "lufs": -17.0,
+   "centroid_hz": 4347,
+   "attack_ms": 10.2,
+   "onset_ms": 0.1,
+   "active_s": 0.209,
+   "crest_db": 8.9,
+   "dc": 6e-05
+  },
+  {
+   "id": "jump-b",
+   "group": "jump",
+   "variant": "b",
+   "section": "Gameplay",
+   "event": "Hop to the top lane (every jump)",
+   "source": "pack",
+   "pack_files": [
+    "oga-512-retro/The Essential Retro Video Game Sound Effects Collection [512 sounds] By Juhani Junkala/Movement/Jumping and Landing/sfx_movement_jump5.wav"
+   ],
+   "packs": [
+    {
+     "name": "oga-512-retro",
+     "page": "https://opengameart.org/content/512-sound-effects-8-bit-style",
+     "author": "SubspaceAudio (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load sfx_movement_jump5.wav > lp4500 > norm -17LUFS peak<=-1.5",
+   "note": "rubbery boing: FM sine with vibrato + pack jump layer",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.229,
+   "peak_dbfs": -6.41,
+   "lufs": -16.9,
+   "centroid_hz": 1193,
+   "attack_ms": 13.2,
+   "onset_ms": 0.1,
+   "active_s": 0.227,
+   "crest_db": 10.2,
+   "dc": -1e-05
+  },
+  {
+   "id": "hop-land",
+   "group": "hop-land",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Hop landing, back on the floor (new, no sound today)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactSoft_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactSoft_medium_001.ogg > pitch x1.250 > lp400 > thump > sat1.8 > hp2500 > bp250-1400 > hp140 > norm -17LUFS peak<=-1.5",
+   "note": "soft pack thud + tiny dust tick",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.135,
+   "peak_dbfs": -1.82,
+   "lufs": -17.0,
+   "centroid_hz": 3975,
+   "attack_ms": 9.5,
+   "onset_ms": 0.1,
+   "active_s": 0.129,
+   "crest_db": 13.8,
+   "dc": -0.00037
+  },
+  {
+   "id": "floor-switch",
+   "group": "floor-switch",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Drop to the bottom lane",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 4500->700 q1.4 > whoosh > lp400 > thump > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "down-swoosh with a thump at the bottom",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.189,
+   "peak_dbfs": -2.19,
+   "lufs": -17.1,
+   "centroid_hz": 3503,
+   "attack_ms": 66.7,
+   "onset_ms": 2.9,
+   "active_s": 0.184,
+   "crest_db": 15.1,
+   "dc": -0.00048
+  },
+  {
+   "id": "dash-a",
+   "group": "dash",
+   "variant": "a",
+   "section": "Gameplay",
+   "event": "Dash starts",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 500->7000 q1.0 > whoosh > lp5000 > hp1500 > lp400 > thump > sat1.8 > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "rising whoosh + saw sweep, bright front",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.289,
+   "peak_dbfs": -7.45,
+   "lufs": -17.1,
+   "centroid_hz": 4397,
+   "attack_ms": 12.0,
+   "onset_ms": 0.0,
+   "active_s": 0.282,
+   "crest_db": 9.8,
+   "dc": 0.0001
+  },
+  {
+   "id": "dash-b",
+   "group": "dash",
+   "variant": "b",
+   "section": "Gameplay",
+   "event": "Dash starts",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-digital-audio/Audio/phaserUp3.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-digital-audio",
+     "page": "https://kenney.nl/assets/digital-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load phaserUp3.ogg > basweep 800->6000 q0.9 > whoosh > lp400 > thump > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "Kenney phaserUp zap + noise whoosh underneath",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.309,
+   "peak_dbfs": -5.52,
+   "lufs": -17.0,
+   "centroid_hz": 4089,
+   "attack_ms": 8.3,
+   "onset_ms": 0.1,
+   "active_s": 0.309,
+   "crest_db": 11.5,
+   "dc": -4e-05
+  },
+  {
+   "id": "dash-ready",
+   "group": "dash-ready",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Dash recharged",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > crush hold2 > verb rt0.3 mix0.15 > norm -19LUFS peak<=-1.5",
+   "note": "two-step chirp up + bell ping",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.493,
+   "peak_dbfs": -9.62,
+   "lufs": -19.0,
+   "centroid_hz": 6719,
+   "attack_ms": 21.3,
+   "onset_ms": 0.2,
+   "active_s": 0.443,
+   "crest_db": 11.5,
+   "dc": 0.0
+  },
+  {
+   "id": "death-a",
+   "group": "death",
+   "variant": "a",
+   "section": "Gameplay",
+   "event": "Roach dies",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 2600->250 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > lp400 > thump > sat2.4 > hp1500 > crackle 200/s > sat1.7 > crush hold2 > verb rt0.25 mix0.12 > norm -17LUFS peak<=-1.5",
+   "note": "splat + bass thump + falling pulse + crackle",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.62,
+   "peak_dbfs": -2.46,
+   "lufs": -17.0,
+   "centroid_hz": 3377,
+   "attack_ms": 46.1,
+   "onset_ms": 0.1,
+   "active_s": 0.59,
+   "crest_db": 9.5,
+   "dc": -0.00014
+  },
+  {
+   "id": "death-b",
+   "group": "death",
+   "variant": "b",
+   "section": "Gameplay",
+   "event": "Roach dies",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-squish/oga-squish__squishsplat_impact.mp3",
+    "kenney-impact-sounds/Audio/impactPunch_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-squish",
+     "page": "https://opengameart.org/content/squish-sounds-effects",
+     "author": "EZduzziteh (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load oga-squish__squishsplat_impact.mp3 > load impactPunch_heavy_002.ogg > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > lp400 > thump > sat1.8 > sat1.6 > crush hold2 > norm -17LUFS peak<=-1.5",
+   "note": "pack squish-splat + heavy punch + sad 3-note chip drop",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.451,
+   "peak_dbfs": -7.55,
+   "lufs": -17.0,
+   "centroid_hz": 4280,
+   "attack_ms": 20.5,
+   "onset_ms": 0.1,
+   "active_s": 0.444,
+   "crest_db": 7.4,
+   "dc": -0.00042
+  },
+  {
+   "id": "hiss",
+   "group": "hiss",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Roach hiss: moult, death, vents",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp2500-9500 > lp500 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "pulsing band-limited hiss, rattle-like AM",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.559,
+   "peak_dbfs": -9.7,
+   "lufs": -17.2,
+   "centroid_hz": 7435,
+   "attack_ms": 34.3,
+   "onset_ms": 0.7,
+   "active_s": 0.555,
+   "crest_db": 10.8,
+   "dc": -1e-05
+  },
+  {
+   "id": "roach-noise",
+   "group": "roach-noise",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Roach ambient skitter (loops, every 20-35 s)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp3918-7277 > bp3918-7277 > bp3918-7277 > bp3793-7044 > bp3793-7044 > bp3793-7044 > bp3793-7044 > bp3793-7044 > bp3793-7044 > bp4670-8673 > bp4670-8673 > bp4670-8673 > bp4670-8673 > bp4142-7692 > bp4142-7692 > bp4142-7692 > bp3021-5611 > bp3021-5611 > bp3021-5611 > lp1200 > loopfade 0.1s > norm -27LUFS peak<=-1.5",
+   "note": "sparse tiny scratches and skitters, 3.2 s loop",
+   "category": "ambient",
+   "target_lufs": -27.0,
+   "loop": true,
+   "duration_s": 3.2,
+   "peak_dbfs": -1.52,
+   "lufs": -27.4,
+   "centroid_hz": 7952,
+   "attack_ms": 564.1,
+   "onset_ms": 456.8,
+   "active_s": 3.2,
+   "crest_db": 29.2,
+   "dc": -0.0,
+   "loop_seam_ratio": 0.09
+  },
+  {
+   "id": "cricket",
+   "group": "cricket",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Pause screen cricket (loops)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp900 > loopfade 0.1s > norm -27LUFS peak<=-1.5",
+   "note": "synth crickets: 3-pulse chirps on a 4.8 kHz carrier, 4 s loop",
+   "category": "ambient",
+   "target_lufs": -27.0,
+   "loop": true,
+   "duration_s": 4.0,
+   "peak_dbfs": -15.06,
+   "lufs": -27.0,
+   "centroid_hz": 5706,
+   "attack_ms": 26.2,
+   "onset_ms": 4.4,
+   "active_s": 3.209,
+   "crest_db": 15.2,
+   "dc": -0.0,
+   "loop_seam_ratio": 0.0
+  },
+  {
+   "id": "heartbeat",
+   "group": "heartbeat",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Death replay heartbeat (loops; the old death sound ran at half speed)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp400 > thump > sat1.3 > lp220 > lp400 > thump > sat1.3 > lp220 > loopfade 0.06s > norm -20LUFS peak<=-1.5",
+   "note": "soft low lub-dub, 1 s loop (death replay, under the music)",
+   "category": "loop",
+   "target_lufs": -20.0,
+   "loop": true,
+   "duration_s": 1.0,
+   "peak_dbfs": -1.97,
+   "lufs": -20.2,
+   "centroid_hz": 208,
+   "attack_ms": 213.3,
+   "onset_ms": 0.0,
+   "active_s": 1.0,
+   "crest_db": 13.2,
+   "dc": -0.0006,
+   "loop_seam_ratio": 9.42
+  },
+  {
+   "id": "huh",
+   "group": "huh",
+   "variant": "",
+   "section": "Gameplay",
+   "event": "Bird overlook corner appears (\"huh?\")",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > crush hold2 > verb rt0.2 mix0.1 > norm -17LUFS peak<=-1.5",
+   "note": "rising two-note questioning blip",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.488,
+   "peak_dbfs": -8.88,
+   "lufs": -17.0,
+   "centroid_hz": 6202,
+   "attack_ms": 12.1,
+   "onset_ms": 0.2,
+   "active_s": 0.444,
+   "crest_db": 8.5,
+   "dc": -2e-05
+  },
+  {
+   "id": "onion",
+   "group": "onion",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Onion obstacle on screen (new, no sound today)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp3500-9000 > hp3000 > crackle 160/s > sat1.3 > verb rt0.3 mix0.2 > norm -19LUFS peak<=-1.5",
+   "note": "three water-drop plinks (tears) + sniffly hiss + sizzle",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.01,
+   "peak_dbfs": -6.76,
+   "lufs": -19.1,
+   "centroid_hz": 5465,
+   "attack_ms": 18.2,
+   "onset_ms": 0.1,
+   "active_s": 0.927,
+   "crest_db": 12.8,
+   "dc": 2e-05
+  },
+  {
+   "id": "spray",
+   "group": "spray",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Pest spray on screen",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > bp3000-6000 > hp1500 > bp3000-6000 > hp1500 > bp3000-6000 > hp1500 > bp3000-6000 > hp1500 > bp3000-6000 > bp2000-11000 > losweep 9000->4500 q0.7 > norm -19LUFS peak<=-1.5",
+   "note": "ball-rattle ticks into a long pressurised hiss",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.012,
+   "peak_dbfs": -6.05,
+   "lufs": -19.3,
+   "centroid_hz": 5709,
+   "attack_ms": 198.1,
+   "onset_ms": 0.1,
+   "active_s": 1.01,
+   "crest_db": 16.4,
+   "dc": -0.0
+  },
+  {
+   "id": "flipper",
+   "group": "flipper",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Flipper on screen / obstacle punted",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_light_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat1.8 > load impactMetal_light_002.ogg > norm -19LUFS peak<=-1.5",
+   "note": "solenoid thunk + metal ting + spring boing",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.329,
+   "peak_dbfs": -2.22,
+   "lufs": -19.0,
+   "centroid_hz": 1586,
+   "attack_ms": 6.5,
+   "onset_ms": 0.1,
+   "active_s": 0.32,
+   "crest_db": 16.1,
+   "dc": -0.00012
+  },
+  {
+   "id": "newspaper",
+   "group": "newspaper",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Newspaper on screen",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-casino-audio/Audio/card-slide-3.ogg",
+    "kenney-casino-audio/Audio/card-shove-2.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-casino-audio",
+     "page": "https://kenney.nl/assets/casino-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load card-slide-3.ogg > load card-shove-2.ogg > pitch x0.850 > basweep 900->4500 q0.7 > whoosh > norm -19LUFS peak<=-1.5",
+   "note": "paper slide/shove pack sounds + flutter whoosh",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.059,
+   "peak_dbfs": -1.73,
+   "lufs": -20.5,
+   "centroid_hz": 5915,
+   "attack_ms": 103.0,
+   "onset_ms": 45.8,
+   "active_s": 1.047,
+   "crest_db": 20.3,
+   "dc": 0.00012
+  },
+  {
+   "id": "bird",
+   "group": "bird",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Bird on screen",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 300->1500 q0.7 > whoosh > norm -19LUFS peak<=-1.5",
+   "note": "four FM chirps (sine glides) + wing flap whoosh",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.453,
+   "peak_dbfs": -12.49,
+   "lufs": -19.4,
+   "centroid_hz": 7926,
+   "attack_ms": 40.1,
+   "onset_ms": 0.8,
+   "active_s": 0.438,
+   "crest_db": 9.9,
+   "dc": 0.0
+  },
+  {
+   "id": "cat",
+   "group": "cat",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Cat paw on screen",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 1200->5500 q1.0 > whoosh > formant 720/1250/2700 > norm -19LUFS peak<=-1.5",
+   "note": "paw-swipe whoosh then a synthetic 'mrow' (formant-filtered saw)",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.62,
+   "peak_dbfs": -4.28,
+   "lufs": -19.1,
+   "centroid_hz": 4249,
+   "attack_ms": 91.5,
+   "onset_ms": 22.9,
+   "active_s": 0.613,
+   "crest_db": 15.9,
+   "dc": 0.0
+  },
+  {
+   "id": "disco",
+   "group": "disco",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Disco ball on screen",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > hp1500 > kick > sat2.2 > hp6500 > hat > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > verb rt0.3 mix0.15 > norm -19LUFS peak<=-1.5",
+   "note": "kick + hat + funky 4-note chord stab + glitter bells",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.969,
+   "peak_dbfs": -2.64,
+   "lufs": -19.0,
+   "centroid_hz": 4876,
+   "attack_ms": 20.8,
+   "onset_ms": 0.0,
+   "active_s": 0.92,
+   "crest_db": 14.8,
+   "dc": 0.00013
+  },
+  {
+   "id": "jellyfish",
+   "group": "jellyfish",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Jellyfish on screen",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp1800 > verb rt0.45 mix0.28 > norm -19LUFS peak<=-1.5",
+   "note": "wobbly underwater bloop, two notes + bubbles",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.279,
+   "peak_dbfs": -5.6,
+   "lufs": -19.0,
+   "centroid_hz": 696,
+   "attack_ms": 559.5,
+   "onset_ms": 4.8,
+   "active_s": 1.19,
+   "crest_db": 12.9,
+   "dc": -1e-05
+  },
+  {
+   "id": "bison",
+   "group": "bison",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Bison on screen",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/grunt_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat2 > lp400 > thump > sat2 > lp400 > thump > sat2 > load grunt_02.ogg > pitch x0.700 > lp160 > rumble > norm -19LUFS peak<=-1.5",
+   "note": "three gallop thumps + low pack grunt pitched down + rumble",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.312,
+   "peak_dbfs": -4.81,
+   "lufs": -19.0,
+   "centroid_hz": 227,
+   "attack_ms": 11.0,
+   "onset_ms": 0.1,
+   "active_s": 1.263,
+   "crest_db": 10.1,
+   "dc": 0.00012
+  },
+  {
+   "id": "blackhole",
+   "group": "blackhole",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "Black hole on screen",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1800 > bp3000-9000 > crash > reverse > lp400 > thump > sat1.8 > sat1.5 > norm -19LUFS peak<=-1.5",
+   "note": "inward FM sweep that tightens, plus reversed-crash swell",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.612,
+   "peak_dbfs": -7.9,
+   "lufs": -19.1,
+   "centroid_hz": 6768,
+   "attack_ms": 1105.9,
+   "onset_ms": 15.5,
+   "active_s": 1.612,
+   "crest_db": 10.6,
+   "dc": 3e-05
+  },
+  {
+   "id": "holy-choir",
+   "group": "holy-choir",
+   "variant": "",
+   "section": "Obstacles",
+   "event": "\"Pope\" obstacle on screen: neutral synthetic holy choir sting",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 700/1150/2600 > verb rt0.9 mix0.35 > norm -19LUFS peak<=-1.5",
+   "note": "synthetic 'ah' choir: detuned saws through vowel formants, bell sparkle",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.828,
+   "peak_dbfs": -3.98,
+   "lufs": -19.0,
+   "centroid_hz": 4270,
+   "attack_ms": 764.8,
+   "onset_ms": 40.2,
+   "active_s": 1.688,
+   "crest_db": 17.6,
+   "dc": -0.0
+  },
+  {
+   "id": "apple-a",
+   "group": "apple",
+   "variant": "a",
+   "section": "Pickups & combo",
+   "event": "Pick up an apple (also the combo chime base)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp1500-6500 > bp1500-6500 > hp2500 > sat1.4 > hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "two juicy crunch bursts + rising two-note chip blip",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.22,
+   "peak_dbfs": -7.46,
+   "lufs": -19.0,
+   "centroid_hz": 6246,
+   "attack_ms": 41.5,
+   "onset_ms": 0.3,
+   "active_s": 0.219,
+   "crest_db": 12.9,
+   "dc": -1e-05
+  },
+  {
+   "id": "apple-b",
+   "group": "apple",
+   "variant": "b",
+   "section": "Pickups & combo",
+   "event": "Pick up an apple (also the combo chime base)",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-512-retro/The Essential Retro Video Game Sound Effects Collection [512 sounds] By Juhani Junkala/General Sounds/Coins/sfx_coin_single3.wav"
+   ],
+   "packs": [
+    {
+     "name": "oga-512-retro",
+     "page": "https://opengameart.org/content/512-sound-effects-8-bit-style",
+     "author": "SubspaceAudio (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load sfx_coin_single3.wav > bp1500-6500 > lp400 > thump > sat1.4 > norm -19LUFS peak<=-1.5",
+   "note": "pack retro coin + crunch + pop",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.157,
+   "peak_dbfs": -2.55,
+   "lufs": -19.0,
+   "centroid_hz": 4685,
+   "attack_ms": 5.2,
+   "onset_ms": 0.1,
+   "active_s": 0.153,
+   "crest_db": 17.9,
+   "dc": -2e-05
+  },
+  {
+   "id": "beer-1",
+   "group": "beer",
+   "variant": "1",
+   "section": "Pickups & combo",
+   "event": "Pick up a beer (6 flavours can share these 3)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactGlass_light_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp5000-12000 > load impactGlass_light_001.ogg > sat1.3 > norm -19LUFS peak<=-1.5",
+   "note": "glug-glug-glug + fizz + bottle tick",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.507,
+   "peak_dbfs": -7.19,
+   "lufs": -19.1,
+   "centroid_hz": 6671,
+   "attack_ms": 47.0,
+   "onset_ms": 0.1,
+   "active_s": 0.496,
+   "crest_db": 12.7,
+   "dc": 0.00022
+  },
+  {
+   "id": "beer-2",
+   "group": "beer",
+   "variant": "2",
+   "section": "Pickups & combo",
+   "event": "Pick up a beer (6 flavours can share these 3)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactGlass_light_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp6000-13000 > load impactGlass_light_003.ogg > sat1.3 > norm -19LUFS peak<=-1.5",
+   "note": "higher glug pair + fizz + glass clink",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.408,
+   "peak_dbfs": -6.67,
+   "lufs": -19.0,
+   "centroid_hz": 7217,
+   "attack_ms": 38.5,
+   "onset_ms": 0.1,
+   "active_s": 0.398,
+   "crest_db": 13.4,
+   "dc": 1e-05
+  },
+  {
+   "id": "beer-3",
+   "group": "beer",
+   "variant": "3",
+   "section": "Pickups & combo",
+   "event": "Pick up a beer (6 flavours can share these 3)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/metalClick.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metalClick.ogg > bp4500-11000 > sat1.3 > norm -19LUFS peak<=-1.5",
+   "note": "low long gulp x4 + pop-the-cap click + fizz",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.667,
+   "peak_dbfs": -6.5,
+   "lufs": -19.1,
+   "centroid_hz": 6625,
+   "attack_ms": 88.4,
+   "onset_ms": 61.2,
+   "active_s": 0.655,
+   "crest_db": 13.2,
+   "dc": 6e-05
+  },
+  {
+   "id": "burp-a",
+   "group": "burp",
+   "variant": "a",
+   "section": "Pickups & combo",
+   "event": "Burp (after a beer; Eksterminator's last puff borrows it)",
+   "source": "pack",
+   "pack_files": [
+    "oga-80-creature/burp_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load burp_01.ogg > pitch x0.920 > norm -19LUFS peak<=-1.5",
+   "note": "pack creature burp, trimmed, slightly pitched down",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.563,
+   "peak_dbfs": -6.46,
+   "lufs": -18.9,
+   "centroid_hz": 2405,
+   "attack_ms": 112.9,
+   "onset_ms": 3.6,
+   "active_s": 0.529,
+   "crest_db": 11.8,
+   "dc": -1e-05
+  },
+  {
+   "id": "burp-b",
+   "group": "burp",
+   "variant": "b",
+   "section": "Pickups & combo",
+   "event": "Burp (after a beer; Eksterminator's last puff borrows it)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "losweep 1800->450 q2.5 > formant 450/900/1700 > sat1.8 > norm -19LUFS peak<=-1.5",
+   "note": "synth belch: low glottal pulse train through vowel formants, gliding down",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.703,
+   "peak_dbfs": -2.31,
+   "lufs": -19.1,
+   "centroid_hz": 691,
+   "attack_ms": 55.1,
+   "onset_ms": 8.7,
+   "active_s": 0.7,
+   "crest_db": 16.2,
+   "dc": 8e-05
+  },
+  {
+   "id": "pill",
+   "group": "pill",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "Pick up a pill",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > bp4000-12000 > crush hold2 > verb rt0.25 mix0.12 > norm -19LUFS peak<=-1.5",
+   "note": "fast 5-note rising arpeggio + fizz",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.773,
+   "peak_dbfs": -5.79,
+   "lufs": -19.0,
+   "centroid_hz": 6756,
+   "attack_ms": 120.4,
+   "onset_ms": 0.2,
+   "active_s": 0.766,
+   "crest_db": 14.9,
+   "dc": -3e-05
+  },
+  {
+   "id": "pill-end",
+   "group": "pill-end",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "Pill wears off (new)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > basweep 6000->800 q0.8 > whoosh > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "falling arpeggio + deflating pssh",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.459,
+   "peak_dbfs": -7.94,
+   "lufs": -19.0,
+   "centroid_hz": 5601,
+   "attack_ms": 69.7,
+   "onset_ms": 0.1,
+   "active_s": 0.459,
+   "crest_db": 11.7,
+   "dc": 6e-05
+  },
+  {
+   "id": "combo-tick-1",
+   "group": "combo-tick",
+   "variant": "1",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 1/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -9.02,
+   "lufs": -18.9,
+   "centroid_hz": 5666,
+   "attack_ms": 8.5,
+   "onset_ms": 0.0,
+   "active_s": 0.147,
+   "crest_db": 10.0,
+   "dc": -3e-05
+  },
+  {
+   "id": "combo-tick-2",
+   "group": "combo-tick",
+   "variant": "2",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 2/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -9.71,
+   "lufs": -18.9,
+   "centroid_hz": 5853,
+   "attack_ms": 9.8,
+   "onset_ms": 0.1,
+   "active_s": 0.147,
+   "crest_db": 9.4,
+   "dc": 4e-05
+  },
+  {
+   "id": "combo-tick-3",
+   "group": "combo-tick",
+   "variant": "3",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 3/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -8.88,
+   "lufs": -18.9,
+   "centroid_hz": 5814,
+   "attack_ms": 9.0,
+   "onset_ms": 0.2,
+   "active_s": 0.147,
+   "crest_db": 10.4,
+   "dc": -2e-05
+  },
+  {
+   "id": "combo-tick-4",
+   "group": "combo-tick",
+   "variant": "4",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 4/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -9.41,
+   "lufs": -18.9,
+   "centroid_hz": 5966,
+   "attack_ms": 8.0,
+   "onset_ms": 0.0,
+   "active_s": 0.146,
+   "crest_db": 10.1,
+   "dc": 1e-05
+  },
+  {
+   "id": "combo-tick-5",
+   "group": "combo-tick",
+   "variant": "5",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 5/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -9.84,
+   "lufs": -18.9,
+   "centroid_hz": 6229,
+   "attack_ms": 9.0,
+   "onset_ms": 0.0,
+   "active_s": 0.146,
+   "crest_db": 9.8,
+   "dc": 1e-05
+  },
+  {
+   "id": "combo-tick-6",
+   "group": "combo-tick",
+   "variant": "6",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 6/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -9.93,
+   "lufs": -18.9,
+   "centroid_hz": 6408,
+   "attack_ms": 8.0,
+   "onset_ms": 0.1,
+   "active_s": 0.146,
+   "crest_db": 9.9,
+   "dc": 6e-05
+  },
+  {
+   "id": "combo-tick-7",
+   "group": "combo-tick",
+   "variant": "7",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 7/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -10.95,
+   "lufs": -18.9,
+   "centroid_hz": 6469,
+   "attack_ms": 9.0,
+   "onset_ms": 0.1,
+   "active_s": 0.147,
+   "crest_db": 9.1,
+   "dc": -0.0
+  },
+  {
+   "id": "combo-tick-8",
+   "group": "combo-tick",
+   "variant": "8",
+   "section": "Pickups & combo",
+   "event": "Combo tick, 8 rising pitches (one per combo step)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "pentatonic step 8/8: pulse + bell octave",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.149,
+   "peak_dbfs": -10.51,
+   "lufs": -18.9,
+   "centroid_hz": 6609,
+   "attack_ms": 9.4,
+   "onset_ms": 0.0,
+   "active_s": 0.146,
+   "crest_db": 9.8,
+   "dc": 2e-05
+  },
+  {
+   "id": "mult-up",
+   "group": "mult-up",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "Score multiplier goes up (new)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > sat2 > crush hold2 > verb rt0.2 mix0.1 > norm -16LUFS peak<=-1.5",
+   "note": "3-note riser + bell + upward zap",
+   "category": "stinger",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 0.753,
+   "peak_dbfs": -3.24,
+   "lufs": -16.0,
+   "centroid_hz": 6698,
+   "attack_ms": 9.6,
+   "onset_ms": 0.3,
+   "active_s": 0.75,
+   "crest_db": 14.5,
+   "dc": 0.00012
+  },
+  {
+   "id": "combo-lost",
+   "group": "combo-lost",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "Combo lost",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > sat1.4 > crush hold2 > norm -19LUFS peak<=-1.5",
+   "note": "two falling wah notes (tri), deflating",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.459,
+   "peak_dbfs": -9.02,
+   "lufs": -18.9,
+   "centroid_hz": 2337,
+   "attack_ms": 14.6,
+   "onset_ms": 0.1,
+   "active_s": 0.452,
+   "crest_db": 9.2,
+   "dc": 0.0
+  },
+  {
+   "id": "combo-break",
+   "group": "combo-break",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "Big combo shattered (bigger sibling of combo-lost, new)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactGlass_medium_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactGlass_medium_002.ogg > lp400 > thump > sat1.8 > sat1.5 > crush hold2 > norm -16LUFS peak<=-1.5",
+   "note": "glass shatter pack + falling chip + low thump",
+   "category": "stinger",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 0.509,
+   "peak_dbfs": -2.35,
+   "lufs": -16.1,
+   "centroid_hz": 4266,
+   "attack_ms": 10.5,
+   "onset_ms": 0.1,
+   "active_s": 0.508,
+   "crest_db": 10.3,
+   "dc": -0.00043
+  },
+  {
+   "id": "na-styk",
+   "group": "na-styk",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "NA STYK! (close call)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 1500->7000 q1.2 > whoosh > sat1.4 > crush hold2 > norm -16LUFS peak<=-1.5",
+   "note": "tight swish + metallic ping + high chirp",
+   "category": "stinger",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 0.459,
+   "peak_dbfs": -3.58,
+   "lufs": -16.2,
+   "centroid_hz": 7453,
+   "attack_ms": 79.4,
+   "onset_ms": 16.4,
+   "active_s": 0.456,
+   "crest_db": 15.2,
+   "dc": -4e-05
+  },
+  {
+   "id": "przebicie",
+   "group": "przebicie",
+   "variant": "",
+   "section": "Pickups & combo",
+   "event": "PRZEBICIE! (dash-through smash)",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-75-breaking-hit/bfh1_breaking_01.ogg",
+    "kenney-impact-sounds/Audio/impactPunch_heavy_000.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-75-breaking-hit",
+     "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load bfh1_breaking_01.ogg > load impactPunch_heavy_000.ogg > hp1500 > sat2 > lp400 > thump > sat1.8 > sat1.6 > norm -16LUFS peak<=-1.5",
+   "note": "pack glass-break crack + punch + zap + sub thump",
+   "category": "stinger",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 0.637,
+   "peak_dbfs": -2.56,
+   "lufs": -16.3,
+   "centroid_hz": 3574,
+   "attack_ms": 36.0,
+   "onset_ms": 0.1,
+   "active_s": 0.577,
+   "crest_db": 11.8,
+   "dc": 3e-05
+  },
+  {
+   "id": "ui-press-a",
+   "group": "ui-press",
+   "variant": "a",
+   "section": "UI",
+   "event": "Button press",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-ui-audio/Audio/click4.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-ui-audio",
+     "page": "https://kenney.nl/assets/ui-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load click4.ogg > hp2500 > sat1.4 > hp2500 > sat1.4 > crush hold2 > norm -22LUFS peak<=-1.5",
+   "note": "Kenney ui-audio click + 2-note chip pluck",
+   "category": "ui",
+   "target_lufs": -22.0,
+   "loop": false,
+   "duration_s": 0.132,
+   "peak_dbfs": -13.41,
+   "lufs": -22.8,
+   "centroid_hz": 6475,
+   "attack_ms": 29.3,
+   "onset_ms": 0.0,
+   "active_s": 0.102,
+   "crest_db": 10.9,
+   "dc": 0.0
+  },
+  {
+   "id": "ui-press-b",
+   "group": "ui-press",
+   "variant": "b",
+   "section": "UI",
+   "event": "Button press",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp400 > thump > sat1.3 > hp2500 > sat1.4 > hp2500 > sat1.4 > crush hold2 > norm -22LUFS peak<=-1.5",
+   "note": "all synth: low thock + bright 2-tone blip",
+   "category": "ui",
+   "target_lufs": -22.0,
+   "loop": false,
+   "duration_s": 0.129,
+   "peak_dbfs": -9.33,
+   "lufs": -22.0,
+   "centroid_hz": 5922,
+   "attack_ms": 7.2,
+   "onset_ms": 0.0,
+   "active_s": 0.129,
+   "crest_db": 12.9,
+   "dc": 3e-05
+  },
+  {
+   "id": "ui-hover",
+   "group": "ui-hover",
+   "variant": "",
+   "section": "UI",
+   "event": "Hover / select / focus",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp3500 > crush hold2 > norm -22LUFS peak<=-1.5",
+   "note": "tiny soft triangle blip",
+   "category": "ui",
+   "target_lufs": -22.0,
+   "loop": false,
+   "duration_s": 0.059,
+   "peak_dbfs": -12.46,
+   "lufs": -22.0,
+   "centroid_hz": 5282,
+   "attack_ms": 7.4,
+   "onset_ms": 0.1,
+   "active_s": 0.059,
+   "crest_db": 11.5,
+   "dc": 0.0
+  },
+  {
+   "id": "ui-back",
+   "group": "ui-back",
+   "variant": "",
+   "section": "UI",
+   "event": "Back / close",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > crush hold2 > norm -22LUFS peak<=-1.5",
+   "note": "falling two-note blip",
+   "category": "ui",
+   "target_lufs": -22.0,
+   "loop": false,
+   "duration_s": 0.129,
+   "peak_dbfs": -14.07,
+   "lufs": -21.9,
+   "centroid_hz": 5001,
+   "attack_ms": 8.1,
+   "onset_ms": 0.1,
+   "active_s": 0.129,
+   "crest_db": 8.1,
+   "dc": -5e-05
+  },
+  {
+   "id": "ui-slider",
+   "group": "ui-slider",
+   "variant": "",
+   "section": "UI",
+   "event": "Slider tick (settings)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp3000 > crush hold2 > norm -22LUFS peak<=-1.5",
+   "note": "very short click + 1.2 kHz tick",
+   "category": "ui",
+   "target_lufs": -22.0,
+   "loop": false,
+   "duration_s": 0.062,
+   "peak_dbfs": -8.42,
+   "lufs": -24.0,
+   "centroid_hz": 2194,
+   "attack_ms": 3.5,
+   "onset_ms": 0.1,
+   "active_s": 0.045,
+   "crest_db": 16.2,
+   "dc": -3e-05
+  },
+  {
+   "id": "ui-purchase",
+   "group": "ui-purchase",
+   "variant": "",
+   "section": "UI",
+   "event": "Purchase in the shop",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/handleCoins2.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load handleCoins2.ogg > hp2500 > sat1.4 > verb rt0.2 mix0.1 > norm -19LUFS peak<=-1.5",
+   "note": "coin clink pack + two quick bell hits (cha-ching)",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.637,
+   "peak_dbfs": -5.88,
+   "lufs": -19.0,
+   "centroid_hz": 5520,
+   "attack_ms": 100.4,
+   "onset_ms": 0.3,
+   "active_s": 0.624,
+   "crest_db": 15.5,
+   "dc": -1e-05
+  },
+  {
+   "id": "ui-error",
+   "group": "ui-error",
+   "variant": "",
+   "section": "UI",
+   "event": "Error / denied",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp2200 > sat1.5 > crush hold2 > norm -22LUFS peak<=-1.5",
+   "note": "two dissonant buzzer pulses",
+   "category": "ui",
+   "target_lufs": -22.0,
+   "loop": false,
+   "duration_s": 0.371,
+   "peak_dbfs": -15.58,
+   "lufs": -21.9,
+   "centroid_hz": 2977,
+   "attack_ms": 45.8,
+   "onset_ms": 0.7,
+   "active_s": 0.371,
+   "crest_db": 5.3,
+   "dc": -0.00011
+  },
+  {
+   "id": "stinger-01",
+   "group": "stinger-01",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 1 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.15 mix0.14 > norm -19LUFS peak<=-1.5",
+   "note": "tier 1: 3-note chip arpeggio, no drums",
+   "category": "stinger",
+   "target_lufs": -19,
+   "loop": false,
+   "duration_s": 0.559,
+   "peak_dbfs": -7.51,
+   "lufs": -19.0,
+   "centroid_hz": 3949,
+   "attack_ms": 7.9,
+   "onset_ms": 0.2,
+   "active_s": 0.559,
+   "crest_db": 12.3,
+   "dc": -0.0
+  },
+  {
+   "id": "stinger-02",
+   "group": "stinger-02",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 2 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.18 mix0.14 > norm -18.5LUFS peak<=-1.5",
+   "note": "tier 2: 4-note arpeggio + held fifth + bell",
+   "category": "stinger",
+   "target_lufs": -18.5,
+   "loop": false,
+   "duration_s": 0.709,
+   "peak_dbfs": -8.83,
+   "lufs": -18.5,
+   "centroid_hz": 4106,
+   "attack_ms": 7.8,
+   "onset_ms": 0.2,
+   "active_s": 0.709,
+   "crest_db": 10.8,
+   "dc": -3e-05
+  },
+  {
+   "id": "stinger-03",
+   "group": "stinger-03",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 3 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > sat1.5 > crush hold2 > lp8500 > verb rt0.2 mix0.14 > norm -18LUFS peak<=-1.5",
+   "note": "tier 3: 5-note run + major chord + bass",
+   "category": "stinger",
+   "target_lufs": -18,
+   "loop": false,
+   "duration_s": 0.959,
+   "peak_dbfs": -8.01,
+   "lufs": -18.0,
+   "centroid_hz": 3718,
+   "attack_ms": 330.9,
+   "onset_ms": 0.2,
+   "active_s": 0.957,
+   "crest_db": 10.5,
+   "dc": 0.00014
+  },
+  {
+   "id": "stinger-04",
+   "group": "stinger-04",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 4 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > sat1.5 > crush hold2 > lp8500 > verb rt0.22 mix0.14 > norm -17.5LUFS peak<=-1.5",
+   "note": "tier 4: kick + 6-note run + chord with bass kick + sparkle",
+   "category": "stinger",
+   "target_lufs": -17.5,
+   "loop": false,
+   "duration_s": 1.162,
+   "peak_dbfs": -6.44,
+   "lufs": -17.5,
+   "centroid_hz": 3792,
+   "attack_ms": 20.7,
+   "onset_ms": 0.2,
+   "active_s": 1.155,
+   "crest_db": 11.3,
+   "dc": -0.0001
+  },
+  {
+   "id": "stinger-05",
+   "group": "stinger-05",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 5 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.22 mix0.14 > norm -17LUFS peak<=-1.5",
+   "note": "tier 5: run, snare fill, IV-V-I chord hits, double-octave voices",
+   "category": "stinger",
+   "target_lufs": -17,
+   "loop": false,
+   "duration_s": 1.362,
+   "peak_dbfs": -4.07,
+   "lufs": -17.1,
+   "centroid_hz": 4148,
+   "attack_ms": 467.0,
+   "onset_ms": 0.2,
+   "active_s": 1.356,
+   "crest_db": 12.7,
+   "dc": -0.00014
+  },
+  {
+   "id": "stinger-06",
+   "group": "stinger-06",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 6 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.24 mix0.14 > norm -16.5LUFS peak<=-1.5",
+   "note": "tier 6: key lift to D, snare roll, crash, saw layer",
+   "category": "stinger",
+   "target_lufs": -16.5,
+   "loop": false,
+   "duration_s": 1.462,
+   "peak_dbfs": -5.51,
+   "lufs": -16.5,
+   "centroid_hz": 4371,
+   "attack_ms": 16.4,
+   "onset_ms": 0.1,
+   "active_s": 1.457,
+   "crest_db": 10.8,
+   "dc": -0.00019
+  },
+  {
+   "id": "stinger-07",
+   "group": "stinger-07",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 7 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.25 mix0.14 > norm -16LUFS peak<=-1.5",
+   "note": "tier 7: two-octave run, triple chord stabs, crash",
+   "category": "stinger",
+   "target_lufs": -16,
+   "loop": false,
+   "duration_s": 1.562,
+   "peak_dbfs": -3.46,
+   "lufs": -16.0,
+   "centroid_hz": 3883,
+   "attack_ms": 779.7,
+   "onset_ms": 0.1,
+   "active_s": 1.556,
+   "crest_db": 12.6,
+   "dc": -2e-05
+  },
+  {
+   "id": "stinger-08",
+   "group": "stinger-08",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 8 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.3 mix0.14 > norm -15.5LUFS peak<=-1.5",
+   "note": "tier 8: snare roll build, rising run, huge saw chord, shimmer",
+   "category": "stinger",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.712,
+   "peak_dbfs": -4.36,
+   "lufs": -15.5,
+   "centroid_hz": 4728,
+   "attack_ms": 618.5,
+   "onset_ms": 0.1,
+   "active_s": 1.707,
+   "crest_db": 12.0,
+   "dc": 0.00028
+  },
+  {
+   "id": "stinger-09",
+   "group": "stinger-09",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 9 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.08 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.35 mix0.14 > norm -15LUFS peak<=-1.5",
+   "note": "tier 9: long build, two chord blows, crash, bell cascade",
+   "category": "stinger",
+   "target_lufs": -15,
+   "loop": false,
+   "duration_s": 1.912,
+   "peak_dbfs": -4.49,
+   "lufs": -15.1,
+   "centroid_hz": 4687,
+   "attack_ms": 765.1,
+   "onset_ms": 0.1,
+   "active_s": 1.907,
+   "crest_db": 11.7,
+   "dc": 0.00022
+  },
+  {
+   "id": "stinger-10",
+   "group": "stinger-10",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 10 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.4 mix0.14 > norm -14LUFS peak<=-1.5",
+   "note": "tier 10: 16th-note scale run, triple chord blows, crashes, bell cascade",
+   "category": "stinger",
+   "target_lufs": -14,
+   "loop": false,
+   "duration_s": 1.942,
+   "peak_dbfs": -2.83,
+   "lufs": -14.1,
+   "centroid_hz": 4574,
+   "attack_ms": 808.8,
+   "onset_ms": 0.2,
+   "active_s": 1.942,
+   "crest_db": 12.3,
+   "dc": 0.00016
+  },
+  {
+   "id": "stinger-11",
+   "group": "stinger-11",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 11 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.42 mix0.14 > hp3300 > bp3000-9000 > crash > norm -14LUFS peak<=-1.5",
+   "note": "tier 11: tier 10 plus a parallel fifth run, four chord stabs, 7-note final chord, second crash",
+   "category": "stinger",
+   "target_lufs": -14,
+   "loop": false,
+   "duration_s": 2.112,
+   "peak_dbfs": -2.0,
+   "lufs": -14.1,
+   "centroid_hz": 5461,
+   "attack_ms": 683.2,
+   "onset_ms": 0.2,
+   "active_s": 2.112,
+   "crest_db": 13.3,
+   "dc": 0.00015
+  },
+  {
+   "id": "stinger-12",
+   "group": "stinger-12",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 12 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.46 mix0.14 > hp3300 > bp3000-9000 > crash > hp1500 > hp1500 > kick > sat2.2 > norm -14LUFS peak<=-1.5",
+   "note": "tier 12: full-range run, key lift by a tone at the stabs and the final chord, bass drop, two crashes",
+   "category": "stinger",
+   "target_lufs": -14,
+   "loop": false,
+   "duration_s": 2.312,
+   "peak_dbfs": -1.73,
+   "lufs": -14.1,
+   "centroid_hz": 5327,
+   "attack_ms": 1004.1,
+   "onset_ms": 0.1,
+   "active_s": 2.312,
+   "crest_db": 13.1,
+   "dc": -0.00027
+  },
+  {
+   "id": "stinger-13",
+   "group": "stinger-13",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 13 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.48 mix0.14 > hp3300 > bp3000-9000 > crash > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.45 mix0.14 > norm -14LUFS peak<=-1.5",
+   "note": "tier 13: run in thirds and fifths, five rising stabs, double final blow with a bell shower and sub boom",
+   "category": "stinger",
+   "target_lufs": -14,
+   "loop": false,
+   "duration_s": 2.462,
+   "peak_dbfs": -2.81,
+   "lufs": -14.1,
+   "centroid_hz": 5091,
+   "attack_ms": 1004.5,
+   "onset_ms": 0.2,
+   "active_s": 2.459,
+   "crest_db": 12.2,
+   "dc": -9e-05
+  },
+  {
+   "id": "stinger-14",
+   "group": "stinger-14",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score milestone sound, tier 14 of 14",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > sat1.5 > crush hold2 > lp8500 > verb rt0.1 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.05 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.5 mix0.14 > hp3300 > bp3000-9000 > crash > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.48 mix0.14 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.5 mix0.14 > hp1500 > hp1500 > kick > sat2.2 > norm -14LUFS peak<=-1.5",
+   "note": "tier 14: the finale - two runs, long roll, six stabs, triple final blow (key lift each time), sub boom, long bell shower",
+   "category": "stinger",
+   "target_lufs": -14,
+   "loop": false,
+   "duration_s": 2.612,
+   "peak_dbfs": -3.34,
+   "lufs": -14.1,
+   "centroid_hz": 5074,
+   "attack_ms": 1022.2,
+   "onset_ms": 0.2,
+   "active_s": 2.608,
+   "crest_db": 12.0,
+   "dc": -0.00011
+  },
+  {
+   "id": "stinger-2137",
+   "group": "stinger-2137",
+   "variant": "",
+   "section": "Score milestones",
+   "event": "Score passes 2137 (joke)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "sat1.3 > sat1.3 > sat1.3 > sat1.3 > sat1.3 > verb rt0.8 mix0.3 > norm -16LUFS peak<=-1.5",
+   "note": "JOKE: two low bell tolls, solemn organ chord swell, one tiny cheerful 'pip' at the end",
+   "category": "stinger",
+   "target_lufs": -16,
+   "loop": false,
+   "duration_s": 1.942,
+   "peak_dbfs": -2.86,
+   "lufs": -16.0,
+   "centroid_hz": 817,
+   "attack_ms": 1313.4,
+   "onset_ms": 2.3,
+   "active_s": 1.942,
+   "crest_db": 11.9,
+   "dc": 0.00053
+  },
+  {
+   "id": "boss-gun-a",
+   "group": "boss-gun",
+   "variant": "a",
+   "section": "Bosses: shared",
+   "event": "Gun shot (pistol; boss shots + VS screen)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1200 > lp2500 > gun > sat2 > sat1.3 > verb rt0.18 mix0.12 > norm -17LUFS peak<=-1.5",
+   "note": "synth pistol: crack + body + short room tail",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.372,
+   "peak_dbfs": -4.57,
+   "lufs": -17.0,
+   "centroid_hz": 4392,
+   "attack_ms": 37.3,
+   "onset_ms": 0.0,
+   "active_s": 0.328,
+   "crest_db": 11.3,
+   "dc": -0.00014
+  },
+  {
+   "id": "boss-gun-b",
+   "group": "boss-gun",
+   "variant": "b",
+   "section": "Bosses: shared",
+   "event": "Gun shot (pistol; boss shots + VS screen)",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-gunshots/oga-gunshots__22 Pistol.wav"
+   ],
+   "packs": [
+    {
+     "name": "oga-gunshots",
+     "page": "https://opengameart.org/content/gunshots",
+     "author": "kurt (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load oga-gunshots__22 Pistol.wav > hp90 > lp400 > thump > sat1.8 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "pack .22 pistol (kurt, CC0) trimmed + synth sub thump",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.361,
+   "peak_dbfs": -2.84,
+   "lufs": -17.2,
+   "centroid_hz": 1215,
+   "attack_ms": 7.7,
+   "onset_ms": 0.1,
+   "active_s": 0.207,
+   "crest_db": 12.1,
+   "dc": 0.00025
+  },
+  {
+   "id": "shell-casing",
+   "group": "shell-casing",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Shell casing drops (new)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_light_004.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_light_004.ogg > hp2000 > norm -19LUFS peak<=-1.5",
+   "note": "three decaying metal tinks, falling interval",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.314,
+   "peak_dbfs": -3.6,
+   "lufs": -19.0,
+   "centroid_hz": 7331,
+   "attack_ms": 7.5,
+   "onset_ms": 0.1,
+   "active_s": 0.299,
+   "crest_db": 18.7,
+   "dc": -1e-05
+  },
+  {
+   "id": "bullet-hit",
+   "group": "bullet-hit",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Bullet hits the boss",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactPunch_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactPunch_medium_001.ogg > basweep 2000->400 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "pack punch + wet thwack + metal ting",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.359,
+   "peak_dbfs": -1.78,
+   "lufs": -15.7,
+   "centroid_hz": 2551,
+   "attack_ms": 22.2,
+   "onset_ms": 0.1,
+   "active_s": 0.274,
+   "crest_db": 11.6,
+   "dc": -4e-05
+  },
+  {
+   "id": "bullet-ricochet",
+   "group": "bullet-ricochet",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Bullet ricochets off armour",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_light_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_light_001.ogg > basweep 3000->9000 q1.5 > whoosh > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "metal ping + falling doppler zing (FM) + hissy scrape",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.509,
+   "peak_dbfs": -3.64,
+   "lufs": -15.7,
+   "centroid_hz": 5532,
+   "attack_ms": 12.9,
+   "onset_ms": 0.1,
+   "active_s": 0.503,
+   "crest_db": 14.8,
+   "dc": -0.0
+  },
+  {
+   "id": "shot-down",
+   "group": "shot-down",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Boss projectile shot down",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp900 > hp3000 > crackle 260/s > hp1500 > sat2 > lp400 > thump > sat1.8 > sat1.6 > verb rt0.2 mix0.12 > norm -15.5LUFS peak<=-1.5",
+   "note": "small bright pop-burst: crack + sparkle fragments + low pop",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.338,
+   "peak_dbfs": -2.14,
+   "lufs": -15.9,
+   "centroid_hz": 5316,
+   "attack_ms": 45.9,
+   "onset_ms": 0.0,
+   "active_s": 0.243,
+   "crest_db": 12.5,
+   "dc": 0.00033
+  },
+  {
+   "id": "vs-whoosh",
+   "group": "vs-whoosh",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "VS screen: panel whoosh (new)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 250->5500 q0.9 > whoosh > basweep 90->700 q1.0 > whoosh > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "wide rising-then-falling whoosh with low body",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.57,
+   "peak_dbfs": -2.41,
+   "lufs": -15.9,
+   "centroid_hz": 4580,
+   "attack_ms": 248.3,
+   "onset_ms": 46.5,
+   "active_s": 0.535,
+   "crest_db": 15.1,
+   "dc": 6e-05
+  },
+  {
+   "id": "vs-slam-1",
+   "group": "vs-slam-1",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "VS screen: first portrait slams in",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_heavy_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat2.2 > load impactMetal_heavy_001.ogg > lp160 > rumble > hp800 > verb rt0.35 mix0.18 > norm -14LUFS peak<=-1.5",
+   "note": "heavy thump + pack heavy metal hit + rumble",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.661,
+   "peak_dbfs": -1.38,
+   "lufs": -14.2,
+   "centroid_hz": 186,
+   "attack_ms": 20.1,
+   "onset_ms": 0.0,
+   "active_s": 0.644,
+   "crest_db": 8.1,
+   "dc": 0.00091
+  },
+  {
+   "id": "vs-slam-2",
+   "group": "vs-slam-2",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "VS screen: second portrait slams in",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactPlate_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat2.2 > load impactPlate_heavy_002.ogg > lp160 > rumble > hp800 > verb rt0.35 mix0.18 > norm -14LUFS peak<=-1.5",
+   "note": "same family, lower and plate-heavy so the second slam sounds distinct",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.136,
+   "peak_dbfs": -1.04,
+   "lufs": -14.3,
+   "centroid_hz": 151,
+   "attack_ms": 18.1,
+   "onset_ms": 0.0,
+   "active_s": 1.127,
+   "crest_db": 7.1,
+   "dc": 0.00026
+  },
+  {
+   "id": "vs-burst",
+   "group": "vs-burst",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "VS screen: VS burst",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2700 > bp3000-9000 > crash > reverse > losweep 5000->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2 > explosion > verb rt0.3 mix0.25 > norm -14LUFS peak<=-1.5",
+   "note": "reverse-crash riser into a flash boom, bright sparkle",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.809,
+   "peak_dbfs": -1.81,
+   "lufs": -14.1,
+   "centroid_hz": 9178,
+   "attack_ms": 477.1,
+   "onset_ms": 0.4,
+   "active_s": 0.809,
+   "crest_db": 11.6,
+   "dc": -0.00024
+  },
+  {
+   "id": "vs-name",
+   "group": "vs-name",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "VS screen: boss name slam",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_heavy_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "losweep 4500->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.5 > explosion > verb rt0.5 mix0.25 > lp400 > thump > sat2.2 > load impactMetal_heavy_003.ogg > lp160 > rumble > hp800 > verb rt0.35 mix0.18 > norm -14LUFS peak<=-1.5",
+   "note": "big impact + explosion tail + metallic bell hit",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.072,
+   "peak_dbfs": -1.03,
+   "lufs": -14.1,
+   "centroid_hz": 3841,
+   "attack_ms": 52.9,
+   "onset_ms": 0.0,
+   "active_s": 0.978,
+   "crest_db": 10.5,
+   "dc": -0.00014
+  },
+  {
+   "id": "ability-reward",
+   "group": "ability-reward",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Ability reward fanfare (icon lands + title slam)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp3300 > bp3000-9000 > crash > sat1.5 > crush hold2 > lp8500 > verb rt0.3 mix0.14 > norm -15.5LUFS peak<=-1.5",
+   "note": "chip fanfare: run, big chord, bass kick, crash, sparkle (reuses the milestone fanfare builder)",
+   "category": "stinger",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.312,
+   "peak_dbfs": -6.79,
+   "lufs": -15.5,
+   "centroid_hz": 4603,
+   "attack_ms": 21.3,
+   "onset_ms": 0.1,
+   "active_s": 1.304,
+   "crest_db": 9.3,
+   "dc": 0.00016
+  },
+  {
+   "id": "moult-pop",
+   "group": "moult-pop",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Moult pop (shell crack + whoosh)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactGlass_light_004.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactGlass_light_004.ogg > hp2000 > crackle 300/s > basweep 400->5000 q1.0 > whoosh > lp400 > thump > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "pack glass crack + crunch + upward whoosh + pop",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.433,
+   "peak_dbfs": -1.45,
+   "lufs": -15.7,
+   "centroid_hz": 4650,
+   "attack_ms": 56.2,
+   "onset_ms": 0.0,
+   "active_s": 0.415,
+   "crest_db": 14.5,
+   "dc": -0.00026
+  },
+  {
+   "id": "boss-defeat",
+   "group": "boss-defeat",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Boss defeat: explosion series",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "losweep 5000->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.2 > explosion > losweep 4500->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.2 > explosion > losweep 4200->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.2 > explosion > losweep 3800->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.2 > explosion > losweep 3500->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.8 > explosion > verb rt0.7 mix0.25 > hp1500 > crackle 120/s > norm -14LUFS peak<=-1.5",
+   "note": "series of 5 explosions (descending pitch, spacing grows), last one huge with sub + debris",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 2.412,
+   "peak_dbfs": -1.42,
+   "lufs": -14.1,
+   "centroid_hz": 3980,
+   "attack_ms": 1437.1,
+   "onset_ms": 0.1,
+   "active_s": 2.412,
+   "crest_db": 10.4,
+   "dc": 3e-05
+  },
+  {
+   "id": "victory",
+   "group": "victory",
+   "variant": "",
+   "section": "Bosses: shared",
+   "event": "Victory jingle",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp2500 > sat1.4 > hp1500 > hp1500 > kick > sat2.2 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp1800 > snare > sat1.6 > hp3300 > bp3000-9000 > crash > sat1.4 > crush hold2 > lp8500 > verb rt0.3 mix0.14 > norm -15LUFS peak<=-1.5",
+   "note": "original ~3 s major jingle: melody over bass, snare fills, crash, sparkle (not any known tune)",
+   "category": "stinger",
+   "target_lufs": -15.0,
+   "loop": false,
+   "duration_s": 3.012,
+   "peak_dbfs": -5.5,
+   "lufs": -15.0,
+   "centroid_hz": 4152,
+   "attack_ms": 498.8,
+   "onset_ms": 0.1,
+   "active_s": 3.012,
+   "crest_db": 10.7,
+   "dc": -1e-05
+  },
+  {
+   "id": "lodzia-whoosh",
+   "group": "lodzia-whoosh",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Slipper whoosh (the wind-up)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/cloth3.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 600->4200 q0.8 > whoosh > load cloth3.ogg > norm -15.5LUFS peak<=-1.5",
+   "note": "mid whoosh with cloth flutter",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.411,
+   "peak_dbfs": -2.38,
+   "lufs": -16.0,
+   "centroid_hz": 5519,
+   "attack_ms": 195.4,
+   "onset_ms": 46.4,
+   "active_s": 0.381,
+   "crest_db": 16.1,
+   "dc": 3e-05
+  },
+  {
+   "id": "lodzia-slap",
+   "group": "lodzia-slap",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Slipper slap on the floor/player",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactSoft_heavy_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp1200-6000 > load impactSoft_heavy_001.ogg > lp400 > thump > sat1.8 > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "rubbery slap: noise snap + pack soft-heavy impact + thump",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.309,
+   "peak_dbfs": -1.73,
+   "lufs": -15.5,
+   "centroid_hz": 3163,
+   "attack_ms": 12.9,
+   "onset_ms": 0.0,
+   "active_s": 0.305,
+   "crest_db": 11.9,
+   "dc": 2e-05
+  },
+  {
+   "id": "lodzia-shockwave",
+   "group": "lodzia-shockwave",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Lane shockwave rumble",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp160 > rumble > hp600 > crackle 90/s > lp400 > thump > sat1.8 > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "low rumble with a wobbling crack and rolling debris",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.112,
+   "peak_dbfs": -3.12,
+   "lufs": -15.5,
+   "centroid_hz": 1593,
+   "attack_ms": 79.4,
+   "onset_ms": 0.1,
+   "active_s": 1.108,
+   "crest_db": 5.0,
+   "dc": 0.00096
+  },
+  {
+   "id": "lodzia-pocket",
+   "group": "lodzia-pocket",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Rummages in her pocket",
+   "source": "pack",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/handleSmallLeather.ogg",
+    "kenney-rpg-audio/Audio/cloth1.ogg",
+    "oga-100-metal-wood/keys_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load handleSmallLeather.ogg > load cloth1.ogg > load keys_03.ogg > norm -19LUFS peak<=-1.5",
+   "note": "pack leather/cloth rustle + keys jingle",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.728,
+   "peak_dbfs": -1.79,
+   "lufs": -19.2,
+   "centroid_hz": 3958,
+   "attack_ms": 431.4,
+   "onset_ms": 51.1,
+   "active_s": 0.72,
+   "crest_db": 18.2,
+   "dc": -0.0
+  },
+  {
+   "id": "lodzia-spin",
+   "group": "lodzia-spin",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Thrown slipper spinning past",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "block bandpass sweep 900->3800->800 > norm -15.5LUFS peak<=-1.5",
+   "note": "fluttering rotor whoosh: AM sweeping 13-19 Hz with a doppler pass (rising then falling band)",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.778,
+   "peak_dbfs": -1.56,
+   "lufs": -15.8,
+   "centroid_hz": 5007,
+   "attack_ms": 351.2,
+   "onset_ms": 65.8,
+   "active_s": 0.77,
+   "crest_db": 17.3,
+   "dc": 3e-05
+  },
+  {
+   "id": "lodzia-boomerang",
+   "group": "lodzia-boomerang",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Slipper ricochets back like a boomerang",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_light_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_light_003.ogg > basweep 400->4500 q0.9 > whoosh > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "ping then rising boing-back + whoosh in reverse direction",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.709,
+   "peak_dbfs": -2.93,
+   "lufs": -15.6,
+   "centroid_hz": 4161,
+   "attack_ms": 7.9,
+   "onset_ms": 0.0,
+   "active_s": 0.704,
+   "crest_db": 14.7,
+   "dc": 1e-05
+  },
+  {
+   "id": "lodzia-smack",
+   "group": "lodzia-smack",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Slipper smacks her in the face",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactPunch_heavy_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactPunch_heavy_001.ogg > bp1500-7000 > sat1.5 > norm -14LUFS peak<=-1.5",
+   "note": "meaty face smack: pack punch + slap + cartoon boing + star ping",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.425,
+   "peak_dbfs": -1.63,
+   "lufs": -14.0,
+   "centroid_hz": 2343,
+   "attack_ms": 29.4,
+   "onset_ms": 0.0,
+   "active_s": 0.411,
+   "crest_db": 11.9,
+   "dc": 0.00035
+  },
+  {
+   "id": "lodzia-stomp",
+   "group": "lodzia-stomp",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Stomp",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactPlate_heavy_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactPlate_heavy_003.ogg > lp400 > thump > sat2.4 > lp160 > rumble > sat1.3 > norm -14LUFS peak<=-1.5",
+   "note": "plate-heavy pack impact + deep thump + floor rumble",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.659,
+   "peak_dbfs": -1.47,
+   "lufs": -14.2,
+   "centroid_hz": 166,
+   "attack_ms": 12.1,
+   "onset_ms": 0.1,
+   "active_s": 0.656,
+   "crest_db": 6.4,
+   "dc": 0.00346
+  },
+  {
+   "id": "lodzia-curler",
+   "group": "lodzia-curler",
+   "variant": "",
+   "section": "Boss: Lodzia",
+   "event": "Hair curler bounces (new)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-casino-audio/Audio/die-throw-2.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-casino-audio",
+     "page": "https://kenney.nl/assets/casino-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "hp1800 > hp1800 > hp1800 > hp1800 > load die-throw-2.ogg > pitch x1.300 > norm -19LUFS peak<=-1.5",
+   "note": "hollow plastic bounces: two clacks with pitch drop + plink",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.399,
+   "peak_dbfs": -2.84,
+   "lufs": -19.1,
+   "centroid_hz": 5273,
+   "attack_ms": 5.0,
+   "onset_ms": 0.0,
+   "active_s": 0.389,
+   "crest_db": 16.6,
+   "dc": -0.0
+  },
+  {
+   "id": "bigos-thump",
+   "group": "bigos-thump",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Speaker thump (kick)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > hp1500 > kick > sat2.6 > bp300-1800 > norm -15.5LUFS peak<=-1.5",
+   "note": "speaker-cone kick: fast pitch drop sine + paper-cone slap",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.309,
+   "peak_dbfs": -3.42,
+   "lufs": -15.5,
+   "centroid_hz": 107,
+   "attack_ms": 24.1,
+   "onset_ms": 0.1,
+   "active_s": 0.309,
+   "crest_db": 6.6,
+   "dc": 0.00013
+  },
+  {
+   "id": "bigos-charge",
+   "group": "bigos-charge",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Charge-up before the blast (new)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "losweep 300->6000 q2.0 > hp2500 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "rising saw/FM whine with accelerating tremolo + noise swell",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.959,
+   "peak_dbfs": -3.4,
+   "lufs": -15.7,
+   "centroid_hz": 6630,
+   "attack_ms": 834.6,
+   "onset_ms": 17.3,
+   "active_s": 0.959,
+   "crest_db": 14.7,
+   "dc": 0.0
+  },
+  {
+   "id": "bigos-blast",
+   "group": "bigos-blast",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Bass blast",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "fold2.5 > lp3000 > hp600 > sat2 > verb rt0.4 mix0.15 > norm -14LUFS peak<=-1.5",
+   "note": "sub drop + folded square + falling sweep + noise burst",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.099,
+   "peak_dbfs": -2.0,
+   "lufs": -14.0,
+   "centroid_hz": 2270,
+   "attack_ms": 79.3,
+   "onset_ms": 0.1,
+   "active_s": 1.07,
+   "crest_db": 9.9,
+   "dc": 0.00051
+  },
+  {
+   "id": "bigos-beam",
+   "group": "bigos-beam",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Light beam hum (loops)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "circular noise 1500-6000 > integer-cycle loop (no crossfade) > norm -20LUFS peak<=-1.5",
+   "note": "seamless 1.0 s hum: 100 Hz harmonic stack + wavering 400 Hz + shimmer, all integer-cycle",
+   "category": "loop",
+   "target_lufs": -20.0,
+   "loop": true,
+   "duration_s": 1.0,
+   "peak_dbfs": -12.43,
+   "lufs": -20.0,
+   "centroid_hz": 1338,
+   "attack_ms": 21.5,
+   "onset_ms": 0.0,
+   "active_s": 1.0,
+   "crest_db": 6.3,
+   "dc": 7e-05,
+   "loop_seam_ratio": 2.8
+  },
+  {
+   "id": "bigos-sizzle",
+   "group": "bigos-sizzle",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Overload sizzle",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > crackle 380/s > lp900 > hp1500 > sat2 > hp1500 > sat2 > hp1500 > sat2 > hp1500 > sat2 > sat1.6 > norm -15.5LUFS peak<=-1.5",
+   "note": "dense electric crackle + 60 Hz buzz + sparkly zaps",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.91,
+   "peak_dbfs": -4.18,
+   "lufs": -15.6,
+   "centroid_hz": 8840,
+   "attack_ms": 34.2,
+   "onset_ms": 1.2,
+   "active_s": 0.901,
+   "crest_db": 10.9,
+   "dc": 6e-05
+  },
+  {
+   "id": "bigos-wreck",
+   "group": "bigos-wreck",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Speaker wreck",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_heavy_002.ogg > losweep 3800->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.2 > explosion > verb rt0.4 mix0.25 > lp1200 > norm -14LUFS peak<=-1.5",
+   "note": "metal crash + explosion + falling power-down sweep + rattle",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.112,
+   "peak_dbfs": -1.51,
+   "lufs": -14.3,
+   "centroid_hz": 2824,
+   "attack_ms": 18.5,
+   "onset_ms": 0.1,
+   "active_s": 1.085,
+   "crest_db": 10.5,
+   "dc": -1e-05
+  },
+  {
+   "id": "bigos-scratch-a",
+   "group": "bigos-scratch",
+   "variant": "a",
+   "section": "Boss: DJ Bigos",
+   "event": "Record scratch (new)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp3000 > hp150 > rate-wobble playback > sat1.6 > norm -15.5LUFS peak<=-1.5",
+   "note": "synth scratch: record loop played back with a fast forward/back rate wobble",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.609,
+   "peak_dbfs": -4.4,
+   "lufs": -15.6,
+   "centroid_hz": 4669,
+   "attack_ms": 12.2,
+   "onset_ms": 0.4,
+   "active_s": 0.608,
+   "crest_db": 11.1,
+   "dc": -2e-05
+  },
+  {
+   "id": "bigos-scratch-b",
+   "group": "bigos-scratch",
+   "variant": "b",
+   "section": "Boss: DJ Bigos",
+   "event": "Record scratch (new)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-interface-sounds/Audio/scratch_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-interface-sounds",
+     "page": "https://kenney.nl/assets/interface-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load scratch_003.ogg > pitch x0.800 > lp400 > thump > sat1.8 > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "Kenney interface scratch pack sound, pitched down + thump so it reads as a record",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.163,
+   "peak_dbfs": -2.97,
+   "lufs": -15.5,
+   "centroid_hz": 9400,
+   "attack_ms": 11.0,
+   "onset_ms": 0.1,
+   "active_s": 0.163,
+   "crest_db": 11.9,
+   "dc": 0.0001
+  },
+  {
+   "id": "zl-gurgle",
+   "group": "zl-gurgle",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Drain gurgle rises (the boss appears)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bubbles 14->60/s > losweep 200->900 q2.0 > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "bubbles that get denser and higher + low glug sweep + wet noise",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.412,
+   "peak_dbfs": -5.71,
+   "lufs": -15.5,
+   "centroid_hz": 828,
+   "attack_ms": 484.6,
+   "onset_ms": 10.9,
+   "active_s": 1.411,
+   "crest_db": 9.3,
+   "dc": -1e-05
+  },
+  {
+   "id": "zl-creak",
+   "group": "zl-creak",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Pipe creak",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/creak2.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load creak2.ogg > pitch x0.800 > formant 300/800/1700 > norm -15.5LUFS peak<=-1.5",
+   "note": "pack door creak pitched down + low metal groan (formant saw)",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.981,
+   "peak_dbfs": -1.46,
+   "lufs": -15.7,
+   "centroid_hz": 2338,
+   "attack_ms": 707.6,
+   "onset_ms": 13.1,
+   "active_s": 0.956,
+   "crest_db": 15.0,
+   "dc": 7e-05
+  },
+  {
+   "id": "zl-slab-launch",
+   "group": "zl-slab-launch",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Concrete slab launched",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 200->2500 q0.8 > whoosh > lp400 > thump > sat1.8 > lp900 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "whoosh + low thud + stone grinding",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.509,
+   "peak_dbfs": -3.48,
+   "lufs": -15.5,
+   "centroid_hz": 2265,
+   "attack_ms": 10.0,
+   "onset_ms": 0.1,
+   "active_s": 0.421,
+   "crest_db": 8.6,
+   "dc": -0.00019
+  },
+  {
+   "id": "zl-slab-impact",
+   "group": "zl-slab-impact",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Concrete slab lands (new)",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-75-breaking-hit/bfh1_rock_hit_01.ogg",
+    "oga-75-breaking-hit/bfh1_rock_falling_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-75-breaking-hit",
+     "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load bfh1_rock_hit_01.ogg > load bfh1_rock_falling_03.ogg > lp400 > thump > sat2.4 > verb rt0.3 mix0.12 > norm -14LUFS peak<=-1.5",
+   "note": "pack rock hit + falling debris + sub thump + dust",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.793,
+   "peak_dbfs": -1.51,
+   "lufs": -15.1,
+   "centroid_hz": 3608,
+   "attack_ms": 12.3,
+   "onset_ms": 0.1,
+   "active_s": 0.77,
+   "crest_db": 6.8,
+   "dc": 0.00237
+  },
+  {
+   "id": "zl-radiator",
+   "group": "zl-radiator",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Radiator clang",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_heavy_004.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_heavy_004.ogg > verb rt0.3 mix0.15 > norm -15.5LUFS peak<=-1.5",
+   "note": "heavy pack metal clang + hollow inharmonic ring at ~310 Hz",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.052,
+   "peak_dbfs": -1.21,
+   "lufs": -16.0,
+   "centroid_hz": 747,
+   "attack_ms": 17.1,
+   "onset_ms": 0.1,
+   "active_s": 1.04,
+   "crest_db": 13.9,
+   "dc": -0.00115
+  },
+  {
+   "id": "zl-spit",
+   "group": "zl-spit",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Sizzling, crackling spit",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > crackle 420/s > bp3000-9000 > bubbles 30->10/s > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "wet sizzle: dense crackle over hiss + pops",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.807,
+   "peak_dbfs": -5.37,
+   "lufs": -15.8,
+   "centroid_hz": 7452,
+   "attack_ms": 239.8,
+   "onset_ms": 0.6,
+   "active_s": 0.803,
+   "crest_db": 13.4,
+   "dc": 0.0
+  },
+  {
+   "id": "zl-splat",
+   "group": "zl-splat",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Sour-cream splat",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-squish/oga-squish__squish_04.mp3"
+   ],
+   "packs": [
+    {
+     "name": "oga-squish",
+     "page": "https://opengameart.org/content/squish-sounds-effects",
+     "author": "EZduzziteh (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load oga-squish__squish_04.mp3 > basweep 2200->280 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "pack squish-splat + synth splat + fat low plop",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.36,
+   "peak_dbfs": -3.55,
+   "lufs": -15.7,
+   "centroid_hz": 4211,
+   "attack_ms": 25.4,
+   "onset_ms": 0.0,
+   "active_s": 0.273,
+   "crest_db": 13.6,
+   "dc": 0.00014
+  },
+  {
+   "id": "zl-fishbone",
+   "group": "zl-fishbone",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Fishbone flick",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp3000 > basweep 2000->9000 q1.4 > whoosh > norm -19LUFS peak<=-1.5",
+   "note": "sharp flick: ping tick + tiny whistle whoosh",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.177,
+   "peak_dbfs": -3.9,
+   "lufs": -19.1,
+   "centroid_hz": 6843,
+   "attack_ms": 24.8,
+   "onset_ms": 0.0,
+   "active_s": 0.171,
+   "crest_db": 18.3,
+   "dc": -2e-05
+  },
+  {
+   "id": "zl-bubble-blow",
+   "group": "zl-bubble-blow",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Bubble blown up",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp1800 > norm -15.5LUFS peak<=-1.5",
+   "note": "inflating: slowing rising bubble blips + soft breath noise",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.806,
+   "peak_dbfs": -3.45,
+   "lufs": -15.5,
+   "centroid_hz": 2094,
+   "attack_ms": 76.5,
+   "onset_ms": 0.1,
+   "active_s": 0.784,
+   "crest_db": 11.7,
+   "dc": -2e-05
+  },
+  {
+   "id": "zl-bubble-pop",
+   "group": "zl-bubble-pop",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Bubble pops",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > bp1500-6000 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "short click + resonant pop + wet burst",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.259,
+   "peak_dbfs": -2.41,
+   "lufs": -15.6,
+   "centroid_hz": 5977,
+   "attack_ms": 6.2,
+   "onset_ms": 0.0,
+   "active_s": 0.19,
+   "crest_db": 14.6,
+   "dc": 1e-05
+  },
+  {
+   "id": "zl-roar",
+   "group": "zl-roar",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Rage roar + steam",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/roar_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load roar_02.ogg > pitch x0.750 > formant 350/700/1500 > bp3500-11000 > sat1.4 > norm -14LUFS peak<=-1.5",
+   "note": "pack creature roar pitched down + saw growl + steam hiss",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.219,
+   "peak_dbfs": -2.84,
+   "lufs": -14.2,
+   "centroid_hz": 7373,
+   "attack_ms": 190.5,
+   "onset_ms": 14.9,
+   "active_s": 1.196,
+   "crest_db": 12.3,
+   "dc": -0.00014
+  },
+  {
+   "id": "zl-drain-away",
+   "group": "zl-drain-away",
+   "variant": "",
+   "section": "Boss: Zlewiatan",
+   "event": "Drain-away (boss sinks out)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bubbles 55->8/s > basweep 1400->160 q2.5 > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "falling gurgle: bubbles thinning out, descending swirl, final glug",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.712,
+   "peak_dbfs": -4.67,
+   "lufs": -15.5,
+   "centroid_hz": 972,
+   "attack_ms": 170.1,
+   "onset_ms": 0.3,
+   "active_s": 1.706,
+   "crest_db": 10.4,
+   "dc": -2e-05
+  },
+  {
+   "id": "ex-pump",
+   "group": "ex-pump",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Pump stroke",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/metalLatch.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metalLatch.ogg > bp2500-9000 > lp400 > thump > sat1.8 > norm -15.5LUFS peak<=-1.5",
+   "note": "pneumatic stroke: mechanical clack + short hiss + low push",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.32,
+   "peak_dbfs": -1.29,
+   "lufs": -15.7,
+   "centroid_hz": 6449,
+   "attack_ms": 46.8,
+   "onset_ms": 40.0,
+   "active_s": 0.312,
+   "crest_db": 14.5,
+   "dc": 0.00055
+  },
+  {
+   "id": "ex-pressure",
+   "group": "ex-pressure",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Pressure hiss",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp3500-13000 > norm -15.5LUFS peak<=-1.5",
+   "note": "sharp release then settling high-pressure hiss with whistle edge",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.829,
+   "peak_dbfs": -2.15,
+   "lufs": -15.8,
+   "centroid_hz": 8919,
+   "attack_ms": 11.9,
+   "onset_ms": 0.3,
+   "active_s": 0.796,
+   "crest_db": 17.0,
+   "dc": -0.0
+  },
+  {
+   "id": "ex-stream",
+   "group": "ex-stream",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Spray stream (loops, seamless ~1 s)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "circular noise 2500-11000 > circular noise 400-3200 > periodic synthesis (loops with no seam) > norm -20LUFS peak<=-1.5",
+   "note": "seamless 1 s stream: periodic band noise 2.5-11 kHz + fluttering mid, no crossfade",
+   "category": "loop",
+   "target_lufs": -20.0,
+   "loop": true,
+   "duration_s": 1.0,
+   "peak_dbfs": -7.92,
+   "lufs": -20.2,
+   "centroid_hz": 5785,
+   "attack_ms": 39.2,
+   "onset_ms": 0.0,
+   "active_s": 1.0,
+   "crest_db": 15.3,
+   "dc": -0.0,
+   "loop_seam_ratio": 1.25
+  },
+  {
+   "id": "ex-lob",
+   "group": "ex-lob",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Canister lobbed",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-metal-wood/metal_spring_01.ogg",
+    "kenney-impact-sounds/Audio/impactTin_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 400->2500 q0.8 > whoosh > load metal_spring_01.ogg > load impactTin_medium_001.ogg > pitch x1.200 > norm -15.5LUFS peak<=-1.5",
+   "note": "soft upward whoosh, can rattle, arc whoosh back down",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.483,
+   "peak_dbfs": -2.18,
+   "lufs": -15.7,
+   "centroid_hz": 4766,
+   "attack_ms": 8.5,
+   "onset_ms": 2.0,
+   "active_s": 0.474,
+   "crest_db": 15.0,
+   "dc": -0.00013
+  },
+  {
+   "id": "ex-canister-pop",
+   "group": "ex-canister-pop",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Canister pops",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactTin_medium_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactTin_medium_003.ogg > bp2000-9000 > lp400 > thump > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "tin pop + gas puff + fizz",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.319,
+   "peak_dbfs": -1.82,
+   "lufs": -15.7,
+   "centroid_hz": 6760,
+   "attack_ms": 7.1,
+   "onset_ms": 0.1,
+   "active_s": 0.31,
+   "crest_db": 15.5,
+   "dc": -0.00029
+  },
+  {
+   "id": "ex-gas",
+   "group": "ex-gas",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Gas cloud hiss (loops, seamless)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "circular noise 700-4500 > circular noise 150-600 > losweep 600->600 q0.8 > norm -20LUFS peak<=-1.5",
+   "note": "seamless 1.5 s soft low-mid hiss with slow billow + faint bubbles",
+   "category": "loop",
+   "target_lufs": -20.0,
+   "loop": true,
+   "duration_s": 1.5,
+   "peak_dbfs": -6.83,
+   "lufs": -20.2,
+   "centroid_hz": 2249,
+   "attack_ms": 173.9,
+   "onset_ms": 0.0,
+   "active_s": 1.5,
+   "crest_db": 15.3,
+   "dc": -0.0,
+   "loop_seam_ratio": 1.65
+  },
+  {
+   "id": "ex-tank-ping",
+   "group": "ex-tank-ping",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Tank ping",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_medium_001.ogg > verb rt0.3 mix0.15 > norm -15.5LUFS peak<=-1.5",
+   "note": "resonant metal tank ping + hollow body",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.744,
+   "peak_dbfs": -1.27,
+   "lufs": -15.7,
+   "centroid_hz": 1782,
+   "attack_ms": 10.2,
+   "onset_ms": 0.1,
+   "active_s": 0.71,
+   "crest_db": 15.7,
+   "dc": -0.00024
+  },
+  {
+   "id": "ex-tank-vent",
+   "group": "ex-tank-vent",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Tank vents",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/metalLatch.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metalLatch.ogg > bp2500-11000 > basweep 120->500 q0.8 > whoosh > norm -15.5LUFS peak<=-1.5",
+   "note": "valve clunk + long steam hiss that decays + low whoosh",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.926,
+   "peak_dbfs": -2.33,
+   "lufs": -15.7,
+   "centroid_hz": 7461,
+   "attack_ms": 64.5,
+   "onset_ms": 30.4,
+   "active_s": 0.898,
+   "crest_db": 16.6,
+   "dc": 7e-05
+  },
+  {
+   "id": "ex-tank-burst",
+   "group": "ex-tank-burst",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Tank bursts",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-metal-wood/metal_slam_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metal_slam_01.ogg > losweep 4200->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.3 > explosion > verb rt0.45 mix0.25 > bp2500-11000 > norm -14LUFS peak<=-1.5",
+   "note": "metal tear + explosion + steam blast",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.279,
+   "peak_dbfs": -1.27,
+   "lufs": -14.3,
+   "centroid_hz": 6826,
+   "attack_ms": 20.9,
+   "onset_ms": 1.3,
+   "active_s": 1.18,
+   "crest_db": 11.0,
+   "dc": -0.00035
+  },
+  {
+   "id": "ex-mask",
+   "group": "ex-mask",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Mask breath (new)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 500->1800 q1.0 > basweep 1500->500 q1.0 > hp1200 > hp900 > lp1500 > norm -19LUFS peak<=-1.5",
+   "note": "respirator: filtered noise inhale then exhale, valve clicks, faint wheeze",
+   "category": "pickup",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.112,
+   "peak_dbfs": -5.08,
+   "lufs": -19.2,
+   "centroid_hz": 4859,
+   "attack_ms": 258.3,
+   "onset_ms": 0.0,
+   "active_s": 1.102,
+   "crest_db": 15.5,
+   "dc": 3e-05
+  },
+  {
+   "id": "boss-defeat-b",
+   "group": "boss-defeat",
+   "variant": "b",
+   "section": "Bosses: shared",
+   "event": "Boss defeat: explosion series",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-sci-fi-sounds/Audio/explosionCrunch_000.ogg",
+    "kenney-sci-fi-sounds/Audio/explosionCrunch_001.ogg",
+    "kenney-sci-fi-sounds/Audio/explosionCrunch_003.ogg",
+    "kenney-sci-fi-sounds/Audio/lowFrequency_explosion_000.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-sci-fi-sounds",
+     "page": "https://kenney.nl/assets/sci-fi-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load explosionCrunch_000.ogg > pitch x1.050 > load explosionCrunch_001.ogg > pitch x0.950 > load explosionCrunch_003.ogg > pitch x0.900 > load explosionCrunch_000.ogg > pitch x0.800 > load explosionCrunch_001.ogg > pitch x0.720 > load lowFrequency_explosion_000.ogg > hp1500 > crackle 120/s > norm -14LUFS peak<=-1.5",
+   "note": "pack series: Kenney explosionCrunch hits (pitched down each time) then a big crunch + low-frequency boom",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 2.412,
+   "peak_dbfs": -1.26,
+   "lufs": -14.7,
+   "centroid_hz": 3038,
+   "attack_ms": 971.9,
+   "onset_ms": 0.2,
+   "active_s": 2.412,
+   "crest_db": 9.7,
+   "dc": -0.00096
+  },
+  {
+   "id": "vs-name-b",
+   "group": "vs-name",
+   "variant": "b",
+   "section": "Bosses: shared",
+   "event": "VS screen: boss name slam",
+   "source": "pack",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_heavy_003.ogg",
+    "kenney-sci-fi-sounds/Audio/explosionCrunch_001.ogg",
+    "kenney-sci-fi-sounds/Audio/lowFrequency_explosion_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "kenney-sci-fi-sounds",
+     "page": "https://kenney.nl/assets/sci-fi-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_heavy_003.ogg > load explosionCrunch_001.ogg > pitch x0.900 > load lowFrequency_explosion_001.ogg > norm -14LUFS peak<=-1.5",
+   "note": "pack: Kenney explosionCrunch + low-frequency boom + heavy metal hit",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.114,
+   "peak_dbfs": -1.3,
+   "lufs": -14.4,
+   "centroid_hz": 2427,
+   "attack_ms": 104.3,
+   "onset_ms": 0.1,
+   "active_s": 1.113,
+   "crest_db": 9.8,
+   "dc": 0.00084
+  },
+  {
+   "id": "bigos-blast-b",
+   "group": "bigos-blast",
+   "variant": "b",
+   "section": "Boss: DJ Bigos",
+   "event": "Bass blast",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-sci-fi-sounds/Audio/lowFrequency_explosion_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-sci-fi-sounds",
+     "page": "https://kenney.nl/assets/sci-fi-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load lowFrequency_explosion_001.ogg > fold2.5 > hp600 > sat1.5 > norm -14LUFS peak<=-1.5",
+   "note": "pack: Kenney lowFrequency_explosion + synth sub drop + fold",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.909,
+   "peak_dbfs": -2.71,
+   "lufs": -14.0,
+   "centroid_hz": 3219,
+   "attack_ms": 104.0,
+   "onset_ms": 0.0,
+   "active_s": 0.902,
+   "crest_db": 9.8,
+   "dc": -0.00041
+  },
+  {
+   "id": "shot-down-b",
+   "group": "shot-down",
+   "variant": "b",
+   "section": "Bosses: shared",
+   "event": "Boss projectile shot down",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-sci-fi-sounds/Audio/explosionCrunch_000.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-sci-fi-sounds",
+     "page": "https://kenney.nl/assets/sci-fi-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load explosionCrunch_000.ogg > pitch x1.500 > hp1500 > sat2 > norm -15.5LUFS peak<=-1.5",
+   "note": "pack: Kenney explosionCrunch_000 pitched up and clipped short + zap",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.361,
+   "peak_dbfs": -1.73,
+   "lufs": -15.7,
+   "centroid_hz": 3183,
+   "attack_ms": 8.6,
+   "onset_ms": 0.1,
+   "active_s": 0.361,
+   "crest_db": 12.8,
+   "dc": 0.0001
+  }
+ ]
+}

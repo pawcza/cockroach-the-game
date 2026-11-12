@@ -4,10 +4,17 @@ The source code in this repository (src/, server/, tests/ and the configuration
 files) is available under the MIT License below.
 
 The artwork, music and sound effects in public/ are not covered by this license.
-All rights reserved.
+All rights reserved, with these exceptions in what they are made from:
 
 The boss growls in public/boss/boss-cue-*.ogg and hurt-*.ogg are adapted from
 Ogrebane's Monster Sound Pack, released under CC0 on OpenGameArt.org.
+
+Most other sound effects (the ones tools/audio builds, installed under
+public/audio and public/boss/sfx) are synthesised from scratch, or from
+synthesis layered with samples from CC0 packs by Kenney, rubberduck,
+SubspaceAudio and EZduzziteh. Those samples stay CC0 in their original packs;
+the finished sounds are not licensed for reuse. Which sound is made from which
+pack, with the pages and licence evidence, is in docs/SOUND_CREDITS.md.
 
 MIT License
 

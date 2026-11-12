@@ -1,0 +1,6 @@
+Pack: 50-cc0-retro-synth-sfx
+Page: https://opengameart.org/content/50-cc0-retro-synth-sfx
+Author: rubberduck (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  50-CC0-retro-synth-SFX.zip  sha256 db9370bfbe228d1fc3912ec455ad358129eeec593169fc02701ff48d888db9cb

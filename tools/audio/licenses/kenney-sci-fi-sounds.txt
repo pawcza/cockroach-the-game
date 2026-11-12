@@ -1,0 +1,30 @@
+Pack: Kenney sci-fi-sounds
+Page: https://kenney.nl/assets/sci-fi-sounds
+Author: Kenney (kenney.nl)
+Licence evidence: page says 'CC0 licensed!'; License.txt in the zip says Creative Commons Zero (CC0), http://creativecommons.org/publicdomain/zero/1.0/
+zip sha256: 119340f351a5098ad814f78719438c0da355a9ce8a4c8a3af6a8d48aa3d49e04
+
+--- License.txt ---
+	
+
+	Sci-Fi Sounds (1.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 11-10-2020
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL

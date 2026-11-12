@@ -1,0 +1,30 @@
+Pack: Kenney interface-sounds
+Page: https://kenney.nl/assets/interface-sounds
+Author: Kenney (kenney.nl)
+Licence evidence: page says 'CC0 licensed!'; License.txt in the zip says Creative Commons Zero (CC0), http://creativecommons.org/publicdomain/zero/1.0/
+zip sha256: f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232
+
+--- License.txt ---
+	
+
+	Interface Sounds (1.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 11-02-2020
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL

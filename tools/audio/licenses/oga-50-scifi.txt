@@ -1,0 +1,6 @@
+Pack: 50-cc0-sci-fi-sfx
+Page: https://opengameart.org/content/50-cc0-sci-fi-sfx
+Author: rubberduck (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  sci-fi-sfx.zip  sha256 7824c08e54b5b68d6c70ced9d8fe9e47f86ce19c1d8d47d093e1dc1b579f78ec

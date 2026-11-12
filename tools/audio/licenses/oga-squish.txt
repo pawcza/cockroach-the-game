@@ -1,0 +1,13 @@
+Pack: squish-sounds-effects
+Page: https://opengameart.org/content/squish-sounds-effects
+Author: EZduzziteh (OpenGameArt user)
+Licence evidence: the page's License(s) field lists only 'CC0' (http://creativecommons.org/publicdomain/zero/1.0/)
+Files:
+  squish_01_0.mp3  sha256 ed0faca6a71070ab5669fe27748e0e143e0f6567b9894224345506261517f2df
+  squish_02.mp3  sha256 1ea4ec07d2af69d2f1960d317849709ce7b4aaf957f98f80b440da9e833a01ef
+  squish_03.mp3  sha256 701d979524931d774ec52f0decb7e838d2aaeeb4286eab4d8e56b598769c67f5
+  squish_04.mp3  sha256 5577601ad97a5ddc17a0da8751d77ebb234f5e669f5a23449841d6a8d2450d4e
+  squish_05.mp3  sha256 2a34bd168473634e3e6a1923a9539826e526ef27f69469d9eca6e61c5cad12e3
+  squish_06.mp3  sha256 271d21b257e4d31daf04726210d11e7942bd91419c23a2a3c3282e2bf00af54e
+  squishpop.mp3  sha256 608865f49f3631c8d851e54c3e1cf530e9bbbcf8ab59b4a19adf13f2b90a1f8a
+  squishsplat_impact.mp3  sha256 4b347996a324cb23fe82033986c96fb2b098618df626972b7c505e088013bd76
