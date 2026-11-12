@@ -38,7 +38,7 @@ export const ABILITY_TEXT: Record<AbilityId, AbilityText> = {
   },
   gun: {
     name: 'PISTOLET',
-    how: { keyboard: 'Spacja: strzał', touch: 'Przycisk strzału w prawym dolnym rogu' },
+    how: { keyboard: 'Spacja: strzał, też w biegu', touch: 'Przycisk strzału w prawym dolnym rogu' },
   },
   moult: {
     name: 'WYLINKA',
@@ -68,8 +68,13 @@ export class Abilities {
 
   has(id: AbilityId): boolean { return this.owned.has(id); }
   get canDash(): boolean { return this.has('dash'); }
-  /** The pistol is drawn: in fights only, until the run learns to shoot (cockroach#100). */
+  /** The pistol is drawn in the boss fights that have one. */
   get canShoot(): boolean { return this.has('gun'); }
+  /**
+   * And carried through the run between them (cockroach#100), solo only: a match's course and deaths are the server's,
+   * and nothing a client shoots there would be checked. A match keeps the gun as Zlewiatan's gift, inside the fight.
+   */
+  get canShootInRun(): boolean { return this.has('gun') && !this.multiplayer; }
   get moultCharges(): number { return this.charges; }
 
   /** Whether this ability can be earned in this run, and is not already owned. */

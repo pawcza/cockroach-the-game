@@ -13,6 +13,8 @@ export interface AbilityView {
   /** 0 just after a dash, 1 when the next is ready. */
   dashCharge: number;
   gun: boolean;
+  /** The run's pistol's magazine (solo, between the fights): its pips under the gun; `dry` flashes them. */
+  ammo?: { count: number; max: number; dry: boolean };
   moult: boolean;
   /** The shell is still on. */
   moultReady: boolean;
@@ -60,7 +62,14 @@ const PALETTE = {
   shell: 0xf1e3c6,
   shellSeam: 0xb8a888,
   spent: 0x6b6258,
+  round: 0xe8b04a,
+  roundEmpty: 0x3a3340,
+  dry: 0xff4a3a,
 };
+
+/** The magazine's pips under the pistol: each this big, this far apart, logical px. */
+const PIP = 4;
+const PIP_GAP = 2;
 
 type Chip = {
   id: AbilityId;
@@ -118,7 +127,7 @@ export class AbilityStrip {
     const icon = this.scene.add.graphics().setScrollFactor(0);
     const bar = this.scene.add.graphics().setScrollFactor(0);
     box.add([back, icon, bar]);
-    // The gun is the atlas's pistol, dim: drawn only in fights for now, as the run learns to shoot in cockroach#100
+    // The gun is the atlas's pistol: dim while it is only for the fights (a match), lit once it shoots in the run too
     const pistol = id === 'gun' ? this.scene.add.image(0, 0, ATLAS, frameOf('pistol')).setScale(SPRITE_SCALE).setAlpha(0.6).setScrollFactor(0) : null;
     if (pistol) box.add(pistol);
     const chip: Chip = { id, box, icon, pistol, bar, key: '' };
@@ -134,9 +143,12 @@ export class AbilityStrip {
 
   private draw(chip: Chip, view: AbilityView): void {
     const ready = view.dashCharge >= 1;
+    const ammo = view.ammo;
+    const dryBlink = ammo?.dry && Math.floor(this.scene.time.now / 90) % 2 === 0;
     const key = chip.id === 'dash'
       ? `${ready ? 1 : 0}:${Math.round(view.dashCharge * 12)}`
-      : chip.id === 'moult' ? String(view.moultReady) : 'on';
+      : chip.id === 'moult' ? String(view.moultReady)
+        : ammo ? `${ammo.count}/${ammo.max}:${dryBlink ? 1 : 0}` : 'on';
     if (key === chip.key) return;
     chip.key = key;
 
@@ -152,8 +164,17 @@ export class AbilityStrip {
           bar.fillStyle(PALETTE.dash, 1).fillRect(-w / 2, CHIP_H / 2 - 5, Math.round(w * view.dashCharge), BAR_H);
         }
         break;
-      case 'gun':
+      case 'gun': {
+        // With a magazine the pistol moves up over its pips, lit
+        chip.pistol?.setPosition(0, ammo ? -5 : 0).setAlpha(ammo ? 1 : 0.6);
+        if (!ammo) break;
+        const total = ammo.max * PIP + (ammo.max - 1) * PIP_GAP;
+        for (let i = 0; i < ammo.max; i++) {
+          const colour = dryBlink ? PALETTE.dry : i < ammo.count ? PALETTE.round : PALETTE.roundEmpty;
+          icon.fillStyle(colour, 1).fillRect(-total / 2 + i * (PIP + PIP_GAP), CHIP_H / 2 - 9, PIP, PIP);
+        }
         break;
+      }
       case 'moult':
         drawBitmap(
           icon, ICON_BITMAPS.moult, BLOCK,

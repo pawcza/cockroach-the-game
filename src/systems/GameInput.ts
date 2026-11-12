@@ -33,6 +33,8 @@ export class GameInput {
     pauseManager: PauseManager,
     eventBridge: GameEventBridge,
     boss: BossEncounter,
+    /** A shot in the run, between the fights (RunGun). */
+    private runShoot: () => void,
   ) {
     this.run = run;
     this.player = player;
@@ -47,7 +49,7 @@ export class GameInput {
     this.touchControls = new TouchControls(scene, isMobile, {
       onSwap: () => this.swapLane(),
       onDash: () => (this.boss.activeFight ? this.fightDash() : this.dash()),
-      onShoot: () => this.fightShoot(),
+      onShoot: () => (this.boss.activeFight ? this.fightShoot() : this.shootInRun()),
       isDisabled: () => this.isBlocked,
       isDashAllowed: () => this.dashAllowed,
     });
@@ -72,6 +74,7 @@ export class GameInput {
   discardInput(): void {
     this.touchControls.setDashVisible(false);
     this.touchControls.setGunVisible(false);
+    this.touchControls.setGunAmmo(null);
     JustDown(this.cursors.up);
     JustDown(this.cursors.down);
     JustDown(this.rightKey);
@@ -79,20 +82,28 @@ export class GameInput {
     JustDown(this.escKey);
   }
 
-  handleRunKeys(): void {
+  /** `ammo`: the run's magazine, for the pips over the gun button (when the run carries the gun). */
+  handleRunKeys(ammo: { count: number; max: number; dry: boolean } | null = null): void {
     this.showDashButton(this.run.abilities.canDash);
     this.touchControls.setDashCharge(this.player.dashCharge);
-    this.touchControls.setGunVisible(false);
-    // JustDown consumes the press, so every key is read each frame; space has no use in the run yet
+    this.showGunButton(this.run.abilities.canShootInRun);
+    this.touchControls.setGunAmmo(this.run.abilities.canShootInRun ? ammo : null);
+    // JustDown consumes the press, so every key is read each frame
     const up = JustDown(this.cursors.up);
     const down = JustDown(this.cursors.down);
     const dash = JustDown(this.rightKey);
-    JustDown(this.spaceKey);
+    const shot = JustDown(this.spaceKey);
     this.hopOrDrop(up, down);
     if (dash && this.dashAllowed) this.dash();
+    if (shot) this.shootInRun();
   }
 
-  /** Lanes as in the run; the gun and the dash only in fights that have them, and their buttons only show there. */
+  /** The run's gun: solo, once DJ Bigos has handed it over. */
+  private shootInRun(): void {
+    if (!this.isBlocked && this.run.abilities.canShootInRun) this.runShoot();
+  }
+
+  /** Lanes as in the run; the gun and the dash only in fights that have them, and their buttons only show there then. */
   handleBossKeys(fight: BossFight): void {
     if (this.boss.isSplashing) {
       this.discardInput();
@@ -100,6 +111,7 @@ export class GameInput {
     }
     this.showDashButton(fight.dash !== undefined && this.run.abilities.canDash);
     this.showGunButton(fight.shoot !== undefined && this.run.abilities.canShoot);
+    this.touchControls.setGunAmmo(null);
     if (fight.dash) this.touchControls.setDashCharge(this.player.dashCharge);
     const up = JustDown(this.cursors.up);
     const down = JustDown(this.cursors.down);

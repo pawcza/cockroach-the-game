@@ -18,6 +18,8 @@ export class RunState {
   nearMisses = 0;
   dashThroughs = 0;
   wallsBroken = 0;
+  /** Enemies the run's pistol took down. */
+  kills = 0;
 
   /** What the roach can do, earned from bosses. Reset with the run. */
   readonly abilities = new Abilities();
@@ -37,6 +39,7 @@ export class RunState {
     this.nearMisses = 0;
     this.dashThroughs = 0;
     this.wallsBroken = 0;
+    this.kills = 0;
     this.abilities.reset(multiplayer);
   }
 }

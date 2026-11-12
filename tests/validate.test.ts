@@ -42,8 +42,9 @@ test('every boss that can kill is a known death cause, made-up ones are not', ()
   assert.equal(parseRunStats({ obstacleType: 'lodzia2' }).obstacleType, undefined);
 });
 
-test('the hop and dash acts\' enemies are known death causes', () => {
-  for (const cause of ['glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog']) {
+test('the hop, dash and gun acts\' enemies are known death causes', () => {
+  for (const cause of ['glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog',
+    'gull', 'wasp', 'zapper', 'robotVacuum', 'repeller', 'aerosol', 'bait']) {
     assert.equal(parseRunStats({ obstacleType: cause }).obstacleType, cause);
     const entry = parseScoreSubmission({ name: 'a', score: 1, deathCause: cause });
     assert.ok(!('error' in entry) && entry.deathCause === cause);

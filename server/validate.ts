@@ -10,7 +10,8 @@ export type Lane = 'top' | 'bottom';
 
 const DEATH_CAUSES = new Set([
   'onion', 'spray', 'flipper', 'newspaper', 'bird', 'cat', 'disco',
-  'jellyfish', 'pope', 'bison', 'blackhole', 'glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog', 'boss', 'lodzia', 'bigos', 'eksterminator', 'fall', 'wall',
+  'jellyfish', 'pope', 'bison', 'blackhole', 'glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog',
+  'gull', 'wasp', 'zapper', 'robotVacuum', 'repeller', 'aerosol', 'bait', 'boss', 'lodzia', 'bigos', 'eksterminator', 'fall', 'wall',
 ]);
 
 const NUMERIC_STATS = [

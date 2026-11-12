@@ -13,6 +13,8 @@ export interface Stats {
   nearMisses: number;
   dashThroughs: number;
   wallsBroken: number;
+  /** Enemies shot down in the run (the pistol, from level 7). */
+  kills: number;
   dailyRuns: number;
   matches: number;
   matchWins: number;

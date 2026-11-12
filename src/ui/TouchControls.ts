@@ -22,6 +22,10 @@ const PLATE_ROWS = 60;
 /** Slightly see-through, so a button never hides the world under it completely; a pressed one is solid. */
 const IDLE_ALPHA = 0.88;
 const FLASH_MS = 160;
+/** The run's magazine over the gun button: pips this big and this far apart, this far over the plate. */
+const PIP = 6;
+const PIP_GAP = 3;
+const PIPS_ABOVE = 10;
 
 /** Where the lane button stands on a screen this tall: bottom-left, the corner the left thumb rests in. */
 export function laneButtonCentre(screenHeight: number): { x: number; y: number; r: number } {
@@ -54,6 +58,9 @@ export class TouchControls {
   private gun: Button | null = null;
   private charge = 1;
   private width = 0;
+  /** The magazine's pips over the gun button, in the run. */
+  private pips: Phaser.GameObjects.Graphics | null = null;
+  private ammoKey = '';
 
   constructor(scene: Phaser.Scene, isMobile: boolean, callbacks: TouchControlCallbacks) {
     this.scene = scene;
@@ -92,6 +99,7 @@ export class TouchControls {
       if (this.callbacks.isDashAllowed()) this.callbacks.onDash();
     });
     this.gun = this.createButton('gun', 0, cy, false, () => this.callbacks.onShoot());
+    this.pips = this.scene.add.graphics().setScrollFactor(0).setDepth(DEPTH.TOUCH_BUTTON);
 
     this.place();
   }
@@ -110,6 +118,25 @@ export class TouchControls {
 
   setGunVisible(visible: boolean): void {
     this.setShown(this.gun, visible);
+  }
+
+  /** The run's magazine, over the gun button (null in the fights: their gun has no magazine). `dry` blinks it red. */
+  setGunAmmo(ammo: { count: number; max: number; dry: boolean } | null): void {
+    const { pips, gun } = this;
+    if (!pips || !gun) return;
+    const blink = ammo?.dry && Math.floor(this.scene.time.now / 90) % 2 === 0;
+    const key = ammo && gun.shown ? `${ammo.count}/${ammo.max}:${blink}:${gun.image.x}` : '';
+    if (key === this.ammoKey) return;
+    this.ammoKey = key;
+    pips.clear();
+    if (!ammo || !gun.shown) return;
+    const total = ammo.max * PIP + (ammo.max - 1) * PIP_GAP;
+    const y = gun.image.y - BTN_RADIUS - PIPS_ABOVE;
+    for (let i = 0; i < ammo.max; i++) {
+      const colour = blink ? 0xff4a3a : i < ammo.count ? 0xe8b04a : 0x3a3340;
+      pips.fillStyle(0x000000, 0.6).fillRect(gun.image.x - total / 2 + i * (PIP + PIP_GAP) - 1, y - 1, PIP + 2, PIP + 2);
+      pips.fillStyle(colour, 1).fillRect(gun.image.x - total / 2 + i * (PIP + PIP_GAP), y, PIP, PIP);
+    }
   }
 
   /** A button that has just been earned: it grows into place from nothing, with an overshoot. */

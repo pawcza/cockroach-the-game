@@ -34,6 +34,11 @@ import { sceneManager } from '../systems/SceneManager';
 import { SpawnManager } from '../systems/SpawnManager';
 import { Tutorial } from '../systems/Tutorial';
 import { RiskBonus } from '../systems/RiskBonus';
+import { RunGun } from '../systems/RunGun';
+import { AMMO_PER_BOX, KILL_SCORE } from '../systems/gunRules';
+import { TIMINGS } from '../objects/obstacles/cast';
+import { getFx } from '../effects/Fx';
+import { DEPTH } from '../config/constants';
 import { SpectateController } from '../systems/SpectateController';
 import type { DailyRun } from '../ui/Scoreboard';
 import { BestRunGhost, RunTrackRecorder } from '../systems/BestRunGhost';
@@ -75,6 +80,10 @@ export class GameScene extends Phaser.Scene {
   public get runTime(): number { return Math.max(0, this.clock?.activePlayTime ?? 0); }
   /** The vacuum's suction, on this client's roach only (ObstacleScene). */
   public pullRoach(share: number): void { if (!this.run.isDead) this.player.setPull(share); }
+  /** A shot aerosol can goes off (ObstacleScene): the run's gun sees to what it takes with it. */
+  public blast(source: Phaser.Physics.Arcade.Sprite, radius: number, cause: string): void {
+    if (!this.run.isDead) this.runGun.blast(source, radius, cause);
+  }
 
   // These two outlive a run: restart resets them instead of replacing them.
   private readonly run = new RunState();
@@ -92,7 +101,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: GameHUD;
   private background!: ParallaxBackground;
   private floorManager!: FloorManager;
-  private groups!: Record<'obstacles' | 'apples' | 'beers' | 'pills', Phaser.Physics.Arcade.Group>;
+  private groups!: Record<'obstacles' | 'apples' | 'beers' | 'pills' | 'ammo', Phaser.Physics.Arcade.Group>;
 
   private spawnManager!: SpawnManager;
   private pauseManager!: PauseManager;
@@ -113,6 +122,8 @@ export class GameScene extends Phaser.Scene {
   private session!: MultiplayerSession;
   private magnet!: PickupMagnet;
   private risk!: RiskBonus;
+  /** The pistol between the fights (solo, from DJ Bigos on). */
+  private runGun!: RunGun;
   private quickStart = false;
   private startsAt: number | undefined;
   private watching: { elapsedMs: number; dead: string[] } | undefined;
@@ -137,7 +148,8 @@ export class GameScene extends Phaser.Scene {
     this.createEncounters(data);
     this.listenForLifecycle();
 
-    this.gameInput = new GameInput(this, this.run, this.player, this.pauseManager, this.eventBridge, this.boss);
+    this.gameInput = new GameInput(this, this.run, this.player, this.pauseManager, this.eventBridge, this.boss,
+      () => this.runGun.fire());
     this.spectate = new SpectateController(this, this.gameInput, this.levels, this.gameOverHandler, this.hud, () => {
       this.background.update();
       this.updateFloors();
@@ -233,6 +245,7 @@ export class GameScene extends Phaser.Scene {
       apples: this.physics.add.group(),
       beers: this.physics.add.group(),
       pills: this.physics.add.group(),
+      ammo: this.physics.add.group(),
     };
     this.data.set('obstacles', this.groups.obstacles);
 
@@ -270,7 +283,7 @@ export class GameScene extends Phaser.Scene {
 
   private createPlaySystems(): void {
     const { run, groups } = this;
-    const { obstacles, apples, beers, pills } = groups;
+    const { obstacles, apples, beers, pills, ammo } = groups;
 
     const collisions = new CollisionManager(this, this.player, this.vfx, this.audio, {
       getScore: () => run.score,
@@ -296,12 +309,33 @@ export class GameScene extends Phaser.Scene {
 
     const obstacleSpawner = new ObstacleSpawner(this, obstacles, this.audio);
     this.spawnManager = new SpawnManager(
-      this, obstacles, apples, beers, pills,
+      this, obstacles, apples, beers, pills, ammo,
       obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
       () => run.abilities.canDash,
+      !this.isMultiplayer,
     );
     this.lessons = new AbilityLessons(this, this.player, this.spawnManager);
-    this.magnet = new PickupMagnet(this, this.player, [apples, beers, pills]);
+    this.magnet = new PickupMagnet(this, this.player, [apples, beers, pills, ammo]);
+    // A shot down scores like a close call: it feeds the combo and its multiplier
+    this.runGun = new RunGun(this, this.player, obstacles, this.audio, {
+      onKill: (sprite, base, label) => {
+        run.kills++;
+        this.score.incrementCombo();
+        const points = Math.round(base * comboMultiplier(run.pickupCombo));
+        this.score.addScore(points);
+        collisions.showPickupPopup(sprite.x, sprite.y - 50, `${label} +${points}`, '#ffb066');
+      },
+      killRoach: (cause, culprit) => this.killedBy(cause, culprit),
+    }, KILL_SCORE, TIMINGS.aerosol.bonus);
+    // An ammo box: rounds into the magazine, as many as fit
+    this.physics.add.overlap(this.player.sprite, ammo, (_roach, box) => {
+      const sprite = box as Phaser.Physics.Arcade.Sprite;
+      const added = this.runGun.reload(AMMO_PER_BOX);
+      getFx(this).play('glint-gold', sprite.x, sprite.y - 16, { depth: DEPTH.POPUP });
+      this.audio.playSfx('shell-casing', VOL.pickup);
+      collisions.showPickupPopup(sprite.x, sprite.y - 30, added > 0 ? `+${added} NAB.` : 'PEŁNY', '#ffe066');
+      sprite.destroy();
+    });
     // Close calls score like a pickup: they feed the combo and its multiplier
     this.risk = new RiskBonus(this.player, obstacles, (base, label, x, y, color, kind) => {
       if (kind === 'near') { run.nearMisses++; this.taunts?.nearMiss(); this.audio.playSfx('na-styk', VOL.stinger); }
@@ -365,7 +399,7 @@ export class GameScene extends Phaser.Scene {
       getGhostManager: () => this.session.ghostManager,
       seed: this.seed,
       absorbHit: () => this.absorbHit(),
-      onAbilityEarned: (ability) => this.lessons.teach(ability),
+      onAbilityEarned: (ability) => this.lessons.teach(ability, this.run.abilities.canShootInRun),
     });
 
     this.taunts = new TauntDirector({
@@ -493,6 +527,7 @@ export class GameScene extends Phaser.Scene {
       nearMisses: run.nearMisses,
       dashThroughs: run.dashThroughs,
       wallsBroken: run.wallsBroken,
+      kills: run.kills,
       seconds: Math.floor(run.activePlayTime / 1000),
       daily: this.daily !== undefined,
     };
@@ -556,7 +591,9 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.gameInput.handleRunKeys();
+    this.gameInput.handleRunKeys(this.ammoView());
+    player.carryPistol(this.run.abilities.canShootInRun);
+    this.runGun.update(this.game.loop.delta);
     this.lessons.update();
     this.tutorial?.update(this.run.activePlayTime);
     player.updateDash();
@@ -650,6 +687,11 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  /** The run's magazine as the HUD and the gun button show it. */
+  private ammoView(): { count: number; max: number; dry: boolean } {
+    return { count: this.runGun.ammo.count, max: this.runGun.ammo.max, dry: this.time.now < this.runGun.dryUntil };
+  }
+
   private updateHud(distance: number): void {
     const { abilities } = this.run;
     this.hud.update({
@@ -664,6 +706,7 @@ export class GameScene extends Phaser.Scene {
         dash: abilities.canDash,
         dashCharge: this.player.dashCharge,
         gun: abilities.canShoot,
+        ammo: abilities.canShootInRun ? this.ammoView() : undefined,
         moult: abilities.has('moult'),
         moultReady: abilities.moultCharges > 0,
       },

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { LEVELS } from '../src/config/levels';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
 import { EnemyPlan, Lane, laneY } from '../src/objects/obstacles/behaviours';
-import { CAST, CourseClock, ENEMIES, EnemyId, VACUUM_LEAD, castFor, chaseFor, enemyState, nominalCourse } from '../src/objects/obstacles/cast';
+import { CAST, CourseClock, ENEMIES, EnemyId, OWN_PATTERN, VACUUM_LEAD, castFor, chaseFor, enemyState, nominalCourse } from '../src/objects/obstacles/cast';
 import { CourseLayout, SlotItem } from '../src/systems/CourseLayout';
 import { beatSpacing } from '../src/systems/RunPatterns';
 import { Laid, simulate } from './support/enemySim';
@@ -82,9 +82,8 @@ test('the cast: each level fields what it introduces, and levels 1-2 only what h
       const before = new Set(castFor(level - 1).map(e => e.def.id));
       const newcomers = ids.filter(id => !before.has(id));
       const top = Math.max(...castFor(level).map(e => e.weight));
-      // Those laid only by their own patterns (the light, the mop, the chaser) don't go by weight
-      const ownPattern = ['chaser', 'light', 'mop', 'scuttler', 'dancer', 'pecker', 'licker'];
-      for (const id of newcomers.filter(n => !ownPattern.includes(ENEMIES[n].role))) {
+      // Those laid only by their own patterns (the light, the mop, the chaser...) don't go by weight
+      for (const id of newcomers.filter(n => !OWN_PATTERN.has(ENEMIES[n].role))) {
         assert.equal(CAST[level][id], top, `level ${level} favours its newcomer ${id}`);
       }
     }

@@ -79,6 +79,15 @@ const CHUNKS: Chunk[] = [
   { name: 'centipede', minLevel: 6, heat: 2, weight: 1.5, steps: [['empty'], ['obstacle', 'A', 'scuttler'], ['pickup', 'B'], ['empty']] },
   // A dance line: pairs of boots in a row, all stomping on one beat
   { name: 'dance', minLevel: 6, heat: 3, weight: 1.5, steps: [['empty'], ['obstacle', null, 'dancer'], ['obstacle', null, 'dancer'], ['obstacle', null, 'dancer'], ['empty']] },
+  // The gun act. The wasp comes in ahead of the roach and hunts it for a couple of seconds: nothing else meanwhile but
+  // apples to take while it hovers
+  { name: 'wasp', minLevel: 7, heat: 2.5, weight: 1.5, steps: [['obstacle', 'A', 'tracker'], ['empty'], ['empty'], ['pickup', 'B'], ['pickup', 'A'], ['empty']] },
+  // The zapper's bolt runs down its lane at the runner: room before it, apples down the other lane
+  { name: 'zapper', minLevel: 8, heat: 2, weight: 1.5, steps: [['empty'], ['obstacle', 'A', 'zapper'], ['pickup', 'B'], ['pickup', 'B'], ['empty']] },
+  // The repeller's rings roll a long way down its lane: the other lane carries the apples
+  { name: 'repeller', minLevel: 9, heat: 2, weight: 1.5, steps: [['empty'], ['pickup', 'B'], ['obstacle', 'A', 'emitter'], ['pickup', 'B'], ['empty']] },
+  // The bait: apples in its own lane either side of it, the lure, taken between its floods (or after a shot)
+  { name: 'bait', minLevel: 10, heat: 2, weight: 1.5, steps: [['empty'], ['pickup', 'A'], ['obstacle', 'A', 'lure'], ['empty'], ['pickup', 'A'], ['empty']] },
 ];
 
 /**
@@ -93,14 +102,14 @@ const NEWCOMERS: Record<number, EnemyId[]> = {
   4: ['bird', 'hen'],
   5: ['cat', 'frog'],
   6: ['centipede', 'boots'],
-  7: ['jellyfish'],
-  8: ['pope'],
-  9: ['bison'],
-  10: ['blackhole'],
+  7: ['jellyfish', 'gull', 'wasp'],
+  8: ['robotVacuum', 'zapper', 'aerosol'],
+  9: ['bison', 'hedgehog', 'repeller'],
+  10: ['bait'],
 };
 
 /** The ones that pick their own way between the lanes: shown with room either side instead of apples through. */
-const FREE: ReadonlySet<EnemyId> = new Set(['newspaper', 'bird', 'boots', 'jellyfish', 'pope', 'blackhole']);
+const FREE: ReadonlySet<EnemyId> = new Set(['newspaper', 'bird', 'boots', 'jellyfish', 'pope', 'blackhole', 'gull']);
 
 function introduction(enemy: EnemyId): Chunk {
   const steps: Step[] = enemy === 'lamp'
@@ -111,8 +120,14 @@ function introduction(enemy: EnemyId): Chunk {
         ? [['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty'], ['pickup', 'A'], ['pickup', 'A'], ['empty']]
         : enemy === 'centipede' || enemy === 'hen'
           ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
-          : enemy === 'frog'
+          : enemy === 'frog' || enemy === 'repeller'
             ? [['empty'], ['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+          : enemy === 'wasp'
+            ? [['obstacle', 'A', { enemy }], ['empty'], ['empty'], ['pickup', 'B'], ['pickup', 'A'], ['empty']]
+          : enemy === 'zapper'
+            ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty']]
+          : enemy === 'bait'
+            ? [['empty'], ['pickup', 'A'], ['obstacle', 'A', { enemy }], ['empty'], ['pickup', 'A'], ['empty']]
       : FREE.has(enemy)
         ? [['empty'], ['obstacle', null, { enemy }], ['empty'], ['pickup', 'A']]
         : [['pickup', 'A'], ['obstacle', 'A', { enemy }], ['pickup', 'A'], ['empty']];

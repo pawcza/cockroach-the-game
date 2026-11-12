@@ -5,12 +5,12 @@ import { DEPTH } from '../../config/constants';
 import { addContactShadow } from '../../effects/ContactShadow';
 import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../../config/sprites';
 import { Floor } from '../Player';
-import { EnemyPlan, EnemyState, OBSTACLE_SINK, laneY } from './behaviours';
+import { EnemyPlan, EnemyState, Lane, OBSTACLE_SINK, laneY } from './behaviours';
 
 type Warn = NonNullable<EnemyState['warn']>;
 /** A lane band's height: the roach's body, a little more. */
 const BAND_H = 60;
-import { ENEMIES, EnemyId, enemyState } from './cast';
+import { ENEMIES, EnemyId, enemyState, shotSpan } from './cast';
 
 /** Contact shadow width against the obstacle's hitbox. */
 const SHADOW_WIDTH = 1.5;
@@ -37,6 +37,29 @@ export interface ObstacleScene extends Phaser.Scene {
   runTime: number;
   /** Something sucks at the roach this frame (the vacuum): this share of its forward speed is taken away. Local. */
   pullRoach(share: number): void;
+  /**
+   * Something went off (a shot aerosol can): every enemy within `radius` of it along both lanes goes down with it, and
+   * the roach too if it is that close (dying of `cause`). Solo only, like the gun.
+   */
+  blast(source: Phaser.Physics.Arcade.Sprite, radius: number, cause: string): void;
+}
+
+/**
+ * How the run's pistol meets an enemy (systems/RunGun.ts), kept on its main sprite as 'shootable'. kit.enemy gives
+ * every enemy one from its plan; a spawn file changes what it needs to.
+ */
+export interface Shootable {
+  /** Where along `lane` a bullet meets it at run time t, or null when it would fly past. */
+  span(lane: Lane, t: number): { x0: number; x1: number } | null;
+  /** Bullets still to take. */
+  hits: number;
+  /** Hit but still standing (the robot vacuum's first shot). */
+  onHit?(hitsLeft: number): void;
+  /**
+   * Down, shot or caught in a blast: return true to see to its own end (the aerosol's fuse); otherwise it bursts and
+   * goes at once.
+   */
+  onDown?(by: 'shot' | 'blast'): boolean;
 }
 
 interface SpriteResources {
@@ -136,6 +159,8 @@ export class ObstacleKit {
     }
     sprite.setData('telegraphs', def.telegraphs);
     sprite.setData('plan', plan);
+    const shootable: Shootable = { span: (lane, t) => shotSpan(plan, t, lane), hits: def.hits ?? 1 };
+    sprite.setData('shootable', shootable);
     return sprite;
   }
 

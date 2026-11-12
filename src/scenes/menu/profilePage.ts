@@ -32,7 +32,7 @@ export function buildProfilePage(scene: Phaser.Scene, container: Phaser.GameObje
     ['Najwyższy poziom', `${stats.bestLevel}`],
     ['Maks kombo', `x${stats.bestCombo}`],
     ['Jabłka / piwa / pigułki', `${stats.apples} / ${stats.beers} / ${stats.pills}`],
-    ['Na styk', `${stats.nearMisses}`],
+    ['Na styk / zestrzelone', `${stats.nearMisses} / ${stats.kills}`],
     ['Przebicia / ściany', `${stats.dashThroughs} / ${stats.wallsBroken}`],
     ['Karaluchy Dnia', `${stats.dailyRuns}`],
     ['Zjazdy / wygrane', `${stats.matches} / ${stats.matchWins}`],

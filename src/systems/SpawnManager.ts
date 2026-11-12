@@ -33,6 +33,8 @@ const WALL_HINTS = 2;
 const DASH_LESSON_AHEAD = 1000;
 /** The apples laid on the way to it, back from the wall. */
 const DASH_LESSON_APPLES = [420, 320, 220];
+/** The gun lesson's apples, past its onion in its lane. */
+const GUN_LESSON_APPLES = [90, 170, 250];
 
 export class SpawnManager {
   private scene: Phaser.Scene;
@@ -41,6 +43,8 @@ export class SpawnManager {
   private apples: Phaser.Physics.Arcade.Group;
   private beers: Phaser.Physics.Arcade.Group;
   private pills: Phaser.Physics.Arcade.Group;
+  /** The run's pistol's ammo boxes (solo, from level 7). */
+  private ammo: Phaser.Physics.Arcade.Group;
   private obstacleSpawner: ObstacleSpawner;
   private layout: CourseLayout;
   private rng: SeededRNG | null;
@@ -62,20 +66,24 @@ export class SpawnManager {
     apples: Phaser.Physics.Arcade.Group,
     beers: Phaser.Physics.Arcade.Group,
     pills: Phaser.Physics.Arcade.Group,
+    ammo: Phaser.Physics.Arcade.Group,
     obstacleSpawner: ObstacleSpawner,
     rng: SeededRNG | null,
     floorTopY: number,
     floorBottomY: number,
     canDash: () => boolean,
+    /** The run carries the pistol between the fights (solo): the course lays ammo boxes from level 7. */
+    layAmmo: boolean,
   ) {
     this.scene = scene;
     this.obstacles = obstacles;
     this.apples = apples;
     this.beers = beers;
     this.pills = pills;
+    this.ammo = ammo;
     this.obstacleSpawner = obstacleSpawner;
     this.rng = rng;
-    this.layout = new CourseLayout(rng ?? { next: Math.random });
+    this.layout = new CourseLayout(rng ?? { next: Math.random }, undefined, layAmmo);
     this.floorTopY = floorTopY;
     this.floorBottomY = floorBottomY;
     this.canDash = canDash;
@@ -189,6 +197,20 @@ export class SpawnManager {
   }
 
   /**
+   * Teaching the gun, right after DJ Bigos hands it over: one onion standing in the roach's lane ahead, apples behind it
+   * in that lane (the reward for shooting it out of the way), and normal beats resume past them. Laid by hand, drawing
+   * nothing from the seed. Returns the onion, so the lesson knows when it is shot, and its x.
+   */
+  layGunLesson(fromX: number, lane: Floor): { x: number; target: Phaser.Physics.Arcade.Sprite | null } {
+    const x = fromX + DASH_LESSON_AHEAD;
+    const level = getLevelForDistance(Math.floor((x - COCKROACH_START_X) / 50)).level;
+    const target = this.layTutorialObstacle(x, lane)[0] ?? null;
+    for (const ahead of GUN_LESSON_APPLES) this.spawnPickup(this.apples, x + ahead, 'apple', lane);
+    this.advanceSpawnX(x + GUN_LESSON_APPLES[GUN_LESSON_APPLES.length - 1] + beatSpacing(level) * 2);
+    return { x, target };
+  }
+
+  /**
    * The tutorial's lone obstacle: an onion standing in this lane. Returns what was made, so the tutorial can take it
    * away again. Nothing seeded is drawn.
    */
@@ -239,6 +261,10 @@ export class SpawnManager {
         }
       });
     }
+    // An ammo box left behind loses no combo: it never scored
+    this.ammo.getChildren().forEach((obj) => {
+      if ((obj as Phaser.Physics.Arcade.Sprite).x < cameraLeft) obj.destroy();
+    });
   }
 
   /**

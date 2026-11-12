@@ -40,18 +40,29 @@ import {
   swoop,
   tongue,
   cloudWall,
+  zap,
+  patrol,
+  rings,
+  lure,
+  WaspTimings,
+  Zone,
 } from './behaviours';
 
 export type EnemyId =
   | 'onion' | 'flipper' | 'spray' | 'newspaper' | 'bird' | 'cat' | 'catChase'
   | 'jellyfish' | 'pope' | 'bison' | 'blackhole' | 'glue' | 'bleach' | 'lamp' | 'mop'
-  | 'vacuum' | 'hen' | 'frog' | 'centipede' | 'boots' | 'hedgehog' | 'sprayWall';
+  | 'vacuum' | 'hen' | 'frog' | 'centipede' | 'boots' | 'hedgehog' | 'sprayWall'
+  | 'gull' | 'wasp' | 'zapper' | 'robotVacuum' | 'repeller' | 'aerosol' | 'bait';
 
 /** What a pattern can ask a slot for: an enemy of this kind of behaviour. */
-export type CastRole = 'swatter' | 'sweeper' | 'switcher' | 'chaser' | 'light' | 'mop' | 'scuttler' | 'dancer' | 'pecker' | 'licker';
+export type CastRole =
+  | 'swatter' | 'sweeper' | 'switcher' | 'chaser' | 'light' | 'mop' | 'scuttler' | 'dancer' | 'pecker' | 'licker'
+  | 'tracker' | 'zapper' | 'emitter' | 'lure';
 
 /** Roles laid only by their own patterns (each needs quiet round it), never by a plain obstacle beat. */
-const OWN_PATTERN: ReadonlySet<string> = new Set(['chaser', 'light', 'mop', 'scuttler', 'dancer', 'wall', 'pecker', 'licker']);
+export const OWN_PATTERN: ReadonlySet<string> = new Set([
+  'chaser', 'light', 'mop', 'scuttler', 'dancer', 'wall', 'pecker', 'licker', 'tracker', 'zapper', 'emitter', 'lure',
+]);
 
 export interface EnemyDef {
   id: EnemyId;
@@ -63,7 +74,7 @@ export interface EnemyDef {
   hitbox: { w: number; h: number };
   /** A swatter's landing stretch, world px: its hitbox is that wide and low on the lane instead of `hitbox`. */
   footprint?: number;
-  role: CastRole | 'blocker' | 'swoop' | 'charger' | 'floater' | 'hole' | 'dripper' | 'wall';
+  role: CastRole | 'blocker' | 'swoop' | 'charger' | 'floater' | 'hole' | 'dripper' | 'wall' | 'patrol';
   /** A pattern may stand it in one lane. The others pick their own way between the lanes. */
   laneBound: boolean;
   /** The only lanes it can be in (the bleach drips only onto the lower lane, from the upper ledge). */
@@ -73,6 +84,15 @@ export interface EnemyDef {
   behave: Behaviour;
   /** It shows its own attack (pose, motion): no red "!" as it arrives. */
   telegraphs: boolean;
+  /** Bullets it takes to go down (the run's pistol): 1 unless it is tough. */
+  hits?: number;
+  /**
+   * A bullet only meets it where it hurts (a swatter low on its lane, a bird in its dive, a boot that is down): up high,
+   * far back or raised it is out of the bullet's way. Otherwise it is met wherever it stands in its lane, too.
+   */
+  shotWhereItHurts?: boolean;
+  /** A bullet only meets the thing itself, never what it sends out (the zapper's bolt, the repeller's rings, the gel). */
+  shotAtBody?: boolean;
 }
 
 const DEFAULT_HITBOX = { w: 0.6, h: 0.7 };
@@ -111,7 +131,25 @@ export const TIMINGS = {
   centipede: { speed: 300, from: 900, switches: [1500, 800], warn: 420, jump: 200 },
   boots: { beat: 500, down: 260, lift: 120, height: 30 },
   sprayWall: { idle: 900, windup: 600, puff: 700, reach: 90 },
+  // The gun act. The gull screeches and rises (the wind-up, its landing shadow growing), dives into a lane and skims
+  // along it at the runner, then climbs
+  gull: { circle: 1300, windup: 700, dive: 220, glide: 380, climb: 520, high: 140, glideDx: -140 },
+  // The zapper's bolt runs `reach` px down its lane towards the runner
+  zapper: { idle: 1100, charge: 650, bolt: 380, cool: 220, reach: 250, hang: 118 },
+  robotVacuum: { drive: 1300, wait: 450, range: 100 },
+  // One ring a beat, rolling down the repeller's lane
+  // ...short of a screen's worth: a ring is seen with its repeller, never coming out of nowhere
+  repeller: { beat: 1100, pulse: 300, speed: 170, life: 1100, ring: 18 },
+  bait: { idle: 1400, ooze: 800, flood: 1300, dry: 300, spread: 140 },
+  // The aerosol's fuse after a shot (its blast radius shown meanwhile), the blast's reach either way along both lanes,
+  // and the bonus for each enemy it takes with it
+  aerosol: { fuse: 380, radius: 150, bonus: 30 },
 } as const;
+
+/** The wasp hunts the roach itself (behaviours.stepWasp): where it comes in, how it hovers, follows and dives. */
+export const WASP: WaspTimings = {
+  cue: 700, enter: 350, hover: 1300, follow: 600, switch: 200, windup: 450, dive: 300, ahead: 230, diveTo: -120, height: 34,
+};
 
 /** The vacuum sets off this long before it would meet the nominal runner at its slot. */
 export const VACUUM_LEAD = 1500;
@@ -128,7 +166,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   flipper: {
     id: 'flipper', type: 'flipper', art: SWAT_HAND ? 'flipper-swat-hand' : 'flipper-swat',
     frame: SWAT_HAND ? { w: 86, h: 63, pivotY: 0.873 } : { w: 67, h: 53, pivotY: 0.8491 }, hitbox: DEFAULT_HITBOX,
-    footprint: TIMINGS.flipper.footprint, role: 'swatter', laneBound: true, behave: depthSwat(TIMINGS.flipper), telegraphs: true,
+    footprint: TIMINGS.flipper.footprint, role: 'swatter', laneBound: true, behave: depthSwat(TIMINGS.flipper), telegraphs: true, shotWhereItHurts: true,
   },
   spray: {
     id: 'spray', type: 'spray', art: 'spray', frame: { w: 34, h: 46, pivotY: 0.8261 }, hitbox: DEFAULT_HITBOX,
@@ -138,11 +176,11 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     id: 'newspaper', type: 'newspaper', art: SWAT_HAND ? 'newspaper-swat-hand' : 'newspaper-swat',
     frame: SWAT_HAND ? { w: 70, h: 49, pivotY: 0.8367 } : { w: 63, h: 54, pivotY: 0.8519 }, hitbox: DEFAULT_HITBOX,
     footprint: TIMINGS.newspaper.footprint, role: 'swatter', laneBound: false, behave: depthSwat(TIMINGS.newspaper),
-    telegraphs: true,
+    telegraphs: true, shotWhereItHurts: true,
   },
   bird: {
     id: 'bird', type: 'bird', art: 'bird', frame: { w: 61, h: 63, pivotY: 0.873 }, hitbox: { w: 0.75, h: 0.42 },
-    role: 'swoop', laneBound: false, behave: swoop(TIMINGS.bird), telegraphs: true,
+    role: 'swoop', laneBound: false, behave: swoop(TIMINGS.bird), telegraphs: true, shotWhereItHurts: true,
   },
   cat: {
     id: 'cat', type: 'cat', art: 'cat', frame: { w: 63, h: 61, pivotY: 0.8689 }, hitbox: { w: 0.5, h: 0.5 },
@@ -176,7 +214,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   },
   lamp: {
     id: 'lamp', type: 'lamp', art: 'lamp', frame: { w: 50, h: 57, pivotY: 0.8596 }, hitbox: { w: 0.4, h: 0.4 },
-    role: 'light', laneBound: true, behave: light(TIMINGS.lamp), telegraphs: true,
+    role: 'light', laneBound: true, behave: light(TIMINGS.lamp), telegraphs: true, shotWhereItHurts: true,
   },
   mop: {
     id: 'mop', type: 'mop', art: 'mop', frame: { w: 64, h: 64, pivotY: 0.875 }, hitbox: DEFAULT_HITBOX,
@@ -200,7 +238,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   },
   boots: {
     id: 'boots', type: 'boots', art: 'boot', frame: { w: 45, h: 42, pivotY: 0.8095 }, hitbox: { w: 0.7, h: 0.6 },
-    role: 'dancer', laneBound: false, behave: stomp(TIMINGS.boots), telegraphs: true,
+    role: 'dancer', laneBound: false, behave: stomp(TIMINGS.boots), telegraphs: true, shotWhereItHurts: true,
   },
   // Built now from its two stills, for level 9 later: in no cast yet
   hedgehog: {
@@ -216,11 +254,44 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     id: 'blackhole', type: 'blackhole', art: 'blackhole', frame: { w: 62, h: 44, pivotY: 0.8182 }, hitbox: { w: 0.5, h: 0.5 },
     role: 'hole', laneBound: false, behave: still, telegraphs: false,
   },
+  // The gun act (levels 7-10)
+  gull: {
+    id: 'gull', type: 'gull', art: 'gull', frame: { w: 58, h: 58, pivotY: 0.8621 }, hitbox: { w: 0.7, h: 0.42 },
+    role: 'swoop', laneBound: false, behave: swoop(TIMINGS.gull), telegraphs: true, shotWhereItHurts: true,
+  },
+  // It hunts the roach itself (behaviours.stepWasp, obstacles/wasp.ts): its plan only says where it comes in
+  wasp: {
+    id: 'wasp', type: 'wasp', art: 'wasp', frame: { w: 44, h: 47, pivotY: 0.8298 }, hitbox: { w: 0.6, h: 0.5 },
+    role: 'tracker', laneBound: true, behave: still, telegraphs: true,
+  },
+  // It hangs from a cord over the upper lane: under the upper ledge there is no room for it over the lower one
+  zapper: {
+    id: 'zapper', type: 'zapper', art: 'bug-zapper', frame: { w: 38, h: 64, pivotY: 0.875 }, hitbox: { w: 0.6, h: 0.8 },
+    role: 'zapper', laneBound: true, lanes: ['top'], behave: zap(TIMINGS.zapper), telegraphs: true, shotAtBody: true,
+  },
+  // The one tough enemy: the first shot cracks it, the second finishes it
+  robotVacuum: {
+    id: 'robotVacuum', type: 'robotVacuum', art: 'robot-vacuum', frame: { w: 66, h: 60, pivotY: 0.8667 }, hitbox: { w: 0.85, h: 0.45 },
+    role: 'patrol', laneBound: true, behave: patrol(TIMINGS.robotVacuum), telegraphs: true, hits: 2,
+  },
+  repeller: {
+    id: 'repeller', type: 'repeller', art: 'repeller', frame: { w: 40, h: 39, pivotY: 0.7949 }, hitbox: { w: 0.7, h: 0.7 },
+    role: 'emitter', laneBound: true, behave: rings(TIMINGS.repeller), telegraphs: true, shotAtBody: true,
+  },
+  // A blocker that goes off when shot: its blast clears both lanes round it (obstacles/aerosol.ts)
+  aerosol: {
+    id: 'aerosol', type: 'aerosol', art: 'aerosol', frame: { w: 58, h: 71, pivotY: 0.8873 }, hitbox: { w: 0.36, h: 0.7 },
+    role: 'blocker', laneBound: true, behave: blocker, telegraphs: false,
+  },
+  bait: {
+    id: 'bait', type: 'bait', art: 'bait', frame: { w: 53, h: 38, pivotY: 0.7895 }, hitbox: { w: 0.75, h: 0.6 },
+    role: 'lure', laneBound: true, behave: lure(TIMINGS.bait), telegraphs: true, shotAtBody: true,
+  },
 };
 
 /**
- * Who each level fields, and how often. Each level's newcomer leads its weights; the onion is the only enemy that just
- * stands there. Past level 10 the table holds at level 10. The light stops at level 6: past it the roach runs too fast to
+ * Who each level fields, and how often. Each level's newcomer leads its weights (those laid by their own patterns, the
+ * wasp, the zapper, the repeller and the bait, come by weight within them); the onion and the aerosol just stand there. Past level 10 the table holds at level 10. The light stops at level 6: past it the roach runs too fast to
  * see it flicker long before it is lit. The vacuum stays in the dash act (3-6): faster, its hold behind the runner
  * runs on into whatever comes after its quiet stretch. The chaser (catChase) is off until it has art of its own: its
  * behaviour and its 'chase' role are kept, so bringing it back is a weight here and its chunk in RunPatterns.
@@ -232,10 +303,12 @@ export const CAST: Record<number, Partial<Record<EnemyId, number>>> = {
   4: { onion: .5, glue: .3, flipper: 1.5, bleach: 1, spray: 1.5, newspaper: 2, bird: 4, hen: 4, lamp: 1, mop: 1, vacuum: 1 },
   5: { onion: .3, flipper: 1, bleach: 1, spray: 1.5, newspaper: 1.5, bird: 2, hen: 2, cat: 4, frog: 4, lamp: 1, mop: 1, vacuum: 1 },
   6: { flipper: 1, spray: 1.5, newspaper: 1.5, bird: 1.5, hen: 1.5, cat: 2, frog: 2, centipede: 4, boots: 4, lamp: 1, mop: 1, vacuum: 1 },
-  7: { flipper: 1, spray: 1, newspaper: 1.5, bird: 1.5, hen: 1.5, cat: 1.5, frog: 1.5, jellyfish: 4, centipede: 1, boots: 1, mop: 1 },
-  8: { flipper: 1, spray: 1, newspaper: 1.5, bird: 1.5, hen: 1.5, cat: 1.5, frog: 1.5, jellyfish: 2, pope: 4, centipede: 1, boots: 1, mop: 1 },
-  9: { flipper: 1, spray: 1, newspaper: 1.5, bird: 1.5, hen: 1.5, cat: 1.5, frog: 1.5, jellyfish: 2, pope: 2, bison: 4, centipede: 1, boots: 1, mop: 1 },
-  10: { flipper: 1, spray: 1, newspaper: 1.5, bird: 1.5, hen: 1.5, cat: 1.5, frog: 1.5, jellyfish: 2, pope: 2, bison: 2, blackhole: 3, centipede: 1, boots: 1, mop: 1 },
+  // The gun act: what the pistol is for, every one of them still passed without a shot. The centipede and the boots
+  // leave after level 7; the pope (level 8) and the black hole (level 10) are gone, their frames kept for old records
+  7: { flipper: 1, spray: 1, newspaper: 1, bird: 1, hen: 1, cat: 1.5, frog: 1.5, jellyfish: 4, gull: 4, wasp: 1.5, centipede: 1, boots: 1, mop: .5 },
+  8: { flipper: 1, spray: 1, newspaper: 1, hen: 1, cat: 1, frog: 1, jellyfish: 2, gull: 2, wasp: 1.5, zapper: 1.5, robotVacuum: 4, aerosol: 4 },
+  9: { flipper: 1, newspaper: 1, cat: 1, frog: 1, jellyfish: 1.5, gull: 1.5, wasp: 1.5, zapper: 1.5, robotVacuum: 2, aerosol: 2, bison: 4, hedgehog: 4, repeller: 1.5 },
+  10: { flipper: 1, newspaper: 1, cat: 1, jellyfish: 1.5, gull: 1.5, wasp: 1.5, zapper: 1.5, robotVacuum: 2, aerosol: 2.5, bison: 2, hedgehog: 2, repeller: 1.5, bait: 1.5 },
 };
 
 export const MAX_CAST_LEVEL = 10;
@@ -253,6 +326,23 @@ export function bodyOf(def: EnemyDef): Body {
 export function enemyState(plan: EnemyPlan, t: number): EnemyState {
   const def = ENEMIES[plan.id as EnemyId];
   return def.behave(plan, t, bodyOf(def));
+}
+
+/**
+ * Where a bullet flying along `lane` meets the enemy at run time t, as a stretch of that lane; null when it would fly
+ * past (out of the lane, up high, far back, or not in it yet). Its zones in that lane always count; so does its body
+ * where it stands in the lane, unless it is one that is only met where it hurts (shotWhereItHurts). A wall-like hazard
+ * (the cloud wall) is no target: SpawnManager's walls and it stop bullets instead (RunGun).
+ */
+export function shotSpan(plan: EnemyPlan, t: number, lane: Lane): { x0: number; x1: number } | null {
+  const def = ENEMIES[plan.id as EnemyId];
+  const body = bodyOf(def);
+  const s = def.behave(plan, t, body);
+  if (s.pose === 'parked' || s.behind) return null;
+  const spans: Zone[] = def.shotAtBody ? [] : s.zones.filter(z => z.lane === lane);
+  if (!def.shotWhereItHurts && s.lane === lane) spans.push({ lane, x0: s.x - body.half, x1: s.x + body.half, since: 0 });
+  if (spans.length === 0) return null;
+  return { x0: Math.min(...spans.map(z => z.x0)), x1: Math.max(...spans.map(z => z.x1)) };
 }
 
 // ── The course's nominal runner ─────────────────────────────────────────

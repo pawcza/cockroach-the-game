@@ -19,6 +19,7 @@ export interface RunSnapshot {
   nearMisses: number;
   dashThroughs: number;
   wallsBroken: number;
+  kills: number;
   seconds: number;
   daily: boolean;
 }
@@ -30,7 +31,7 @@ interface ProfileData {
 }
 
 const EMPTY: Stats = {
-  runs: 0, distance: 0, apples: 0, beers: 0, pills: 0, nearMisses: 0, dashThroughs: 0, wallsBroken: 0, dailyRuns: 0,
+  runs: 0, distance: 0, apples: 0, beers: 0, pills: 0, nearMisses: 0, dashThroughs: 0, wallsBroken: 0, kills: 0, dailyRuns: 0,
   matches: 0, matchWins: 0, seconds: 0, bestScore: 0, bestDistance: 0, bestLevel: 0, bestCombo: 0,
 };
 const BESTS: (keyof Stats)[] = ['bestScore', 'bestDistance', 'bestLevel', 'bestCombo'];
@@ -81,6 +82,7 @@ function withRun(stats: Stats, run: RunSnapshot, finished: boolean): Stats {
     nearMisses: stats.nearMisses + run.nearMisses,
     dashThroughs: stats.dashThroughs + run.dashThroughs,
     wallsBroken: stats.wallsBroken + run.wallsBroken,
+    kills: stats.kills + run.kills,
     dailyRuns: stats.dailyRuns + (finished && run.daily ? 1 : 0),
     seconds: stats.seconds + run.seconds,
     bestScore: Math.max(stats.bestScore, run.score),

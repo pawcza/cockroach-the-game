@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
 import type { EnemyPlan, Lane } from './obstacles/behaviours';
 import type { EnemyId } from './obstacles/cast';
+import { spawnAerosol } from './obstacles/aerosol';
+import { spawnBait } from './obstacles/bait';
 import { spawnBird } from './obstacles/bird';
 import { spawnBison } from './obstacles/bison';
 import { spawnBlackHole } from './obstacles/blackHole';
@@ -17,6 +19,7 @@ import { spawnSprayWall } from './obstacles/sprayWall';
 import { spawnVacuum } from './obstacles/vacuum';
 import { spawnFlipper } from './obstacles/flipper';
 import { spawnGlue } from './obstacles/glue';
+import { spawnGull } from './obstacles/gull';
 import { spawnJellyfish } from './obstacles/jellyfish';
 import { spawnLamp } from './obstacles/lamp';
 import { spawnMop } from './obstacles/mop';
@@ -25,7 +28,11 @@ import { ObstacleKit, ObstacleScene } from './obstacles/ObstacleKit';
 import { spawnOnion } from './obstacles/onion';
 import { spawnPestSpray } from './obstacles/pestSpray';
 import { spawnPope } from './obstacles/pope';
+import { spawnRepeller } from './obstacles/repeller';
+import { spawnRobotVacuum } from './obstacles/robotVacuum';
 import { spawnWall } from './obstacles/wall';
+import { spawnWasp } from './obstacles/wasp';
+import { spawnZapper } from './obstacles/zapper';
 
 /**
  * How each enemy is built. What it is and how it behaves is data in obstacles/cast.ts; replacing one is a new entry
@@ -54,6 +61,13 @@ const SPAWN: Record<EnemyId, (kit: ObstacleKit, plan: EnemyPlan) => void> = {
   boots: spawnBoots,
   hedgehog: spawnHedgehog,
   sprayWall: spawnSprayWall,
+  gull: spawnGull,
+  wasp: spawnWasp,
+  zapper: spawnZapper,
+  robotVacuum: spawnRobotVacuum,
+  repeller: spawnRepeller,
+  aerosol: spawnAerosol,
+  bait: spawnBait,
 };
 
 /** Builds the enemies the course plans (systems/CourseLayout.ts). Draws nothing from the seed. */

@@ -1,9 +1,10 @@
 /**
- * What the run teaches when a power is earned, so the first use is safe. Today the dash has one: right after the reward,
- * a single wall (both lanes shut, only the dash gets through) stands a few seconds ahead, with a prompt over the roach
- * until it dashes or has passed. A power with no lesson here is simply handed over.
+ * What the run teaches when a power is earned, so the first use is safe. The dash: right after the reward, a single wall
+ * (both lanes shut, only the dash gets through) stands a few seconds ahead, with a prompt over the roach until it dashes
+ * or has passed. The gun (solo; a match keeps it inside the fight): an onion stands in the roach's lane with apples
+ * behind it, the shot's keycap over the roach until the onion is shot or passed.
  *
- * The gun and the moult get a one-line hint that fades (no course changes). The opening lesson on lane hops is
+ * The moult, and the gun in a match, get a one-line hint that fades (no course changes). The opening lesson on lane hops is
  * `Tutorial`; both draw their prompts with the same keycap.
  */
 import Phaser from 'phaser';
@@ -27,6 +28,9 @@ export class AbilityLessons {
   private spawnManager: SpawnManager;
   private touch: boolean;
   private wallX = 0;
+  /** What the lesson waits for: the dash's wall, or the gun's onion (gone once it is shot). */
+  private lesson: 'dash' | 'gun' = 'dash';
+  private target: Phaser.Physics.Arcade.Sprite | null = null;
   private prompt: Phaser.GameObjects.Text | ArrowKeycap | null = null;
   private hint: Phaser.GameObjects.Text | null = null;
 
@@ -38,10 +42,11 @@ export class AbilityLessons {
     scene.events.once('shutdown', () => this.dismiss());
   }
 
-  /** A power was earned and the run is about to go on. */
-  teach(ability: AbilityId): void {
+  /** A power was earned and the run is about to go on. `inRun`: the gun shoots between the fights too (solo). */
+  teach(ability: AbilityId, inRun = true): void {
     if (ability === 'dash') this.teachDash();
-    // The gun's button only shows inside a fight, so there is nothing on a phone's screen to point at yet
+    else if (ability === 'gun' && inRun) this.teachGun();
+    // In a match the gun's button only shows inside a fight
     else if (ability === 'gun') this.showHint(this.touch ? 'Strzał: prawy dolny róg (w walkach z bossami)' : 'SPACJA — strzał (w walkach z bossami)');
     else if (ability === 'moult') this.showHint('Wylinka: jedno trafienie ci nie zaszkodzi');
   }
@@ -57,8 +62,18 @@ export class AbilityLessons {
     });
   }
 
+  private teachGun(): void {
+    this.dismiss();
+    const { x, target } = this.spawnManager.layGunLesson(this.player.x, this.player.currentFloor);
+    this.lesson = 'gun';
+    this.wallX = x;
+    this.target = target;
+    this.prompt = addKeycap(this.scene, this.touch ? 'STRZAŁ' : 'SPACJA').setVisible(false);
+  }
+
   private teachDash(): void {
     this.dismiss();
+    this.lesson = 'dash';
     this.wallX = this.spawnManager.layDashLesson(this.player.x);
     // A keycap, like the info page's: the key itself on a keyboard, the button's name on a phone
     this.prompt = (this.touch ? addKeycap(this.scene, 'DASH') : addArrowKeycap(this.scene, 'right')).setVisible(false);
@@ -68,7 +83,8 @@ export class AbilityLessons {
   update(): void {
     const { prompt, player } = this;
     if (!prompt) return;
-    if (player.isDashing || player.x > this.wallX + GONE_PAST_PX) {
+    const done = this.lesson === 'dash' ? player.isDashing : !this.target?.active || !this.target.body?.enable;
+    if (done || player.x > this.wallX + GONE_PAST_PX) {
       this.dismiss();
       return;
     }
@@ -80,6 +96,7 @@ export class AbilityLessons {
   dismiss(): void {
     this.prompt?.destroy();
     this.prompt = null;
+    this.target = null;
     if (this.hint) this.scene.tweens.killTweensOf(this.hint);
     this.hint?.destroy();
     this.hint = null;

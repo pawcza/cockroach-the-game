@@ -213,7 +213,10 @@ function frame(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, 
     .fillRect(x - 2, y, 2, h).fillRect(x + w, y, 2, h);
 }
 
-const OBSTACLE_ART =new Set(['bird', 'cat', 'flipper', 'newspaper', 'onion', 'spray', 'disco', 'jellyfish', 'pope', 'bison', 'blackhole', 'glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'hedgehog']);
+const OBSTACLE_ART =new Set(['bird', 'cat', 'flipper', 'newspaper', 'onion', 'spray', 'disco', 'jellyfish', 'pope', 'bison', 'blackhole', 'glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'hedgehog',
+  'gull', 'wasp', 'zapper', 'robotVacuum', 'repeller', 'aerosol', 'bait']);
+/** Death causes whose art goes by another name in the atlas. */
+const ART_OF: Record<string, string> = { zapper: 'bug-zapper', robotVacuum: 'robot-vacuum' };
 
 /** An obstacle's still picture, for game-over screens and replays. Null for a death with no culprit, such as a fall. */
 export function addObstacleArt(
@@ -241,7 +244,7 @@ export function addObstacleArt(
   // The dancing boots die as 'boots'; their art is one boot, stomped
   if (type === 'boots') return scene.add.image(x, y, ATLAS, frameOf('boot', 1)).setScale(SPRITE_SCALE);
   if (!OBSTACLE_ART.has(type)) return null;
-  return scene.add.image(x, y, ATLAS, frameOf(type)).setScale(SPRITE_SCALE);
+  return scene.add.image(x, y, ATLAS, frameOf(ART_OF[type] ?? type)).setScale(SPRITE_SCALE);
 }
 
 /** Polish death cause labels. */
@@ -267,6 +270,13 @@ export const OBSTACLE_LABEL: Record<string, string> = {
   centipede: 'Stonoga',
   boots: 'Oficerki',
   hedgehog: 'Jeż',
+  gull: 'Mewa',
+  wasp: 'Osa',
+  zapper: 'Lampa na owady',
+  robotVacuum: 'Robot sprzątający',
+  repeller: 'Odstraszacz',
+  aerosol: 'Aerozol',
+  bait: 'Trutka',
   // The 'boss' death type is Zlewiatan's: the server's list of causes knows no other
   boss: bossById('zlewiatan').name,
   lodzia: bossById('lodzia').name,

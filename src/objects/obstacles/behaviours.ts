@@ -717,3 +717,171 @@ export function cloudWall(t: { idle: number; windup: number; puff: number; reach
     return st;
   };
 }
+
+// ── The gun act ─────────────────────────────────────────────────────────
+
+/**
+ * The bug zapper: hangs over its lane; idle, its tube glows; then it crackles (the charge, the telegraph: its lane
+ * flickers along the stretch it will strike) and a bolt runs down and along the lane ahead of it, `reach` px towards the
+ * runner, for a moment. Lane-wide over that stretch, so it warns with a lane band.
+ */
+export function zap(t: { idle: number; charge: number; bolt: number; cool: number; reach: number; hang: number }): Behaviour {
+  const segs = rhythm([['idle', t.idle], ['charge', t.charge], ['bolt', t.bolt], ['cool', t.cool]]);
+  return (plan, time) => {
+    const m = moment(time, plan.phase, segs);
+    const pose: Pose = m.seg === 'charge' ? 'windup' : m.seg === 'bolt' ? 'strike' : m.seg === 'cool' ? 'recover' : 'idle';
+    const x0 = plan.x - t.reach;
+    const x1 = plan.x + 30;
+    const zones: Zone[] = m.seg === 'bolt' ? [{ lane: plan.lane, x0, x1, since: m.at('charge') }] : [];
+    const x = plan.x + (m.seg === 'charge' ? shiver(time, 1) : 0);
+    const st = state(x, laneY(plan.lane) - t.hang, plan.lane, pose, m.k, zones);
+    st.frame = m.seg === 'bolt' || (m.seg === 'charge' && Math.floor(time / 60) % 2 === 0) ? 1 : 0;
+    if (m.seg === 'charge' || m.seg === 'bolt') st.warn = { lane: plan.lane, x0, x1, level: m.seg === 'bolt' ? 1 : m.p };
+    return st;
+  };
+}
+
+/**
+ * The robot vacuum: low and wide, it drives along its lane towards the runner, waits, drives back and waits, round and
+ * round; always in its lane, so it is passed in the other one (or dashed through, or shot twice).
+ */
+export function patrol(t: { drive: number; wait: number; range: number }): Behaviour {
+  const segs = rhythm([['out', t.drive], ['waitOut', t.wait], ['in', t.drive], ['waitIn', t.wait]]);
+  return (plan, time, body) => {
+    const m = moment(time, plan.phase, segs);
+    const f = m.seg === 'out' ? easeInOut(m.p) : m.seg === 'waitOut' ? 1 : m.seg === 'in' ? 1 - easeInOut(m.p) : 0;
+    const x = plan.x - t.range * f;
+    const moving = m.seg === 'out' || m.seg === 'in';
+    const st = state(x, laneY(plan.lane), plan.lane, moving ? 'strike' : 'idle', m.k, [zone(plan.lane, x, body, -Infinity)]);
+    st.frame = moving ? Math.floor(time / 90) % 2 : 0;
+    return st;
+  };
+}
+
+/**
+ * The ultrasonic repeller: plugged in at its spot in its lane (which it blocks), it lights up and lets a ring go down
+ * its lane towards the runner on a beat; each ring rolls `speed` px/s for `life` ms, a short hazard of its own.
+ */
+export function rings(t: { beat: number; pulse: number; speed: number; life: number; ring: number }): Behaviour {
+  return (plan, time, body) => {
+    const zones: Zone[] = [zone(plan.lane, plan.x, body, -Infinity)];
+    const s = time + plan.phase;
+    const k = Math.floor(s / t.beat);
+    const ringParts: Part[] = [];
+    // Each ring leaves at the end of its beat's pulse; those still rolling are the last few beats'
+    for (let j = k; j >= k - Math.ceil(t.life / t.beat); j--) {
+      const leftAt = j * t.beat - plan.phase + t.pulse;
+      const age = time - leftAt;
+      if (age < 0 || age >= t.life) continue;
+      const rx = plan.x - body.half - (t.speed * age) / 1000;
+      zones.push({ lane: plan.lane, x0: rx - t.ring / 2, x1: rx + t.ring / 2, since: leftAt - t.pulse });
+      ringParts.push({ x: rx, y: laneY(plan.lane), frame: age < 120 ? 0 : 1, visible: true, danger: true });
+    }
+    const u = s - k * t.beat;
+    const pulsing = u < t.pulse;
+    const st = state(plan.x, laneY(plan.lane), plan.lane, pulsing ? 'windup' : 'idle', k, zones);
+    st.frame = pulsing ? 1 : 0;
+    st.parts = Object.fromEntries(ringParts.map((p, i) => [`ring${i}`, p]));
+    return st;
+  };
+}
+
+/**
+ * The poison bait: a glowing bowl of gel in its lane (deadly to touch), apples laid round it. On a rhythm the gel oozes
+ * out (the telegraph: its lane flickers green over the stretch it will cover) and floods `spread` px either side of the
+ * bowl for a while, then dries back. A lure: the apples near it are taken between floods.
+ */
+export function lure(t: { idle: number; ooze: number; flood: number; dry: number; spread: number }): Behaviour {
+  const segs = rhythm([['idle', t.idle], ['ooze', t.ooze], ['flood', t.flood], ['dry', t.dry]]);
+  return (plan, time, body) => {
+    const m = moment(time, plan.phase, segs);
+    const zones: Zone[] = [zone(plan.lane, plan.x, body, -Infinity)];
+    const x0 = plan.x - t.spread;
+    const x1 = plan.x + t.spread;
+    if (m.seg === 'flood') zones.push({ lane: plan.lane, x0, x1, since: m.at('ooze') });
+    const pose: Pose = m.seg === 'ooze' ? 'windup' : m.seg === 'flood' ? 'strike' : m.seg === 'dry' ? 'recover' : 'idle';
+    const st = state(plan.x, laneY(plan.lane), plan.lane, pose, m.k, zones);
+    if (m.seg === 'ooze' || m.seg === 'flood') st.warn = { lane: plan.lane, x0, x1, level: m.seg === 'flood' ? 1 : m.p };
+    // How far the puddle has spread: 0 dry, 1 the whole stretch
+    const wet = m.seg === 'flood' ? 1 : m.seg === 'ooze' ? .25 * m.p : m.seg === 'dry' ? 1 - m.p : 0;
+    st.parts = { puddle: { x: plan.x, y: laneY(plan.lane), frame: 0, visible: wet > 0, danger: m.seg === 'flood' } };
+    st.mark = { lane: plan.lane, x: plan.x, progress: wet };
+    return st;
+  };
+}
+
+/**
+ * The jewel wasp hunts the roach itself, so unlike every other enemy it is not a function of the run clock: it enters
+ * ahead of the roach, hovers there in the roach's lane and, when the roach hops, follows it to the other lane after a
+ * wind-up; then it draws back (its lane locked from then on) and dives sting first along its lane. Hop late, after it
+ * has locked on, and the dive goes by in the other lane; dash through it; or shoot it while it hovers. Each client's
+ * wasp hunts that client's roach (a local threat, like the vacuum's pull); the course only says where it comes in.
+ * This is its step function, shared by the game and the tests.
+ */
+export interface WaspTimings {
+  enter: number; hover: number; follow: number; switch: number; windup: number; dive: number;
+  ahead: number; diveTo: number; height: number; cue: number;
+}
+
+export interface Wasp {
+  /** 'waiting' until the roach comes within `cue` px of its x; then in, hovering, drawing back, diving, gone. */
+  phase: 'waiting' | 'enter' | 'hover' | 'windup' | 'dive' | 'gone';
+  /** ms in this phase. */
+  t: number;
+  lane: Lane;
+  /** The lane the roach hopped to, and ms since: it follows `follow` ms later, moving `switch` ms. */
+  wants: Lane | null;
+  wantsFor: number;
+  /** Its lane's change in progress: from, 0 to 1. */
+  from: Lane | null;
+  move: number;
+  /** Ahead of the roach, px: where it hovers, and, diving, where it is. */
+  dx: number;
+  /** World x, and height over its lane. */
+  x: number;
+  y: number;
+}
+
+export function newWasp(lane: Lane): Wasp {
+  return { phase: 'waiting', t: 0, lane, wants: null, wantsFor: 0, from: null, move: 1, dx: 0, x: 0, y: 0 };
+}
+
+/** One step of the wasp: dt ms, the roach's x (its centre) and lane. Returns the zones it hurts in now. */
+export function stepWasp(w: Wasp, t: WaspTimings, plan: EnemyPlan, dt: number, roachX: number, roachLane: Lane, body: Body): Zone[] {
+  w.t += dt;
+  if (w.phase === 'waiting') {
+    if (plan.x - roachX > t.cue) return [];
+    w.phase = 'enter';
+    w.t = 0;
+    w.lane = roachLane;
+  }
+  const next = (phase: Wasp['phase'], over: number): void => { if (w.t >= over) { w.phase = phase; w.t -= over; } };
+  // Following the roach's hops while it hovers (its lane is locked once it draws back)
+  if (w.phase === 'enter' || w.phase === 'hover') {
+    if (roachLane !== w.lane && w.from === null) {
+      if (w.wants !== roachLane) { w.wants = roachLane; w.wantsFor = 0; }
+      w.wantsFor += dt;
+      if (w.wantsFor >= t.follow) { w.from = w.lane; w.lane = roachLane; w.move = 0; w.wants = null; }
+    } else if (roachLane === w.lane) {
+      w.wants = null;
+    }
+  }
+  if (w.from !== null) {
+    w.move = Math.min(1, w.move + dt / t.switch);
+    if (w.move >= 1) w.from = null;
+  }
+  switch (w.phase) {
+    case 'enter': w.dx = lerp(t.ahead + 260, t.ahead, easeOut(Math.min(1, w.t / t.enter))); next('hover', t.enter); break;
+    case 'hover': w.dx = t.ahead; next('windup', t.hover); break;
+    case 'windup': w.dx = t.ahead + 18 * easeOut(Math.min(1, w.t / t.windup)); next('dive', t.windup); break;
+    case 'dive': w.dx = lerp(t.ahead + 18, t.diveTo, Math.min(1, w.t / t.dive)); next('gone', t.dive); break;
+    case 'gone': return [];
+  }
+  w.x = roachX + w.dx;
+  const laneHeight = w.from !== null ? lerp(laneY(w.from), laneY(w.lane), easeInOut(w.move)) : laneY(w.lane);
+  // It hovers a little above the roach's back; diving it comes down to the ledge
+  const lift = w.phase === 'dive' ? lerp(t.height, 6, Math.min(1, w.t / (t.dive * .4))) : t.height + Math.sin(w.t / 70) * 2;
+  w.y = laneHeight - lift;
+  if (w.phase !== 'dive' || w.from !== null) return [];
+  return [{ lane: w.lane, x0: w.x - body.half, x1: w.x + body.half, since: -Infinity }];
+}

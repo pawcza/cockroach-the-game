@@ -28,6 +28,7 @@ import { addContactShadow } from '../effects/ContactShadow';
 import { getFx, roachGhost, type TrailHandle } from '../effects/Fx';
 import { popup } from '../effects/Popup';
 import { popupStyle } from '../utils/TextStyles';
+import { RunPistol } from './RunPistol';
 import { dress, parseRoach, pistolPoint, PLAIN, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
 import { PillEffect } from './PillEffect';
 
@@ -97,6 +98,8 @@ export class Player {
   // What the roach wears: its skin's animations, and things on its head and back
   private look: Look = PLAIN;
   private worn: Worn[] = [];
+  /** The pistol it carries through the run once the gun is earned (solo). */
+  private pistol: RunPistol | null = null;
   private inBossStance = false;
 
   constructor(
@@ -174,6 +177,7 @@ export class Player {
     this.cockroach.y = this.laneY('bottom');
     this.cockroach.play(this.anim('idle'));
     this.worn = dress(this.scene, this.cockroach, this.look);
+    this.pistol = new RunPistol(this.scene, this.cockroach);
 
     this.pill.create(this.cockroach);
 
@@ -592,6 +596,16 @@ export class Player {
     const muzzle = pistolPoint(this.cockroach, 'aim', 0, 'muzzle');
     if (!this.hopTween) this.cockroach.play(this.anim('shoot'));
     return muzzle;
+  }
+
+  /** Carrying the pistol through the run, or not. */
+  carryPistol(on: boolean): void {
+    this.pistol?.setShown(on);
+  }
+
+  /** A shot in the run: the carried pistol kicks. Returns where the bullet leaves. */
+  runShoot(): { x: number; y: number } {
+    return this.pistol?.fire() ?? { x: this.cockroach.x + 40, y: this.cockroach.y - 30 };
   }
 
   /** The boss is down: a twirl of the pistol, which it tosses away, and back on all six. */
