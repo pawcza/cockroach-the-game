@@ -175,6 +175,7 @@ const MIN_REACTION_MS: Partial<Record<EnemyId, number>> = {
   flipper: 750, spray: 525, newspaper: 750, bird: 675, cat: 600, catChase: 625, bison: 600,
   bleach: 750, lamp: 350, mop: 500,
   vacuum: 700, hen: 500, frog: 525, centipede: 1050, boots: 600, hedgehog: 575,
+  gull: 550, zapper: 450, robotVacuum: 650, repeller: 500, bait: 625,
 };
 
 test('each telegraphing enemy, alone, can be read within its stated reaction time at any phase and speed', () => {

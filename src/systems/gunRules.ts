@@ -9,9 +9,9 @@
 /** Rounds the magazine holds, and how many a full run starts level 7 with. */
 export const MAGAZINE = 6;
 /** Rounds in one ammo box. */
-export const AMMO_PER_BOX = 2;
+export const AMMO_PER_BOX = 3;
 /** The share of the pickup draw that is an ammo box from this level on (out of the apples' share). */
-export const AMMO_CHANCE = 0.2;
+export const AMMO_CHANCE = 0.22;
 export const AMMO_FROM_LEVEL = 7;
 /** Between shots, ms: the boss fights' rate. */
 export const SHOT_COOLDOWN_MS = 250;

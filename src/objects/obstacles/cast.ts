@@ -143,7 +143,7 @@ export const TIMINGS = {
   bait: { idle: 1400, ooze: 800, flood: 1300, dry: 300, spread: 140 },
   // The aerosol's fuse after a shot (its blast radius shown meanwhile), the blast's reach either way along both lanes,
   // and the bonus for each enemy it takes with it
-  aerosol: { fuse: 380, radius: 150, bonus: 30 },
+  aerosol: { fuse: 160, radius: 130, bonus: 30 },
 } as const;
 
 /** The wasp hunts the roach itself (behaviours.stepWasp): where it comes in, how it hovers, follows and dives. */

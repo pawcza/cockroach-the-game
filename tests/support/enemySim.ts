@@ -47,7 +47,8 @@ const AVOID_MARGIN = 10;
 /** On a death, what led to it: per step the roach's x, its lane (0 top, 1 bottom), each lane's danger and when it was knowable. */
 export interface Trace { xs: number[]; lanes: number[]; deadly: Uint8Array[]; knownAt: Float64Array[] }
 
-export type Outcome = { died: false } | { died: true; t: number; x: number; by: string; trace: Trace };
+/** Survived: the roach's x and lane (0 top, 1 bottom) at every step, for what it passed on the way (the ammo model). */
+export type Outcome = { died: false; xs: number[]; lanes: number[] } | { died: true; t: number; x: number; by: string; trace: Trace };
 
 export function simulate(course: Laid[], sim: Sim, startX: number): Outcome {
   const lastX = course[course.length - 1].x + 400;
@@ -180,6 +181,6 @@ export function simulate(course: Laid[], sim: Sim, startX: number): Outcome {
     lanesTaken.push(lane);
     if (deadly[lane][i]) return { died: true, t: now, x: xs[i], by: culprit[lane][i], trace: { xs, lanes: lanesTaken, deadly, knownAt } };
   }
-  return { died: false };
+  return { died: false, xs, lanes: lanesTaken };
 }
 

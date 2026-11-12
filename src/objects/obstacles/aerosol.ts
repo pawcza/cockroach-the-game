@@ -11,7 +11,7 @@ const RADIUS_RED = 0xff4433;
 /** The can's own hitbox, frame px: it stands at the bottom of its tall canvas (the burst frame is what makes it tall). */
 const CAN_H = 30;
 /** A can set off by another's blast: its fuse, ms. */
-const CHAIN_FUSE = 140;
+const CHAIN_FUSE = 100;
 
 /**
  * The aerosol can: it stands in its lane like any blocker (run into it and that's that). Shot, it rattles for a moment
