@@ -1,7 +1,7 @@
 """Renders the shop's art with a local ComfyUI (Krea 2 turbo): `python3 tools/art/comfy.py [name ...]`.
 
 Free and local, no paid services. Mind the GPU: renders belong to 02:00-09:00 unless the owner says otherwise. Each
-item renders a few seeds into art/renders/<name>-<seed>.png; the chosen one is copied by hand to art/sprites/shop/.
+item renders a few seeds into art/renders/<name>-<seed>.png; the chosen one is copied by hand to art/sprites/shop/ (tracked; art/renders is git-ignored).
 Skins start from art/sprites/roach.png (image to image), so they keep the roach's outline and the rig still fits.
 """
 import json

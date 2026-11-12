@@ -9,5 +9,6 @@ data/
 __pycache__/
 .env
 
-# ComfyUI output from tools/art/comfy.py; the chosen renders are copied to art/sprites/shop
+# ComfyUI candidates (tools/art/comfy.py, bosses.py, enemies_render.py). Anything a rig or bake reads is copied out of here
+# into the tracked art/sprites/{shop,bosses,enemies}, so a clone can rebuild every atlas without this folder.
 art/renders/
