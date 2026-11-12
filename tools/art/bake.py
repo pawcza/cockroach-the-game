@@ -21,6 +21,7 @@ from creatures import CREATURES  # noqa: E402
 from objects import OBJECTS  # noqa: E402
 from roach import ANIMATIONS, baked, frames_with_anchors, painted  # noqa: E402
 from skins import PAINTED  # noqa: E402
+from gunact import GUNACT, GUNACT_PICKUPS  # noqa: E402
 from hopact import HOPACT  # noqa: E402
 from swatters import SWATTERS  # noqa: E402
 from worn import ITEMS, bake as bake_item  # noqa: E402
@@ -128,10 +129,11 @@ def collect() -> tuple[dict, dict]:
         colour = GREEN if name in PICKUPS else RED
         frames = [_with_glow(f, colour) for f in _resize(make(), name)]
         sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
-    # The swatters and the hop act's enemies: already at game size from their picked renders, one canvas per strip
-    for name, make in {**SWATTERS, **HOPACT}.items():
+    # The swatters, the hop and gun acts' enemies: already at game size from their picked renders, one canvas per strip;
+    # the ammo box is drawn at game size
+    for name, make in {**SWATTERS, **HOPACT, **GUNACT, **GUNACT_PICKUPS}.items():
         # The bleach jug and the spray's big can stand out of the way at the back of the ledge: no red glow
-        frames = [f if name in UNLIT else _with_glow(f, RED) for f in make()]
+        frames = [f if name in UNLIT else _with_glow(f, GREEN if name in GUNACT_PICKUPS else RED) for f in make()]
         if name in UNLIT:
             frames = [_padded(f) for f in frames]
         sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)

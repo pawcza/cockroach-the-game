@@ -92,6 +92,15 @@ const ANIMATIONS: Record<string, { frames: number; fps: number; once?: boolean }
   hedgehog: { frames: 2, fps: 1 },
   'spray-big': { frames: 3, fps: 10 },
   pope: { frames: 8, fps: 8 },
+  // The gun act's (tools/art/gunact.py): posed frame by frame; the ammo box's glint loops
+  gull: { frames: 2, fps: 1 },
+  wasp: { frames: 3, fps: 1 },
+  'bug-zapper': { frames: 2, fps: 1 },
+  repeller: { frames: 2, fps: 1 },
+  'robot-vacuum': { frames: 4, fps: 1 },
+  aerosol: { frames: 3, fps: 1 },
+  bait: { frames: 2, fps: 3 },
+  ammo: { frames: 2, fps: 3 },
 };
 
 export const frameOf = (name: string, index = 0): string => `${name}_${index}`;
