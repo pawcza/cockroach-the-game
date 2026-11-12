@@ -24,6 +24,7 @@ export function spawnAerosol(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(scene);
   const can = kit.enemy(plan);
   can.anims.stop();
+  can.setFrame(frameOf('aerosol', 0));
   const body = can.body as Phaser.Physics.Arcade.Body;
   const w = body.width / SPRITE_SCALE;
   body.setSize(w, CAN_H, false);

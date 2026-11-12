@@ -92,7 +92,10 @@ export class RunGun {
         return false;
       }
       if (hit) {
-        this.spark(bullet.image.x, bullet.image.y, false);
+        // The spark where the bullet meets it: its body's edge, for one over the lane (the zapper) a little above
+        const top = hit.body ? hit.body.top : bullet.image.y;
+        const bottom = hit.body ? hit.body.bottom : bullet.image.y;
+        this.spark(bullet.image.x, Phaser.Math.Clamp(bullet.image.y, top, bottom), false);
         bullet.image.destroy();
         this.hit(hit);
         return false;

@@ -38,15 +38,18 @@ export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
     if (w.phase === 'waiting') return;
     if (w.phase === 'gone') { wasp.destroy(); return; }
     wasp.setVisible(true).setPosition(Math.round(w.x), Math.round(w.y));
-    wasp.setFrame(frameOf('wasp', w.phase === 'dive' ? 2 : Math.floor(now / 45) % 2));
+    // Locked on it flickers between hovering and its sting-first pose: the cue to hop now
+    const frame = w.phase === 'dive' ? 2 : w.phase === 'windup' ? (Math.floor(now / 70) % 2 ? 2 : 0) : Math.floor(now / 45) % 2;
+    wasp.setFrame(frameOf('wasp', frame));
     wasp.setData('floor', w.lane).setData('harmless', zones.length === 0);
     if (w.phase !== was) {
       if (w.phase === 'windup') {
-        fx.play('glint-white', w.x - 18, w.y - 6, { depth: DEPTH.PICKUPS + 2 });
-        fx.play('halo-red', w.x, w.y - 12, { depth: DEPTH.PICKUPS + 1 });
+        // A glint on its sting and a pink flare round it, riding with it as it draws back
+        fx.play('glint-white', -18, -6, { follow: wasp, depth: DEPTH.PICKUPS + 2 });
+        fx.play('flare-big-pink', 0, -14, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
         kit.audio.playSfx('bird-sfx', VOL.obstacle * 0.4);
       }
-      if (w.phase === 'dive') fx.play('streak-pink', w.x + 30, w.y - 10, { depth: DEPTH.PICKUPS + 1 });
+      if (w.phase === 'dive') fx.play('streak-pink', 30, -10, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
       was = w.phase;
     }
   };

@@ -9,8 +9,9 @@ import { ObstacleKit } from './ObstacleKit';
 
 const GEL = 0x9be23a;
 const GEL_DARK = 0x4c8a1c;
+const GEL_SHINE = 0xe4ff9a;
 /** The puddle as drawn: a flat slab on the ledge, this thick. */
-const PUDDLE_H = 8;
+const PUDDLE_H = 14;
 
 /**
  * The poison bait (lure in behaviours.ts): a bowl of glowing gel in its lane, deadly to touch, with apples laid either
@@ -25,7 +26,10 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
   const band = kit.laneBand(bowl, GEL, DEPTH.CONTACT_SHADOW);
   const puddle = scene.add.rectangle(plan.x, laneY(plan.lane) + 2, 10, PUDDLE_H, GEL, 1).setOrigin(0.5, 1)
     .setDepth(DEPTH.CONTACT_SHADOW + 0.1).setVisible(false);
-  const rim = scene.add.rectangle(plan.x, laneY(plan.lane) + 2, 10, 2, GEL_DARK, 1).setOrigin(0.5, 1)
+  // Its glossy top edge and its dark foot
+  const rim = scene.add.rectangle(plan.x, laneY(plan.lane) + 2 - PUDDLE_H, 10, 2, GEL_SHINE, 1).setOrigin(0.5, 0)
+    .setDepth(DEPTH.CONTACT_SHADOW + 0.2).setVisible(false);
+  const foot = scene.add.rectangle(plan.x, laneY(plan.lane) + 2, 10, 2, GEL_DARK, 1).setOrigin(0.5, 1)
     .setDepth(DEPTH.CONTACT_SHADOW + 0.2).setVisible(false);
   // The flood, where it hurts: an invisible hitbox over the stretch, harmless unless it is flooded
   const { spread } = TIMINGS.bait;
@@ -42,10 +46,11 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
     const p = now.parts?.puddle;
     const wet = now.mark?.progress ?? 0;
     hurt.setData('harmless', !p?.danger);
-    band(now.warn && { ...now.warn }, now.pose === 'strike' ? 0.18 : 0.1 + 0.15 * (now.warn?.level ?? 0));
+    band(now.warn && { ...now.warn }, now.pose === 'strike' ? 0.25 : 0.12 + 0.18 * (now.warn?.level ?? 0));
     const width = Math.round(spread * 2 * wet / 2) * 2;
-    puddle.setVisible(wet > 0).setSize(width, PUDDLE_H).setAlpha(p?.danger ? 0.95 : 0.6);
-    rim.setVisible(wet > 0).setSize(width, 2);
+    puddle.setVisible(wet > 0).setSize(width, PUDDLE_H).setAlpha(p?.danger ? 1 : 0.65);
+    rim.setVisible(wet > 0).setSize(Math.max(0, width - 4), 2);
+    foot.setVisible(wet > 0).setSize(width, 2);
     if (now.pose === 'strike' && kit.isOnScreen(bowl) && ++bubbles % 8 === 0) {
       fx.play('bit-green', plan.x - spread + Math.random() * spread * 2, laneY(plan.lane) - 4, { depth: DEPTH.OBSTACLES + 1, vy: -50, life: 400 });
     }
@@ -62,5 +67,5 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
     fx.burst('bit-green', bowl.x, bowl.y - 12, 10, 16, { depth: DEPTH.POPUP, speed: [60, 180] });
     return false;
   };
-  kit.track(bowl, { objects: [puddle, rim, hurt] });
+  kit.track(bowl, { objects: [puddle, rim, foot, hurt] });
 }

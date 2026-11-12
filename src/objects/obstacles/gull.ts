@@ -20,6 +20,7 @@ export function spawnGull(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
   const gull = kit.enemy(plan);
   gull.anims.stop();
+  gull.setFrame(frameOf('gull', 0));
   gull.setData('flies', true);
   const shadow = gull.getData('shadow') as Phaser.GameObjects.Image | undefined;
   shadow?.setDisplaySize(SHADOW_W, SHADOW_H);

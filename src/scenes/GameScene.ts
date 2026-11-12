@@ -333,7 +333,7 @@ export class GameScene extends Phaser.Scene {
       const added = this.runGun.reload(AMMO_PER_BOX);
       getFx(this).play('glint-gold', sprite.x, sprite.y - 16, { depth: DEPTH.POPUP });
       this.audio.playSfx('shell-casing', VOL.pickup);
-      collisions.showPickupPopup(sprite.x, sprite.y - 30, added > 0 ? `+${added} NAB.` : 'PEŁNY', '#ffe066');
+      collisions.showPickupPopup(sprite.x, sprite.y - 30, added > 0 ? `+${added} ${added === 1 ? 'NABÓJ' : 'NABOJE'}` : 'PEŁNY', '#ffe066');
       sprite.destroy();
     });
     // Close calls score like a pickup: they feed the combo and its multiplier
@@ -399,7 +399,10 @@ export class GameScene extends Phaser.Scene {
       getGhostManager: () => this.session.ghostManager,
       seed: this.seed,
       absorbHit: () => this.absorbHit(),
-      onAbilityEarned: (ability) => this.lessons.teach(ability, this.run.abilities.canShootInRun),
+      onAbilityEarned: (ability) => {
+        this.lessons.teach(ability, this.run.abilities.canShootInRun);
+        if (ability === 'gun' && this.run.abilities.canShootInRun) this.spawnManager.hintNextWall();
+      },
     });
 
     this.taunts = new TauntDirector({
@@ -624,7 +627,11 @@ export class GameScene extends Phaser.Scene {
 
     const distance = this.getDistance();
     this.levels.update(distance);
-    if (this.boss.tryTrigger(distance)) return;
+    if (this.boss.tryTrigger(distance)) {
+      // Bullets in flight would hang in the air over the fight
+      this.runGun.clear();
+      return;
+    }
 
     this.updateHud(distance);
 

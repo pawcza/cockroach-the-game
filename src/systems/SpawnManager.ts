@@ -99,6 +99,14 @@ export class SpawnManager {
     this.held = true;
   }
 
+  /**
+   * The gun is in the run now: the next wall (or cloud wall) carries the DASH! hint again, so it is plain that a bullet
+   * does nothing to it and the dash still does.
+   */
+  hintNextWall(): void {
+    this.wallsShown = Math.min(this.wallsShown, WALL_HINTS - 1);
+  }
+
   /** The regular course starts at this x (once, after a hold). */
   resumeSpawning(fromX: number): void {
     if (!this.held) return;

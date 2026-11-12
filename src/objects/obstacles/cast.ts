@@ -135,7 +135,7 @@ export const TIMINGS = {
   // along it at the runner, then climbs
   gull: { circle: 1300, windup: 700, dive: 220, glide: 380, climb: 520, high: 140, glideDx: -140 },
   // The zapper's bolt runs `reach` px down its lane towards the runner
-  zapper: { idle: 1100, charge: 650, bolt: 380, cool: 220, reach: 250, hang: 118 },
+  zapper: { idle: 1100, charge: 650, bolt: 380, cool: 220, reach: 250, hang: 64 },
   robotVacuum: { drive: 1300, wait: 450, range: 100 },
   // One ring a beat, rolling down the repeller's lane
   // ...short of a screen's worth: a ring is seen with its repeller, never coming out of nowhere
