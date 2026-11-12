@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import { playUi } from '../../audio/AudioManager';
 import { buttonStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
-import { getMusicVolume, getSfxVolume, setMusicVolume, setSfxVolume } from '../../utils/Storage';
+import { getMusicVolume, getSfxVolume, getTauntsEnabled, setMusicVolume, setSfxVolume, setTauntsEnabled } from '../../utils/Storage';
 import { createButton, UIButton } from '../../ui/shared';
 import { account, deleteAccount } from '../../ui/Account';
 
@@ -10,6 +11,8 @@ const CONFIRM_MS = 4000;
 const ROW_W = 320;
 const BAR_H = 8;
 const KEY_STEP = 0.1;
+/** Slider ticks come at most this often while a bar is dragged. */
+const TICK_GAP_MS = 60;
 const FILL = 0xb9a78d;
 const TRACK = 0x2a1f18;
 
@@ -48,7 +51,14 @@ export function buildSettingsPage(
     onPreview?: (v: number) => void,
   ): UIButton => {
     let value = getValue();
-    const row = createButton(scene, width / 2, y, ROW_W, 34, '', 0x444444, buttonStyle({ fontSize: '10px' }), () => {});
+    // A tick for each step, never more than one in a few frames while dragging
+    let lastTick = 0;
+    const tick = (): void => {
+      if (scene.time.now - lastTick < TICK_GAP_MS) return;
+      lastTick = scene.time.now;
+      playUi(scene, 'ui-slider');
+    };
+    const row = createButton(scene, width / 2, y, ROW_W, 34, '', 0x444444, buttonStyle({ fontSize: '10px' }), () => {}, { sound: 'none' });
     container.add(row.all);
 
     const barY = y + 28;
@@ -63,9 +73,11 @@ export function buildSettingsPage(
     };
     // Only a real change is saved, so opening the page doesn't pin today's defaults for good
     const set = (next: number): void => {
+      const before = value;
       value = Phaser.Math.Clamp(Math.round(next * 100) / 100, 0, 1);
       draw();
       setValue(value);
+      if (value !== before) tick();
       onPreview?.(value);
     };
     draw();
@@ -89,7 +101,7 @@ export function buildSettingsPage(
     return row;
   };
 
-  const startY = Math.round(height / 2 - 70);
+  const startY = Math.round(height / 2 - 84);
   const music = createSlider(startY, 'Muzyka', getMusicVolume, setMusicVolume, (v) => {
     // Live preview: adjust currently playing BGM
     const bgm = scene.sound.getAll('menu-bgm').find(s => s.isPlaying);
@@ -97,11 +109,21 @@ export function buildSettingsPage(
   });
   const sfx = createSlider(startY + 84, 'Efekty', getSfxVolume, setSfxVolume);
 
-  if (scene.sys.game.device.os.desktop) container.add(scene.add.text(Math.round(width / 2), startY + 150, 'Strzałki w bok: głośność', smallStyle({
+  // The bosses' taunts while you run: a switch, pressed to flip
+  let taunts = getTauntsEnabled();
+  const tauntRow = createButton(scene, width / 2, startY + 146, ROW_W, 28, '', 0x444444, buttonStyle({ fontSize: '10px' }), () => {
+    taunts = !taunts;
+    setTauntsEnabled(taunts);
+    tauntRow.setLabel(`Docinki bossów: ${taunts ? 'TAK' : 'NIE'}`);
+  });
+  tauntRow.setLabel(`Docinki bossów: ${taunts ? 'TAK' : 'NIE'}`);
+  container.add(tauntRow.all);
+
+  if (scene.sys.game.device.os.desktop) container.add(scene.add.text(Math.round(width / 2), startY + 174, 'Strzałki w bok: głośność', smallStyle({
     fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 0,
   })).setOrigin(0.5));
 
-  const rowY = startY + 196;
+  const rowY = startY + 204;
   const smallBtn = buttonStyle({ fontSize: '8px' });
   const privacy = createButton(scene, width / 2 - 90, rowY, 160, 28, 'Prywatność', 0x444444, smallBtn, onPrivacy);
   container.add(privacy.all);
@@ -130,5 +152,5 @@ export function buildSettingsPage(
   };
   refresh();
 
-  return { buttons: [music, sfx, privacy, remove], refresh };
+  return { buttons: [music, sfx, privacy, remove, tauntRow], refresh };
 }

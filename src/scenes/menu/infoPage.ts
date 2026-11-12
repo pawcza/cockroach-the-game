@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { ATLAS, SPRITE_SCALE, frameOf, playLoop } from '../../config/sprites';
 import { bodyStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
 import { getGamesPlayed, getHighScore } from '../../utils/Storage';
-import { createPanel } from '../../ui/shared';
+import { createButton, createPanel, UIButton } from '../../ui/shared';
 import { addContactShadow } from '../../effects/ContactShadow';
 
 /** Each quarter keeps its old colour, but only as a bar beside its heading. */
@@ -17,7 +17,8 @@ export function buildInfoPage(
   width: number,
   height: number,
   isMobile: boolean,
-): void {
+  onTutorial: () => void,
+): UIButton {
   // 2x2 grid of panels above the back button
   const gap = 14;
   const zoneW = Math.floor((width - gap * 3) / 2);
@@ -63,14 +64,19 @@ export function buildInfoPage(
   const bindings: [string[], string][] = isMobile
     ? [
         [['Lewa strona'], 'Zmiana toru'],
-        [['Prawa strona'], 'Dash'],
+        [['Prawy dolny róg'], 'Dash, strzał: nagrody'],
         [['II'], 'Pauza'],
       ]
     : [
-        [['SPACJA', '↑', '↓'], 'Zmiana toru'],
-        [['SHIFT', 'CTRL'], 'Dash'],
+        [['↑', '↓'], 'Zmiana toru'],
+        [['→'], 'Dash: nagroda za bossa'],
+        [['SPACJA'], 'Strzał: nagroda za bossa'],
         [['ESC'], 'Pauza'],
       ];
+  // Replays the opening lesson: a run that starts with it
+  const tutorialBtn = createButton(scene, zones.controls.x + zoneW - 16 - 60, zones.controls.y + 24, 120, 26, 'Samouczek', 0x444444,
+    smallStyle({ fontSize: '8px' }), onTutorial);
+  container.add(tutorialBtn.all);
   const keyStyle = bodyStyle({
     fontSize: '10px',
     color: '#15100d',
@@ -102,4 +108,5 @@ export function buildInfoPage(
     container.add(scene.add.text(zones.stats.x + 18, rowY, label, labelStyle).setOrigin(0, 0.5));
     container.add(scene.add.text(zones.stats.x + zoneW - 18, rowY, value, statStyle).setOrigin(1, 0.5));
   });
+  return tutorialBtn;
 }

@@ -1,20 +1,25 @@
 /** The pill power-up's screen and trail effects. Player owns the state that gameplay reads; this owns the show. */
 import Phaser from 'phaser';
 import { COLORS, DEPTH, PILL_DURATION, PILL_SCORE, PILL_WARN_TIME } from '../config/constants';
-import { SPRITE_SCALE } from '../config/sprites';
+import { ROACH_FEET_OFFSET, SPRITE_SCALE } from '../config/sprites';
+import { getFx, roachGhost, type FxHandle, type TrailHandle } from '../effects/Fx';
+import { popup } from '../effects/Popup';
 import { neonStyle, popupStyle } from '../utils/TextStyles';
-import { fadeAndDestroy, floatingText } from '../utils/TweenPatterns';
+import { floatingText } from '../utils/TweenPatterns';
 
-const THROB = 0.13;
+const OVERLAY_ALPHA = 0.08;
+const GHOST_EVERY_MS = 90;
+const STREAK_EVERY_MS = 90;
+/** The warning's blink: on and off this often. */
+const BLINK_MS = 90;
 
 export class PillEffect {
   private scene: Phaser.Scene;
   private cockroach!: Phaser.Physics.Arcade.Sprite;
   private overlay!: Phaser.GameObjects.Rectangle;
-  private rainbowTimer: Phaser.Time.TimerEvent | null = null;
-  private trailTimer: Phaser.Time.TimerEvent | null = null;
-  private speedLinesTimer: Phaser.Time.TimerEvent | null = null;
-  private speedLines: Phaser.GameObjects.Rectangle[] = [];
+  private aura: FxHandle | null = null;
+  private trail: TrailHandle | null = null;
+  private streakTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -34,83 +39,65 @@ export class PillEffect {
   }
 
   start(px: number, py: number): void {
+    const fx = getFx(this.scene);
     floatingText(this.scene, px, py - 30, 'PIGULKA!', neonStyle(), { floatY: 60, scale: 2, duration: 1200 });
-    floatingText(this.scene, px, py, `+${PILL_SCORE}`, popupStyle(), { floatY: 40 });
-    this.scene.cameras.main.flash(300, 180, 0, 255);
+    popup(this.scene, px, py + 10, `+${PILL_SCORE}`, popupStyle({ color: '#ff9ad0' }));
+    this.scene.cameras.main.flash(200, 180, 0, 255);
 
-    this.rainbowTimer?.destroy();
-    this.rainbowTimer = this.scene.time.addEvent({
-      delay: 60,
-      repeat: -1,
-      callback: () => {
-        const hue = (this.scene.time.now * 0.5) % 360;
-        const color = Phaser.Display.Color.HSLToColor(hue / 360, 1, 0.6);
-        this.cockroach.setTint(color.color);
-        this.cockroach.setAlpha(0.7 + Math.sin(this.scene.time.now * 0.02) * 0.3);
-      },
+    // Pink and cyan flames on its back, afterimages left behind in both colours, speed lines crossing the screen
+    this.stopShow();
+    this.aura = fx.play('aura-pill', 0, ROACH_FEET_OFFSET, { follow: this.cockroach, depth: this.cockroach.depth - 0.2, loop: true });
+    let pink = false;
+    this.trail = fx.trail(this.cockroach, () => {
+      pink = !pink;
+      return roachGhost(this.cockroach.frame.name, pink ? 'pink' : 'cyan');
+    }, GHOST_EVERY_MS, { depth: this.cockroach.depth - 0.1, life: 260, fadeOut: 180, flipY: this.cockroach.flipY });
+    this.streakTimer = this.scene.time.addEvent({
+      delay: STREAK_EVERY_MS,
+      repeat: Math.floor(PILL_DURATION / STREAK_EVERY_MS),
+      callback: () => this.spawnStreak(),
     });
-
-    this.trailTimer?.destroy();
-    this.trailTimer = this.scene.time.addEvent({
-      delay: 80,
-      repeat: -1,
-      callback: () => this.spawnAfterimage(),
-    });
-
-    this.startSpeedLines();
-    this.overlay.setFillStyle(COLORS.PILL_GLOW, 0.1);
+    this.overlay.setFillStyle(COLORS.PILL_GLOW, OVERLAY_ALPHA);
   }
 
-  /** The last PILL_WARN_TIME fades out, so the blink and the trail stop early. */
+  /** The last PILL_WARN_TIME winds down: the afterimages stop and the roach and its flames blink. */
   enterWarning(): void {
-    this.stopTimers(false);
+    this.trail?.stop();
+    this.trail = null;
   }
 
   update(isWarning: boolean, pillStartTime: number): void {
-    const t = this.scene.time.now * 0.003;
-    const color = Phaser.Display.Color.GetColor(
-      Math.floor((Math.sin(t) + 1) * 127),
-      Math.floor((Math.sin(t + 2.094) + 1) * 127),
-      Math.floor((Math.sin(t + 4.189) + 1) * 127),
-    );
-
-    if (isWarning) {
-      const elapsed = this.scene.time.now - pillStartTime;
-      const warnProgress = Math.min(1, (elapsed - (PILL_DURATION - PILL_WARN_TIME)) / PILL_WARN_TIME);
-      const fade = 1 - warnProgress;
-      this.cockroach.setTint(color);
-      this.cockroach.setAlpha(0.4 + fade * 0.6);
-      this.cockroach.setScale(SPRITE_SCALE);
-      this.overlay.setFillStyle(color, fade * 0.15);
-    } else {
-      this.overlay.setFillStyle(color, 0.15 + Math.sin(t * 1.5) * 0.05);
-      this.cockroach.setScale(SPRITE_SCALE + Math.sin(this.scene.time.now * 0.01) * THROB);
-    }
+    if (!isWarning) return;
+    const now = this.scene.time.now;
+    const elapsed = now - pillStartTime;
+    const fade = 1 - Math.min(1, (elapsed - (PILL_DURATION - PILL_WARN_TIME)) / PILL_WARN_TIME);
+    const on = Math.floor(now / BLINK_MS) % 2 === 0;
+    this.cockroach.setAlpha(on ? 1 : 0.4);
+    this.aura?.image.setVisible(on);
+    this.overlay.setFillStyle(COLORS.PILL_GLOW, fade * OVERLAY_ALPHA);
   }
 
-  /** Stops everything the effect has running: timers, speed lines and the overlay. */
+  /** Stops everything the effect has running: flames, trail, speed lines and the overlay. */
   stop(): void {
-    this.stopTimers(true);
+    this.stopShow();
     this.overlay.setFillStyle(0x000000, 0);
-    this.speedLines.forEach(l => l.destroy());
-    this.speedLines = [];
+    this.cockroach.setAlpha(1);
   }
 
-  private stopTimers(includingSpeedLines: boolean): void {
-    this.rainbowTimer?.destroy();
-    this.rainbowTimer = null;
-    this.trailTimer?.destroy();
-    this.trailTimer = null;
-    if (includingSpeedLines) {
-      this.speedLinesTimer?.destroy();
-      this.speedLinesTimer = null;
-    }
+  private stopShow(): void {
+    this.aura?.stop();
+    this.aura = null;
+    this.trail?.stop();
+    this.trail = null;
+    this.streakTimer?.destroy();
+    this.streakTimer = null;
   }
 
   showEnd(): void {
     this.cockroach.clearTint();
     this.cockroach.setScale(SPRITE_SCALE);
     this.scene.cameras.main.flash(200, 255, 255, 255);
+    getFx(this.scene).play('poof', this.cockroach.x, this.cockroach.y, { depth: this.cockroach.depth + 0.1 });
 
     const { width, height } = this.scene.cameras.main;
     floatingText(
@@ -123,61 +110,11 @@ export class PillEffect {
     );
   }
 
-  private spawnAfterimage(): void {
-    const afterimage = this.scene.add.sprite(
-      this.cockroach.x,
-      this.cockroach.y,
-      this.cockroach.texture.key,
-      this.cockroach.frame.name,
-    );
-    afterimage.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
-    afterimage.setAlpha(0.5);
-    afterimage.setFlipY(this.cockroach.flipY);
-
-    const rainbowColors = COLORS.RAINBOW;
-    const colorIdx = Math.floor(this.scene.time.now / 60) % rainbowColors.length;
-    afterimage.setTint(rainbowColors[colorIdx]);
-
-    fadeAndDestroy(this.scene, afterimage, 300, {
-      scaleX: afterimage.scaleX * 1.3,
-      scaleY: afterimage.scaleY * 1.3,
-    });
-  }
-
-  private startSpeedLines(): void {
-    this.speedLinesTimer?.destroy();
-    this.speedLines.forEach(l => l.destroy());
-    this.speedLines = [];
-
-    this.speedLinesTimer = this.scene.time.addEvent({
-      delay: 60,
-      repeat: Math.floor(PILL_DURATION / 60),
-      callback: () => this.spawnSpeedLine(),
-    });
-  }
-
-  private spawnSpeedLine(): void {
-    const camera = this.scene.cameras.main;
-    const lineWidth = Phaser.Math.Between(40, 120);
-    const lineColors = COLORS.PILL_LINES;
-    const color = lineColors[Math.floor(Math.random() * lineColors.length)];
-    const line = this.scene.add.rectangle(camera.width + lineWidth, Phaser.Math.Between(0, camera.height), lineWidth, 2, color, 0.6);
-    line.setScrollFactor(0);
-    line.setDepth(DEPTH.PILL_SPEED_LINES);
-    line.setBlendMode(Phaser.BlendModes.ADD);
-    this.speedLines.push(line);
-
-    this.scene.tweens.add({
-      targets: line,
-      x: -lineWidth,
-      alpha: 0,
-      duration: 200 + Math.random() * 200,
-      ease: 'Linear',
-      onComplete: () => {
-        const idx = this.speedLines.indexOf(line);
-        if (idx >= 0) this.speedLines.splice(idx, 1);
-        line.destroy();
-      },
+  /** A pink or cyan line crossing the screen right to left, faster than the world. */
+  private spawnStreak(): void {
+    const { width, height } = this.scene.cameras.main;
+    getFx(this.scene).play(Math.random() < .5 ? 'streak-pink' : 'streak-cyan', width + 8, Phaser.Math.Between(16, height - 40), {
+      scrollFactor: 0, depth: DEPTH.PILL_SPEED_LINES, vx: -1400 - Math.random() * 800, frame: 0, life: 420, fadeOut: 140,
     });
   }
 }

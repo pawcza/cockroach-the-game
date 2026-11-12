@@ -33,6 +33,23 @@ test('run stats keep known fields only', () => {
   assert.deepEqual(parseRunStats('nope'), {});
 });
 
+test('every boss that can kill is a known death cause, made-up ones are not', () => {
+  for (const cause of ['boss', 'lodzia', 'bigos', 'eksterminator']) {
+    assert.equal(parseRunStats({ obstacleType: cause }).obstacleType, cause);
+    const entry = parseScoreSubmission({ name: 'a', score: 1, deathCause: cause });
+    assert.ok(!('error' in entry) && entry.deathCause === cause);
+  }
+  assert.equal(parseRunStats({ obstacleType: 'lodzia2' }).obstacleType, undefined);
+});
+
+test('the hop and dash acts\' enemies are known death causes', () => {
+  for (const cause of ['glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog']) {
+    assert.equal(parseRunStats({ obstacleType: cause }).obstacleType, cause);
+    const entry = parseScoreSubmission({ name: 'a', score: 1, deathCause: cause });
+    assert.ok(!('error' in entry) && entry.deathCause === cause);
+  }
+});
+
 test('boss projectiles are rebuilt from known fields', () => {
   const good = { lane: 'top', speed: 300, faceIdx: -1, indestructible: true, volley: false };
   assert.deepEqual(parseBossProjectile({ ...good, extra: 1 }), good);

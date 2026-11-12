@@ -11,11 +11,11 @@ import {
   PILL_DURATION,
   PILL_WARN_TIME,
   SPEED_BOOST_PER_LEVEL,
-  COLORS,
   DEPTH,
 } from '../config/constants';
 import {
   ATLAS,
+  FLIP_HOP_MS,
   HOP_MS,
   ROACH_FEET_OFFSET,
   SPRITE_SCALE,
@@ -23,10 +23,12 @@ import {
   frameOf,
   hopY,
 } from '../config/sprites';
-import { AudioManager } from '../audio/AudioManager';
+import { AudioManager, VOL } from '../audio/AudioManager';
 import { addContactShadow } from '../effects/ContactShadow';
-import { fadeAndDestroy } from '../utils/TweenPatterns';
-import { dress, PLAIN, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
+import { getFx, roachGhost, type TrailHandle } from '../effects/Fx';
+import { popup } from '../effects/Popup';
+import { popupStyle } from '../utils/TextStyles';
+import { dress, parseRoach, pistolPoint, PLAIN, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
 import { PillEffect } from './PillEffect';
 
 export type Floor = 'top' | 'bottom';
@@ -36,6 +38,11 @@ const SHADOW_HOP_SHRINK = 0.4;
 /** After the pill: still unhurt and still crushing, long enough to clear whatever is on screen at top speed. */
 const PILL_GRACE_MS = 1200;
 const GRACE_BLINK_MS = 70;
+/** The wylinka: the world stands still this long (real time) when the shell comes off, and the roach blinks this long after. */
+const MOULT_HIT_STOP_MS = 90;
+const MOULT_GRACE_MS = 1500;
+/** The roach while it dashes: 1 is solid, its teal afterimages the cue. Set it to 0.5 for the old see-through dash. */
+const DASH_ALPHA = 1;
 
 export class Player {
   private scene: Phaser.Scene;
@@ -53,11 +60,16 @@ export class Player {
   // Dash
   private _isDashing = false;
   private _dashReady = true;
-  private dashTrailTimer: Phaser.Time.TimerEvent | null = null;
+  private dashTrail: TrailHandle | null = null;
   private _dashStartTime = 0;
 
   // Invulnerability
   private _isInvulnerable = false;
+  private moultGraceUntil = 0;
+
+  /** The share of forward speed something is sucking away this frame (setPull), and what the last frame's was. */
+  private pull = 0;
+  private pulledBy = 0;
 
   // Pill
   private _isPillActive = false;
@@ -107,12 +119,19 @@ export class Player {
   get isDashing(): boolean { return this._isDashing; }
   get dashReady(): boolean { return this._dashReady; }
   get dashStartTime(): number { return this._dashStartTime; }
+  /** 0 just after a dash, 1 when the next is ready: the dash and its cooldown as one sweep. */
+  get dashCharge(): number {
+    if (this._dashReady) return 1;
+    return Phaser.Math.Clamp((this.scene.time.now - this._dashStartTime) / (DASH_DURATION + DASH_COOLDOWN), 0, 1);
+  }
   /** Nothing hurts: the countdown and boss blink, a pill, and the pill's grace after it. */
   get isInvulnerable(): boolean { return this._isInvulnerable || this.crushesObstacles; }
   /** On a pill, and for its grace after, obstacles the roach touches are punted away instead of killing it. */
   get crushesObstacles(): boolean {
     return !this._isDead && (this._isPillActive || this.scene.time.now < this.pillGraceUntil);
   }
+  /** Just shed its shell: hits in a boss fight, which have no overlap check of their own, must pass through. */
+  get inMoultGrace(): boolean { return this.scene.time.now < this.moultGraceUntil; }
   get isPillActive(): boolean { return this._isPillActive; }
   get isPillWarning(): boolean { return this._isPillWarning; }
   get pillSpeedBoost(): number { return this._pillSpeedBoost; }
@@ -141,6 +160,17 @@ export class Player {
     this.cockroach.setScale(SPRITE_SCALE);
     this.cockroach.setDepth(DEPTH.PICKUPS);
     fitRoachBody(this.cockroach);
+    // The boss fight's frames are taller: the hitbox is measured from the pivot again whenever the frame changes
+    const refit = () => fitRoachBody(this.cockroach);
+    this.cockroach.on(Phaser.Animations.Events.ANIMATION_START, refit);
+    this.cockroach.on(Phaser.Animations.Events.ANIMATION_UPDATE, refit);
+    // Armed, every move (the catch, a shot, a lane flip) ends back on aiming
+    this.cockroach.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (animation: Phaser.Animations.Animation) => {
+      const done = parseRoach(animation.key)?.anim;
+      if (this.inBossStance && !this._isDead && (done === 'catch' || done === 'shoot' || done === 'flip')) {
+        this.cockroach.play(this.anim('aim'));
+      }
+    });
     this.cockroach.y = this.laneY('bottom');
     this.cockroach.play(this.anim('idle'));
     this.worn = dress(this.scene, this.cockroach, this.look);
@@ -178,10 +208,11 @@ export class Player {
     this._isDashing = false;
     this._dashReady = true;
 
-    if (this.dashTrailTimer) { this.dashTrailTimer.destroy(); }
-    this.dashTrailTimer = null;
+    this.dashTrail?.stop();
+    this.dashTrail = null;
     this._isInvulnerable = true;
     this.pillGraceUntil = 0;
+    this.moultGraceUntil = 0;
     this._dashStartTime = 0;
     this.stopPill();
   }
@@ -202,9 +233,25 @@ export class Player {
     this._currentSpeed = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
     this._speedMultiplier = this._currentSpeed / COCKROACH_BASE_SPEED;
 
-    // Auto-run (flat dash boost + pill multiplier)
+    // Auto-run (flat dash boost + pill multiplier), less what sucks at it; a dash breaks free of that
     const dashBoost = this._isDashing ? DASH_SPEED_BOOST : 0;
-    this.cockroach.setVelocityX((this._currentSpeed + dashBoost) * this._pillSpeedBoost);
+    const drag = this._isDashing ? 0 : this.pull;
+    this.pulledBy = drag;
+    this.pull = 0;
+    this.cockroach.setVelocityX((this._currentSpeed + dashBoost) * this._pillSpeedBoost * (1 - drag));
+  }
+
+  /**
+   * Something sucks at the roach (the vacuum): this share of its forward speed goes, this frame only (the strongest
+   * pull counts). Local to this client: its position reports carry it to the others like any speed.
+   */
+  setPull(share: number): void {
+    this.pull = Math.max(this.pull, Math.min(.9, share));
+  }
+
+  /** Being pulled right now (as of the last speed update): for the strain it shows. */
+  get pulled(): boolean {
+    return this.pulledBy > 0;
   }
 
   updateDash(): void {
@@ -280,8 +327,8 @@ export class Player {
     this.worn.forEach(item => item.destroy());
     this.worn = this.cockroach ? dress(this.scene, this.cockroach, look) : [];
     if (this.cockroach) {
-      const playing = /^roach-(?:[a-z]+-)?(run|idle|hop|dash|death)$/.exec(this.cockroach.anims.getName() ?? '');
-      if (playing) this.cockroach.play(this.anim(playing[1] as RoachAnim));
+      const playing = parseRoach(this.cockroach.anims.getName() ?? '');
+      if (playing) this.cockroach.play(this.anim(playing.anim));
     }
   }
 
@@ -303,14 +350,13 @@ export class Player {
     const body = this.cockroach.body as Phaser.Physics.Arcade.Body;
     body.allowGravity = false;
     body.setVelocityY(0);
-    if (!this.inBossStance) {
-      this.cockroach.anims.timeScale = 1;
-      this.cockroach.play(this.anim('hop'));
-    }
+    this.cockroach.anims.timeScale = 1;
+    // Armed, it changes lanes with a somersault, pistol in hand
+    this.cockroach.play(this.anim(this.inBossStance ? 'flip' : 'hop'));
     this.hopTween = this.scene.tweens.addCounter({
       from: 0,
       to: 1,
-      duration: HOP_MS,
+      duration: this.inBossStance ? FLIP_HOP_MS : HOP_MS,
       ease: 'Sine.easeInOut',
       onUpdate: (tween) => {
         const t = tween.getValue() ?? 0;
@@ -318,7 +364,7 @@ export class Player {
         this.hopShadowY = Phaser.Math.Linear(fromShadowY, toShadowY, t);
         this.hopLift = Math.sin(t * Math.PI);
       },
-      onComplete: () => this.endHop(true),
+      onComplete: () => { this.audio.playHopLand(); this.endHop(true); this.kickDust('dust-land', 0); },
     });
   }
 
@@ -338,32 +384,36 @@ export class Player {
     this._dashReady = false;
     this._dashStartTime = this.scene.time.now;
 
-    this.cockroach.setAlpha(0.5);
-    this.cockroach.setTint(0xffffaa);
-
     this.audio.playDash();
+    if (DASH_ALPHA < 1) this.cockroach.setAlpha(DASH_ALPHA);
 
-    this.dashTrailTimer = this.scene.time.addEvent({
-      delay: 80,
-      repeat: Math.floor(DASH_DURATION / 80) - 1,
-      callback: () => {
-        this.spawnAfterimage();
-      },
+    // A kick of dust off the ledge, speed lines past it, and teal afterimages of its own frames left behind
+    const fx = getFx(this.scene);
+    this.kickDust('skid', -30);
+    for (let i = 0; i < 3; i++) {
+      fx.play('streak-teal', this.cockroach.x + 30 + Math.random() * 70, this.cockroach.y - 24 + i * 16 + Math.random() * 6, {
+        depth: this.cockroach.depth + 0.1, delay: i * 50,
+      });
+    }
+    this.dashTrail = fx.trail(this.cockroach, () => roachGhost(this.cockroach.frame.name, 'teal'), 60, {
+      depth: this.cockroach.depth - 0.1, life: 240, fadeOut: 160,
     });
+  }
+
+  /** Dust off the ledge under the roach, dx px behind (negative) or ahead of its middle. */
+  private kickDust(name: string, dx: number): void {
+    if (this._isDead) return;
+    getFx(this.scene).play(name, this.cockroach.x + dx, this.cockroach.y + ROACH_FEET_OFFSET, { depth: this.cockroach.depth - 0.5 });
   }
 
   private endDash(): void {
     this._isDashing = false;
-    this.cockroach.setAlpha(1);
-    this.cockroach.clearTint();
+    if (DASH_ALPHA < 1) this.cockroach.setAlpha(1);
+    this.dashTrail?.stop();
+    this.dashTrail = null;
+    this.kickDust('skid', 10);
 
-    if (this.dashTrailTimer) {
-      this.dashTrailTimer.destroy();
-      this.dashTrailTimer = null;
-    }
-
-    // Clear whatever the dash ended inside of, or it would kill on the next frame. The body has to go now:
-    // the fade below keeps the sprite around for another 200 ms
+    // Clear whatever the dash ended inside of, or it would kill on the next frame: knocked out of the world in a poof
     const body = this.cockroach.body as Phaser.Physics.Arcade.Body;
     const bounds = new Phaser.Geom.Rectangle(body.x, body.y, body.width, body.height);
     const obstacles = this.scene.data.get('obstacles') as Phaser.Physics.Arcade.Group | undefined;
@@ -373,61 +423,37 @@ export class Player {
       if (!other.enable) return;
       const hit = new Phaser.Geom.Rectangle(other.x, other.y, other.width, other.height);
       if (Phaser.Geom.Intersects.RectangleToRectangle(bounds, hit)) {
-        sprite.disableBody();
-        this.scene.tweens.add({
-          targets: sprite,
-          alpha: 0,
-          scale: 0.5,
-          duration: 200,
-          onComplete: () => sprite.destroy(),
-        });
+        getFx(this.scene).play('poof', sprite.x, sprite.getCenter().y, { depth: sprite.depth + 0.1 });
+        sprite.destroy();
       }
     });
-  }
-
-  private spawnAfterimage(): void {
-    const afterimage = this.scene.add.sprite(
-      this.cockroach.x,
-      this.cockroach.y,
-      this.cockroach.texture.key,
-      this.cockroach.frame.name,
-    );
-    afterimage.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
-    afterimage.setAlpha(0.7);
-    const trailColors = COLORS.DASH_TRAIL;
-    const colorIndex = Math.floor(this._speedMultiplier) % trailColors.length;
-    afterimage.setTint(trailColors[colorIndex]);
-    afterimage.setFlipY(this.cockroach.flipY);
-
-    fadeAndDestroy(this.scene, afterimage, 350);
   }
 
   private playDashReadyEffect(): void {
     if (this._isDead) return;
 
-    this.audio.playSfx('dash-ready', 0.6);
+    this.audio.playSfx('dash-ready', VOL.pickup);
 
-    // White flash overlay on top of cockroach
-    const flash = this.scene.add.sprite(
-      this.cockroach.x, this.cockroach.y,
-      this.cockroach.texture.key, this.cockroach.frame.name,
-    );
-    flash.setScale(this.cockroach.scaleX, this.cockroach.scaleY);
-    flash.setFlipY(this.cockroach.flipY);
-    flash.setTint(0xffffff);
-    flash.setAlpha(1);
-    flash.setDepth(this.cockroach.depth + 1);
-    flash.setBlendMode(Phaser.BlendModes.ADD);
-
-    this.scene.tweens.add({
-      targets: flash,
-      alpha: 0,
-      scaleX: flash.scaleX * 1.3,
-      scaleY: flash.scaleY * 1.3,
-      duration: 200,
-      ease: 'Power2',
-      onComplete: () => flash.destroy(),
+    // The roach lights up for a moment and a glint flares on its head
+    this.flashWhite(120);
+    getFx(this.scene).play('glint', this.cockroach.x + (this.cockroach.flipX ? -56 : 56), this.cockroach.y - 8, {
+      depth: this.cockroach.depth + 1,
     });
+  }
+
+  /** The roach lit white for ms: its own silhouette over it, or a tint fill for frames that have none. */
+  private flashWhite(ms: number): void {
+    const { cockroach } = this;
+    const ghost = roachGhost(cockroach.frame.name, 'white');
+    if (ghost) {
+      getFx(this.scene).play(ghost.name, 0, 0, {
+        follow: cockroach, frame: ghost.frame, life: ms, fadeOut: ms / 2, depth: cockroach.depth + 0.5, light: true,
+        flipX: cockroach.flipX, flipY: cockroach.flipY,
+      });
+      return;
+    }
+    cockroach.setTintFill(0xffffff);
+    this.scene.time.delayedCall(ms, () => { if (!this._isDead) cockroach.clearTint(); });
   }
 
   activatePill(px: number, py: number): void {
@@ -443,6 +469,7 @@ export class Player {
   }
 
   private endPillEffect(): void {
+    this.audio.playSfx('pill-end', VOL.pickup);
     this.stopPill();
     this.pill.showEnd();
     // Still crushing for a moment, blinking, so the pill never ends with the roach inside an obstacle
@@ -467,10 +494,8 @@ export class Player {
     this._isDead = true;
 
     // Reset dash state on death
-    if (this.dashTrailTimer) {
-      this.dashTrailTimer.destroy();
-      this.dashTrailTimer = null;
-    }
+    this.dashTrail?.stop();
+    this.dashTrail = null;
     this._isDashing = false;
     this._dashReady = true;
 
@@ -483,6 +508,43 @@ export class Player {
     this.cockroach.setVelocity(0, 0);
     (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     this.cockroach.setAlpha(1).clearTint().setDepth(DEPTH.VFX_TEXT);
+  }
+
+  /**
+   * The wylinka: a hit that would have killed sheds the shell instead. A pale copy of the roach's current frame is left
+   * behind and tumbles off, the world stops for a beat with a flash, and the roach blinks unhurt for a moment. The
+   * caller has already spent the charge and punts whatever hit it.
+   */
+  moult(): void {
+    const { scene, cockroach } = this;
+    this.audio.playSfx('moult-pop', VOL.boss);
+
+    // The shell pops off with a spark and a ring, tumbles up and away behind, and bits of it scatter. The hit-stop
+    // below holds all of it for a beat before it flies
+    const fx = getFx(scene);
+    fx.play('shell', cockroach.x, cockroach.y, {
+      depth: cockroach.depth - 0.1, vx: -160, vy: -520, gravity: 1500, life: 820, fadeOut: 200, loop: true,
+    });
+    fx.burst('chunk-shell', cockroach.x, cockroach.y - 6, 7, 18, {
+      depth: cockroach.depth + 0.1, speed: [160, 320], angle: [190, 340], gravity: 1100, life: 600, fadeOut: 180, loop: true,
+    });
+    fx.play('spark-big', cockroach.x + 24, cockroach.y - 8, { depth: cockroach.depth + 0.2 });
+    fx.play('shield', cockroach.x, cockroach.y, { depth: cockroach.depth + 0.2 });
+    popup(scene, cockroach.x, cockroach.y - 70, 'WYLINKA!', popupStyle({ color: '#f1e3c6', strokeThickness: 4 }), { hold: 600 });
+
+    scene.cameras.main.flash(100, 255, 255, 255);
+    scene.cameras.main.shake(160, 0.01);
+    this.flashWhite(110);
+
+    // Hit-stop on the wall clock: the scene's own timers would stand still with it
+    scene.physics.pause();
+    window.setTimeout(() => {
+      if (scene.sys.isActive() && !scene.time.paused) scene.physics.resume();
+    }, MOULT_HIT_STOP_MS);
+
+    this.moultGraceUntil = scene.time.now + MOULT_GRACE_MS;
+    const blink = this.startInvulnerabilityBlink();
+    scene.time.delayedCall(MOULT_GRACE_MS, () => this.endInvulnerability(blink));
   }
 
   /** Watching a run you joined too late for: out of it from the start, unseen and untouchable. */
@@ -505,19 +567,44 @@ export class Player {
     (this.cockroach.body as Phaser.Physics.Arcade.Body).allowGravity = true;
   }
 
-  /** Up on its hind legs for the boss, the same art turned upright. */
+  /** Up on its hind legs for the boss: it rears up and waits, front legs raised, for the pistol to come down. */
   enterBossStance(): void {
     this.inBossStance = true;
-    this.cockroach.stop();
-    this.cockroach.setFrame(frameOf(this.anim('idle')));
+    this.cockroach.anims.timeScale = 1;
+    this.cockroach.play(this.anim('rear'));
   }
 
-  /** Reset cockroach after boss fight. Only undoes the stance and angle. */
+  /** Where the falling pistol is caught, in the world: its grip, as the catch's first frame holds it. */
+  get catchPoint(): { x: number; y: number } {
+    return pistolPoint(this.cockroach, 'catch', 0, 'grip');
+  }
+
+  /** The pistol lands in its hands: it brings it down and aims. */
+  catchPistol(): void {
+    this.cockroach.play(this.anim('catch'));
+  }
+
+  /**
+   * Fires: the recoil plays, then it aims again. Returns where the shot leaves, the muzzle as it aims: the same
+   * height above the sprite whatever frame is showing, so shots cross the boss's lanes as they always have.
+   */
+  shoot(): { x: number; y: number } {
+    const muzzle = pistolPoint(this.cockroach, 'aim', 0, 'muzzle');
+    if (!this.hopTween) this.cockroach.play(this.anim('shoot'));
+    return muzzle;
+  }
+
+  /** The boss is down: a twirl of the pistol, which it tosses away, and back on all six. */
+  celebrate(): void {
+    this.cockroach.play(this.anim('win'));
+  }
+
+  /** Back to running after the boss fight, on all six and without the pistol. */
   resumeAfterBossFight(): void {
     this.inBossStance = false;
     this.endHop(true);
-    this.cockroach.setAngle(0);
     this.cockroach.clearTint();
+    this.cockroach.play(this.anim('run'));
   }
 
   /** Force-end pill and dash effects immediately. */
@@ -533,10 +620,13 @@ export class Player {
 
   startInvulnerabilityBlink(): Phaser.Tweens.Tween {
     this._isInvulnerable = true;
+    // On and off, not a fade: a blink in whole steps
     return this.scene.tweens.add({
       targets: this.cockroach,
       alpha: { from: 1, to: 0.3 },
       duration: 120,
+      ease: 'Stepped',
+      easeParams: [1],
       yoyo: true,
       repeat: -1,
     });

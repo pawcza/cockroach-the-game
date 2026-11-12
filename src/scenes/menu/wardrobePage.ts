@@ -4,6 +4,7 @@
  * Guests see it all and are asked to sign in.
  */
 import Phaser from 'phaser';
+import { playUi } from '../../audio/AudioManager';
 import { dress, ITEMS, PLAIN, roachAnim, type Look, type Slot, type Worn } from '../../config/skins';
 import { ATLAS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf } from '../../config/sprites';
 import { account } from '../../ui/Account';
@@ -119,7 +120,7 @@ export function buildWardrobePage(
 
   const press = async (id: string | null, slot: Slot): Promise<void> => {
     const state = shop();
-    if (!account() || !state) { say('Zaloguj się, żeby zbierać okruszki i ubierać karalucha', '#e07a6a'); return; }
+    if (!account() || !state) { playUi(scene, 'ui-error'); say('Zaloguj się, żeby zbierać okruszki i ubierać karalucha', '#e07a6a'); return; }
     const look = { ...state.look, [slot]: id };
     if (id === null || state.owned.includes(id)) {
       armed = null;
@@ -128,12 +129,13 @@ export function buildWardrobePage(
       return;
     }
     const price = state.prices[id] ?? 0;
-    if (state.crumbs < price) { armed = null; say(`Brakuje ${price - state.crumbs} okruszków`, '#e07a6a'); refresh(); return; }
+    if (state.crumbs < price) { playUi(scene, 'ui-error'); armed = null; say(`Brakuje ${price - state.crumbs} okruszków`, '#e07a6a'); refresh(); return; }
     if (armed !== id) { armed = id; say(`Kupić za ${price}? Wciśnij jeszcze raz`, GOLD); refresh(); return; }
     armed = null;
     const error = await buyItem(id);
-    if (error) { say('Nie udało się kupić', '#e07a6a'); refresh(); return; }
+    if (error) { playUi(scene, 'ui-error'); say('Nie udało się kupić', '#e07a6a'); refresh(); return; }
     if (await wearLook(look)) onLookChanged(look);
+    playUi(scene, 'ui-purchase');
     say('Kupione i założone!', UI_TEXT.named);
     refresh();
   };

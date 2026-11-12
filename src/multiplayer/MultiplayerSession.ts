@@ -69,14 +69,14 @@ export class MultiplayerSession {
       onPlayerLeft: (id) => gameOverHandler.handlePlayerLeft(id, () => run.isDead),
       onGameOver: (data) => gameOverHandler.handleServerGameOver(data),
       onBossStart: (data) => boss.handleServerStart(data),
-      onBossProjectile: (data) => boss.fight?.spawnExternalProjectile(data),
+      onBossProjectile: (data) => boss.serverFight?.spawnExternalProjectile(data),
       onBossShoot: (id) => this.ghostManager?.handleBossShoot(id),
-      onBossHit: (data) => boss.fight?.updateHP(data.hp),
-      onBossRage: () => boss.fight?.triggerExternalRage(),
+      onBossHit: (data) => boss.serverFight?.updateHP(data.hp),
+      onBossRage: () => boss.serverFight?.triggerExternalRage(),
       onBossEnd: (data) => boss.handleServerEnd(data),
       onBossHostTransfer: (data) => {
         if (data.newHostId === mpClient.myId) {
-          boss.fight?.promoteToHost();
+          boss.serverFight?.promoteToHost();
         }
       },
     });

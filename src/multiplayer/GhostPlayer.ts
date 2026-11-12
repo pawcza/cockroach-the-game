@@ -10,10 +10,12 @@ import {
   SPEED_BOOST_PER_LEVEL,
   DEPTH,
 } from '../config/constants';
-import { ATLAS, HOP_MS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf, hopY } from '../config/sprites';
+import { ATLAS, FLIP_HOP_MS, HOP_MS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf, hopY } from '../config/sprites';
 import { smallStyle } from '../utils/TextStyles';
 import { getLevelForDistance } from '../config/levels';
-import { dress, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
+import { dress, parseRoach, pistolPoint, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
+import { getFx, roachGhost } from '../effects/Fx';
+import { gunfire } from '../effects/Gunfire';
 import { PLAYER_COLORS } from '../../server/lobby';
 
 /** The name sits above the tallest thing a roach can wear (a balloon on its back). */
@@ -24,6 +26,8 @@ const MAX_EXTRAPOLATE_S = 0.5;
 const SNAP_PX = 250;
 /** How quickly a ghost behind its target closes in. */
 const CATCH_UP_MS = 60;
+/** From the fight's start to when a ghost has its pistol: about when yours comes down from the sky. */
+const GHOST_ARMED_MS = 2800;
 
 export class GhostPlayer {
   readonly id: string;
@@ -63,7 +67,7 @@ export class GhostPlayer {
   private measuredSpeed = 0;       // px/s, smoothed from consecutive reports; 0 until there are two
 
   private _inBossFight = false;
-  private bossGlockSprite: Phaser.GameObjects.Image | null = null;
+  private armTimer: Phaser.Time.TimerEvent | null = null;
 
   private laneTween: Phaser.Tweens.Tween | null = null;
 
@@ -137,6 +141,13 @@ export class GhostPlayer {
     this.sprite.setAlpha(0.2);
     this.sprite.setDepth(DEPTH.GHOST_SPRITE);
     this.worn = dress(scene, this.sprite, look);
+    // Armed, every move (the catch, a shot, a lane flip) ends back on aiming, as the player's own roach does
+    this.sprite.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (animation: Phaser.Animations.Animation) => {
+      const done = parseRoach(animation.key)?.anim;
+      if (this._inBossFight && this._alive && (done === 'catch' || done === 'shoot' || done === 'flip')) {
+        this.sprite.play(this.anim('aim'));
+      }
+    });
     this.ring = scene.add.ellipse(startX, floorBottomY, 54, 10).setStrokeStyle(2, this.color, 0.8).setDepth(DEPTH.CONTACT_SHADOW);
 
     const colorStr = '#' + this.color.toString(16).padStart(6, '0');
@@ -162,34 +173,30 @@ export class GhostPlayer {
     return (baseSpeed + dashBoost) * this.pillSpeedBoost;
   }
 
+  /** Up on its hind legs in its own skin, as the player's roach is, and armed once the pistol would have come down. */
   enterBossFight(targetX: number, floorTopY: number, floorBottomY: number): void {
     this._inBossFight = true;
 
     const targetY = (this.currentFloor === 'top' ? floorTopY : floorBottomY) - ROACH_FEET_OFFSET;
-    this.sprite.stop();
-    this.sprite.setFrame(frameOf(this.anim('idle')));
-    this.sprite.setAngle(-90);
+    this.sprite.anims.timeScale = 1;
+    this.sprite.play(this.anim('rear'));
     this.sprite.x = targetX;
     this.sprite.y = targetY;
     this.sprite.setAlpha(0.6);
     this.nameLabel.setAlpha(0.8);
-
-    this.bossGlockSprite = this.scene.add.image(targetX + 15, targetY, 'boss-gun');
-    this.bossGlockSprite.setScale(0.25).setDepth(this.sprite.depth + 1);
-    this.bossGlockSprite.setOrigin(0, 0.5);
-    this.bossGlockSprite.setTint(this.color);
-    this.bossGlockSprite.setAlpha(0.6);
+    this.armTimer?.destroy();
+    this.armTimer = this.scene.time.delayedCall(GHOST_ARMED_MS, () => {
+      this.armTimer = null;
+      if (this._inBossFight && this._alive) this.sprite.play(this.anim('catch'));
+    });
   }
 
   leaveBossFight(): void {
     this._inBossFight = false;
+    this.armTimer?.destroy();
+    this.armTimer = null;
     this.sprite.play(this.anim('run'));
-    this.sprite.setAngle(0);
     this.updateAlpha();
-    if (this.bossGlockSprite) {
-      this.bossGlockSprite.destroy();
-      this.bossGlockSprite = null;
-    }
   }
 
   setLane(lane: string, floorTopY: number, floorBottomY: number): void {
@@ -197,19 +204,19 @@ export class GhostPlayer {
     const targetY = (lane === 'top' ? floorTopY : floorBottomY) - ROACH_FEET_OFFSET;
     const fromY = this.sprite.y;
     this.laneTween?.destroy();
-    if (!this._inBossFight && this._alive) {
+    if (this._alive) {
       this.sprite.anims.timeScale = 1;
-      this.sprite.play(this.anim('hop'));
+      // Armed, a somersault with the pistol; before the pistol arrives it just moves over
+      if (!this._inBossFight) this.sprite.play(this.anim('hop'));
+      else if (!this.armTimer) this.sprite.play(this.anim('flip'));
     }
     this.laneTween = this.scene.tweens.addCounter({
       from: 0,
       to: 1,
-      duration: HOP_MS,
+      duration: this._inBossFight ? FLIP_HOP_MS : HOP_MS,
       ease: 'Sine.easeInOut',
       onUpdate: (tween) => {
-        const y = hopY(fromY, targetY, tween.getValue() ?? 0);
-        this.sprite.y = y;
-        if (this._inBossFight && this.bossGlockSprite) this.bossGlockSprite.y = y;
+        this.sprite.y = hopY(fromY, targetY, tween.getValue() ?? 0);
       },
       onComplete: () => { this.laneTween = null; },
     });
@@ -235,17 +242,13 @@ export class GhostPlayer {
         repeat: Math.floor(DASH_DURATION / 80) - 1,
         callback: () => {
           if (!this._alive) return;
-          const afterimage = this.scene.add.sprite(this.sprite.x, this.sprite.y, ATLAS, this.sprite.frame.name);
-          afterimage.setScale(this.sprite.scaleX, this.sprite.scaleY);
-          afterimage.setAlpha(this._isSpectated ? 0.3 : 0.15);
-          afterimage.setTint(this.color);
-          afterimage.setDepth(this.sprite.depth - 1);
-          this.scene.tweens.add({
-            targets: afterimage,
-            alpha: 0,
-            duration: 200,
-            onComplete: () => afterimage.destroy(),
-          });
+          // The baked smear of its frame, tinted the player's lobby colour: sixteen of those, so a tint rather than sixteen
+          // baked sets (the canvas renderer, which can't tint, shows it pale grey)
+          const ghost = roachGhost(this.sprite.frame.name, 'tint');
+          if (!ghost) return;
+          getFx(this.scene).play(ghost.name, this.sprite.x, this.sprite.y, {
+            frame: ghost.frame, life: 200, fadeOut: 200, alpha: this._isSpectated ? 0.5 : 0.25, depth: this.sprite.depth - 1,
+          })?.image.setTint(this.color);
         },
       });
     } else {
@@ -298,25 +301,20 @@ export class GhostPlayer {
     });
   }
 
+  /** Their shot: the recoil, the flash and casing, and a bullet in their colour (only to see: yours hit). */
   playShootAnimation(): void {
-    if (!this.bossGlockSprite) return;
-    this.scene.tweens.add({
-      targets: this.bossGlockSprite,
-      angle: -15,
-      duration: 50,
-      ease: 'Power2',
-      yoyo: true,
-    });
+    if (!this._inBossFight || !this._alive) return;
+    const muzzle = pistolPoint(this.sprite, 'aim', 0, 'muzzle');
+    if (!this.laneTween) this.sprite.play(this.anim('shoot'));
+    gunfire(this.scene, muzzle, this.sprite.depth, this.sprite.alpha);
 
-    const bulletX = this.sprite.x + 30;
-    const bulletY = this.sprite.y;
-    const bullet = this.scene.add.image(bulletX, bulletY, 'boss-shell');
+    const bullet = this.scene.add.image(muzzle.x, muzzle.y, 'boss-shell');
     bullet.setScale(0.3).setDepth(this.sprite.depth + 1);
     bullet.setTint(this.color);
     bullet.setAlpha(this.sprite.alpha);
     this.scene.tweens.add({
       targets: bullet,
-      x: bulletX + 600,
+      x: muzzle.x + 600,
       alpha: { from: this.sprite.alpha, to: 0 },
       duration: 800,
       ease: 'Linear',
@@ -329,10 +327,7 @@ export class GhostPlayer {
 
     if (this._inBossFight) {
       this.nameLabel.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y) - NAME_ABOVE);
-    this.ring.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y + ROACH_FEET_OFFSET));
-      if (this.bossGlockSprite) {
-        this.bossGlockSprite.setPosition(this.sprite.x + 15, this.sprite.y);
-      }
+      this.ring.setPosition(Math.round(this.sprite.x), Math.round(this.sprite.y + ROACH_FEET_OFFSET));
       return;
     }
 
@@ -376,10 +371,7 @@ export class GhostPlayer {
   }
 
   destroy(): void {
-    if (this.bossGlockSprite) {
-      this.bossGlockSprite.destroy();
-      this.bossGlockSprite = null;
-    }
+    this.armTimer?.destroy();
     this.laneTween?.destroy();
     this.scene.tweens.killTweensOf(this.sprite);
     this.scene.tweens.killTweensOf(this.nameLabel);

@@ -2,7 +2,13 @@ import Phaser from 'phaser';
 import { ATLAS, SPRITE_SCALE, frameOf } from '../config/sprites';
 import { keepCrisp } from '../pixel/PixelCameras';
 import { capCentreShift, FONT_GRID, smallStyle } from '../utils/TextStyles';
+import { playUi } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
+import { getFx } from '../effects/Fx';
+import { bossById } from '../systems/boss/bosses';
+import { BIGOS_TEXTURE, bigosFrame } from '../systems/boss/bigosConfig';
+import { LODZIA_TEXTURE, lodziaFrame } from '../systems/boss/lodziaConfig';
+import { EKS_TEXTURE, eksFrame } from '../systems/boss/eksterminatorConfig';
 import type { Achievement } from '../systems/Profile';
 import { account } from './Account';
 
@@ -76,7 +82,7 @@ export function createButton(
   color: number,
   style: Phaser.Types.GameObjects.Text.TextStyle,
   action: () => void,
-  opts: { google?: boolean; sub?: string; onFocus?: () => void } = {},
+  opts: { google?: boolean; sub?: string; onFocus?: () => void; sound?: 'press' | 'back' | 'none' } = {},
 ): UIButton {
   x = Math.round(x);
   y = Math.round(y);
@@ -156,10 +162,23 @@ export function createButton(
   hitZone.on('pointerover', () => { hovered = true; draw(); });
   hitZone.on('pointerout', () => { hovered = false; pressed = false; draw(); });
   hitZone.on('pointerdown', () => { if (enabled) { pressed = true; draw(); } });
+  // The button's own sound, when it is pressed: a back button says so, a row that only holds a slider stays quiet
+  const pressSound = (): void => { if (opts.sound !== 'none') playUi(scene, opts.sound === 'back' ? 'ui-back' : 'ui-press'); };
+  // And a sparkle off its middle, wherever it sits: inside a menu's container too, drawn just over that container.
+  // On real time, so it shows over a paused run
+  const sparkle = (): void => {
+    if (opts.sound === 'none' || !bg.active) return;
+    const at = bg.getWorldTransformMatrix().transformPoint(x, y);
+    let depth = bg.depth;
+    for (let c = bg.parentContainer; c; c = c.parentContainer) depth = Math.max(depth, c.depth);
+    getFx(scene).play('press', at.x, at.y, { ui: true, scrollFactor: 0, depth: depth + 1 });
+  };
   hitZone.on('pointerup', () => {
     if (!pressed) return;
     pressed = false;
     draw();
+    pressSound();
+    sparkle();
     action();
   });
 
@@ -174,7 +193,7 @@ export function createButton(
     get enabled() { return enabled; },
     setFocused: (value) => { focused = value; draw(); if (value) opts.onFocus?.(); },
     // Straight away: the scene clock may be paused (the pause menu)
-    activate: () => { if (enabled) action(); },
+    activate: () => { if (enabled) { pressSound(); sparkle(); action(); } },
   };
 }
 
@@ -194,7 +213,7 @@ function frame(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, 
     .fillRect(x - 2, y, 2, h).fillRect(x + w, y, 2, h);
 }
 
-const OBSTACLE_ART =new Set(['bird', 'cat', 'flipper', 'newspaper', 'onion', 'spray', 'disco', 'jellyfish', 'pope', 'bison', 'blackhole']);
+const OBSTACLE_ART =new Set(['bird', 'cat', 'flipper', 'newspaper', 'onion', 'spray', 'disco', 'jellyfish', 'pope', 'bison', 'blackhole', 'glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'hedgehog']);
 
 /** An obstacle's still picture, for game-over screens and replays. Null for a death with no culprit, such as a fall. */
 export function addObstacleArt(
@@ -204,6 +223,23 @@ export function addObstacleArt(
   type: string,
 ): Phaser.GameObjects.Image | null {
   if (type === 'boss') return scene.add.image(x, y, 'boss-face2').setScale(0.25);
+  // Half her size, mid-slam, stood on her middle: her full height would fill the screen
+  if (type === 'lodzia') {
+    if (!scene.textures.exists(LODZIA_TEXTURE)) return null;
+    return scene.add.image(x, y, LODZIA_TEXTURE, lodziaFrame('slam-bottom', 2)).setOrigin(0.5, 0.96);
+  }
+  // The same, slamming the deck as the bass drops
+  if (type === 'bigos') {
+    if (!scene.textures.exists(BIGOS_TEXTURE)) return null;
+    return scene.add.image(x, y, BIGOS_TEXTURE, bigosFrame('drop', 3)).setOrigin(0.6, 0.96);
+  }
+  // The same, bent over pouring his spray along the floor: stood up, his tank would reach into the title
+  if (type === 'eksterminator') {
+    if (!scene.textures.exists(EKS_TEXTURE)) return null;
+    return scene.add.image(x, y, EKS_TEXTURE, eksFrame('spray-bottom', 1)).setOrigin(0.5, 0.96);
+  }
+  // The dancing boots die as 'boots'; their art is one boot, stomped
+  if (type === 'boots') return scene.add.image(x, y, ATLAS, frameOf('boot', 1)).setScale(SPRITE_SCALE);
   if (!OBSTACLE_ART.has(type)) return null;
   return scene.add.image(x, y, ATLAS, frameOf(type)).setScale(SPRITE_SCALE);
 }
@@ -221,7 +257,21 @@ export const OBSTACLE_LABEL: Record<string, string> = {
   pope: 'Papież',
   bison: 'Żubr',
   blackhole: 'Czarna dziura',
-  boss: 'Bestia spod Zlewu',
+  glue: 'Lep',
+  bleach: 'Wybielacz',
+  lamp: 'Światło',
+  mop: 'Mop',
+  vacuum: 'Odkurzacz',
+  hen: 'Kura',
+  frog: 'Żaba',
+  centipede: 'Stonoga',
+  boots: 'Oficerki',
+  hedgehog: 'Jeż',
+  // The 'boss' death type is Zlewiatan's: the server's list of causes knows no other
+  boss: bossById('zlewiatan').name,
+  lodzia: bossById('lodzia').name,
+  bigos: bossById('bigos').name,
+  eksterminator: bossById('eksterminator').name,
   fall: 'Spadł',
   wall: 'Ściana',
 };
@@ -232,6 +282,7 @@ const TOAST_H = 44;
 const TOAST_TOP = 120;
 const TOAST_MARGIN = 16;
 const TOAST_HOLD_MS = 2600;
+const SHINE_MS = 380;
 
 /**
  * An achievement just earned: a gold slab in the top right corner that fades in, holds and goes. Several at once stack
@@ -278,6 +329,12 @@ function showToast(scene: Phaser.Scene, heading: string, line: string): void {
   scene.tweens.add({
     targets: parts, alpha: 1, duration: 200,
     onComplete: () => {
+      // A light sweeps across the slab once, left to right
+      const from = x + BAR_W + 12;
+      const to = x + TOAST_W - 12;
+      getFx(scene).play('shine', from, y + TOAST_H / 2, {
+        scrollFactor: 0, depth: DEPTH.ANNOUNCEMENT, ui: true, frame: 0, vx: ((to - from) * 1000) / SHINE_MS, life: SHINE_MS, alpha: .5,
+      });
       scene.tweens.add({
         targets: parts, alpha: 0, delay: TOAST_HOLD_MS, duration: 400,
         onComplete: () => {

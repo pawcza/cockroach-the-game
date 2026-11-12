@@ -36,8 +36,11 @@ server/
   net.ts           # Real client IP, origin check, token bucket
 tests/
   support/         # Runs the real server for the socket and API tests
-art/sprites/       # Source renders for the atlas
+art/sprites/       # Source renders for the atlas (tracked; art/renders holds the git-ignored candidates)
+  bosses/          # Chosen boss figures and portraits, read by the boss rigs and portraits.py
+  enemies/         # Picked enemy stills, read by swatters.py and hopact.py
 tools/art/         # Rigs and bake.py: rebuilds public/assets/sprites.webp + .json
+                   # portraits.py: boss portraits from art/sprites/bosses to public/boss/portraits (the versus splash)
 public/
   assets/          # Baked sprite atlas, backgrounds
   audio/           # Sound effects and music (.ogg)

@@ -57,3 +57,28 @@ test('beats spread out as the levels speed up', () => {
   assert.equal(beatSpacing(1), 200);
   assert.ok(beatSpacing(10) > beatSpacing(5));
 });
+
+const roles = (beats: Beat[]): Set<string> =>
+  new Set(beats.flatMap(b => ((b.kind === 'obstacle' || b.kind === 'pair') && b.role ? [b.role] : [])));
+
+test('chunks built around behaviours come in with the enemies they need', () => {
+  assert.deepEqual([...roles(lay(9, 1, 3000))], ['swatter']);
+  assert.deepEqual([...roles(lay(9, 2, 3000))].sort(), ['light', 'mop', 'swatter', 'sweeper']);
+  assert.ok(!roles(lay(9, 4, 3000)).has('switcher'));
+  assert.ok(roles(lay(9, 5, 3000)).has('switcher'));
+});
+
+test('the chaser (now the vacuum) comes only in the dash act, from level 3', () => {
+  assert.ok(!roles(lay(9, 2, 5000)).has('chaser'), 'a chaser on level 2');
+  assert.ok(roles(lay(9, 3, 5000)).has('chaser'), 'no chaser on level 3');
+});
+
+test('each level opens by introducing its newcomers, alone, once', () => {
+  const patterns = new RunPatterns(new SeededRNG(4));
+  const named = (level: number, count: number): string[] =>
+    Array.from({ length: count }, () => patterns.next(level)).flatMap(b => (b.kind === 'obstacle' && b.enemy ? [b.enemy] : []));
+  assert.deepEqual(named(1, 12), ['glue', 'flipper', 'bleach']);
+  assert.deepEqual(named(1, 200), []);
+  assert.deepEqual(named(2, 20).slice(0, 3), ['spray', 'lamp', 'mop']);
+});
+

@@ -1,5 +1,11 @@
+import { EnemyPlan } from './behaviours';
 import { ObstacleKit } from './ObstacleKit';
+import { swatter } from './swatter';
 
-export function spawnNewspaper(kit: ObstacleKit, x: number): void {
-  kit.createFloater(x, 'newspaper', 'newspaper', 2000, { key: 'newspaper-sfx', volume: 0.4 });
+/**
+ * The rolled newspaper, swung in from the back of the room flat onto a lane with a slap. It takes the lanes in turns,
+ * so the lane it waits over is the one it hits next (depthSwat in behaviours.ts).
+ */
+export function spawnNewspaper(kit: ObstacleKit, plan: EnemyPlan): void {
+  swatter(kit, plan, 'newspaper-sfx');
 }

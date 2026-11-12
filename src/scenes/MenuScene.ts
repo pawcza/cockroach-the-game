@@ -7,7 +7,7 @@ import { createButton, UIButton } from '../ui/shared';
 import { MenuNav } from '../ui/MenuNav';
 import { addContactShadow } from '../effects/ContactShadow';
 import { sceneManager } from '../systems/SceneManager';
-import { getPlayerNameOrDefault, isPlayerNameCustom, getDailyBest } from '../utils/Storage';
+import { getPlayerNameOrDefault, isPlayerNameCustom, getDailyBest, setTutorialDone } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
 import { mpClient } from '../multiplayer/MultiplayerClient';
 import { account, loadAccount, renameAccount, signIn, signInAvailable, signOut, submitScore, takePendingScore, takeSignInResult } from '../ui/Account';
@@ -173,7 +173,7 @@ export class MenuScene extends Phaser.Scene {
       this.tweens.add({ targets: page, [prop]: to, duration: PAGE_MS, ease: 'Power2' });
     };
     const backButton = (page: Phaser.GameObjects.Container, label: string, onBack: () => void): UIButton => {
-      const back = createButton(this, cx, height - 40, BACK_W, BACK_H, label, 0x444444, buttonStyle({ fontSize: '10px' }), onBack);
+      const back = createButton(this, cx, height - 40, BACK_W, BACK_H, label, 0x444444, buttonStyle({ fontSize: '10px' }), onBack, { sound: 'back' });
       page.add(back.all);
       return back;
     };
@@ -219,13 +219,15 @@ export class MenuScene extends Phaser.Scene {
     // Info, to the right
     const infoPage = this.add.container(width, 0).setDepth(DEPTH.MENU_PAGE);
     let infoBack: UIButton | null = null;
+    let infoTutorial: UIButton | null = null;
     let infoBtn: UIButton;
     const showInfo = (): void => {
       if (!infoBack) {
-        buildInfoPage(this, infoPage, width, height, isMobile);
+        // "Samouczek" clears the flag, so the run it starts opens with the lesson (and quitting it halfway keeps it due)
+        infoTutorial = buildInfoPage(this, infoPage, width, height, isMobile, () => { setTutorialDone(false); startGame(); });
         infoBack = backButton(infoPage, 'Powrót', hideInfo);
       }
-      nav.set([infoBack], { onBack: hideInfo });
+      nav.set([infoBack, infoTutorial!], { initial: infoBack, onBack: hideInfo });
       slide(infoPage, 'x', 0, -width);
       rush(1);
     };

@@ -1,9 +1,11 @@
+import { EnemyPlan } from './behaviours';
 import { ObstacleKit } from './ObstacleKit';
-import { Floor } from '../Player';
+import { swatter } from './swatter';
 
-/** The slipper's slap is all in its baked animation: no runtime swing or whoosh on top. */
-export function spawnFlipper(kit: ObstacleKit, x: number, lane?: Floor): void {
-  const floor = lane ?? kit.randomFloor();
-  const flipper = kit.createSprite(x, kit.standY(floor), 'flipper', 'flipper', floor);
-  kit.playSoundOnVisible(flipper, 'flipper-sfx', 0.3);
+/**
+ * The slipper, brought down by a hand from the back of the room onto its own lane, flat, with a slap (depthSwat in
+ * behaviours.ts, timings in cast.ts, frames from tools/art/swatters.py).
+ */
+export function spawnFlipper(kit: ObstacleKit, plan: EnemyPlan): void {
+  swatter(kit, plan, 'flipper-sfx');
 }

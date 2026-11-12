@@ -1,10 +1,13 @@
 /** Applies score and combo changes to the run, with their HUD, audio and visual feedback. */
 import Phaser from 'phaser';
-import { AudioManager } from '../audio/AudioManager';
+import { AudioManager, VOL } from '../audio/AudioManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { GameHUD } from '../ui/GameHUD';
 import { ComboFeedback } from './ComboFeedback';
-import { RunState } from './RunState';
+import { comboMultiplier, RunState } from './RunState';
+
+/** Losing a combo this long shatters it: the bigger sound. */
+const BIG_COMBO = 10;
 
 export class ScoreTracker {
   private scene: Phaser.Scene;
@@ -39,17 +42,21 @@ export class ScoreTracker {
     this.run.pickupCombo++;
     if (this.run.pickupCombo > this.run.maxCombo) this.run.maxCombo = this.run.pickupCombo;
     const tier = this.comboFeedback.onPickup(this.run.pickupCombo);
-    if (tier) {
-      this.audio.playComboChime(tier.audioTier);
-      this.vfx.comboTierFlash(tier.color);
+    if (tier) this.vfx.comboTierUp();
+    this.vfx.setCombo(this.run.pickupCombo);
+    this.audio.playComboTick(this.run.pickupCombo);
+    // The HUD shows the multiplier to one decimal: it goes up when that figure does
+    if (comboMultiplier(this.run.pickupCombo).toFixed(1) !== comboMultiplier(this.run.pickupCombo - 1).toFixed(1)) {
+      this.audio.playSfx('mult-up', VOL.stinger);
     }
   }
 
   loseCombo(comboLost: number): void {
     this.vfx.comboLostEffect(comboLost);
-    this.audio.playComboLost();
+    this.audio.playComboLost(comboLost >= BIG_COMBO);
     this.run.pickupCombo = 0;
     this.comboFeedback.onComboLost();
+    this.vfx.setCombo(0);
   }
 
   /** +1 point per second survived. */

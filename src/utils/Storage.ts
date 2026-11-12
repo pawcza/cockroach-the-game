@@ -10,6 +10,8 @@ const KEYS = {
   GAMES_PLAYED: 'cockroach-games-played',
   MUSIC_VOLUME: 'cockroach-music-vol',
   SFX_VOLUME: 'cockroach-sfx-vol',
+  TAUNTS: 'cockroach-taunts',
+  TUTORIAL_DONE: 'cockroach-tutorial-done',
 } as const;
 
 const DEFAULT_NAME = 'Karaluch';
@@ -115,4 +117,23 @@ export function getSfxVolume(): number {
 
 export function setSfxVolume(vol: number): void {
   localStorage.setItem(KEYS.SFX_VOLUME, vol.toString());
+}
+
+/** Bosses mock the roach while it runs, on by default. */
+export function getTauntsEnabled(): boolean {
+  return localStorage.getItem(KEYS.TAUNTS) !== 'off';
+}
+
+export function setTauntsEnabled(on: boolean): void {
+  localStorage.setItem(KEYS.TAUNTS, on ? 'on' : 'off');
+}
+
+/** Whether the opening tutorial has been finished (or skipped) on this device. */
+export function isTutorialDone(): boolean {
+  return localStorage.getItem(KEYS.TUTORIAL_DONE) === 'yes';
+}
+
+export function setTutorialDone(done: boolean): void {
+  if (done) localStorage.setItem(KEYS.TUTORIAL_DONE, 'yes');
+  else localStorage.removeItem(KEYS.TUTORIAL_DONE);
 }

@@ -92,8 +92,10 @@ export class DeathReplayPlayer {
     cleanup.push(label);
 
     // Audio — heartbeat pulse
-    this.heartbeat = scene.sound.add('death', { volume: sfxVolume(0.15), loop: true, rate: 0.5 });
-    this.heartbeat.play();
+    if (scene.cache.audio.exists('heartbeat')) {
+      this.heartbeat = scene.sound.add('heartbeat', { volume: sfxVolume(0.4), loop: true });
+      this.heartbeat.play();
+    }
 
     let frameIndex = 0;
     let deathAnimPlayed = false;

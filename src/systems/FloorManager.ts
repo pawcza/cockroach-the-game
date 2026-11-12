@@ -10,8 +10,11 @@ import {
   PIXEL_BLOCK,
 } from '../config/constants';
 import { getLevelForDistance, LEVELS } from '../config/levels';
+import { getFx } from '../effects/Fx';
 
 const COLLIDER_DROP = 8;
+/** A soft pulse of light over the lane the roach is on. Off: the roach shows its lane. true brings it back. */
+const LANE_HIGHLIGHT = false;
 const FLOOR_OVERHANG = 200;
 
 // A painted ledge strip is one seamless image cut into tile-wide segments. Matches tools/art/levels.py.
@@ -36,8 +39,8 @@ export class FloorManager {
   private floorBottomBody!: Phaser.GameObjects.Rectangle;
   private floorTopSprites: Phaser.GameObjects.Image[] = [];
   private floorBottomSprites: Phaser.GameObjects.Image[] = [];
-  private floorHighlightTop!: Phaser.GameObjects.Rectangle;
-  private floorHighlightBottom!: Phaser.GameObjects.Rectangle;
+  private floorHighlightTop: Phaser.GameObjects.Rectangle | null = null;
+  private floorHighlightBottom: Phaser.GameObjects.Rectangle | null = null;
 
   // Floor crumble — tiles behind cockroach fall away
   private steppedTopRanges: { from: number; to: number; lastFallX: number }[] = [];
@@ -77,18 +80,20 @@ export class FloorManager {
 
     this.addTiles(FLOOR_WIDTH);
 
-    this.floorHighlightTop = this.scene.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, FLOOR_WIDTH, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
-    this.floorHighlightBottom = this.scene.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, FLOOR_WIDTH, FLOOR_TILE_H + 8, 0xffffff, 0)
-      .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR_HIGHLIGHT).setBlendMode(Phaser.BlendModes.ADD);
+    if (LANE_HIGHLIGHT) {
+      this.floorHighlightTop = this.scene.add.rectangle(0, this.floorTopY + FLOOR_TILE_H / 2, FLOOR_WIDTH, FLOOR_TILE_H + 8, 0xffffff, 0)
+        .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR - 1).setBlendMode(Phaser.BlendModes.ADD);
+      this.floorHighlightBottom = this.scene.add.rectangle(0, this.floorBottomY + FLOOR_TILE_H / 2, FLOOR_WIDTH, FLOOR_TILE_H + 8, 0xffffff, 0)
+        .setOrigin(0, 0.5).setDepth(DEPTH.FLOOR - 1).setBlendMode(Phaser.BlendModes.ADD);
+    }
   }
 
   resize(camWidth: number): void {
     const floorWidth = camWidth + FLOOR_OVERHANG;
     this.floorTopBody.setSize(floorWidth, FLOOR_HEIGHT);
     this.floorBottomBody.setSize(floorWidth, FLOOR_HEIGHT);
-    this.floorHighlightTop.setSize(floorWidth, FLOOR_TILE_H + 8);
-    this.floorHighlightBottom.setSize(floorWidth, FLOOR_TILE_H + 8);
+    this.floorHighlightTop?.setSize(floorWidth, FLOOR_TILE_H + 8);
+    this.floorHighlightBottom?.setSize(floorWidth, FLOOR_TILE_H + 8);
     this.addTiles(floorWidth);
   }
 
@@ -164,11 +169,13 @@ export class FloorManager {
       this.spawnFallingTilesForRange(range, this.floorBottomY);
     }
 
-    this.floorHighlightTop.x = bodyX;
-    this.floorHighlightBottom.x = bodyX;
-    const pulseAlpha = 0.08 + Math.sin(timeNow * 0.004) * 0.04;
-    this.floorHighlightTop.setAlpha(currentPlayerFloor === 'top' ? pulseAlpha : 0);
-    this.floorHighlightBottom.setAlpha(currentPlayerFloor === 'bottom' ? pulseAlpha : 0);
+    if (this.floorHighlightTop && this.floorHighlightBottom) {
+      this.floorHighlightTop.x = bodyX;
+      this.floorHighlightBottom.x = bodyX;
+      const pulseAlpha = 0.08 + Math.sin(timeNow * 0.004) * 0.04;
+      this.floorHighlightTop.setAlpha(currentPlayerFloor === 'top' ? pulseAlpha : 0);
+      this.floorHighlightBottom.setAlpha(currentPlayerFloor === 'bottom' ? pulseAlpha : 0);
+    }
   }
 
   regenerateFloorTextures(): void {
@@ -275,15 +282,16 @@ export class FloorManager {
       const fallingTile = this.scene.add.image(startX, floorY - look.lift, look.key, look.frame)
         .setOrigin(0, 0).setScale(look.scale).setDepth(DEPTH.FLOOR);
 
-      const spinDir = Math.random() > 0.5 ? 1 : -1;
+      // It drops straight, unturned, so the painted ledge stays on the grid, and sheds a couple of bits as it goes
       this.scene.tweens.add({
         targets: fallingTile,
         y: floorY + 200 + Math.random() * 100,
-        angle: spinDir * (30 + Math.random() * 60),
-        alpha: 0,
         duration: 600 + Math.random() * 400,
         ease: 'Quad.easeIn',
         onComplete: () => fallingTile.destroy(),
+      });
+      getFx(this.scene).burst('chunk-stone', startX + FLOOR_TILE_W / 2, floorY + 6, 2, FLOOR_TILE_W / 3, {
+        depth: DEPTH.FLOOR, speed: [20, 90], angle: [200, 340], gravity: 900, life: 700, loop: true,
       });
 
       range.lastFallX = startX;

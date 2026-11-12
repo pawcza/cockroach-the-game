@@ -111,7 +111,7 @@ export class LobbyScene extends Phaser.Scene {
     // Your colour, also from the keyboard: clicking your own swatch does the same
     this.colorBtn = createButton(this, width / 2 + sideX, actionBtnY, sideW, 30, 'Zmień kolor', 0x444444, buttonStyle({ fontSize: '9px' }), () => this.cycleColor());
 
-    this.leaveBtn = createButton(this, width / 2, height - 24, 220, 30, 'Opuść', 0x660000, buttonStyle({ fontSize: '10px' }), () => this.leave());
+    this.leaveBtn = createButton(this, width / 2, height - 24, 220, 30, 'Opuść', 0x660000, buttonStyle({ fontSize: '10px' }), () => this.leave(), { sound: 'back' });
 
     // --- RENDER INITIAL STATE ---
     this.renderPlayerList();

@@ -1,7 +1,9 @@
 /** Cosmetic life around the cockroach: dust, the bird cameo and ambient noise. */
 import Phaser from 'phaser';
-import { AudioManager } from '../audio/AudioManager';
+import { AudioManager, VOL } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
+import { ROACH_FEET_OFFSET } from '../config/sprites';
+import { getFx } from '../effects/Fx';
 import { Player } from '../objects/Player';
 
 export class AmbientEffects {
@@ -36,7 +38,8 @@ export class AmbientEffects {
 
   updateDust(): void {
     this.dustTimer += this.scene.game.loop.delta;
-    const dustInterval = Math.max(100, 300 / this.player.speedMultiplier);
+    // A puff every few strides, not a stream: quicker as the legs speed up
+    const dustInterval = Math.max(170, 380 / this.player.speedMultiplier);
     const body = this.player.sprite.body!;
     const onGround = body.touching.down || body.blocked.down;
     if (this.dustTimer >= dustInterval) {
@@ -60,29 +63,17 @@ export class AmbientEffects {
       this.noiseTimer = 0;
       this.nextNoiseTime = 20000 + Math.random() * 15000;
       if (!this.noiseSound || !this.noiseSound.isPlaying) {
-        this.noiseSound = this.audio.addSfx('cockroach-noise', 0.3);
-        this.noiseSound.play();
+        this.noiseSound = this.audio.addSfx('cockroach-noise', VOL.ambient);
+        this.noiseSound?.play();
       }
     }
 
   }
 
+  /** A kick of dust off the back feet, left behind on the ledge as the roach runs on. */
   private spawnDustParticle(): void {
-    const dust = this.scene.add.circle(
-      this.player.x - 20,
-      this.player.y + 10,
-      2 + Math.random() * 2,
-      0x8b7355,
-      0.6,
-    );
-    this.scene.tweens.add({
-      targets: dust,
-      y: dust.y - 15,
-      alpha: 0,
-      scaleX: 0.3,
-      scaleY: 0.3,
-      duration: 400,
-      onComplete: () => { dust.destroy(); },
+    getFx(this.scene).play('dust', this.player.x - 34, this.player.y + ROACH_FEET_OFFSET, {
+      depth: DEPTH.PICKUPS - 0.5, vx: -30 - Math.random() * 30,
     });
   }
 

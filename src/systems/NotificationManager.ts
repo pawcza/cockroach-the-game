@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DEPTH } from '../config/constants';
+import { popup } from '../effects/Popup';
 import { popupStyle } from '../utils/TextStyles';
 
 interface ActiveNotification {
@@ -7,18 +7,36 @@ interface ActiveNotification {
   startTime: number;
   duration: number;
   slot: number;
+  /** Pushed down below a score milestone that is up. */
+  shift: number;
 }
 
 const SLOT_Y_START = 55;
 const SLOT_HEIGHT = 30;
 const MAX_SLOTS = 3;
+const MILESTONE_GAP = 18;
 
 export class NotificationManager {
   private scene: Phaser.Scene;
   private active: ActiveNotification[] = [];
+  private milestoneShift = 0;
+  private milestoneUntil = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    // A score milestone owns the band under the score for as long as it shows: notices below it, new or already up
+    const onMilestone = (bottom: number, duration: number): void => {
+      this.milestoneShift = bottom + MILESTONE_GAP - SLOT_Y_START;
+      this.milestoneUntil = scene.time.now + duration;
+      for (const notif of this.active) {
+        // Already up: move it now (a hold between the rise and the exit has nothing running to do it)
+        const delta = this.milestoneShift - notif.shift;
+        notif.shift = this.milestoneShift;
+        for (const part of notif.objects) (part as Phaser.GameObjects.Image).y += delta;
+      }
+    };
+    scene.events.on('score-milestone', onMilestone);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.events.off('score-milestone', onMilestone));
   }
 
   private getNextSlot(): number {
@@ -33,43 +51,21 @@ export class NotificationManager {
     return SLOT_Y_START + slot * SLOT_HEIGHT;
   }
 
+  /** A new combo tier on its slab at the top of the screen, a light sweeping across it. */
   showComboTier(threshold: number, label: string, color: number): void {
     const w = this.scene.cameras.main.width;
     const slot = this.getNextSlot();
-    const y = this.slotY(slot);
     const colorStr = '#' + color.toString(16).padStart(6, '0');
 
-    const text = this.scene.add.text(w / 2, y, `x${threshold} ${label}`,
-      popupStyle({ fontSize: '12px', color: colorStr }),
-    ).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP).setAlpha(0).setScale(0.5);
-
-    const duration = 1200;
-
-    this.scene.tweens.add({
-      targets: text,
-      alpha: 1,
-      scale: 1,
-      duration: 200,
-      ease: 'Back.easeOut',
-      onComplete: () => {
-        this.scene.tweens.add({
-          targets: text,
-          y: y - 15,
-          alpha: 0,
-          scale: 1.2,
-          duration: duration - 200,
-          delay: 300,
-          ease: 'Power2',
-          onComplete: () => {
-            text.destroy();
-            this.removeNotification(notif);
-          },
-        });
-      },
-    });
-
-    const notif: ActiveNotification = { objects: [text], startTime: this.scene.time.now, duration, slot };
+    const notif: ActiveNotification = {
+      objects: [], startTime: this.scene.time.now, duration: 1200, slot,
+      shift: this.scene.time.now < this.milestoneUntil ? this.milestoneShift : 0,
+    };
+    const parts = popup(this.scene, w / 2, this.slotY(slot), `x${threshold} ${label}`,
+      popupStyle({ fontSize: '12px', color: colorStr }), { scrollFactor: 0, hold: 800, shine: true, yOffset: () => notif.shift });
+    notif.objects = parts;
     this.active.push(notif);
+    parts[parts.length - 1].once(Phaser.GameObjects.Events.DESTROY, () => this.removeNotification(notif));
   }
 
   private removeNotification(notif: ActiveNotification): void {

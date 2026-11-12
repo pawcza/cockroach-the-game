@@ -3,7 +3,7 @@ import { DEPTH } from '../config/constants';
 import { smallStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
-import { AudioManager } from '../audio/AudioManager';
+import { AudioManager, VOL } from '../audio/AudioManager';
 import type { GameOverData } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
@@ -17,20 +17,27 @@ import { recordRun, type RunSnapshot } from './Profile';
 import { showAchievement, showMission } from '../ui/shared';
 import { reportRun } from '../ui/Shop';
 
+/**
+ * Score milestones, in order. `tier` is how big the HUD makes it (1-10, see GameHUD.showScoreMilestone); `sound` is the
+ * key of the stinger it plays (BootScene loads them: tiers 01-14 form one ladder from tiny to huge, which is not the
+ * same as the visual tier, and 2137 is its own clip), so moving a threshold never means renaming a file.
+ */
 const SCORE_MILESTONES = [
-  { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1 },
-  { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1 },
-  { threshold: 420, text: 'BLAZE IT!', tier: 2 },
-  { threshold: 500, text: 'PIĘĆ DYCH NA BROWARA!', tier: 2 },
-  { threshold: 1000, text: 'GRAJ ZE MNOM W TYSIĄCA', tier: 3 },
-  { threshold: 1500, text: 'MIÓD PITNY PÓŁTORAK', tier: 3 },
-  { threshold: 2000, text: 'DWIE BAŃKI, BOSSMAN!', tier: 4 },
-  { threshold: 2137, text: 'KREMÓWKI DLA WSZYSTKICH', tier: 4 },
-  { threshold: 3000, text: 'TRZY KOŁA NA LICZNIKU', tier: 4 },
-  { threshold: 4000, text: 'CZTERY OSIEMNASTKI TYLKO W MOIM SAMOCHODZIE', tier: 5 },
-  { threshold: 4200, text: 'SNOOP DOGGY DOGG', tier: 5 },
-  { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 5 },
-  { threshold: 10000, text: 'KARALUCH JEST BOGIEM!', tier: 5 },
+  { threshold: 100, text: 'SETUNIA MMMMMMM', tier: 1, sound: 'milestone-01' },
+  { threshold: 250, text: 'MAŁPECZKA Z ŻABKI', tier: 1, sound: 'milestone-02' },
+  { threshold: 500, text: 'PIĘĆ STÓW, PANIE KIEROWNIKU', tier: 2, sound: 'milestone-03' },
+  { threshold: 1000, text: 'KOŁO NA LICZNIKU', tier: 2, sound: 'milestone-04' },
+  { threshold: 1500, text: 'TYSIĄC PIĘĆSET STO DZIEWIĘĆSET', tier: 3, sound: 'milestone-05' },
+  { threshold: 2137, text: 'KREMÓWKI DLA WSZYSTKICH', tier: 3, sound: 'milestone-2137' },
+  { threshold: 3000, text: 'TRZY KOŁA NA LICZNIKU', tier: 4, sound: 'milestone-06' },
+  { threshold: 5000, text: 'GDZIE KARALUCHY ZIMUJOM', tier: 4, sound: 'milestone-07' },
+  { threshold: 7500, text: 'NIE DO ZDARCIA', tier: 5, sound: 'milestone-08' },
+  { threshold: 10000, text: 'PROGRAMISTA 10K', tier: 5, sound: 'milestone-09' },
+  { threshold: 15000, text: 'LEGENDA KLATKI B', tier: 6, sound: 'milestone-10' },
+  { threshold: 20000, text: 'NIE KRĘCONY, NIE BITY', tier: 7, sound: 'milestone-11' },
+  { threshold: 30000, text: 'SANEPID SIĘ PODDAJE', tier: 8, sound: 'milestone-12' },
+  { threshold: 40000, text: 'PAN NA WŁOŚCIACH', tier: 9, sound: 'milestone-13' },
+  { threshold: 50000, text: 'KARALUCH WIDZI WSZYSTKO', tier: 10, sound: 'milestone-14' },
 ] as const;
 
 export class GameOverHandler {
@@ -140,7 +147,7 @@ export class GameOverHandler {
     document.title = `ZGNIOTŁEŚ SIĘ! | ${score} pkt`;
     this.scene.cameras.main.shake(300, 0.02);
 
-    this.audio.playSfx('cockroach-hiss', 0.7);
+    this.audio.playSfx('cockroach-hiss', 0.5);
 
     this.vfx.deathEffect();
     this.audio.playDeath();
@@ -308,8 +315,7 @@ export class GameOverHandler {
     if (!highest) return last;
 
     this.hud.showScoreMilestone(highest.text, highest.tier, highest.threshold);
-    const key = `milestone-${highest.threshold}`;
-    if (this.scene.cache.audio.exists(key)) this.audio.playSfx(key, 0.7);
+    if (this.scene.cache.audio.exists(highest.sound)) this.audio.playSfx(highest.sound, VOL.stinger);
     return highest.threshold;
   }
 

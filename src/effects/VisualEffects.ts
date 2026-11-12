@@ -1,20 +1,33 @@
 import Phaser from 'phaser';
-import { COLORS, DEPTH } from '../config/constants';
+import { DEPTH } from '../config/constants';
+import { ROACH_FEET_OFFSET } from '../config/sprites';
+import type { Player } from '../objects/Player';
 import { popupStyle } from '../utils/TextStyles';
+import { getFx, type Fx, type FxHandle } from './Fx';
+import { popup } from './Popup';
 
 // Speed tops out near 3.4x. The scene keeps its colours at every speed: only the edges of the screen close in.
 const VIGNETTE_FROM = 2.7; // ~Lv8
 const VIGNETTE_MAX = 0.35;
 const MAX_SPEED = 3.4;
 
-const COLLECT_TEXTURE = 'collect-spark';
+/** The combo's flames: from this many pickups in a row, each a bigger set. */
+const AURA_TIERS: [number, string][] = [[100, 'aura-3'], [50, 'aura-2'], [10, 'aura-1']];
+
+/** Which burst each pickup throws, by its frame's art. */
+const COLLECT_BURST: [string, string][] = [['apple', 'collect-apple'], ['beer', 'collect-beer'], ['pill', 'collect-pill']];
 
 export class VisualEffects {
   private scene: Phaser.Scene;
+  private fx!: Fx;
+  private player: Player | null = null;
 
   private vignetteGraphics!: Phaser.GameObjects.Graphics;
   private flashOverlay!: Phaser.GameObjects.Rectangle;
-  private collectBurst!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private aura: FxHandle | null = null;
+  private auraName = '';
+  /** The killing hit already had its impact (the hit-stop), so the death doesn't spark again. */
+  private hitShown = false;
 
   private initialized = false;
   private deathSlowMoTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -29,6 +42,7 @@ export class VisualEffects {
     const camera = this.scene.cameras.main;
     const w = camera.width;
     const h = camera.height;
+    this.fx = getFx(this.scene);
 
     this.vignetteGraphics = this.scene.add.graphics();
     this.vignetteGraphics.setScrollFactor(0);
@@ -40,20 +54,12 @@ export class VisualEffects {
     this.flashOverlay.setScrollFactor(0);
     this.flashOverlay.setDepth(DEPTH.VFX_FLASH);
 
-    if (!this.scene.textures.exists(COLLECT_TEXTURE)) {
-      this.scene.make.graphics({}, false).fillStyle(0xffffff).fillCircle(3, 3, 3)
-        .generateTexture(COLLECT_TEXTURE, 6, 6).destroy();
-    }
-    this.collectBurst = this.scene.add.particles(0, 0, COLLECT_TEXTURE, {
-      emitting: false,
-      speed: { min: 120, max: 260 },
-      lifespan: { min: 330, max: 500 },
-      scale: { start: 1, end: 0.1 },
-      alpha: { start: 1, end: 0 },
-      tint: [...COLORS.COLLECT],
-    }).setDepth(DEPTH.VFX_TEXT);
-
     this.initialized = true;
+  }
+
+  /** The roach the run's effects gather around: its combo flames, its death. */
+  attachPlayer(player: Player): void {
+    this.player = player;
   }
 
   resize(width: number, height: number): void {
@@ -84,58 +90,81 @@ export class VisualEffects {
     if (!this.initialized) return;
     const closing = Math.min(Math.max(speedMultiplier - VIGNETTE_FROM, 0) / (MAX_SPEED - VIGNETTE_FROM), 1);
     this.vignetteGraphics.setAlpha(closing * VIGNETTE_MAX);
+    // The pill brings its own flames; dead, there are none
+    this.aura?.image.setVisible(!!this.player && !this.player.isPillActive && !this.player.isDead);
   }
 
-  pickupCollectEffect(x: number, y: number): void {
+  /**
+   * A pickup bursts in its own colours: an apple into red and green bits, a beer into foam and bubbles, a pill into
+   * its two halves, told apart by the pickup's frame.
+   */
+  pickupCollectEffect(x: number, y: number, frameName: string): void {
     if (!this.initialized) return;
+    const burst = COLLECT_BURST.find(([art]) => frameName.startsWith(art))?.[1];
+    if (!burst) return;
+    this.fx.play(burst, x, y, { depth: DEPTH.VFX_TEXT });
+  }
 
-    this.collectBurst.explode(12, x, y);
+  /** The combo's flames grow with it, and go out with it. Called with the combo after every change. */
+  setCombo(combo: number): void {
+    if (!this.initialized || !this.player) return;
+    const name = AURA_TIERS.find(([from]) => combo >= from)?.[1] ?? '';
+    if (name === this.auraName) return;
+    this.aura?.stop();
+    this.aura = null;
+    this.auraName = name;
+    if (!name) return;
+    const sprite = this.player.sprite;
+    this.aura = this.fx.play(name, 0, ROACH_FEET_OFFSET, { follow: sprite, depth: sprite.depth - 0.2 });
   }
 
   comboLostEffect(comboLost: number): void {
     if (!this.initialized || comboLost <= 0) return;
 
     const camera = this.scene.cameras.main;
-
-    // Small screen shake
     camera.shake(150, 0.008);
-
-    // Text at top of screen
-    const w = camera.width;
-    const text = this.scene.add.text(w / 2, 80, `${comboLost} kombo w dupę`, popupStyle({
-      fontSize: '12px',
-      color: '#ff4444',
-      strokeThickness: 4,
-    }));
-    text.setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.POPUP);
-
-    this.scene.tweens.add({
-      targets: text,
-      alpha: { from: 1, to: 0 },
-      y: text.y - 20,
-      duration: 3000,
-      ease: 'Power2',
-      onComplete: () => text.destroy(),
-    });
+    // The count it was, on a red slab at the top of the screen
+    popup(this.scene, camera.width / 2, 80, `${comboLost} kombo w dupę`, popupStyle({
+      fontSize: '12px', color: '#ff6a5a', strokeThickness: 4,
+    }), { plate: 'plate-red', scrollFactor: 0, hold: 1400 });
+    // Over the slab, under the words, once the slab is up: the slab cracks and the pieces drop out
+    this.fx.play('crack', camera.width / 2, 80, { scrollFactor: 0, depth: DEPTH.POPUP - 0.01, delay: 150 });
   }
 
-  comboTierFlash(color: number): void {
-    const { width, height } = this.scene.cameras.main;
-    const flash = this.scene.add.rectangle(width / 2, height / 2, width, height, color, 0.15)
-      .setScrollFactor(0).setDepth(DEPTH.VFX_VIGNETTE).setBlendMode(Phaser.BlendModes.ADD);
-    this.scene.tweens.add({
-      targets: flash,
-      alpha: 0,
-      duration: 400,
-      ease: 'Power2',
-      onComplete: () => flash.destroy(),
-    });
+  /** A new combo tier: the multiplier's chevrons rise off the roach. */
+  comboTierUp(): void {
+    if (!this.initialized || !this.player) return;
+    const { x, y } = this.player;
+    this.fx.play('multup', x + 8, y - 30, { depth: DEPTH.VFX_TEXT });
+  }
+
+  /**
+   * The killing hit, as it lands: a white-hot spark between the roach and what hit it, and a ring on the ledge. `ui`
+   * plays it on real time, over the frozen world of the solo hit-stop.
+   */
+  hitImpact(culprit: Phaser.GameObjects.Sprite, ui: boolean): void {
+    if (!this.initialized || !this.player) return;
+    const { x, y } = this.player;
+    const at = culprit.getCenter();
+    this.fx.play('spark-big', (x + at.x) / 2, (y + at.y) / 2, { depth: DEPTH.VFX_TEXT + 1, ui });
+    this.fx.play('ring', at.x, y + ROACH_FEET_OFFSET, { depth: DEPTH.VFX_TEXT - 1, ui });
+    this.hitShown = true;
   }
 
   deathEffect(): void {
     if (!this.initialized) return;
 
-    this.scene.cameras.main.shake(260, 0.012);
+    // The roach's fall: the dust it raises, and the hit's spark and ring if nothing has shown them yet (a fall, a wall)
+    if (this.player) {
+      const { x, y } = this.player;
+      const floorY = y + ROACH_FEET_OFFSET;
+      this.fx.play('dust-land', x, floorY, { depth: DEPTH.VFX_TEXT - 1 });
+      if (!this.hitShown) {
+        this.fx.play('spark-big', x + 20, y - 6, { depth: DEPTH.VFX_TEXT + 1 });
+        this.fx.play('ring', x, floorY, { depth: DEPTH.VFX_TEXT - 1 });
+      }
+    }
+    this.setCombo(0);
 
     // A short red hit, then the world sinks while the roach stays lit above it
     this.flashOverlay.setBlendMode(Phaser.BlendModes.NORMAL).setFillStyle(0xff0000, 0.3);
@@ -162,9 +191,11 @@ export class VisualEffects {
       clearTimeout(this.deathSlowMoTimeout);
       this.deathSlowMoTimeout = null;
     }
+    this.aura?.stop();
+    this.aura = null;
+    this.auraName = '';
     this.vignetteGraphics.destroy();
     this.flashOverlay.destroy();
-    this.collectBurst.destroy();
     this.initialized = false;
   }
 }

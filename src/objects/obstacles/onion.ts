@@ -1,58 +1,34 @@
-import Phaser from 'phaser';
+import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
+import { getFx } from '../../effects/Fx';
+import { EnemyPlan, laneY } from './behaviours';
 import { ObstacleKit } from './ObstacleKit';
-import { Floor } from '../Player';
 
-export function spawnOnion(kit: ObstacleKit, x: number, lane?: Floor): void {
-  const { scene } = kit;
-  const floor = lane ?? kit.randomFloor();
-  const standY = kit.standY(floor);
+/** A curl of stink off its top, and a tear down its side, this often. */
+const STINK_MS = 700;
+const TEAR_MS = 800;
 
-  const onion = kit.createSprite(x, standY, 'onion', 'onion', floor);
+/** The onion just stands in its lane (blocker): the one enemy that does nothing. */
+export function spawnOnion(kit: ObstacleKit, plan: EnemyPlan): void {
+  const fx = getFx(kit.scene);
+  const { x } = plan;
+  const standY = laneY(plan.lane);
 
-  const tweens: Phaser.Tweens.Tween[] = [];
-  const stinks: Phaser.GameObjects.Arc[] = [];
+  const onion = kit.enemy(plan);
+  kit.drive(onion, plan);
+  // The commonest obstacle there is, so the quietest of them
+  kit.playSoundOnVisible(onion, 'onion-sfx', VOL.obstacle * 0.7);
 
-  // Stink waves
-  const stinkStartY = standY - onion.displayHeight * 0.75;
-  for (let i = 0; i < 3; i++) {
-    const offsetX = Phaser.Math.Between(-8, 8);
-    const stink = scene.add.circle(x + offsetX, stinkStartY, 4, 0x99cc33, 0.6);
-    stink.setScale(0.5 + i * 0.15);
-    stink.setDepth(DEPTH.OBSTACLES);
-    stinks.push(stink);
-
-    tweens.push(scene.tweens.add({
-      targets: stink,
-      y: stinkStartY - 50 - i * 15,
-      alpha: 0,
-      duration: 1500 + i * 300,
-      delay: i * 400,
-      repeat: -1,
-      ease: 'Sine.easeOut',
-      onRepeat: () => {
-        stink.y = stinkStartY;
-        stink.alpha = 0.6;
-      },
-    }));
-  }
-
-  const tearStartY = standY - onion.displayHeight * 0.6;
-  const tearEndY = standY;
-  const tearTimer = kit.emitWhileOnScreen(onion, 800, () => {
-    const side = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
-    const tear = scene.add.circle(x + side * Phaser.Math.Between(4, 10), tearStartY, Phaser.Math.Between(1, 3), 0x4488ff, 0.7);
-    tear.setDepth(DEPTH.OBSTACLES);
-    scene.tweens.add({
-      targets: tear,
-      y: tearEndY,
-      alpha: 0,
-      scaleY: 1.8,
-      duration: Phaser.Math.Between(600, 1000),
-      ease: 'Quad.easeIn',
-      onComplete: () => tear.destroy(),
-    });
+  const stinkY = standY - onion.displayHeight * 0.75;
+  const stink = kit.emitWhileOnScreen(onion, STINK_MS, () => {
+    fx.play('wisp', x + Math.random() * 16 - 8, stinkY, { depth: DEPTH.OBSTACLES, vy: -30, flipX: Math.random() < .5 });
   });
 
-  kit.track(onion, { tweens, timers: [tearTimer], objects: stinks });
+  const tearY = standY - onion.displayHeight * 0.6;
+  const tears = kit.emitWhileOnScreen(onion, TEAR_MS, () => {
+    const side = Math.random() < .5 ? -1 : 1;
+    fx.play('drip', x + side * (4 + Math.random() * 6), tearY, { depth: DEPTH.OBSTACLES + 0.5 });
+  });
+
+  kit.track(onion, { timers: [stink, tears] });
 }

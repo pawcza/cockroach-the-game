@@ -1,30 +1,19 @@
-import Phaser from 'phaser';
 import { DEPTH } from '../../config/constants';
+import { getFx } from '../../effects/Fx';
+import { EnemyPlan } from './behaviours';
 import { ObstacleKit } from './ObstacleKit';
 
-export function spawnPope(kit: ObstacleKit, x: number): void {
-  const { scene } = kit;
-  const pope = kit.createFloater(x, 'pope', 'pope', 1800, { key: 'pope-sfx', volume: 0.4 });
+/** Floats between the lanes and back (floater in behaviours.ts). */
+export function spawnPope(kit: ObstacleKit, plan: EnemyPlan): void {
+  const fx = getFx(kit.scene);
+  const pope = kit.enemy(plan, { shadow: false });
+  kit.drive(pope, plan);
+  kit.playSoundOnVisible(pope, 'pope-sfx', 0.4);
 
-  // Smoke trail
-  const smokeTimer = kit.emitWhileOnScreen(pope, 150, () => {
-    const smoke = scene.add.circle(
-      pope.x + Phaser.Math.Between(-5, 5),
-      pope.y - pope.displayHeight / 2 + Phaser.Math.Between(-5, 5),
-      Phaser.Math.Between(4, 8),
-      0x888888,
-      0.4,
-    );
-    smoke.setDepth(DEPTH.GLOW);
-    scene.tweens.add({
-      targets: smoke,
-      alpha: 0,
-      scale: 2,
-      duration: 2000,
-      ease: 'Sine.easeOut',
-      onComplete: () => smoke.destroy(),
-    });
+  // A smoke trail
+  const smoke = kit.emitWhileOnScreen(pope, 260, () => {
+    fx.play('smoke', pope.x + Math.random() * 10 - 5, pope.y - pope.displayHeight / 2 + 12, { depth: DEPTH.GLOW, vy: -20 });
   });
 
-  kit.track(pope, { timers: [smokeTimer] });
+  kit.track(pope, { timers: [smoke] });
 }

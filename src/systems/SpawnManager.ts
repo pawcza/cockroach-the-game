@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
 import { addContactShadow } from '../effects/ContactShadow';
+import { getFx } from '../effects/Fx';
 import {
   COCKROACH_START_X,
-  PILL_CHANCE,
-  BEER_CHANCE,
   SPAWN_DISTANCE_AHEAD,
   DEPTH,
 } from '../config/constants';
@@ -13,7 +12,8 @@ import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { Floor } from '../objects/Player';
-import { Beat, RunPatterns, beatSpacing } from './RunPatterns';
+import { beatSpacing } from './RunPatterns';
+import { CourseLayout, SlotItem } from './CourseLayout';
 
 /** Pickups stand this far into the floor's top edge, like the roach's feet. */
 const PICKUP_SINK = 6;
@@ -29,6 +29,11 @@ const FALL_MS = 800;
 /** How many walls of a run carry the DASH! hint. */
 const WALL_HINTS = 2;
 
+/** The dash lesson's wall stands this far ahead of the roach when the reward ends: past the grace blink at any speed. */
+const DASH_LESSON_AHEAD = 1000;
+/** The apples laid on the way to it, back from the wall. */
+const DASH_LESSON_APPLES = [420, 320, 220];
+
 export class SpawnManager {
   private scene: Phaser.Scene;
   private firstSlot = true;
@@ -37,12 +42,16 @@ export class SpawnManager {
   private beers: Phaser.Physics.Arcade.Group;
   private pills: Phaser.Physics.Arcade.Group;
   private obstacleSpawner: ObstacleSpawner;
-  private patterns: RunPatterns;
+  private layout: CourseLayout;
   private rng: SeededRNG | null;
   private floorTopY: number;
   private floorBottomY: number;
+  /** Whether the roach can dash yet: a wall is only a wall with the dash to get through it. */
+  private canDash: () => boolean;
 
   private nextSpawnX: number;
+  /** The opening tutorial lays its own stretch: until it resumes, no beat of the regular course is laid. */
+  private held = false;
   private wallsShown = 0;
   private hints: Phaser.GameObjects.Text[] = [];
   private pendingPickupDestructions: number[] = [];
@@ -57,6 +66,7 @@ export class SpawnManager {
     rng: SeededRNG | null,
     floorTopY: number,
     floorBottomY: number,
+    canDash: () => boolean,
   ) {
     this.scene = scene;
     this.obstacles = obstacles;
@@ -65,9 +75,10 @@ export class SpawnManager {
     this.pills = pills;
     this.obstacleSpawner = obstacleSpawner;
     this.rng = rng;
-    this.patterns = new RunPatterns(rng ?? { next: Math.random });
+    this.layout = new CourseLayout(rng ?? { next: Math.random });
     this.floorTopY = floorTopY;
     this.floorBottomY = floorBottomY;
+    this.canDash = canDash;
     this.nextSpawnX = COCKROACH_START_X + 400;
   }
 
@@ -75,10 +86,22 @@ export class SpawnManager {
     if (x > this.nextSpawnX) this.nextSpawnX = x;
   }
 
+  /** Nothing of the regular course is laid until `resumeSpawning`. */
+  holdSpawning(): void {
+    this.held = true;
+  }
+
+  /** The regular course starts at this x (once, after a hold). */
+  resumeSpawning(fromX: number): void {
+    if (!this.held) return;
+    this.held = false;
+    this.nextSpawnX = fromX;
+  }
+
   handleSpawning(cameraRight: number): void {
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 
-    while (this.nextSpawnX <= spawnHorizon) {
+    while (!this.held && this.nextSpawnX <= spawnHorizon) {
       const slotX = this.nextSpawnX;
       const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
       const level = getLevelForDistance(slotDistance).level;
@@ -87,7 +110,7 @@ export class SpawnManager {
       const testPill = FIRST_PILL && this.firstSlot && !this.rng;
       this.firstSlot = false;
       if (testPill) this.spawnPickup(this.pills, slotX, 'pill', 'bottom');
-      else this.fill(slotX, this.patterns.next(level), level);
+      else this.fill(slotX, this.layout.next(slotX, level), level);
     }
 
     if (this.pendingPickupDestructions.length > 0) {
@@ -105,15 +128,17 @@ export class SpawnManager {
     for (const obj of this.obstacles.getChildren()) {
       const sprite = obj as Phaser.Physics.Arcade.Sprite;
       const floor = sprite.getData('floor') as Floor | null;
-      if (!floor || sprite.getData('falling') || !isGap(sprite.x, floor)) continue;
+      // What flies (a bird, a slipper in a hand) has no ledge to lose, nor the chasing cat, which leaps the gaps
+      if (!floor || sprite.getData('flies') || sprite.getData('falling') || !isGap(sprite.x, floor)) continue;
       sprite.setData('falling', true);
       (sprite.body as Phaser.Physics.Arcade.Body).enable = false;
       this.scene.tweens.killTweensOf(sprite);
       (sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false);
+      // It drops straight with its ledge, unturned, in a puff of the ledge's dust
+      getFx(this.scene).play('dust-land', sprite.x, floor === 'top' ? this.floorTopY : this.floorBottomY, { depth: DEPTH.OBSTACLES + 0.5 });
       this.scene.tweens.add({
         targets: sprite,
         y: sprite.y + FALL_DROP,
-        angle: (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 40),
         alpha: 0,
         duration: FALL_MS,
         ease: 'Quad.easeIn',
@@ -122,26 +147,59 @@ export class SpawnManager {
     }
   }
 
-  private fill(x: number, beat: Beat, level: number): void {
-    const other = (lane: Floor): Floor => (lane === 'top' ? 'bottom' : 'top');
-    switch (beat.kind) {
-      case 'obstacle':
-        this.obstacleSpawner.spawn(x, level, { floor: beat.lane ?? undefined });
-        break;
-      case 'pickup':
-        this.spawnLanePickup(x, beat.lane);
-        break;
-      case 'pair':
-        this.obstacleSpawner.spawn(x, level, { floor: beat.obstacle });
-        this.spawnLanePickup(x, other(beat.obstacle));
-        break;
-      case 'wall':
-        this.obstacleSpawner.spawnWall(x, level);
-        if (this.wallsShown++ < WALL_HINTS) this.addWallHint(x);
-        break;
-      case 'empty':
-        break;
+  /** Builds what the course planned for this slot. */
+  private fill(x: number, items: SlotItem[], level: number): void {
+    for (const item of items) {
+      switch (item.kind) {
+        case 'enemy':
+          this.obstacleSpawner.spawn(item.plan);
+          break;
+        case 'pickup':
+          this.spawnPickup(this[item.group], x, item.art, item.lane);
+          break;
+        case 'wall':
+          // It only goes missing when a boss fight was late to load and the run got past the first boss without its
+          // dash. Nothing seeded was drawn for it, so the rest of the course stays the same
+          if (!this.canDash()) break;
+          this.obstacleSpawner.spawnWall(x, level);
+          if (this.wallsShown++ < WALL_HINTS) this.addWallHint(x);
+          break;
+        case 'cloud':
+          // A wall that is sometimes open: laid, like a wall, only with the dash to get through it, and hinted alike
+          if (!this.canDash()) break;
+          this.obstacleSpawner.spawn(item.plan);
+          if (this.wallsShown++ < WALL_HINTS) this.addWallHint(x - 45);
+          break;
+      }
     }
+  }
+
+  /**
+   * Teaching the dash: one wall ahead of the roach, with apples leading up to it, and normal beats resume past it.
+   * Laid by hand and drawing nothing from the seed, so it never moves the rest of a seeded course. Returns the wall's x.
+   */
+  layDashLesson(fromX: number): number {
+    const x = fromX + DASH_LESSON_AHEAD;
+    const level = getLevelForDistance(Math.floor((x - COCKROACH_START_X) / 50)).level;
+    this.obstacleSpawner.spawnWall(x, level);
+    this.addWallHint(x);
+    for (const back of DASH_LESSON_APPLES) this.spawnPickup(this.apples, x - back, 'apple', 'bottom');
+    this.advanceSpawnX(x + beatSpacing(level) * 2);
+    return x;
+  }
+
+  /**
+   * The tutorial's lone obstacle: an onion standing in this lane. Returns what was made, so the tutorial can take it
+   * away again. Nothing seeded is drawn.
+   */
+  layTutorialObstacle(x: number, lane: Floor): Phaser.Physics.Arcade.Sprite[] {
+    const before = new Set(this.obstacles.getChildren());
+    this.obstacleSpawner.spawnBlocker(x, lane);
+    return this.obstacles.getChildren().filter(o => !before.has(o)) as Phaser.Physics.Arcade.Sprite[];
+  }
+
+  layTutorialApple(x: number, lane: Floor): Phaser.Physics.Arcade.Sprite {
+    return this.spawnPickup(this.apples, x, 'apple', lane);
   }
 
   /** Over the first walls of a run: both lanes are shut, the dash is the way through. */
@@ -163,7 +221,8 @@ export class SpawnManager {
     });
     this.obstacles.getChildren().forEach((obj) => {
       const sprite = obj as Phaser.Physics.Arcade.Sprite;
-      if (sprite.x < cameraLeft - 200) sprite.destroy();
+      // A chaser starts out behind the camera and takes itself away once it has run past
+      if (sprite.x < cameraLeft - 200 && !sprite.getData('behind')) sprite.destroy();
     });
 
     let comboWasLost = false;
@@ -182,6 +241,11 @@ export class SpawnManager {
     }
   }
 
+  /**
+   * The red "!" at the right edge: the arrival cue for an obstacle that shows nothing of its own, about to come into
+   * view in your lane. Enemies that telegraph on themselves (a pose, a wind-up, a shadow) get none; the chaser, which
+   * comes from behind, has its own at the left edge.
+   */
   showObstacleWarnings(cameraRight: number, playerFloor: 'top' | 'bottom'): void {
     const warningZoneStart = cameraRight - 50;
     const warningZoneEnd = cameraRight + 300;
@@ -190,6 +254,7 @@ export class SpawnManager {
       const sprite = obj as Phaser.Physics.Arcade.Sprite;
       if (sprite.x > warningZoneStart && sprite.x < warningZoneEnd && !sprite.getData('warned')) {
         sprite.setData('warned', true);
+        if (sprite.getData('telegraphs')) return;
         const obstacleFloor = sprite.getData('floor');
         if (obstacleFloor && obstacleFloor !== playerFloor) return;
 
@@ -234,15 +299,7 @@ export class SpawnManager {
     }
   }
 
-  /** An apple, or now and then a beer or (rarely) a pill. */
-  private spawnLanePickup(x: number, floor: Floor): void {
-    const roll = this.rng?.next() ?? Math.random();
-    if (roll < PILL_CHANCE) this.spawnPickup(this.pills, x, 'pill', floor);
-    else if (roll < PILL_CHANCE + BEER_CHANCE) this.spawnPickup(this.beers, x, `beer-${Phaser.Math.Between(1, 6)}`, floor);
-    else this.spawnPickup(this.apples, x, 'apple', floor);
-  }
-
-  private spawnPickup(group: Phaser.Physics.Arcade.Group, x: number, art: string, floor: Floor): void {
+  private spawnPickup(group: Phaser.Physics.Arcade.Group, x: number, art: string, floor: Floor): Phaser.Physics.Arcade.Sprite {
     const y = (floor === 'top' ? this.floorTopY : this.floorBottomY) + PICKUP_SINK;
     const sprite = group.create(x, y, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
     sprite.setScale(SPRITE_SCALE);
@@ -254,5 +311,6 @@ export class SpawnManager {
 
     const shadow = addContactShadow(this.scene, x, y, sprite.body!.width * 1.5);
     sprite.once('destroy', () => shadow.destroy());
+    return sprite;
   }
 }

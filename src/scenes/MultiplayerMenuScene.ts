@@ -108,7 +108,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
         mpClient.disconnect();
       });
     };
-    const backBtn = createButton(this, width / 2, height - 28, 220, 30, 'Powrót', 0x444444, buttonStyle({ fontSize: '10px' }), back);
+    const backBtn = createButton(this, width / 2, height - 28, 220, 30, 'Powrót', 0x444444, buttonStyle({ fontSize: '10px' }), back, { sound: 'back' });
     this.fixedButtons = [nameBtn, this.createBtn, backBtn];
     this.onBack = back;
 

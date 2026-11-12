@@ -74,7 +74,8 @@ export class DeathReplayRecorder {
 }
 
 function snapshotGroup(group: Phaser.Physics.Arcade.Group): ReplaySprite[] {
-  return group.getChildren().map(obj => {
+  // Not what can't be seen: a chaser still waiting off behind the run
+  return group.getChildren().filter(obj => (obj as Phaser.Physics.Arcade.Sprite).visible).map(obj => {
     const s = obj as Phaser.Physics.Arcade.Sprite;
     return { worldX: s.x, y: s.y, frameName: s.frame.name };
   });

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { DEPTH } from '../../config/constants';
+import { getFx } from '../../effects/Fx';
+import { EnemyPlan } from './behaviours';
 import { ObstacleKit } from './ObstacleKit';
 
 const PULL_RADIUS = 250;
@@ -7,7 +9,7 @@ const PULL_RADIUS = 250;
 const PULL_STRENGTH = 80;
 const FRAME_MS = 1000 / 60;
 
-export function spawnBlackHole(kit: ObstacleKit, x: number): void {
+export function spawnBlackHole(kit: ObstacleKit, { x }: EnemyPlan): void {
   const { scene } = kit;
   const hole = kit.createSprite(x, 0, 'blackhole', 'blackhole', null, {
     hitbox: { w: 0.5, h: 0.5 },
@@ -31,27 +33,14 @@ export function spawnBlackHole(kit: ObstacleKit, x: number): void {
     }
   };
 
-  // Particle swirl
-  const particlesTimer = kit.emitWhileOnScreen(hole, 80, () => {
+  // Violet motes drawn in to its middle
+  const fx = getFx(scene);
+  const particlesTimer = kit.emitWhileOnScreen(hole, 120, () => {
     const angle = Math.random() * Math.PI * 2;
     const dist = 30 + Math.random() * 40;
-    const particle = scene.add.circle(
-      hole.x + Math.cos(angle) * dist,
-      centerY + Math.sin(angle) * dist,
-      Phaser.Math.Between(1, 3),
-      0x6600cc,
-      0.7,
-    );
-    particle.setDepth(DEPTH.GLOW);
-    scene.tweens.add({
-      targets: particle,
-      x: hole.x,
-      y: centerY,
-      alpha: 0,
-      scale: 0.1,
-      duration: 500,
-      ease: 'Cubic.easeIn',
-      onComplete: () => particle.destroy(),
+    const life = 500;
+    fx.play('twinkle-violet', hole.x + Math.cos(angle) * dist, centerY + Math.sin(angle) * dist, {
+      depth: DEPTH.GLOW, vx: (-Math.cos(angle) * dist * 1000) / life, vy: (-Math.sin(angle) * dist * 1000) / life, life, loop: true,
     });
   });
 

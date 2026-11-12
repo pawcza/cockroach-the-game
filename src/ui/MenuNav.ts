@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { playUi } from '../audio/AudioManager';
 import { UIButton } from './shared';
 
 const DIRECTIONS: Record<string, [number, number]> = {
@@ -25,7 +26,10 @@ export class MenuNav {
   /** Off while something else owns the keyboard, such as the name input. */
   enabled = true;
 
+  private scene: Phaser.Scene;
+
   constructor(scene: Phaser.Scene) {
+    this.scene = scene;
     const onKey = (event: KeyboardEvent): void => this.handleKey(event);
     scene.input.keyboard?.on('keydown', onKey);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.input.keyboard?.off('keydown', onKey));
@@ -43,11 +47,13 @@ export class MenuNav {
     }
     this.focused = null;
     const first = opts.initial ?? buttons.find(b => b.enabled) ?? null;
-    if (first) this.focus(first);
+    // A page opening lights its first button without a sound: only moving the focus ticks
+    if (first) this.focus(first, false);
   }
 
-  focus(button: UIButton): void {
+  focus(button: UIButton, sound = true): void {
     if (this.focused === button) return;
+    if (sound && this.focused) playUi(this.scene, 'ui-hover');
     this.focused?.setFocused(false);
     this.focused = button;
     button.setFocused(true);
@@ -62,6 +68,7 @@ export class MenuNav {
     } else if (event.code === 'Enter' || event.code === 'NumpadEnter' || event.code === 'Space') {
       this.focused?.activate();
     } else if (event.code === 'Escape') {
+      if (this.onBack) playUi(this.scene, 'ui-back');
       this.onBack?.();
     } else {
       return;

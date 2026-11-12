@@ -1,3 +1,5 @@
+import { Abilities } from './abilities';
+
 /** Per-run values that GameScene and its systems read and write together. */
 export class RunState {
   isDead = false;
@@ -17,7 +19,10 @@ export class RunState {
   dashThroughs = 0;
   wallsBroken = 0;
 
-  reset(now: number): void {
+  /** What the roach can do, earned from bosses. Reset with the run. */
+  readonly abilities = new Abilities();
+
+  reset(now: number, multiplayer: boolean): void {
     this.isDead = false;
     this.isCountingDown = true;
     this.currentLevel = 1;
@@ -32,6 +37,7 @@ export class RunState {
     this.nearMisses = 0;
     this.dashThroughs = 0;
     this.wallsBroken = 0;
+    this.abilities.reset(multiplayer);
   }
 }
 

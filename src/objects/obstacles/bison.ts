@@ -1,41 +1,57 @@
-import Phaser from 'phaser';
+import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
+import { getFx } from '../../effects/Fx';
+import { EnemyPlan, laneY } from './behaviours';
+import { TIMINGS } from './cast';
 import { ObstacleKit } from './ObstacleKit';
-import { Floor } from '../Player';
 
-const CHARGE_RANGE = 300;
-const CHARGE_MS = 1400;
+/** Its gallop played faster pawing and charging, slower walking back. */
+const PAW = 2.5;
+const CHARGE = 2;
+const WALK = 0.7;
 
-export function spawnBison(kit: ObstacleKit, x: number, lane?: Floor): void {
-  const { scene } = kit;
-  const floor = lane ?? kit.randomFloor();
-  const standY = kit.standY(floor);
-
-  const bison = kit.createSprite(x, standY, 'bison', 'bison', floor, {
-    hitbox: { w: 0.6, h: 0.55 },
-  });
+/**
+ * The bison, charging: it stands in its lane, paws and leans back, rushes along the lane at the runner, halts, and
+ * walks back (charger in behaviours.ts). Solid all the while.
+ */
+export function spawnBison(kit: ObstacleKit, plan: EnemyPlan): void {
+  const fx = getFx(kit.scene);
+  const standY = laneY(plan.lane);
+  const depth = DEPTH.OBSTACLES + 0.5;
+  const bison = kit.enemy(plan);
   kit.playSoundOnVisible(bison, 'bison-sfx', 0.5);
 
-  // Charge patrol. Fast enough to be a threat, slow and short enough to read and dodge on a lane change
-  const charge = kit.swing(bison, 'x', x - CHARGE_RANGE / 2, x + CHARGE_RANGE / 2, CHARGE_MS);
-  charge();
-
-  const flipUpdate = kit.faceTravel(bison);
-
-  // Dust clouds
-  const dustTimer = kit.emitWhileOnScreen(bison, 100, () => {
-    const dust = scene.add.circle(bison.x + (bison.flipX ? -15 : 15), standY - 8, Phaser.Math.Between(2, 4), 0x997744, 0.4);
-    dust.setDepth(DEPTH.GLOW);
-    scene.tweens.add({
-      targets: dust,
-      alpha: 0,
-      scale: 2,
-      y: dust.y - 10,
-      duration: 400,
-      ease: 'Sine.easeOut',
-      onComplete: () => dust.destroy(),
-    });
+  let pose = 'idle';
+  kit.drive(bison, plan, (now, before) => {
+    if (now.pose !== before?.pose) pose = now.pose;
+    // It halts at the end of its charge: dust thrown ahead of it and a ring
+    if (now.pose === 'strike' && before?.pose === 'strike') {
+      if (now.x <= plan.x - TIMINGS.bison.distance + 0.5 && pose !== 'halted') {
+        pose = 'halted';
+        fx.play('dust-land', bison.x - bison.displayWidth * 0.3, standY, { depth });
+        fx.play('ring', bison.x - bison.displayWidth * 0.3, standY, { depth });
+      }
+      return;
+    }
+    if (now.pose === before?.pose) return;
+    // The art faces left, at the runner; walking back it turns round
+    bison.setFlipX(now.pose === 'recover');
+    bison.anims.timeScale = { windup: PAW, strike: CHARGE, recover: WALK }[now.pose as string] ?? 1;
+    if (!before || !kit.isOnScreen(bison)) return;
+    if (now.pose === 'windup') {
+      // The pawing's first frame: an orange flare on its horns, a ring of light round it, dust off its hooves
+      fx.play('flare-big-orange', bison.x - bison.displayWidth * 0.3, bison.y - bison.displayHeight * 0.62, { depth: DEPTH.PICKUPS + 1 });
+      fx.play('shield', bison.x, bison.getCenter().y, { depth: DEPTH.PICKUPS + 1 });
+      fx.play('dust', bison.x - 12, standY, { depth });
+      if (kit.isAhead(bison)) kit.audio.playSfx('bison-sfx', VOL.obstacle * 0.5);
+    }
   });
 
-  kit.track(bison, { timers: [dustTimer], updates: [charge, flipUpdate] });
+  // Dust off its hooves while it paws, and kicked up behind it as it charges
+  const dustTimer = kit.emitWhileOnScreen(bison, 110, () => {
+    if (pose === 'windup') fx.play('dust', bison.x + (Math.random() < .5 ? -14 : 10), standY, { depth });
+    if (pose === 'strike') fx.play('skid', bison.x + bison.displayWidth * 0.3, standY, { depth });
+  });
+
+  kit.track(bison, { timers: [dustTimer] });
 }

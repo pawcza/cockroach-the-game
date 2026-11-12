@@ -52,18 +52,6 @@ export const PILL_SCORE = 100;
 // ── Color palettes ──────────────────────────────────────────────────
 
 export const COLORS = {
-  /** Full rainbow spectrum */
-  RAINBOW: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x00ffff, 0x0088ff, 0xff00ff],
-  /** Confetti burst colors */
-  CONFETTI: [0xff00ff, 0x00ffff, 0xffff00, 0xff6600, 0x00ff88],
-  /** Apple / generic collect burst */
-  COLLECT: [0xffd700, 0xff6b35, 0xff1493, 0x00ff88, 0xffff00],
-  /** Disco ball ray colors */
-  DISCO: [0xff00ff, 0x00ffff, 0xffff00, 0x00ff66, 0xff6600, 0x8800ff],
-  /** Dash afterimage trail */
-  DASH_TRAIL: [0xffff00, 0xff6600, 0xff00ff, 0x00ffff, 0x00ff00],
-  /** Pill speed-line colors */
-  PILL_LINES: [0xff00ff, 0x00ffff, 0xffff00, 0xff0088, 0x00ff88],
   /** Pill pickup glow */
   PILL_GLOW: 0xff00ff,
 } as const;
@@ -74,7 +62,8 @@ export const DEPTH = {
   SKY_BG: 0,
   MID_BG: 1,
   FG_BG: 2,
-  FLOOR_HIGHLIGHT: 2,
+  /** An enemy held up over the lower lane: behind the upper ledge, so it hangs under it instead of standing on it. */
+  BEHIND_LEDGE: 2.5,
   FLOOR: 3,
   CONTACT_SHADOW: 4,
   GODRAY: 8,
@@ -99,10 +88,16 @@ export const DEPTH = {
   HUD_FILL: 1001,
   COUNTDOWN: 1000,
   ANNOUNCEMENT: 1002,
+  /** A boss mocking the roach mid-run: the portrait and speech panel. Over the HUD, under the pause. */
+  TAUNT: 1100,
   BIRD_OVERLOOK: 2000,
+  /** The new-ability beat after a boss: the dimmer, rays and icon, then the text above them. */
+  REWARD: 2400,
+  REWARD_TEXT: 2401,
   TOUCH_ZONE: 2999,
   TOUCH_BUTTON: 3000,
-  TOUCH_LABEL: 3001,
+  /** The tutorial's small "Pomiń": over the touch zone, so a tap on it is not a lane change. */
+  TUTORIAL_SKIP: 3001,
   SCOREBOARD: 3000,
   GHOST_ARROW: 3500,
   SPECTATE_OVERLAY: 3500,
@@ -110,7 +105,10 @@ export const DEPTH = {
   DEATH_NOTIFICATION: 4000,
   PAUSE_TEXT: 4001,
   PAUSE_BTN: 5000,
-  PAUSE_BTN_LABEL: 5001,
+  /** The boss versus splash covers everything, the pause button too: its layer, the text above it, and the flash over both. */
+  VERSUS: 5100,
+  VERSUS_TEXT: 5101,
+  VERSUS_FLASH: 5102,
   DEATH_REPLAY_BG: 6000,
   DEATH_REPLAY_FLOOR: 6001,
   DEATH_REPLAY_SPRITE: 6002,
@@ -119,10 +117,10 @@ export const DEPTH = {
 } as const;
 
 export const COMBO_TIERS = [
-  { threshold: 5,   color: 0x44ff44, label: 'NIEZŁE!', audioTier: 1 },
-  { threshold: 10,  color: 0xffff00, label: 'MASAKRA!', audioTier: 2 },
-  { threshold: 25,  color: 0xff6600, label: 'SZALEŃSTWO!', audioTier: 3 },
-  { threshold: 50,  color: 0xff00ff, label: 'TURBOKOMPOT!', audioTier: 4 },
-  { threshold: 100, color: 0x00ffff, label: 'ULTRA KARALUCH!', audioTier: 5 },
-  { threshold: 150, color: 0xff0000, label: 'NIEMOŻLIWE!!!', audioTier: 6 },
+  { threshold: 5,   color: 0x44ff44, label: 'NIEZŁE!' },
+  { threshold: 10,  color: 0xffff00, label: 'MASAKRA!' },
+  { threshold: 25,  color: 0xff6600, label: 'SZALEŃSTWO!' },
+  { threshold: 50,  color: 0xff00ff, label: 'TURBOKOMPOT!' },
+  { threshold: 100, color: 0x00ffff, label: 'ULTRA KARALUCH!' },
+  { threshold: 150, color: 0xff0000, label: 'NIEMOŻLIWE!!!' },
 ] as const;

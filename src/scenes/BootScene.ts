@@ -4,10 +4,21 @@ import { sceneManager } from '../systems/SceneManager';
 import { DEFERRED_LOAD_SCENE } from './DeferredLoadScene';
 import { GOOGLE_G } from '../ui/shared';
 import { ANCHORS_KEY, createItemAnimations } from '../config/skins';
+import { VFX_ATLAS } from '../effects/Fx';
 
 /** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
  * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
-const ASSET_REV = '?v=6';
+const ASSET_REV = '?v=13';
+
+/** What index.html's loading screen offers the game. */
+interface LoadingScreen {
+  progress(value: number): void;
+  /** The roach runs the rest of the way and the bosses flash; resolves when that is over. */
+  finish(): Promise<void>;
+  /** Fades the screen out and removes it. */
+  reveal(): void;
+}
+const loadingScreen = (): LoadingScreen | undefined => (window as unknown as { __loading?: LoadingScreen }).__loading;
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -18,48 +29,10 @@ export class BootScene extends Phaser.Scene {
     // Black background
     this.cameras.main.setBackgroundColor('#000000');
 
-    // --- HTML cockroach running across screen during load ---
-    const loadOverlay = document.createElement('div');
-    loadOverlay.id = 'load-overlay';
-    loadOverlay.innerHTML = `
-      <div class="load-roach"></div>
-      <div class="load-text">ładowanko...</div>
-      <div class="load-bar-box"><div class="load-bar-fill"></div></div>
-    `;
-    loadOverlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;font-family:"Tiny5",monospace;';
-
-    const style = document.createElement('style');
-    style.textContent = `
-      #load-overlay .load-roach {
-        width: 176px; height: 110px; image-rendering: pixelated;
-        background: url('/assets/roach-run.png') 0 0 / 800% 100%;
-        position: absolute; top: 25%;
-        animation: load-roach-run 3s linear infinite, load-roach-legs .5s steps(8) infinite;
-      }
-      @keyframes load-roach-run { 0% { left: -176px; } 100% { left: 100%; } }
-      @keyframes load-roach-legs { to { background-position-x: 800%; } }
-      #load-overlay .load-text { font-size: 32px; color: #8b0000; text-shadow: 0 0 12px #8b0000; }
-      #load-overlay .load-bar-box { width: 320px; height: 24px; background: #111; border-radius: 4px; overflow: hidden; }
-      #load-overlay .load-bar-fill { width: 0%; height: 100%; background: #8b0000; transition: width 0.1s; }
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(loadOverlay);
-
-
-    const barFill = loadOverlay.querySelector('.load-bar-fill') as HTMLElement;
-
-    this.load.on('progress', (value: number) => {
-      barFill.style.width = `${Math.round(value * 100)}%`;
-    });
-
-    this.load.on('complete', () => {
-      loadOverlay.style.transition = 'opacity 0.5s';
-      loadOverlay.style.opacity = '0';
-      loadOverlay.addEventListener('transitionend', () => {
-        loadOverlay.remove();
-        style.remove();
-      });
-    });
+    // The loading screen is plain HTML in index.html (it shows before this game exists); the loader's progress drives it
+    const loading = loadingScreen();
+    this.load.on('progress', (value: number) => loading?.progress(value));
+    this.load.on('complete', () => { void loading?.finish(); });
 
     // --- Sprites ---
     const images: [string, string][] = [
@@ -68,6 +41,8 @@ export class BootScene extends Phaser.Scene {
     ];
     for (const [key, path] of images) this.load.image(key, path + ASSET_REV);
     this.load.atlas(ATLAS, 'assets/sprites.webp' + ASSET_REV, 'assets/sprites.json' + ASSET_REV);
+    // The effects, drawn by tools/art/vfx.py: their own small atlas, played by src/effects/Fx.ts
+    this.load.atlas(VFX_ATLAS, 'assets/vfx.webp' + ASSET_REV, 'assets/vfx.json' + ASSET_REV);
     // Where worn items sit on the roach in every frame, and how each is worn: baked with the atlas
     this.load.json(ANCHORS_KEY, 'assets/anchors.json' + ASSET_REV);
 
@@ -105,20 +80,58 @@ export class BootScene extends Phaser.Scene {
       ['blackhole-sfx', 'audio/blackhole.ogg'],
       ['cricket', 'audio/cricket.ogg'],
       ['combo-lost', 'audio/combo-lost.ogg'],
+      ['combo-break', 'audio/combo-break.ogg'],
+      ['hop-land', 'audio/hop-land.ogg'],
+      ['heartbeat', 'audio/heartbeat.ogg'],
+      ['onion-sfx', 'audio/onion.ogg'],
+      ['beer-sfx', 'audio/beer.ogg'],
+      ['pill-end', 'audio/pill-end.ogg'],
+      ['mult-up', 'audio/mult-up.ogg'],
+      ['na-styk', 'audio/na-styk.ogg'],
+      ['przebicie', 'audio/przebicie.ogg'],
+      ['moult-pop', 'audio/moult-pop.ogg'],
+      ['ability-reward', 'audio/ability-reward.ogg'],
+      ...Array.from({ length: 8 }, (_, i): [string, string] => [`combo-tick-${i + 1}`, `audio/combo-tick-${i + 1}.ogg`]),
+      ['ui-press', 'audio/ui/press.ogg'],
+      ['ui-hover', 'audio/ui/hover.ogg'],
+      ['ui-back', 'audio/ui/back.ogg'],
+      ['ui-slider', 'audio/ui/slider.ogg'],
+      ['ui-purchase', 'audio/ui/purchase.ogg'],
+      ['ui-error', 'audio/ui/error.ogg'],
     ];
     for (const [key, path] of audio) this.load.audio(key, path);
 
     // Score milestone sounds
-    const milestones = [100, 250, 420, 500, 1000, 1500, 2000, 2137, 3000, 4000, 4200, 5000, 10000];
-    for (const m of milestones) {
-      this.load.audio(`milestone-${m}`, `audio/${m}.ogg`);
+    const milestoneTiers = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14'];
+    for (const m of milestoneTiers) {
+      this.load.audio(`milestone-${m}`, `audio/milestones/${m}.ogg`);
     }
+    this.load.audio('milestone-2137', 'audio/2137.ogg');
   }
 
   create(): void {
     createSpriteAnimations(this);
     createItemAnimations(this);
     this.scene.launch(DEFERRED_LOAD_SCENE);
-    sceneManager.goto(this, 'MenuScene');
+    // No fade of its own: the loading screen stays up until the menu has drawn its first frame, then fades away over it
+    sceneManager.enter(this, 'MenuScene');
+    const loading = loadingScreen();
+    if (!loading) return;
+    void Promise.all([loading.finish(), this.menuDrawn()]).then(() => loading.reveal());
+  }
+
+  /** Resolves once MenuScene has been drawn twice, and the browser has had a frame to show it. */
+  private menuDrawn(): Promise<void> {
+    return new Promise((resolve) => {
+      let frames = 0;
+      const onRender = (): void => {
+        if (!this.scene.isActive('MenuScene') || ++frames < 2) return;
+        this.game.events.off(Phaser.Core.Events.POST_RENDER, onRender);
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      };
+      this.game.events.on(Phaser.Core.Events.POST_RENDER, onRender);
+      // A menu that never draws must not leave the loading screen up for good
+      setTimeout(resolve, 6000);
+    });
   }
 }

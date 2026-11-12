@@ -6,14 +6,16 @@ import { MPPlayer } from '../multiplayer/MultiplayerClient';
 import { GameEventBridge } from '../multiplayer/GameEventBridge';
 import { MultiplayerSession } from '../multiplayer/MultiplayerSession';
 import { VisualEffects } from '../effects/VisualEffects';
-import { AudioManager } from '../audio/AudioManager';
+import { AudioManager, VOL } from '../audio/AudioManager';
 import { GameHUD } from '../ui/GameHUD';
 import { Player, type Floor } from '../objects/Player';
 import { ROACH_FEET_OFFSET } from '../config/sprites';
 import { GameClock } from '../utils/GameClock';
+import { AbilityLessons } from '../systems/AbilityLessons';
 import { AmbientEffects } from '../systems/AmbientEffects';
 import { BossEncounter } from '../systems/BossEncounter';
-import { BossFight } from '../systems/BossFight';
+import type { BossFight } from '../systems/boss/BossFight';
+import { TauntDirector } from '../systems/boss/TauntDirector';
 import { CollisionManager } from '../systems/CollisionManager';
 import { ComboFeedback } from '../systems/ComboFeedback';
 import { DeathReplayRecorder } from '../systems/DeathReplay';
@@ -30,11 +32,12 @@ import { comboMultiplier, RunState } from '../systems/RunState';
 import { ScoreTracker } from '../systems/ScoreTracker';
 import { sceneManager } from '../systems/SceneManager';
 import { SpawnManager } from '../systems/SpawnManager';
+import { Tutorial } from '../systems/Tutorial';
 import { RiskBonus } from '../systems/RiskBonus';
 import { SpectateController } from '../systems/SpectateController';
 import type { DailyRun } from '../ui/Scoreboard';
 import { BestRunGhost, RunTrackRecorder } from '../systems/BestRunGhost';
-import { loadBestTrack } from '../utils/Storage';
+import { isTutorialDone, loadBestTrack } from '../utils/Storage';
 import { awardDuringRun, type RunSnapshot } from '../systems/Profile';
 import { showAchievement } from '../ui/shared';
 import { PLAIN, type Look } from '../config/skins';
@@ -60,6 +63,9 @@ interface GameSceneData {
 
 /** How often a run checks what it has earned. */
 const ACHIEVEMENT_CHECK_MS = 500;
+/** Killed by an obstacle, solo: the world holds this long (real ms) with the culprit blinking, before the death. */
+const HIT_STOP_MS = 400;
+const HIT_BLINK_MS = 80;
 export class GameScene extends Phaser.Scene {
   // Read by ObstacleSpawner
   public floorBottomY = FLOOR_BOTTOM_Y;
@@ -67,6 +73,8 @@ export class GameScene extends Phaser.Scene {
   public get cockroach(): Phaser.Physics.Arcade.Sprite { return this.player.sprite; }
   public get isDead(): boolean { return this.run.isDead; }
   public get runTime(): number { return Math.max(0, this.clock?.activePlayTime ?? 0); }
+  /** The vacuum's suction, on this client's roach only (ObstacleScene). */
+  public pullRoach(share: number): void { if (!this.run.isDead) this.player.setPull(share); }
 
   // These two outlive a run: restart resets them instead of replacing them.
   private readonly run = new RunState();
@@ -98,6 +106,10 @@ export class GameScene extends Phaser.Scene {
   private score!: ScoreTracker;
   private levels!: LevelProgression;
   private boss!: BossEncounter;
+  private taunts!: TauntDirector;
+  private lessons!: AbilityLessons;
+  /** The opening lesson of a solo run on a device that has not had it. */
+  private tutorial: Tutorial | null = null;
   private session!: MultiplayerSession;
   private magnet!: PickupMagnet;
   private risk!: RiskBonus;
@@ -125,7 +137,7 @@ export class GameScene extends Phaser.Scene {
     this.createEncounters(data);
     this.listenForLifecycle();
 
-    this.gameInput = new GameInput(this, this.run, this.player, this.hud, this.pauseManager, this.eventBridge, this.boss);
+    this.gameInput = new GameInput(this, this.run, this.player, this.pauseManager, this.eventBridge, this.boss);
     this.spectate = new SpectateController(this, this.gameInput, this.levels, this.gameOverHandler, this.hud, () => {
       this.background.update();
       this.updateFloors();
@@ -144,6 +156,12 @@ export class GameScene extends Phaser.Scene {
 
     if (this.run.isCountingDown) {
       this.updateCountdown();
+      return;
+    }
+
+    // The versus splash holds the run: no pausing, no input, nothing moving until the fight is made
+    if (this.boss.isFrozen) {
+      this.gameInput.discardInput();
       return;
     }
 
@@ -187,7 +205,7 @@ export class GameScene extends Phaser.Scene {
     this.session?.destroy();
     this.boss?.destroy();
 
-    this.run.reset(this.time.now);
+    this.run.reset(this.time.now, this.isMultiplayer);
     this.ambient.reset();
     this.floorBottomY = FLOOR_BOTTOM_Y;
     this.floorTopY = FLOOR_TOP_Y;
@@ -220,6 +238,7 @@ export class GameScene extends Phaser.Scene {
 
     this.vfx = new VisualEffects(this);
     this.vfx.init();
+    this.vfx.attachPlayer(this.player);
   }
 
   private createHud(): void {
@@ -232,7 +251,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new GameHUD(
       this,
       () => {
-        if (this.run.isDead || this.run.isCountingDown) return;
+        if (this.run.isDead || this.run.isCountingDown || this.boss.isFrozen) return;
         this.pauseManager.toggle();
       },
       this.isMultiplayer ? undefined : () => leaveRun('GameScene', { multiplayer: false, retry: true, daily: this.daily }),
@@ -264,25 +283,32 @@ export class GameScene extends Phaser.Scene {
       onPillCollected: () => { run.pillsCollected++; },
       onPickup: (x, score) => this.eventBridge.onPickup(x, score, run.pickupCombo),
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
-      onDie: (obstacleType) => this.gameOverHandler.die(obstacleType),
-      onPickupCollected: (x, y, frameName) => this.replayRecorder.recordPickupCollected(this.time.now, x, y, frameName),
+      onDie: (obstacleType, culprit) => this.killedBy(obstacleType, culprit),
+      survivesHit: () => this.absorbHit(),
+      onPickupCollected: (x, y, frameName) => {
+        this.replayRecorder.recordPickupCollected(this.time.now, x, y, frameName);
+        this.vfx.pickupCollectEffect(x, y, frameName);
+      },
       onDashThrough: (obstacle) => this.risk.dashedThrough(obstacle),
     });
     collisions.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
     collisions.setupOverlaps(apples, beers, pills, obstacles);
 
-    const obstacleSpawner = new ObstacleSpawner(this, obstacles, this.audio, this.rng);
+    const obstacleSpawner = new ObstacleSpawner(this, obstacles, this.audio);
     this.spawnManager = new SpawnManager(
       this, obstacles, apples, beers, pills,
       obstacleSpawner, this.rng, this.floorTopY, this.floorBottomY,
+      () => run.abilities.canDash,
     );
+    this.lessons = new AbilityLessons(this, this.player, this.spawnManager);
     this.magnet = new PickupMagnet(this, this.player, [apples, beers, pills]);
     // Close calls score like a pickup: they feed the combo and its multiplier
     this.risk = new RiskBonus(this.player, obstacles, (base, label, x, y, color, kind) => {
-      if (kind === 'near') run.nearMisses++;
+      if (kind === 'near') { run.nearMisses++; this.taunts?.nearMiss(); this.audio.playSfx('na-styk', VOL.stinger); }
       else {
         run.dashThroughs++;
         if (kind.dashed === 'wall') run.wallsBroken++;
+        this.audio.playSfx('przebicie', VOL.stinger);
       }
       this.score.incrementCombo();
       const points = Math.round(base * comboMultiplier(run.pickupCombo));
@@ -294,10 +320,12 @@ export class GameScene extends Phaser.Scene {
       () => {
         this.clock.pause();
         this.levels.setPaused(true);
+        this.audio.pauseLoops();
       },
       (pausedMs) => {
         this.clock.resume();
         this.levels.setPaused(false);
+        this.audio.resumeLoops();
         this.player.adjustTimersForPause(pausedMs);
       },
     );
@@ -335,6 +363,15 @@ export class GameScene extends Phaser.Scene {
       groups: [obstacles, apples, beers, pills],
       getDistance: () => this.getDistance(),
       getGhostManager: () => this.session.ghostManager,
+      seed: this.seed,
+      absorbHit: () => this.absorbHit(),
+      onAbilityEarned: (ability) => this.lessons.teach(ability),
+    });
+
+    this.taunts = new TauntDirector({
+      scene: this, run, boss: this.boss, isMultiplayer,
+      isPaused: () => this.pauseManager.isPaused,
+      getDistance: () => this.getDistance(),
     });
 
     this.session = new MultiplayerSession(this, { ...shared, boss: this.boss });
@@ -371,7 +408,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Multiplayer runs can't pause, so there this does nothing. */
   pauseIfRunning(): void {
-    if (!this.run.isDead && !this.run.isCountingDown) this.pauseManager.pause();
+    if (!this.run.isDead && !this.run.isCountingDown && !this.boss.isFrozen) this.pauseManager.pause();
   }
 
   private relayout(gameSize: Phaser.Structs.Size): void {
@@ -403,8 +440,15 @@ export class GameScene extends Phaser.Scene {
 
     if (this.daily) this.hud.showDailyBanner(this.daily.date);
 
-    // Solo: your record run (or today's best daily run) races beside you
-    const best = this.isMultiplayer ? null : loadBestTrack(this.daily?.date);
+    // Never in a match or Karaluch Dnia, which lay one course out for everyone
+    // Nor with the dev shortcut to a boss (?boss=), which puts the fight where the lesson would be
+    const toBoss = import.meta.env.DEV && new URLSearchParams(window.location.search).has('boss');
+    this.tutorial = !this.isMultiplayer && !this.daily && !toBoss && !isTutorialDone()
+      ? new Tutorial({ scene: this, player: this.player, spawnManager: this.spawnManager, isPaused: () => this.pauseManager.isPaused })
+      : null;
+
+    // Solo: your record run (or today's best daily run) races beside you. Not through a tutorial, which would only confuse
+    const best = this.isMultiplayer || this.tutorial ? null : loadBestTrack(this.daily?.date);
     if (best) {
       const laneY = (floor: Floor): number =>
         (floor === 'top' ? this.floorManager.topColliderY : this.floorManager.bottomColliderY) - ROACH_FEET_OFFSET;
@@ -465,6 +509,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateDead(): void {
+    this.lessons.dismiss();
+    this.tutorial?.dismiss();
     // Keep ghosts moving even before spectating starts
     this.session.updateGhosts();
     // Keep boss fight rendering during spectate (projectiles, HP updates from server)
@@ -484,7 +530,13 @@ export class GameScene extends Phaser.Scene {
 
   private updateBossFight(fight: BossFight): void {
     this.gameInput.handleBossKeys(fight);
-    fight.update(this.game.loop.delta);
+    // A throw here would stop Phaser's loop for good (the next frame is only asked for after this one returns): a
+    // fight's bug costs that frame, never the game
+    try {
+      fight.update(this.game.loop.delta);
+    } catch (error) {
+      console.error(`${fight.id} fight update failed`, error);
+    }
     this.background.update();
     this.updateFloors();
     this.updateHud(this.getDistance());
@@ -505,6 +557,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.gameInput.handleRunKeys();
+    this.lessons.update();
+    this.tutorial?.update(this.run.activePlayTime);
     player.updateDash();
     player.updatePill();
     this.magnet.update();
@@ -547,7 +601,57 @@ export class GameScene extends Phaser.Scene {
     this.session.updateGhosts();
   }
 
+  /**
+   * Killed by an obstacle. Solo, everything holds for a moment first with the culprit blinking, so you see what hit you
+   * (the boss fights do the same). A match reports the death at once, as everyone else's run goes on: there the
+   * culprit blinks over the death sequence instead.
+   */
+  private killedBy(obstacleType: string | null | undefined, culprit?: Phaser.Physics.Arcade.Sprite): void {
+    if (this.run.isDead) return;
+    if (culprit) {
+      // What to show as the culprit: itself, or what it stands for (the bulb, for the light that floods its lane)
+      const shown = (culprit.getData('shows') as Phaser.Physics.Arcade.Sprite | undefined) ?? culprit;
+      // The impact lands with the hit; solo the world is about to stand still, so it plays on real time
+      this.vfx.hitImpact(shown, !this.isMultiplayer);
+      // On the wall clock: the world (and in a match the death's slow-motion) must not hold the blink up
+      const blink = window.setInterval(() => {
+        if (shown.active) shown.setAlpha(shown.alpha < 1 ? 1 : 0.2);
+      }, HIT_BLINK_MS);
+      window.setTimeout(() => {
+        window.clearInterval(blink);
+        if (shown.active) shown.setAlpha(1);
+      }, HIT_STOP_MS);
+    }
+    if (this.isMultiplayer || !culprit) {
+      this.gameOverHandler.die(obstacleType);
+      return;
+    }
+    // The run is over from the hit: no input, no pause, no score; the enemies' clock stops with the world
+    this.run.isDead = true;
+    this.clock.pause();
+    this.physics.pause();
+    this.anims.pauseAll();
+    this.tweens.pauseAll();
+    window.setTimeout(() => {
+      if (!this.sys.isActive()) return;
+      this.physics.resume();
+      this.anims.resumeAll();
+      this.tweens.resumeAll();
+      this.gameOverHandler.die(obstacleType);
+    }, HIT_STOP_MS);
+  }
+
+  /** A hit that would kill: the wylinka takes it instead, once. Only a solo run has one (see Abilities). */
+  private absorbHit(): boolean {
+    // The lesson's obstacle can't hurt; a boss that arrives while the lesson is still up can
+    if (!this.boss.isActive && this.tutorial?.absorbHit()) return true;
+    if (!this.run.abilities.consumeMoult()) return false;
+    this.player.moult();
+    return true;
+  }
+
   private updateHud(distance: number): void {
+    const { abilities } = this.run;
     this.hud.update({
       score: this.run.score,
       distance,
@@ -556,6 +660,13 @@ export class GameScene extends Phaser.Scene {
       pickupCombo: this.run.pickupCombo,
       comboMultiplier: comboMultiplier(this.run.pickupCombo),
       timeNow: this.time.now,
+      abilities: {
+        dash: abilities.canDash,
+        dashCharge: this.player.dashCharge,
+        gun: abilities.canShoot,
+        moult: abilities.has('moult'),
+        moultReady: abilities.moultCharges > 0,
+      },
     });
   }
 
@@ -564,7 +675,8 @@ export class GameScene extends Phaser.Scene {
     const ghostManager = this.session.ghostManager;
     let trackX = player.x;
     let trackFloor = player.currentFloor;
-    let shouldTrack = !run.isCountingDown && !run.isDead;
+    // A boss holds the roach in place: the ledge it braked on and stands on stays, and nothing crumbles until it runs on
+    let shouldTrack = !run.isCountingDown && !run.isDead && !this.boss.isActive;
 
     if (run.isDead && ghostManager?.isSpectating) {
       const target = ghostManager.spectateTargetPlayer;
@@ -590,7 +702,7 @@ export class GameScene extends Phaser.Scene {
   private cleanupOffscreen(): void {
     this.spawnManager.cleanupOffscreen(
       this.cameras.main.scrollX,
-      (comboLost) => this.score.loseCombo(comboLost),
+      (comboLost) => { this.score.loseCombo(comboLost); this.taunts.comboLost(comboLost); },
       this.run.pickupCombo,
     );
   }

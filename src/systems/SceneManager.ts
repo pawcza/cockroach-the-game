@@ -36,6 +36,12 @@ class SceneManagerSingleton {
     });
   }
 
+  /** Starts a scene with no fade, for a hand-off that something else already covers (the boot's loading screen). */
+  enter(fromScene: Phaser.Scene, targetKey: string, data?: Record<string, unknown>): void {
+    this.handleBGM(fromScene, targetKey);
+    fromScene.scene.start(targetKey, data);
+  }
+
   private handleBGM(scene: Phaser.Scene, targetKey: string): void {
     const targetBgm = SCENE_BGM[targetKey] ?? null;
 

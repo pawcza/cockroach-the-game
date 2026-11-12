@@ -2,8 +2,8 @@
  * What a roach wears: a skin, something on its head, something on its back. The art is baked by tools/art (skins.py):
  * skins as whole roach frames (roach-<skin>-<anim>_<n>), worn items as their own little looping animations
  * (acc-<item>_<n>). The bake also writes assets/anchors.json: where the head, back and tail are in every roach frame,
- * and how each item is worn, so the game pins items on as the roach runs, hops and rolls over. Ids match skins.py
- * and server/economy.ts, which owns the prices.
+ * and how each item is worn, so the game pins items on as the roach runs, hops and rolls over; and in the boss fight's
+ * frames, where the pistol's grip and muzzle are. Ids match skins.py and server/economy.ts, which owns the prices.
  */
 import Phaser from 'phaser';
 import { ATLAS } from './sprites';
@@ -48,8 +48,16 @@ export const ITEMS: Record<Slot, { id: string; name: string }[]> = {
   ],
 };
 
-export const ROACH_ANIMS = ['run', 'idle', 'hop', 'dash', 'death'] as const;
+export const ROACH_ANIMS = ['run', 'idle', 'hop', 'dash', 'death', 'rear', 'catch', 'aim', 'shoot', 'flip', 'win'] as const;
 export type RoachAnim = typeof ROACH_ANIMS[number];
+
+const ROACH_KEY = new RegExp(`^roach-(?:[a-z]+-)?(${ROACH_ANIMS.join('|')})(?:_(\\d+))?$`);
+
+/** Which roach animation (and frame) an animation key or frame name is, in any skin: roach-lawa-aim_2 is aim, 2. */
+export function parseRoach(name: string): { anim: RoachAnim; frame: number } | null {
+  const match = ROACH_KEY.exec(name);
+  return match ? { anim: match[1] as RoachAnim, frame: Number(match[2] ?? 0) } : null;
+}
 
 /** The animation key for this roach animation in this look's skin. */
 export function roachAnim(anim: RoachAnim, look: Look | null | undefined): string {
@@ -60,9 +68,19 @@ export const ANCHORS_KEY = 'anchors';
 
 type Point = [number, number];
 type AnchorName = 'head' | 'back' | 'tail' | 'side' | 'shoulder';
-type FrameAnchors = Record<AnchorName, Point> & { angle: number };
+/**
+ * Points in frame px. angle: how far the roach has turned (degrees, clockwise); angles: per anchor, where the body
+ * bends (the boss fight's). grip and muzzle: the pistol's, in the frames that hold one.
+ */
+type FrameAnchors = Record<AnchorName, Point> & {
+  angle: number;
+  angles?: Record<AnchorName, number>;
+  grip?: Point;
+  muzzle?: Point;
+  /** Curled up in the somersault: what it wears is hidden for the frame. */
+  hide?: boolean;
+};
 export interface Anchors {
-  cell: Point;
   roach: Record<RoachAnim, FrameAnchors[]>;
   /** `with`: other items worn along with this one, like the far wing of a pair, drawn behind the body. */
   items: Record<string, { anchor: AnchorName; behind: boolean; frames: number; fps: number; with?: string[] }>;
@@ -113,18 +131,22 @@ export class Worn {
 
   private follow(): void {
     const { wearer, sprite, anchors } = this;
-    const match = /^roach-(?:[a-z]+-)?(run|idle|hop|dash|death)_(\d+)$/.exec(wearer.frame.name);
-    const frame = match ? anchors.roach[match[1] as RoachAnim]?.[Number(match[2])] : undefined;
+    const roach = parseRoach(wearer.frame.name);
+    const frame = roach ? anchors.roach[roach.anim]?.[roach.frame] : undefined;
     if (!frame) return;
+    if (frame.hide) {
+      sprite.setVisible(false);
+      return;
+    }
     const [ax, ay] = frame[this.item.anchor];
-    // From the roach's centre to the anchor, in the roach's own scale, flip and turn
-    const dx = (ax - anchors.cell[0] / 2) * wearer.scaleX * (wearer.flipX ? -1 : 1);
-    const dy = (ay - anchors.cell[1] / 2) * wearer.scaleY;
+    // From the roach's pivot to the anchor, in the roach's own scale, flip and turn
+    const dx = (ax - wearer.displayOriginX) * wearer.scaleX * (wearer.flipX ? -1 : 1);
+    const dy = (ay - wearer.displayOriginY) * wearer.scaleY;
     const turn = wearer.rotation;
     sprite.setPosition(wearer.x + dx * Math.cos(turn) - dy * Math.sin(turn), wearer.y + dx * Math.sin(turn) + dy * Math.cos(turn))
       .setScale(wearer.scaleX, wearer.scaleY)
       .setFlipX(wearer.flipX)
-      .setAngle(wearer.angle + frame.angle)
+      .setAngle(wearer.angle + (frame.angles?.[this.item.anchor] ?? frame.angle))
       .setAlpha(wearer.alpha)
       .setVisible(wearer.visible)
       .setDepth(wearer.depth + (this.item.behind ? -0.1 : 0.1));
@@ -144,4 +166,24 @@ export function dress(scene: Phaser.Scene, roach: Phaser.GameObjects.Sprite, loo
     .filter((id): id is string => id !== null && Boolean(anchors.items[id]))
     .flatMap(id => [id, ...(anchors.items[id].with ?? [])])
     .map(id => new Worn(scene, roach, id, anchors));
+}
+
+/**
+ * Where a point of the pistol (its grip or muzzle) is in the world for a roach sprite showing this frame of an armed
+ * animation, in any skin: they all share the plain roach's anchors and frame size.
+ */
+export function pistolPoint(
+  roach: Phaser.GameObjects.Sprite,
+  anim: RoachAnim,
+  index: number,
+  point: 'grip' | 'muzzle',
+): { x: number; y: number } {
+  const anchors = roach.scene.cache.json.get(ANCHORS_KEY) as Anchors | undefined;
+  const at = anchors?.roach[anim]?.[index]?.[point];
+  const frame = roach.scene.textures.getFrame(ATLAS, `roach-${anim}_${index}`);
+  if (!at || !frame) return { x: roach.x, y: roach.y };
+  return {
+    x: roach.x + (at[0] - frame.pivotX * frame.width) * roach.scaleX,
+    y: roach.y + (at[1] - frame.pivotY * frame.height) * roach.scaleY,
+  };
 }

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { fetchScores, type DailyRun } from '../ui/Scoreboard';
 import type { Achievement } from '../systems/Profile';
-import { COLORS } from '../config/constants';
+import { getFx } from '../effects/Fx';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
 import { addObstacleArt, createButton, createPanel, showAchievement, showMission, UIButton } from '../ui/shared';
 import { MenuNav } from '../ui/MenuNav';
@@ -13,6 +13,11 @@ import { account, signIn, signInAvailable, submitScore, type ScoreSubmission } f
 import { ReplayData } from '../systems/DeathReplay';
 import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
 import { LEVELS, getLevelForDistance } from '../config/levels';
+import { BIGOS_CAUSE_KEY, bigosDeathLines } from '../systems/boss/bigosConfig';
+import { showDeathTaunt } from '../systems/boss/deathTaunt';
+
+/** The confetti's colours, each its own frames in the effects atlas. */
+const CONFETTI = ['pink', 'cyan', 'gold', 'leaf'];
 
 interface GameOverData {
   score: number;
@@ -54,8 +59,20 @@ export class GameOverScene extends Phaser.Scene {
     pope: ['Okadzony przez papieża!', 'Kremówka ostatnia!', 'Santo subito... ale nie ty!'],
     bison: ['Żubr cię stratował!', 'Żubrówka na kopyta!', 'Byka złapałeś!'],
     blackhole: ['Wciągnięty w nicość!', 'Ssanie kosmiczne!', 'Karaluch w próżni!'],
+    glue: ['Przyklejony na amen!', 'Lep nie wybacza!', 'Utknąłeś, kolego!'],
+    bleach: ['Wybielony!', 'Kropla za dużo!', 'Czysto, aż strach!'],
+    lamp: ['Ktoś zapalił światło!', 'Złapany na gorącym uczynku!', 'Widzą cię!'],
+    mop: ['Zmyty z podłogi!', 'Mokra robota!', 'Na mydle i po tobie!'],
+    vacuum: ['Wciągnięty do worka!', 'Odkurzony na amen!', 'Ssanie wygrało!'],
+    hen: ['Kura cię dziobnęła!', 'Ko-ko-koniec!', 'Dziób sprawiedliwości!'],
+    frog: ['Zjedzony na raz!', 'Język za długi!', 'Mucha? Nie, ty!'],
+    centipede: ['Stonoga szybsza!', 'Sto nóg, zero litości!', 'Dogoniony!'],
+    boots: ['Rozdeptany w remizie!', 'Zatańczyli cię!', 'Oberek na plecach!'],
+    hedgehog: ['Nadziany na kolce!', 'Jeż się nie cofa!', 'Kłujący koniec!'],
     wall: ['Prosto w ścianę!', 'Trzeba było dashować!', 'Ściana płaczu!'],
     boss: ['Bestia cię dopadła!', 'Zlew zwyciężył!', 'Kremówkowy armagedon!'],
+    lodzia: ['Raz, a dobrze!', 'Kapciem w ryj!', 'Pani Lodzia nie pudłuje!'],
+    eksterminator: ['Zdezynsekowany!', 'Bez faktury, bez litości!', 'Psik i po robalu!'],
   };
 
   private static readonly DEFAULT_DEATH = 'Zgniotłeś się!';
@@ -76,7 +93,10 @@ export class GameOverScene extends Phaser.Scene {
     createSceneBackground(this, { level: data?.level ?? 1, dim: 0.62, scrollSpeed: 0.15 });
     this.nav = new MenuNav(this);
 
-    const texts = data?.obstacleType ? GameOverScene.DEATH_TEXT[data.obstacleType] : null;
+    // DJ Bigos's line names what got you (the server only hears 'bigos')
+    const texts = data?.obstacleType === 'bigos'
+      ? bigosDeathLines(this.registry.get(BIGOS_CAUSE_KEY))
+      : data?.obstacleType ? GameOverScene.DEATH_TEXT[data.obstacleType] : null;
     const deathMessage = texts
       ? texts[Math.floor(Math.random() * texts.length)]
       : GameOverScene.DEFAULT_DEATH;
@@ -91,9 +111,10 @@ export class GameOverScene extends Phaser.Scene {
     const { isNewRecord, highScore } = this.getHighScoreInfo(data?.score ?? 0, data?.previousBest);
     this.setupScoreDisplay(width, height, data?.score ?? 0, highScore, isNewRecord);
     this.setupStats(width, height, data);
+    showDeathTaunt(this, data?.distance, data?.obstacleType);
 
     if (isNewRecord) {
-      this.spawnConfetti(width, height);
+      this.spawnConfetti(width);
     }
     for (const achievement of data?.achievements ?? []) showAchievement(this, achievement);
     void data?.missions?.then((done) => {
@@ -283,23 +304,13 @@ export class GameOverScene extends Phaser.Scene {
 
   // -- Confetti ---------------------------------------------------------------
 
-  private spawnConfetti(width: number, height: number): void {
+  /** Pixel confetti from the effects atlas, fluttering down from above the screen. */
+  private spawnConfetti(width: number): void {
+    const fx = getFx(this);
     for (let i = 0; i < 40; i++) {
-      const color = COLORS.CONFETTI[i % COLORS.CONFETTI.length];
-      const size = Phaser.Math.Between(3, 8);
-      const confetti = this.add.rectangle(
-        Phaser.Math.Between(0, width), -20,
-        size, size, color, 0.9,
-      );
-
-      this.tweens.add({
-        targets: confetti,
-        y: height + 20,
-        x: confetti.x + Phaser.Math.Between(-100, 100),
-        duration: Phaser.Math.Between(1500, 3000),
-        delay: Phaser.Math.Between(0, 1000),
-        ease: 'Cubic.easeIn',
-        onComplete: () => confetti.destroy(),
+      fx.play(`confetti-${CONFETTI[i % CONFETTI.length]}`, Phaser.Math.Between(0, width), -12, {
+        vx: Phaser.Math.Between(-40, 40), vy: Phaser.Math.Between(140, 220), gravity: 80, drag: 0.1,
+        delay: Phaser.Math.Between(0, 1000), life: 3000, loop: true,
       });
     }
   }

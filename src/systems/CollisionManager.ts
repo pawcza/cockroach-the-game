@@ -3,8 +3,13 @@ import { APPLE_SCORE, PILL_SCORE, BEER_SCORE, DEPTH } from '../config/constants'
 import { popupStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
-import { AudioManager } from '../audio/AudioManager';
-/** How far a punted obstacle flies, and for how long. Ahead of the roach, so it stays in view as it spins off. */
+import { AudioManager, VOL } from '../audio/AudioManager';
+import { getFx } from '../effects/Fx';
+import { popup } from '../effects/Popup';
+
+/** The burp follows the beer's clink by this long. */
+const BURP_DELAY_MS = 280;
+/** How far a punted obstacle flies, and for how long. Ahead of the roach, so it stays in view as it flies off. */
 const CRUSH_FLING_X = 500;
 const CRUSH_FLING_Y = 220;
 const CRUSH_MS = 750;
@@ -20,7 +25,10 @@ export interface CollisionCallbacks {
   onPillCollected: () => void;
   onPickup: (x: number, score: number) => void;
   onPillStart: () => void;
-  onDie: (obstacleType?: string | null) => void;
+  /** What killed the roach: its type, and the obstacle itself (for the hit-stop's flash). */
+  onDie: (obstacleType?: string | null, culprit?: Phaser.Physics.Arcade.Sprite) => void;
+  /** A hit that would kill: true when the wylinka took it (its shell is shed, and the obstacle is punted instead). */
+  survivesHit: () => boolean;
   onPickupCollected?: (x: number, y: number, frameName: string) => void;
   onDashThrough: (obstacle: Phaser.Physics.Arcade.Sprite) => void;
 }
@@ -71,15 +79,22 @@ export class CollisionManager {
       this.player.sprite, obstacles,
       this.hitObstacle as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
       (_cockroach, obstacle) => {
+        const sprite = obstacle as Phaser.Physics.Arcade.Sprite;
+        // A hazard that is no thing (the light flooding a lane) is passed through on a pill or a dash, never punted
+        if (sprite.getData('unpuntable') && (this.player.crushesObstacles || this.player.isDashing)) return false;
         if (this.player.crushesObstacles) {
-          this.crushObstacle(obstacle as Phaser.Physics.Arcade.Sprite);
+          this.crushObstacle(sprite);
           return false;
         }
-        const sprite = obstacle as Phaser.Physics.Arcade.Sprite;
+        // An enemy between attacks (a raised slipper, a bird up high, a cat in mid-air) can't hurt and isn't punted
+        if (sprite.getData('harmless')) return false;
         const obstacleFloor = sprite.getData('floor');
         const inLane = !obstacleFloor || obstacleFloor === this.player.currentFloor;
         if (this.player.isDashing) {
-          if (inLane) this.callbacks.onDashThrough(sprite);
+          if (inLane) {
+            this.callbacks.onDashThrough(sprite);
+            this.crushObstacle(sprite);
+          }
           return false;
         }
         if (this.player.isInvulnerable) return false;
@@ -117,7 +132,6 @@ export class CollisionManager {
     const px = sprite.x;
     const py = sprite.y;
     this.callbacks.onPickupCollected?.(px, py, sprite.frame.name);
-    this.vfx.pickupCollectEffect(px, py);
     config.sound?.();
     sprite.destroy();
 
@@ -156,7 +170,10 @@ export class CollisionManager {
     beer: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     this.collectPickup(_cockroach, beer, {
-      sound: () => this.audio.playSfx('burp', 0.8),
+      sound: () => {
+        this.audio.playSfx('beer-sfx', VOL.pickup);
+        this.scene.time.delayedCall(BURP_DELAY_MS, () => this.audio.playSfx('burp', VOL.pickup));
+      },
       score: BEER_SCORE,
       popupColor: '#ffdd00',
       onCollected: () => this.callbacks.onBeerCollected(),
@@ -178,7 +195,7 @@ export class CollisionManager {
   }
 
   /**
-   * On the pill the roach punts whatever it runs into: up and ahead, spinning, gone. Cosmetic and local, so no seeded
+   * On the pill, dashing through, or shedding its shell, the roach punts what it hits: a spark and a poof, then up and ahead, gone. Cosmetic and local, so no seeded
    * randomness; the obstacle stops colliding at once.
    */
   private crushObstacle(obstacle: Phaser.Physics.Arcade.Sprite): void {
@@ -189,11 +206,14 @@ export class CollisionManager {
     (obstacle.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false);
     obstacle.setDepth(DEPTH.POPUP - 1);
     this.audio.playSfx('flipper-sfx', 0.5);
-    const spin = Math.random() > 0.5 ? 1 : -1;
+    // The hit: a white-hot spark where it was struck and a poof as it leaves; it flies off unturned
+    const fx = getFx(this.scene);
+    const { y } = obstacle.getCenter();
+    fx.play('poof', obstacle.x, y, { depth: DEPTH.POPUP - 1 });
+    fx.play('spark-big', obstacle.x - 10, y, { depth: DEPTH.POPUP });
     this.scene.tweens.add({
       targets: obstacle,
       x: obstacle.x + CRUSH_FLING_X + Math.random() * 200,
-      angle: spin * (540 + Math.random() * 360),
       duration: CRUSH_MS,
       ease: 'Quad.easeOut',
     });
@@ -211,42 +231,16 @@ export class CollisionManager {
     _cockroach: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
     obstacle: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
-    const obstacleType = (obstacle as Phaser.Physics.Arcade.Sprite).getData('type') || null;
-    this.callbacks.onDie(obstacleType);
+    const sprite = obstacle as Phaser.Physics.Arcade.Sprite;
+    if (this.callbacks.survivesHit()) {
+      this.crushObstacle(sprite);
+      return;
+    }
+    this.callbacks.onDie(sprite.getData('type') || null, sprite);
   }
 
+  /** A score on its pixel plate, rising off the pickup (or the close call) and going. */
   showPickupPopup(x: number, y: number, text: string, color: string): void {
-    const popup = this.scene.add.text(x, y - 20, text, popupStyle({ color }));
-    popup.setOrigin(0.5);
-    popup.setDepth(DEPTH.POPUP);
-    popup.setAlpha(0);
-
-    this.scene.tweens.add({
-      targets: popup,
-      y: popup.y - 15,
-      alpha: 1,
-      duration: 150,
-      ease: 'Power2',
-      onComplete: () => {
-        this.scene.tweens.add({
-          targets: popup,
-          angle: { from: -3, to: 3 },
-          duration: 75,
-          yoyo: true,
-          repeat: 1,
-          ease: 'Sine.easeInOut',
-          onComplete: () => {
-            this.scene.tweens.add({
-              targets: popup,
-              y: popup.y - 20,
-              alpha: 0,
-              duration: 150,
-              ease: 'Power2',
-              onComplete: () => popup.destroy(),
-            });
-          },
-        });
-      },
-    });
+    popup(this.scene, x, y - 20, text, popupStyle({ color }), { hold: 150 });
   }
 }

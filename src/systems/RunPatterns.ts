@@ -4,16 +4,23 @@
  * same run: the order of random calls here must never depend on anything but the slots themselves.
  */
 
+import type { CastRole, EnemyId } from '../objects/obstacles/cast';
+
 export type Lane = 'top' | 'bottom';
 
-/** What stands at one slot. A lane of null leaves it to the obstacle, like the floaters that cross both. */
+/**
+ * What stands at one slot. A lane of null leaves it to the obstacle, like the floaters that cross both. A role asks for
+ * an enemy of that kind of behaviour (a swatter for a gate, the chaser for a chase).
+ */
 export type Beat =
-  | { kind: 'obstacle'; lane: Lane | null }
+  | { kind: 'obstacle'; lane: Lane | null; role?: CastRole; enemy?: EnemyId }
   | { kind: 'pickup'; lane: Lane }
   /** An obstacle in one lane and a pickup in the other, side by side. */
-  | { kind: 'pair'; obstacle: Lane }
+  | { kind: 'pair'; obstacle: Lane; role?: CastRole }
   /** Both lanes blocked: only a dash (or the pill) gets through. */
   | { kind: 'wall' }
+  /** The spray's cloud wall: both lanes shut while its cloud hangs, open between puffs. */
+  | { kind: 'cloud' }
   | { kind: 'empty' };
 
 export interface Random {
@@ -21,11 +28,14 @@ export interface Random {
 }
 
 type Rel = 'A' | 'B';
+/** An obstacle step may ask for a kind of behaviour, or one enemy by name. */
+type Ask = CastRole | { enemy: EnemyId };
 type Step =
-  | ['obstacle', Rel | null]
+  | ['obstacle', Rel | null, Ask?]
   | ['pickup', Rel]
-  | ['pair', Rel]
+  | ['pair', Rel, CastRole?]
   | ['wall']
+  | ['cloud']
   | ['empty'];
 
 interface Chunk {
@@ -47,7 +57,67 @@ const CHUNKS: Chunk[] = [
   { name: 'corridor', minLevel: 3, heat: 3, weight: 2, steps: [['pair', 'A'], ['pair', 'A'], ['pair', 'B'], ['pair', 'B']] },
   { name: 'wall', minLevel: 4, heat: 3, weight: 1, steps: [['pickup', 'A'], ['empty'], ['wall'], ['empty']] },
   { name: 'gauntlet', minLevel: 6, heat: 5, weight: 1, steps: [['obstacle', 'A'], ['obstacle', 'B'], ['pair', 'A'], ['obstacle', 'B'], ['obstacle', 'A']] },
+  // Built around behaviours. A gate: apples through a swatter's lane, taken by passing between its slaps
+  { name: 'gate', minLevel: 1, heat: 1.5, weight: 3, steps: [['pickup', 'A'], ['obstacle', 'A', 'swatter'], ['pickup', 'A']] },
+  // A sweeper puffing its lane shut while apples run down the free one
+  { name: 'sweep', minLevel: 2, heat: 1.5, weight: 2, steps: [['pair', 'A', 'sweeper'], ['pickup', 'B'], ['pickup', 'B']] },
+  { name: 'gates', minLevel: 3, heat: 3, weight: 2, steps: [['obstacle', 'A', 'swatter'], ['pickup', 'B'], ['obstacle', 'B', 'swatter'], ['pickup', 'A']] },
+  // Apples on both sides of a pouncer: the one beyond it is in the lane it pounces into
+  { name: 'switch-bait', minLevel: 5, heat: 2.5, weight: 2, steps: [['pickup', 'A'], ['obstacle', 'A', 'switcher'], ['pickup', 'B']] },
+  // The light closes its whole lane while it is on, the mop the stretch it sweeps: each with quiet round it and apples
+  // down the lane to be on
+  { name: 'light', minLevel: 2, heat: 2, weight: 1.5, steps: [['empty'], ['empty'], ['obstacle', 'A', 'light'], ['pickup', 'B'], ['pickup', 'B'], ['empty']] },
+  { name: 'mop', minLevel: 2, heat: 2, weight: 1.5, steps: [['pickup', 'B'], ['obstacle', 'A', 'mop'], ['pickup', 'B'], ['empty']] },
+  // The dash act. The vacuum comes from behind near its slot, holds behind the runner a while and swings its nozzle
+  // twice: a stretch without obstacles, apples in the lane it leaves free
+  { name: 'vacuum', minLevel: 3, heat: 3, weight: 1, steps: [['obstacle', 'A', 'chaser'], ['pickup', 'B'], ['pickup', 'B'], ['empty'], ['pickup', 'A'], ['pickup', 'A'], ['empty']] },
+  // A cloud wall where a wall would go: shut while it hangs, open between puffs, always open to a dash
+  { name: 'cloud', minLevel: 3, heat: 3, weight: 1, steps: [['pickup', 'A'], ['empty'], ['cloud'], ['empty']] },
+  // The hen reaches into the lower lane in front of her, the frog licks far along its own: each with room before it
+  { name: 'hen', minLevel: 4, heat: 2, weight: 2, steps: [['empty'], ['obstacle', 'A', 'pecker'], ['pickup', 'A'], ['empty']] },
+  { name: 'frog', minLevel: 5, heat: 2, weight: 2, steps: [['empty'], ['pickup', 'B'], ['obstacle', 'A', 'licker'], ['pickup', 'B'], ['empty']] },
+  { name: 'centipede', minLevel: 6, heat: 2, weight: 1.5, steps: [['empty'], ['obstacle', 'A', 'scuttler'], ['pickup', 'B'], ['empty']] },
+  // A dance line: pairs of boots in a row, all stomping on one beat
+  { name: 'dance', minLevel: 6, heat: 3, weight: 1.5, steps: [['empty'], ['obstacle', null, 'dancer'], ['obstacle', null, 'dancer'], ['obstacle', null, 'dancer'], ['empty']] },
 ];
+
+/**
+ * Each level opens by showing its newcomers one at a time, the first time the run gets there: alone, with apples
+ * leading through (the onion is the tutorial's). Laid from the same random source as everything else, at the same slots
+ * on every client.
+ */
+const NEWCOMERS: Record<number, EnemyId[]> = {
+  1: ['glue', 'flipper', 'bleach'],
+  2: ['spray', 'lamp', 'mop'],
+  3: ['newspaper', 'vacuum'],
+  4: ['bird', 'hen'],
+  5: ['cat', 'frog'],
+  6: ['centipede', 'boots'],
+  7: ['jellyfish'],
+  8: ['pope'],
+  9: ['bison'],
+  10: ['blackhole'],
+};
+
+/** The ones that pick their own way between the lanes: shown with room either side instead of apples through. */
+const FREE: ReadonlySet<EnemyId> = new Set(['newspaper', 'bird', 'boots', 'jellyfish', 'pope', 'blackhole']);
+
+function introduction(enemy: EnemyId): Chunk {
+  const steps: Step[] = enemy === 'lamp'
+    ? [['empty'], ['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty']]
+    : enemy === 'mop'
+      ? [['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+      : enemy === 'vacuum'
+        ? [['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty'], ['pickup', 'A'], ['pickup', 'A'], ['empty']]
+        : enemy === 'centipede' || enemy === 'hen'
+          ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+          : enemy === 'frog'
+            ? [['empty'], ['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+      : FREE.has(enemy)
+        ? [['empty'], ['obstacle', null, { enemy }], ['empty'], ['pickup', 'A']]
+        : [['pickup', 'A'], ['obstacle', 'A', { enemy }], ['pickup', 'A'], ['empty']];
+  return { name: `intro-${enemy}`, minLevel: 1, heat: 0, weight: 0, steps };
+}
 
 const BREATHER: Chunk = {
   name: 'breather', minLevel: 1, heat: 0, weight: 0,
@@ -76,6 +146,8 @@ export class RunPatterns {
   private queue: Beat[] = [];
   private heat = 0;
   private beatsSinceWall = WALL_COOLDOWN_BEATS;
+  /** The highest level whose newcomers have been shown. */
+  private introduced = 0;
 
   constructor(rng: Random) {
     this.rng = rng;
@@ -83,9 +155,16 @@ export class RunPatterns {
 
   /** The beat for the next slot, on this level. */
   next(level: number): Beat {
+    // A new level's first beats introduce its newcomers, once each. A run that starts past level 1 (only the tests
+    // do) is shown its own level's
+    if (this.introduced === 0) this.introduced = level - 1;
+    while (this.queue.length === 0 && this.introduced < level) {
+      this.introduced++;
+      for (const enemy of NEWCOMERS[this.introduced] ?? []) this.queue.push(...this.lay(introduction(enemy)));
+    }
     if (this.queue.length === 0) this.queue = this.pickChunk(level);
     const beat = this.queue.shift()!;
-    this.beatsSinceWall = beat.kind === 'wall' ? 0 : this.beatsSinceWall + 1;
+    this.beatsSinceWall = beat.kind === 'wall' || beat.kind === 'cloud' ? 0 : this.beatsSinceWall + 1;
     return beat;
   }
 
@@ -96,7 +175,8 @@ export class RunPatterns {
     }
     // A wall waits for its cooldown and the queue it is laid from must not start with one already behind
     const wallReady = this.beatsSinceWall >= WALL_COOLDOWN_BEATS;
-    const open = CHUNKS.filter(c => c.minLevel <= level && (c.name !== 'wall' || wallReady));
+    // The cloud wall goes where a wall goes and waits for the same dash
+    const open = CHUNKS.filter(c => c.minLevel <= level && ((c.name !== 'wall' && c.name !== 'cloud') || wallReady));
     const total = open.reduce((sum, c) => sum + c.weight, 0);
     let roll = this.rng.next() * total;
     let chosen = open[open.length - 1];
@@ -113,10 +193,17 @@ export class RunPatterns {
     const lane = (rel: Rel): Lane => (rel === 'A' ? a : a === 'top' ? 'bottom' : 'top');
     return chunk.steps.map((step): Beat => {
       switch (step[0]) {
-        case 'obstacle': return { kind: 'obstacle', lane: step[1] ? lane(step[1]) : null };
+        case 'obstacle': {
+          const ask = step[2];
+          const beat: Beat = { kind: 'obstacle', lane: step[1] ? lane(step[1]) : null };
+          if (typeof ask === 'string') beat.role = ask;
+          else if (ask) beat.enemy = ask.enemy;
+          return beat;
+        }
         case 'pickup': return { kind: 'pickup', lane: lane(step[1]) };
-        case 'pair': return { kind: 'pair', obstacle: lane(step[1]) };
+        case 'pair': return { kind: 'pair', obstacle: lane(step[1]), ...(step[2] && { role: step[2] }) };
         case 'wall': return { kind: 'wall' };
+        case 'cloud': return { kind: 'cloud' };
         case 'empty': return { kind: 'empty' };
       }
     });

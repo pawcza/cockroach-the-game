@@ -1,53 +1,68 @@
-import Phaser from 'phaser';
+import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
-import { frameOf } from '../../config/sprites';
+import { getFx } from '../../effects/Fx';
+import { EnemyPlan, laneY } from './behaviours';
+import { TIMINGS, bodyOf, ENEMIES } from './cast';
 import { ObstacleKit } from './ObstacleKit';
-import { Floor } from '../Player';
 
-/** The first jolt of the baked shake (tools/art/objects.py), when the can kicks. */
-const SQUIRT_FRAME = 1;
-const HAZE_ALPHA = 0.15;
+/** The wind-up: the can's baked shake played this much faster. */
+const SHAKE = 3;
+/** Mist spat from the nozzle while it shakes, ms apart. */
+const DRIBBLE_MS = 70;
+/** The nozzle, up the can from its baseline, as a share of its height. */
+const NOZZLE = 0.62;
+/** How long the cloud takes to thin out once it has hurt (looks only): spray-cloud-out's 3 frames at 12 fps. */
+const THIN_MS = 250;
 
-export function spawnPestSpray(kit: ObstacleKit, x: number, lane?: Floor): void {
+/**
+ * The pest spray: a can in its lane that, on a rhythm, shakes and puffs a cloud that hangs in the lane just ahead of
+ * it, closing that stretch for a moment (sweeper in behaviours.ts). The can itself always blocks.
+ */
+export function spawnPestSpray(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
-  const floor = lane ?? kit.randomFloor();
-  const standY = kit.standY(floor);
+  const fx = getFx(scene);
+  const standY = laneY(plan.lane);
+  const spray = kit.enemy(plan);
+  kit.playSoundOnVisible(spray, 'spray-sfx', VOL.obstacle);
+  const half = bodyOf(ENEMIES.spray).half;
+  const nozzle = (): { x: number; y: number } => ({ x: spray.x - half, y: spray.y - spray.displayHeight * NOZZLE });
 
-  const spray = kit.createSprite(x, standY, 'spray', 'spray', floor);
-  kit.playSoundOnVisible(spray, 'spray-sfx', 0.3);
-
-  // Green haze behind the can, brightening with each squirt
-  const haze = scene.add.circle(x, standY - spray.displayHeight * 0.4, 30, 0x88dd44, HAZE_ALPHA);
-  haze.setDepth(DEPTH.OBSTACLES - 1);
-  haze.setBlendMode(Phaser.BlendModes.ADD);
-
-  // Mist leaves the nozzle on the can's jolt, once per loop of its shake, so the two keep time
-  const nozzleY = standY - spray.displayHeight * 0.8;
-  const squirt = (_anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame): void => {
-    if (frame.textureFrame !== frameOf('spray', SQUIRT_FRAME) || !kit.isOnScreen(spray)) return;
-    scene.tweens.add({ targets: haze, alpha: HAZE_ALPHA * 2, scale: 1.2, duration: 120, yoyo: true, ease: 'Sine.easeOut' });
-    for (let i = 0; i < 7; i++) {
-      const droplet = scene.add.circle(
-        spray.x + Phaser.Math.Between(-3, 3),
-        nozzleY + Phaser.Math.Between(-2, 2),
-        Phaser.Math.Between(3, 8),
-        0x88dd44,
-        Math.random() * (0.6 - 0.3) + 0.3,
-      );
-      droplet.setDepth(DEPTH.OBSTACLES);
-      scene.tweens.add({
-        targets: droplet,
-        x: droplet.x + Phaser.Math.Between(-30, 30),
-        y: droplet.y + Phaser.Math.Between(-35, -15),
-        alpha: 0,
-        scale: Math.random() * (2.5 - 1.5) + 1.5,
-        duration: Phaser.Math.Between(800, 1400),
-        ease: 'Sine.easeOut',
-        onComplete: () => droplet.destroy(),
-      });
-    }
+  // The cloud fills exactly the stretch that hurts, from its first frame: its pivot is the can's front edge, and the
+  // baked cloud's core is TIMINGS.spray.reach wide (SPRAY_REACH in tools/art/vfx.py). It churns while it hurts, then
+  // thins out
+  const puff = (): void => {
+    const at = { x: spray.x - half, y: standY };
+    const depth = DEPTH.OBSTACLES + 1;
+    fx.play('spray-cloud', at.x, at.y, {
+      depth, life: TIMINGS.spray.sweep,
+      onComplete: () => fx.play('spray-cloud-out', at.x, at.y, { depth, fps: (3 * 1000) / THIN_MS }),
+    });
   };
-  spray.on(Phaser.Animations.Events.ANIMATION_UPDATE, squirt);
 
-  kit.track(spray, { objects: [haze] });
+  // The nozzle spits as the can shakes: the puff is coming
+  let shaking = false;
+  const dribble = kit.emitWhileOnScreen(spray, DRIBBLE_MS, () => {
+    if (!shaking) return;
+    const { x, y } = nozzle();
+    fx.burst('bit-green', x, y, 2, 2, { depth: DEPTH.OBSTACLES + 1, speed: [50, 110], angle: [150, 210], gravity: 200, life: 300 });
+  });
+
+  kit.drive(spray, plan, (now, before) => {
+    shaking = now.pose === 'windup';
+    if (now.pose === before?.pose) return;
+    spray.anims.timeScale = now.pose === 'windup' ? SHAKE : 1;
+    if (!before || !kit.isOnScreen(spray)) return;
+    // The wind-up's first frame: a green flare on the nozzle and a ring of light round the can
+    if (now.pose === 'windup') {
+      const { x, y } = nozzle();
+      fx.play('flare-big-green', x, y, { depth: DEPTH.PICKUPS + 1 });
+      fx.play('shield', spray.x, spray.getCenter().y, { depth: DEPTH.PICKUPS + 1 });
+    }
+    if (now.pose === 'strike') {
+      puff();
+      if (kit.isAhead(spray)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
+    }
+  });
+
+  kit.track(spray, { timers: [dribble] });
 }
