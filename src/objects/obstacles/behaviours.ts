@@ -443,9 +443,8 @@ export function drip(t: { idle: number; swell: number; fall: number; splash: num
     // The jug lies to the right of its cap, which is over the spot (plan.x)
     const st = state(plan.x + t.jugDx, laneY('top'), 'bottom', pose, m.k, zones);
     st.parts = { drop, splash };
-    // Where it will land: a spot on the lower lane, darkening as the drop swells and falls
-    if (m.seg === 'swell') st.mark = { lane: 'bottom', x: plan.x, progress: .6 * m.p };
-    if (m.seg === 'fall') st.mark = { lane: 'bottom', x: plan.x, progress: .6 + .4 * m.p };
+    // Where it will land: the spot on the lower lane warns while the drop swells and falls (the kill-zone look)
+    if (m.seg === 'swell' || m.seg === 'fall') st.warn = { lane: 'bottom', x0: plan.x - t.spot / 2, x1: plan.x + t.spot / 2, level: 1 };
     return st;
   };
 }

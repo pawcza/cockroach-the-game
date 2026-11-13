@@ -4,7 +4,7 @@
  */
 import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
-import { getLevelForDistance } from '../config/levels';
+import { LEVELS } from '../config/levels';
 import { GameEventBridge } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
@@ -295,7 +295,9 @@ export class BossEncounter {
     clock.resume();
     const blinkTween = player.startInvulnerabilityBlink();
     this.scene.time.delayedCall(RESUME_GRACE_MS, () => player.endInvulnerability(blinkTween));
-    audio.switchBGM(getLevelForDistance(this.deps.getDistance()).bgmKey);
+    // The level the fight was fought in; a level that waited on this boss arrives next frame (LevelProgression), with
+    // its own music
+    audio.switchBGM(LEVELS[run.currentLevel - 1].bgmKey);
     spawnManager.advanceSpawnX(player.x + 400);
     if (earned) this.deps.onAbilityEarned?.(earned);
   }

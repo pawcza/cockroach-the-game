@@ -27,9 +27,10 @@ WORK = 8
 HAZE = np.array([70, 78, 88], float)
 
 
-def _still(name: str, factor: int, flip_v: bool = False) -> np.ndarray:
+def _still(name: str, factor: int, flip_v: bool = False, mirror: bool = False) -> np.ndarray:
     a = at_size(f"{PICKED}/{name}.png", factor, ground=True)
-    return np.ascontiguousarray(a[::-1] if flip_v else a)
+    a = a[::-1] if flip_v else a
+    return np.ascontiguousarray(a[:, ::-1] if mirror else a)
 
 
 def _hazed(a: np.ndarray, amount: float) -> np.ndarray:
@@ -129,17 +130,22 @@ def _with_sole(a: np.ndarray, thickness: int = 1) -> np.ndarray:
     return _over((_darker(a, .55), 0, thickness), (a, 0, 0))
 
 
-def _strip(far: np.ndarray, mid: np.ndarray, flat: np.ndarray, sole: int) -> list[np.ndarray]:
+def _strip(far: np.ndarray, mid: np.ndarray, flat: np.ndarray, sole: int, lead_left: bool = False) -> list[np.ndarray]:
+    """lead_left: the striking end (the slipper's toe, the paper's far end) is at the left, towards the runner, and the
+    held end at the right, where the hand is: the fastest frame comes down striking end first, and the peel lifts the
+    held end first."""
+    held = -1 if lead_left else 1
     poses = [
         _hazed(_pose(far, .5), .45),
+        # Wound back: the striking end cocked up
         _hazed(_pose(far, .48, tilt=12), .45),
         _hazed(_smear(_pose(far, .72)), .25),
         _hazed(_smear(_pose(mid, .9)), .1),
         # The fastest frame: stretched a little along the swing
-        _smear(_pose(flat, tilt=12, stretch=1.12)),
+        _smear(_pose(flat, tilt=12 * held, stretch=1.12)),
         _with_sole(_pose(flat, squash=.72, stretch=1.08), sole) if sole else _pose(flat, squash=.72, stretch=1.08),
         _with_sole(flat, sole) if sole else flat,
-        _pose(flat, tilt=14),
+        _pose(flat, tilt=14 * held),
         _hazed(_pose(mid, .82), .25),
     ]
     # One canvas for the strip, every pose standing on its bottom edge, centred
@@ -161,7 +167,9 @@ def slipper(hand: bool = False) -> list[Image.Image]:
         flat = _fade_arm(_still("slipper-swat-flat", 1))
         frames = _strip(far, mid, flat, 0)
     else:
-        frames = _strip(_still("slipper-swat-far-nohand", 1), _still("slipper-swat-mid-nohand", 1), _still("slipper-flat", 2), 1)
+        # The renders hold it by the toe: mirrored, so the toe leads down at the runner and the hand has the heel
+        frames = _strip(_still("slipper-swat-far-nohand", 1, mirror=True), _still("slipper-swat-mid-nohand", 1, mirror=True),
+                        _still("slipper-flat", 2, mirror=True), 1, lead_left=True)
     return [Image.fromarray(f) for f in frames]
 
 
@@ -172,8 +180,10 @@ def newspaper(hand: bool = False) -> list[Image.Image]:
         flat = _fade_arm(_still("newspaper-swat-flat", 2))
         frames = _strip(far, mid, flat, 0)
     else:
-        frames = _strip(_still("newspaper-swat-far-nohand", 1), _still("newspaper-swat-mid-nohand", 1),
-                        _still("newspaper-flat", 2), 0)
+        # The raised renders lead with the gripped end: mirrored, so the roll's far end (its spiral) comes down first;
+        # lying flat, that end is already at the left
+        frames = _strip(_still("newspaper-swat-far-nohand", 1, mirror=True), _still("newspaper-swat-mid-nohand", 1, mirror=True),
+                        _still("newspaper-flat", 2), 0, lead_left=True)
     return [Image.fromarray(f) for f in frames]
 
 

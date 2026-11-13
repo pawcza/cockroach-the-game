@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { FLOOR_BOTTOM_Y, FLOOR_TOP_Y } from '../config/constants';
+import { COCKROACH_START_X, FLOOR_BOTTOM_Y, FLOOR_TOP_Y } from '../config/constants';
+import { LEVELS } from '../config/levels';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { MPPlayer } from '../multiplayer/MultiplayerClient';
@@ -48,6 +49,8 @@ import { showAchievement } from '../ui/shared';
 import { PLAIN, type Look } from '../config/skins';
 import { myLook } from '../ui/Shop';
 import { areDeferredAssetsLoaded, DEFERRED_LOADED_EVENT } from './DeferredLoadScene';
+import { guardScene } from '../systems/guardScene';
+import type { UpdateGuard } from '../systems/UpdateGuard';
 
 interface GameSceneData {
   multiplayer?: boolean;
@@ -71,6 +74,8 @@ const ACHIEVEMENT_CHECK_MS = 500;
 /** Killed by an obstacle, solo: the world holds this long (real ms) with the culprit blinking, before the death. */
 const HIT_STOP_MS = 400;
 const HIT_BLINK_MS = 80;
+/** After the tutorial the real course starts no nearer than this past the screen's right edge. */
+const COURSE_AHEAD_PX = 100;
 export class GameScene extends Phaser.Scene {
   // Read by ObstacleSpawner
   public floorBottomY = FLOOR_BOTTOM_Y;
@@ -132,6 +137,8 @@ export class GameScene extends Phaser.Scene {
   private gameInput!: GameInput;
   private spectate!: SpectateController;
   private countdown!: RunCountdown;
+  /** Keeps an exception in any piece of a frame from freezing the game (guardScene). */
+  private guard!: UpdateGuard;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -139,6 +146,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const data = this.scene.settings.data as GameSceneData | undefined;
+    this.guard = guardScene(this);
 
     this.resetRun(data);
     this.createWorld();
@@ -161,6 +169,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(): void {
+    // The last net: each piece below is guarded on its own, this only catches what falls between them
+    this.guard.run('GameScene.update', () => this.step(), true);
+  }
+
+  /** One frame: one guarded piece per subsystem, so a broken one costs only itself (see UpdateGuard). */
+  private piece(name: string, fn: () => void, essential = false): void {
+    this.guard.run(name, fn, essential);
+  }
+
+  private step(): void {
     if (this.run.isDead) {
       this.updateDead();
       return;
@@ -274,7 +292,8 @@ export class GameScene extends Phaser.Scene {
 
     const comboFeedback = new ComboFeedback(new NotificationManager(this));
     this.score = new ScoreTracker(this, this.run, this.hud, comboFeedback, this.audio, this.vfx);
-    this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.seed);
+    this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.seed,
+      () => this.boss?.upcoming?.boss.triggerDistance ?? Infinity);
     this.replayRecorder = new DeathReplayRecorder();
     this.runTrack = new RunTrackRecorder();
     this.bestGhost = null;
@@ -297,12 +316,13 @@ export class GameScene extends Phaser.Scene {
       onPickup: (x, score) => this.eventBridge.onPickup(x, score, run.pickupCombo),
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType, culprit) => this.killedBy(obstacleType, culprit),
-      survivesHit: () => this.absorbHit(),
+      survivesHit: (obstacle) => this.absorbHit(obstacle),
       onPickupCollected: (x, y, frameName) => {
         this.replayRecorder.recordPickupCollected(this.time.now, x, y, frameName);
         this.vfx.pickupCollectEffect(x, y, frameName);
       },
       onDashThrough: (obstacle) => this.risk.dashedThrough(obstacle),
+      scoring: () => !this.inTutorial,
     });
     collisions.setupFloorColliders(this.floorManager.topBody, this.floorManager.bottomBody);
     collisions.setupOverlaps(apples, beers, pills, obstacles);
@@ -346,6 +366,7 @@ export class GameScene extends Phaser.Scene {
       }
       this.score.incrementCombo();
       const points = Math.round(base * comboMultiplier(run.pickupCombo));
+      if (this.inTutorial) return;
       this.score.addScore(points);
       collisions.showPickupPopup(x, y, `${label} +${points}`, color);
     });
@@ -380,6 +401,7 @@ export class GameScene extends Phaser.Scene {
       getReplayData: (obstacleType) => this.replayRecorder.getReplayData(obstacleType, obstacles, [apples, beers, pills]),
       getRunTrack: () => this.runTrack.track,
       getRunSnapshot: () => this.runSnapshot(),
+      isPractice: () => this.inTutorial,
     });
   }
 
@@ -409,6 +431,7 @@ export class GameScene extends Phaser.Scene {
       scene: this, run, boss: this.boss, isMultiplayer,
       isPaused: () => this.pauseManager.isPaused,
       getDistance: () => this.getDistance(),
+      inTutorial: () => this.inTutorial,
     });
 
     this.session = new MultiplayerSession(this, { ...shared, boss: this.boss });
@@ -481,16 +504,15 @@ export class GameScene extends Phaser.Scene {
     // Nor with the dev shortcut to a boss (?boss=), which puts the fight where the lesson would be
     const toBoss = import.meta.env.DEV && new URLSearchParams(window.location.search).has('boss');
     this.tutorial = !this.isMultiplayer && !this.daily && !toBoss && !isTutorialDone()
-      ? new Tutorial({ scene: this, player: this.player, spawnManager: this.spawnManager, isPaused: () => this.pauseManager.isPaused })
+      ? new Tutorial({
+        scene: this, player: this.player, spawnManager: this.spawnManager, isPaused: () => this.pauseManager.isPaused,
+        onDone: () => this.startRealRun(),
+      })
       : null;
 
-    // Solo: your record run (or today's best daily run) races beside you. Not through a tutorial, which would only confuse
-    const best = this.isMultiplayer || this.tutorial ? null : loadBestTrack(this.daily?.date);
-    if (best) {
-      const laneY = (floor: Floor): number =>
-        (floor === 'top' ? this.floorManager.topColliderY : this.floorManager.bottomColliderY) - ROACH_FEET_OFFSET;
-      this.bestGhost = new BestRunGhost(this, best, laneY);
-    }
+    // Solo: your record run (or today's best daily run) races beside you. Not through a tutorial, which would only
+    // confuse: after one it starts with the real run
+    if (!this.tutorial) this.raceBestRun();
 
     this.player.freezeForCountdown();
     this.countdown = new RunCountdown(this, () => this.beginRunning(), this.quickStart, this.startsAt);
@@ -514,6 +536,66 @@ export class GameScene extends Phaser.Scene {
     ghosts.startSpectating();
     const target = ghosts.spectateTargetPlayer;
     if (target) this.spectate.follow(target.sprite);
+  }
+
+  /** Solo: the record run (or today's best daily run) races beside you, from where the run starts. */
+  private raceBestRun(): void {
+    const best = this.isMultiplayer ? null : loadBestTrack(this.daily?.date);
+    if (!best) return;
+    const laneY = (floor: Floor): number =>
+      (floor === 'top' ? this.floorManager.topColliderY : this.floorManager.bottomColliderY) - ROACH_FEET_OFFSET;
+    this.bestGhost = new BestRunGhost(this, best, laneY);
+  }
+
+  /**
+   * The opening tutorial is on: a level 0 that looks like level 1, where the roach runs but nothing counts. No distance
+   * (so no level, no boss and no taunt), no score, no clock for the speed-up, no survival ticks, milestones,
+   * achievements, records or best-run ghost, until it is over and startRealRun begins the run proper.
+   */
+  private get inTutorial(): boolean {
+    return this.tutorial !== null && !this.tutorial.isOver;
+  }
+
+  /**
+   * The tutorial is over (played through or skipped): the run starts here, at 0 m and 0 points. The world is moved back
+   * under the camera by the stretch the tutorial ran, so the roach stands at the course's start again (the course, its
+   * levels and its enemies' timing are all measured from there) without anything on screen moving; then everything
+   * the stretch did is forgotten and the course is laid from just off screen.
+   */
+  private startRealRun(): void {
+    this.rebaseWorld(this.player.x - COCKROACH_START_X);
+    for (const group of Object.values(this.groups)) {
+      for (const obj of group.getChildren().slice()) obj.destroy();
+    }
+    this.run.restartCounts(this.time.now);
+    this.score.clearCombo();
+    this.clock.start();
+    this.raceTime = 0;
+    this.nextAchievementCheck = 0;
+    this.runTrack = new RunTrackRecorder();
+    this.replayRecorder = new DeathReplayRecorder();
+    this.raceBestRun();
+    this.spawnManager.resumeSpawning(this.cameraRight + COURSE_AHEAD_PX);
+    // The real run's first level, announced like every level after it
+    this.hud.showLevelAnnouncement(LEVELS[0]);
+  }
+
+  /** Moves everything in the world back by dx, the camera with it, so nothing on screen changes. */
+  private rebaseWorld(dx: number): void {
+    const roach = this.player.sprite;
+    for (const obj of this.children.list) {
+      const o = obj as Phaser.GameObjects.GameObject & Partial<Phaser.GameObjects.Components.Transform & Phaser.GameObjects.Components.ScrollFactor>;
+      if (o === roach || o.scrollFactorX !== 1 || typeof o.x !== 'number') continue;
+      o.x -= dx;
+    }
+    const body = roach.body as Phaser.Physics.Arcade.Body;
+    const velocity = body.velocity.clone();
+    body.reset(roach.x - dx, roach.y);
+    body.velocity.copy(velocity);
+    this.cameras.main.scrollX -= dx;
+    this.floorManager.rebase(dx);
+    this.background.rebase(dx);
+    getFx(this).rebase(dx);
   }
 
   /** The run so far, for stats and achievements. */
@@ -547,46 +629,48 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateDead(): void {
-    this.lessons.dismiss();
-    this.tutorial?.dismiss();
+    this.piece('lessons', () => this.lessons.dismiss());
+    this.piece('tutorial', () => this.tutorial?.dismiss());
     // Keep ghosts moving even before spectating starts
-    this.session.updateGhosts();
+    this.piece('ghosts', () => this.session.updateGhosts());
     // Keep boss fight rendering during spectate (projectiles, HP updates from server)
-    this.boss.activeFight?.update(this.game.loop.delta);
+    this.piece('fight', () => this.boss.activeFight?.update(this.game.loop.delta), true);
 
     const ghostManager = this.session.ghostManager;
-    if (ghostManager?.isSpectating) this.spectate.update(ghostManager);
+    if (ghostManager?.isSpectating) this.piece('spectate', () => this.spectate.update(ghostManager), true);
   }
 
   private updateCountdown(): void {
-    this.player.freezeForCountdown();
-    this.countdown.update();
-    this.updateFloors();
-    this.spawnManager.handleSpawning(this.cameraRight);
-    this.background.update();
+    this.piece('countdown', () => {
+      this.player.freezeForCountdown();
+      this.countdown.update();
+    }, true);
+    this.piece('floors', () => this.updateFloors(), true);
+    this.piece('spawning', () => this.spawnManager.handleSpawning(this.cameraRight), true);
+    this.piece('background', () => this.background.update());
   }
 
   private updateBossFight(fight: BossFight): void {
-    this.gameInput.handleBossKeys(fight);
-    // A throw here would stop Phaser's loop for good (the next frame is only asked for after this one returns): a
-    // fight's bug costs that frame, never the game
-    try {
-      fight.update(this.game.loop.delta);
-    } catch (error) {
-      console.error(`${fight.id} fight update failed`, error);
-    }
-    this.background.update();
-    this.updateFloors();
-    this.updateHud(this.getDistance());
+    this.piece('boss input', () => this.gameInput.handleBossKeys(fight), true);
+    // A fight that keeps throwing is never switched off: that would leave the run stuck in it
+    this.piece(`${fight.id} fight`, () => fight.update(this.game.loop.delta), true);
+    this.piece('background', () => this.background.update());
+    this.piece('floors', () => this.updateFloors(), true);
+    this.piece('hud', () => this.updateHud(this.getDistance()), true);
+    // The roach stands in a fight: its combo exhaust is out until it runs again
+    this.piece('vfx', () => this.vfx.update(this.player.speedMultiplier, false));
   }
 
   private updateRunning(): void {
     const { player } = this;
+    const piece = this.piece.bind(this);
 
-    player.updateSpeed(this.run.activePlayTime, this.run.currentLevel);
-    this.ambient.updateDust();
-    this.background.update();
-    this.updateFloors();
+    const tutorial = this.inTutorial;
+    // The tutorial runs at the start's speed however long it takes
+    piece('speed', () => player.updateSpeed(tutorial ? 0 : this.run.activePlayTime, this.run.currentLevel), true);
+    piece('dust', () => this.ambient.updateDust());
+    piece('background', () => this.background.update());
+    piece('floors', () => this.updateFloors(), true);
 
     // Off-screen death
     if (player.y > this.cameras.main.height + 50 || player.y < -100) {
@@ -594,55 +678,75 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.gameInput.handleRunKeys(this.ammoView());
-    player.carryPistol(this.run.abilities.canShootInRun);
-    this.runGun.update(this.game.loop.delta);
-    this.lessons.update();
-    this.tutorial?.update(this.run.activePlayTime);
-    player.updateDash();
-    player.updatePill();
-    this.magnet.update();
-    this.risk.update();
-
-    this.session.sendEndedEffects();
-    player.updateVisuals();
-    // The ghost's clock is the one that moves the world: frame time actually simulated, so a run with hitches
-    // doesn't fall behind a ghost that ran smoothly, or the other way round
-    this.raceTime += this.game.loop.delta;
-    this.runTrack.sample(this.raceTime, player.x, player.currentFloor);
-    this.bestGhost?.update(this.raceTime, player.x);
-    // Achievements the run earns as it goes: a distance, a level, a combo pop up the moment they're reached
-    if (this.time.now >= this.nextAchievementCheck) {
-      this.nextAchievementCheck = this.time.now + ACHIEVEMENT_CHECK_MS;
-      for (const earned of awardDuringRun(this.runSnapshot())) showAchievement(this, earned);
+    piece('input', () => {
+      this.gameInput.handleRunKeys(this.ammoView());
+      player.carryPistol(this.run.abilities.canShootInRun);
+    }, true);
+    piece('gun', () => this.runGun.update(this.game.loop.delta));
+    piece('lessons', () => this.lessons.update());
+    piece('tutorial', () => this.tutorial?.update(this.run.activePlayTime));
+    if (this.inTutorial && this.guard.isDisabled('tutorial')) {
+      // A broken lesson must not hold the run in level 0 for good
+      this.tutorial?.dismiss();
+      this.tutorial = null;
+      this.startRealRun();
     }
-    this.replayRecorder.sample(
-      this.time.now, player.x, player.y,
-      player.currentFloor, player.isDashing,
-      player.isPillActive, player.sprite.frame.name,
-    );
+    piece('dash', () => player.updateDash(), true);
+    piece('pill', () => player.updatePill(), true);
+    piece('magnet', () => this.magnet.update());
+    piece('risk', () => this.risk.update());
 
-    this.score.tickSurvival();
-    this.gameOverHandler.checkMilestones(this.run.score);
+    piece('effects sync', () => this.session.sendEndedEffects());
+    piece('roach visuals', () => player.updateVisuals(), true);
+    // Nothing of the tutorial is kept: the run's records start with the real run (startRealRun)
+    if (!this.inTutorial) this.updateRecords();
 
     const distance = this.getDistance();
-    this.levels.update(distance);
-    if (this.boss.tryTrigger(distance)) {
+    piece('levels', () => this.levels.update(distance), true);
+    let fightStarts = false;
+    piece('boss trigger', () => { fightStarts = this.boss.tryTrigger(distance); }, true);
+    if (fightStarts) {
       // Bullets in flight would hang in the air over the fight
-      this.runGun.clear();
+      piece('gun', () => this.runGun.clear());
       return;
     }
 
-    this.updateHud(distance);
+    piece('hud', () => this.updateHud(distance), true);
 
-    this.spawnManager.handleSpawning(this.cameraRight);
-    this.spawnManager.showObstacleWarnings(this.cameraRight, player.currentFloor);
-    this.cleanupOffscreen();
+    piece('spawning', () => this.spawnManager.handleSpawning(this.cameraRight), true);
+    piece('warnings', () => this.spawnManager.showObstacleWarnings(this.cameraRight, player.currentFloor));
+    piece('cleanup', () => this.cleanupOffscreen(), true);
 
-    this.vfx.update(player.speedMultiplier);
-    this.audio.updatePitch(player.speedMultiplier * player.pillSpeedBoost);
-    this.ambient.update();
-    this.session.updateGhosts();
+    piece('vfx', () => this.vfx.update(player.speedMultiplier));
+    piece('pitch', () => this.audio.updatePitch(player.speedMultiplier * player.pillSpeedBoost));
+    piece('ambient', () => this.ambient.update());
+    piece('ghosts', () => this.session.updateGhosts());
+  }
+
+  /** What a counting run keeps as it goes: its track for the ghost, achievements, the replay, survival and milestones. */
+  private updateRecords(): void {
+    const { player } = this;
+    const piece = this.piece.bind(this);
+    // The ghost's clock is the one that moves the world: frame time actually simulated, so a run with hitches
+    // doesn't fall behind a ghost that ran smoothly, or the other way round
+    piece('best run', () => {
+      this.raceTime += this.game.loop.delta;
+      this.runTrack.sample(this.raceTime, player.x, player.currentFloor);
+      this.bestGhost?.update(this.raceTime, player.x);
+    });
+    // Achievements the run earns as it goes: a distance, a level, a combo pop up the moment they're reached
+    if (this.time.now >= this.nextAchievementCheck) {
+      this.nextAchievementCheck = this.time.now + ACHIEVEMENT_CHECK_MS;
+      piece('achievements', () => { for (const earned of awardDuringRun(this.runSnapshot())) showAchievement(this, earned); });
+    }
+    piece('replay', () => this.replayRecorder.sample(
+      this.time.now, player.x, player.y,
+      player.currentFloor, player.isDashing,
+      player.isPillActive, player.sprite.frame.name,
+    ));
+
+    piece('survival', () => this.score.tickSurvival(), true);
+    piece('milestones', () => this.gameOverHandler.checkMilestones(this.run.score));
   }
 
   /**
@@ -686,9 +790,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** A hit that would kill: the wylinka takes it instead, once. Only a solo run has one (see Abilities). */
-  private absorbHit(): boolean {
+  private absorbHit(obstacle?: Phaser.Physics.Arcade.Sprite): boolean {
     // The lesson's obstacle can't hurt; a boss that arrives while the lesson is still up can
     if (!this.boss.isActive && this.tutorial?.absorbHit()) return true;
+    // Nor the gun lesson's onion: one not shot is only punted
+    if (!this.boss.isActive && this.lessons.spares(obstacle)) return true;
     if (!this.run.abilities.consumeMoult()) return false;
     this.player.moult();
     return true;
@@ -709,6 +815,8 @@ export class GameScene extends Phaser.Scene {
       pickupCombo: this.run.pickupCombo,
       comboMultiplier: comboMultiplier(this.run.pickupCombo),
       timeNow: this.time.now,
+      level: this.run.currentLevel,
+      tutorial: this.inTutorial,
       abilities: {
         dash: abilities.canDash,
         dashCharge: this.player.dashCharge,
@@ -740,6 +848,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // The tutorial's stretch looks like level 1 however far it runs
+    this.floorManager.levelCap = this.inTutorial ? 1 : this.levels.levelCap;
     this.floorManager.update(
       this.cameras.main.scrollX,
       trackX, trackFloor, shouldTrack,
@@ -761,7 +871,8 @@ export class GameScene extends Phaser.Scene {
     return this.cameras.main.scrollX + this.cameras.main.width;
   }
 
+  /** Metres run; none while the tutorial is on. */
   private getDistance(): number {
-    return distanceAt(this.player.x);
+    return this.inTutorial ? 0 : distanceAt(this.player.x);
   }
 }

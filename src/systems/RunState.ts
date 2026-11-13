@@ -28,6 +28,12 @@ export class RunState {
     this.isDead = false;
     this.isCountingDown = true;
     this.currentLevel = 1;
+    this.restartCounts(now);
+    this.abilities.reset(multiplayer);
+  }
+
+  /** Back to 0 m, 0 points and no records, keeping what the roach owns: where the real run starts after the tutorial. */
+  restartCounts(now: number): void {
     this.activePlayTime = 0;
     this.score = 0;
     this.lastScoreTime = now;
@@ -40,7 +46,6 @@ export class RunState {
     this.dashThroughs = 0;
     this.wallsBroken = 0;
     this.kills = 0;
-    this.abilities.reset(multiplayer);
   }
 }
 

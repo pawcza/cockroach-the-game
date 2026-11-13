@@ -28,6 +28,8 @@ export class ParallaxBackground {
   private config: LevelConfig = LEVELS[0];
   private nextConfig: LevelConfig = LEVELS[0];
   private transitioning = false;
+  /** How far the world has been moved back under the camera (rebase), so the plates do not jump when it is. */
+  private rebased = 0;
 
   constructor(scene: Phaser.Scene, w: number, h: number) {
     this.scene = scene;
@@ -109,9 +111,14 @@ export class ParallaxBackground {
     layers.fg.tilePositionX = snapped(layers.fg, config.painted ? NEAR_SCROLL : OLD_FG_SCROLL);
   }
 
+  /** The world moved back by `dx` under the camera: the plates stay where they were on screen. */
+  rebase(dx: number): void {
+    this.rebased += dx;
+  }
+
   update(): void {
     const camera = this.scene.cameras.main;
-    const scrollX = camera.scrollX;
+    const scrollX = camera.scrollX + this.rebased;
     this.scroll(this.current, this.config, scrollX);
     if (this.transitioning) this.scroll(this.next, this.nextConfig, scrollX);
 

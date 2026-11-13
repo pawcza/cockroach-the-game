@@ -28,9 +28,11 @@ export interface CollisionCallbacks {
   /** What killed the roach: its type, and the obstacle itself (for the hit-stop's flash). */
   onDie: (obstacleType?: string | null, culprit?: Phaser.Physics.Arcade.Sprite) => void;
   /** A hit that would kill: true when the wylinka took it (its shell is shed, and the obstacle is punted instead). */
-  survivesHit: () => boolean;
+  survivesHit: (obstacle?: Phaser.Physics.Arcade.Sprite) => boolean;
   onPickupCollected?: (x: number, y: number, frameName: string) => void;
   onDashThrough: (obstacle: Phaser.Physics.Arcade.Sprite) => void;
+  /** False while nothing scores (the tutorial): a pickup still counts in the combo, but adds no points and shows none. */
+  scoring?: () => boolean;
 }
 
 export class CollisionManager {
@@ -138,13 +140,14 @@ export class CollisionManager {
     this.callbacks.incrementCombo();
     config.onCollected();
     const multiplier = this.callbacks.getComboMultiplier();
-    const points = Math.round(config.score * multiplier);
-    this.callbacks.addScore(points);
+    const scoring = this.callbacks.scoring?.() !== false;
+    const points = scoring ? Math.round(config.score * multiplier) : 0;
+    if (scoring) this.callbacks.addScore(points);
     this.callbacks.onPickup(px, this.callbacks.getScore());
 
     config.afterScore?.(px, py);
 
-    if (config.popupColor !== undefined) {
+    if (config.popupColor !== undefined && scoring) {
       const color = typeof config.popupColor === 'function' ? config.popupColor() : config.popupColor;
       this.showPickupPopup(px, py, `+${points}`, color);
     }
@@ -232,7 +235,7 @@ export class CollisionManager {
     obstacle: Phaser.Types.Physics.Arcade.GameObjectWithBody | Phaser.Tilemaps.Tile,
   ): void {
     const sprite = obstacle as Phaser.Physics.Arcade.Sprite;
-    if (this.callbacks.survivesHit()) {
+    if (this.callbacks.survivesHit(sprite)) {
       this.crushObstacle(sprite);
       return;
     }

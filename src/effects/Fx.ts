@@ -216,6 +216,15 @@ export class Fx {
     return { stop: () => { trail.stopped = true; } };
   }
 
+  /** The world moved back by `dx` (the tutorial's hand-off): what stands in it moves with it; riders and UI stay. */
+  rebase(dx: number): void {
+    for (const entry of this.live) {
+      if (entry.follow || entry.image.scrollFactorX !== 1) continue;
+      entry.x -= dx;
+      this.place(entry);
+    }
+  }
+
   /** Ends everything at once, as when the run ends. */
   clear(): void {
     for (const entry of this.live.slice()) this.finish(entry, false);

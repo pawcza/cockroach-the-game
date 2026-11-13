@@ -6,18 +6,29 @@ import {
   SPAWN_DISTANCE_AHEAD,
   DEPTH,
 } from '../config/constants';
-import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../config/sprites';
+import { ATLAS, SPRITE_SCALE, frameOf, playLoop } from '../config/sprites';
 import { getLevelForDistance } from '../config/levels';
 import { popupStyle } from '../utils/TextStyles';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { Floor } from '../objects/Player';
 import { beatSpacing } from './RunPatterns';
-import { CourseLayout, SlotItem } from './CourseLayout';
+import { BOSS_RESUME_PX, CourseLayout, SlotItem, bossX, courseEnd } from './CourseLayout';
+import { BOSS_DEFEATED_EVENT } from './BossEncounter';
+import { bossById, type BossDef } from './boss/bosses';
+import { MULTIPLAYER_BOSS, soloLadder } from './boss/fights';
 
-/** Pickups stand this far into the floor's top edge, like the roach's feet. */
-const PICKUP_SINK = 6;
-const PICKUP_HITBOX = { w: 0.9, h: 0.9 };
+/**
+ * Pickups hover in their lane's airspace, not on its ledge: their middle this high over the ledge's surface (a lane is
+ * 136 px tall; the roach's body 52), bobbing a little, a soft shadow on the ledge under them. Their hitbox reaches from
+ * their top down to the ledge, so a running roach of any height takes them as surely as it did off the floor.
+ */
+const PICKUP_HOVER = 60;
+const PICKUP_BOB = 4;
+const PICKUP_BOB_MS = 650;
+const PICKUP_HITBOX_W = 0.9;
+/** The glow's transparent margin round every atlas frame, frame px (config/sprites.ts GLOW_PAD). */
+const PICKUP_PAD = 8;
 
 /** Dev only: with `?pill` in the address, every solo run's first slot is a pill, for testing it. */
 const FIRST_PILL = import.meta.env.DEV && new URLSearchParams(window.location.search).has('pill');
@@ -31,8 +42,8 @@ const WALL_HINTS = 2;
 
 /** The dash lesson's wall stands this far ahead of the roach when the reward ends: past the grace blink at any speed. */
 const DASH_LESSON_AHEAD = 1000;
-/** The apples laid on the way to it, back from the wall. */
-const DASH_LESSON_APPLES = [420, 320, 220];
+/** The apples laid past it, the reward for dashing through (before it they were bait for a dash that came too early). */
+const DASH_LESSON_APPLES = [180, 260, 340];
 /** The gun lesson's apples, past its onion in its lane. */
 const GUN_LESSON_APPLES = [90, 170, 250];
 
@@ -54,6 +65,8 @@ export class SpawnManager {
   private canDash: () => boolean;
 
   private nextSpawnX: number;
+  /** The bosses not beaten yet, nearest first or not: the course stops short of the nearest. */
+  private bosses: BossDef[];
   /** The opening tutorial lays its own stretch: until it resumes, no beat of the regular course is laid. */
   private held = false;
   private wallsShown = 0;
@@ -72,8 +85,11 @@ export class SpawnManager {
     floorTopY: number,
     floorBottomY: number,
     canDash: () => boolean,
-    /** The run carries the pistol between the fights (solo): the course lays ammo boxes from level 7. */
-    layAmmo: boolean,
+    /**
+     * A solo run: the course lays ammo boxes from level 7 (the gun is carried between the fights), and stops short of
+     * every boss of the solo ladder; a match has its one boss.
+     */
+    solo: boolean,
   ) {
     this.scene = scene;
     this.obstacles = obstacles;
@@ -83,7 +99,18 @@ export class SpawnManager {
     this.ammo = ammo;
     this.obstacleSpawner = obstacleSpawner;
     this.rng = rng;
-    this.layout = new CourseLayout(rng ?? { next: Math.random }, undefined, layAmmo);
+    this.layout = new CourseLayout(rng ?? { next: Math.random }, undefined, solo);
+    // The bosses still to come: the course is laid up to a runway short of the nearest. A beaten boss takes every one
+    // at or before its distance with it (the dev `?boss=` skip counts the earlier ones beaten)
+    this.bosses = solo ? soloLadder() : [bossById(MULTIPLAYER_BOSS)];
+    const onDefeated = (id: string): void => {
+      const beaten = this.bosses.find(b => b.id === id);
+      if (!beaten) return;
+      this.bosses = this.bosses.filter(b => b.triggerDistance > beaten.triggerDistance);
+      this.nextSpawnX = Math.max(this.nextSpawnX, bossX(beaten.triggerDistance) + BOSS_RESUME_PX);
+    };
+    scene.events.on(BOSS_DEFEATED_EVENT, onDefeated);
+    scene.events.once('shutdown', () => scene.events.off(BOSS_DEFEATED_EVENT, onDefeated));
     this.floorTopY = floorTopY;
     this.floorBottomY = floorBottomY;
     this.canDash = canDash;
@@ -117,7 +144,8 @@ export class SpawnManager {
   handleSpawning(cameraRight: number): void {
     const spawnHorizon = cameraRight + SPAWN_DISTANCE_AHEAD;
 
-    while (!this.held && this.nextSpawnX <= spawnHorizon) {
+    const end = courseEnd(this.bosses.map(b => b.triggerDistance));
+    while (!this.held && this.nextSpawnX <= spawnHorizon && this.nextSpawnX < end) {
       const slotX = this.nextSpawnX;
       const slotDistance = Math.floor((slotX - COCKROACH_START_X) / 50);
       const level = getLevelForDistance(slotDistance).level;
@@ -191,7 +219,7 @@ export class SpawnManager {
   }
 
   /**
-   * Teaching the dash: one wall ahead of the roach, with apples leading up to it, and normal beats resume past it.
+   * Teaching the dash: one wall ahead of the roach, with apples just past it, and normal beats resume past them.
    * Laid by hand and drawing nothing from the seed, so it never moves the rest of a seeded course. Returns the wall's x.
    */
   layDashLesson(fromX: number): number {
@@ -199,7 +227,7 @@ export class SpawnManager {
     const level = getLevelForDistance(Math.floor((x - COCKROACH_START_X) / 50)).level;
     this.obstacleSpawner.spawnWall(x, level);
     this.addWallHint(x);
-    for (const back of DASH_LESSON_APPLES) this.spawnPickup(this.apples, x - back, 'apple', 'bottom');
+    for (const ahead of DASH_LESSON_APPLES) this.spawnPickup(this.apples, x + ahead, 'apple', 'bottom');
     this.advanceSpawnX(x + beatSpacing(level) * 2);
     return x;
   }
@@ -334,17 +362,31 @@ export class SpawnManager {
   }
 
   private spawnPickup(group: Phaser.Physics.Arcade.Group, x: number, art: string, floor: Floor): Phaser.Physics.Arcade.Sprite {
-    const y = (floor === 'top' ? this.floorTopY : this.floorBottomY) + PICKUP_SINK;
-    const sprite = group.create(x, y, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
+    const ledge = floor === 'top' ? this.floorTopY : this.floorBottomY;
+    const sprite = group.create(x, ledge, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
     sprite.setScale(SPRITE_SCALE);
     sprite.setDepth(DEPTH.PICKUPS);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     sprite.setImmovable(true);
-    fitBody(sprite, PICKUP_HITBOX);
     playLoop(sprite, art);
+    // Its baseline (the pivot, the bottom of the picture) where its middle is PICKUP_HOVER over the ledge
+    const content = sprite.height - PICKUP_PAD * 2;
+    const lift = PICKUP_HOVER - (content * SPRITE_SCALE) / 2;
+    sprite.y = ledge - lift;
+    // The hitbox: its width, from its top down to the ledge (frame px)
+    const body = sprite.body as Phaser.Physics.Arcade.Body;
+    const w = (sprite.width - PICKUP_PAD * 2) * PICKUP_HITBOX_W;
+    const h = content + lift / SPRITE_SCALE;
+    body.setSize(w, h, false);
+    body.setOffset((sprite.width - w) / 2, sprite.height * sprite.originY - content);
+    // A gentle bob, each its own (cosmetic: Math.random, never the seed)
+    this.scene.tweens.add({
+      targets: sprite, y: sprite.y - PICKUP_BOB, duration: PICKUP_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      delay: Math.random() * PICKUP_BOB_MS,
+    });
 
-    const shadow = addContactShadow(this.scene, x, y, sprite.body!.width * 1.5);
-    sprite.once('destroy', () => shadow.destroy());
+    const shadow = addContactShadow(this.scene, x, ledge, w * SPRITE_SCALE).setAlpha(0.6);
+    sprite.once('destroy', () => { this.scene.tweens.killTweensOf(sprite); shadow.destroy(); });
     return sprite;
   }
 }

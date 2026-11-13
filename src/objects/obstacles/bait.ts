@@ -23,7 +23,7 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
   const bowl = kit.enemy(plan);
-  const band = kit.laneBand(bowl, GEL, DEPTH.CONTACT_SHADOW);
+  const hazard = kit.hazard(bowl);
   const puddle = scene.add.rectangle(plan.x, laneY(plan.lane) + 2, 10, PUDDLE_H, GEL, 1).setOrigin(0.5, 1)
     .setDepth(DEPTH.CONTACT_SHADOW + 0.1).setVisible(false);
   // Its glossy top edge and its dark foot
@@ -46,7 +46,8 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
     const p = now.parts?.puddle;
     const wet = now.mark?.progress ?? 0;
     hurt.setData('harmless', !p?.danger);
-    band(now.warn && { ...now.warn }, now.pose === 'strike' ? 0.25 : 0.12 + 0.18 * (now.warn?.level ?? 0));
+    // Oozing, the stretch it will flood warns; flooded, it kills
+    hazard(now.pose === 'windup' ? now.warn ?? null : null, p?.danger && now.warn ? [now.warn] : []);
     const width = Math.round(spread * 2 * wet / 2) * 2;
     puddle.setVisible(wet > 0).setSize(width, PUDDLE_H).setAlpha(p?.danger ? 1 : 0.65);
     rim.setVisible(wet > 0).setSize(Math.max(0, width - 4), 2);

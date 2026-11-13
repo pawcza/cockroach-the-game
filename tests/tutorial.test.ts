@@ -71,6 +71,18 @@ describe('tutorial flow', () => {
     assert.equal(flow.step, 'done');
   });
 
+  it('keeps protecting through the send-off: the roach cannot die in the tutorial, only after it', () => {
+    const flow = new TutorialFlow(0);
+    flow.update(0, 'top', 0);
+    flow.update(0, 'bottom', 0);
+    flow.laid(1000, 'bottom', 2000);
+    flow.update(10, 'top', 1000 + PASS_PX + 1);
+    assert.equal(flow.update(20, 'bottom', 2000 + PASS_PX + 1), 'finish');
+    assert.equal(flow.protects, true);
+    assert.equal(flow.update(20 + FINISH_MS, 'bottom', 9000), 'done');
+    assert.equal(flow.protects, false);
+  });
+
   it('lays the apples across both lanes, the dodged-into lane first', () => {
     const plan = applePlan('bottom', 1000);
     assert.equal(plan.length, APPLES_PER_LANE * 2);

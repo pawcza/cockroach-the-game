@@ -570,6 +570,81 @@ def plate(rim) -> Effect:
     return Effect([full[:, :cap].copy(), full[:, cap:w - cap].copy(), full[:, w - cap:].copy()], (.5, .5), 1)
 
 
+# -------------------------------------------------------------------------------------------------------- kill zone
+
+# The run's one look for "this stretch of lane is about to be deadly / is deadly" (src/effects/KillZone.ts): a low
+# band along the ledge's surface the game lays tile by tile over exactly the stretch that hurts, with stepped ends.
+# Warning: amber hazard stripes marching along it. Killing: a hot red band of flickering teeth with a white-hot root.
+ZONE_TILE = 8      # texels along the lane per tile; the band is ZONE_H tall
+ZONE_H = 7
+ZONE_CAP = 4       # the stepped end's width
+
+
+def _zone_tile(state: str, f: int) -> np.ndarray:
+    img = new(ZONE_TILE, ZONE_H)
+    if state == "warn":
+        # 45-degree stripes, two texels of amber and two of nothing, moving two texels a frame along the lane
+        for y in range(ZONE_H - 1):
+            for x in range(ZONE_TILE):
+                if (x + y + f * 2) % 4 < 2:
+                    img[y, x] = (*AMBER[2], 255) if y > 0 else (*AMBER[3], 255)
+        img[ZONE_H - 1, :] = (*AMBER[0], 255)
+    else:
+        # Teeth of heat: a white-hot root, red flames of varied height licking up out of step from tile to tile
+        r = _rng(17 + f)
+        img[ZONE_H - 1, :] = (*ALERT[4], 255)
+        img[ZONE_H - 2, :] = (*ALERT[3], 255)
+        img[ZONE_H - 3, :] = (*ALERT[2], 255)
+        for x in range(ZONE_TILE):
+            top = ZONE_H - 3 - int(r.randint(1, ZONE_H - 2))
+            for y in range(max(0, top), ZONE_H - 3):
+                img[y, x] = (*(ALERT[1] if y == top else ALERT[2] if y < ZONE_H - 4 else ALERT[3]), 255)
+    return img
+
+
+def _zone_cap(state: str, f: int) -> np.ndarray:
+    """The left end, stepping down to the ledge (the right end is it mirrored): the tile's pattern cut into stairs."""
+    tile = _zone_tile(state, f)
+    img = new(ZONE_CAP, ZONE_H)
+    for x in range(ZONE_CAP):
+        step = ZONE_H - 1 - (x + 1) * (ZONE_H - 1) // ZONE_CAP
+        img[step:, x] = tile[step:, (ZONE_TILE - ZONE_CAP + x) % ZONE_TILE]
+        img[ZONE_H - 1, x] = tile[ZONE_H - 1, x]
+    return img
+
+
+def zone(state: str, part: str) -> Effect:
+    frames = [(_zone_tile if part == "tile" else _zone_cap)(state, f) for f in range(4)]
+    return Effect(frames, (0., 1.), 8 if state == "warn" else 14, loop=True)
+
+
+# ------------------------------------------------------------------------------------------------------------- lamp
+
+CORD_TILE = 6  # texels: one turn of the twist, so the tiles join
+
+
+def cord() -> Effect:
+    """A lamp's flex, one tile of it (the game stacks it from the top of the screen down to the bulb): a dark twisted
+    cord three texels wide, a lit strand winding round it."""
+    img = new(3, 6)
+    for y in range(6):
+        img[y, :] = (*INK[1], 255)
+        img[y, 2] = (*INK[0], 255)
+        img[y, (y // 2) % 3] = (*STONE[2], 255)
+    return Effect([img], (.5, 0.), 1)
+
+
+def lamp_mount() -> Effect:
+    """The fitting a lamp hangs from under the upper ledge: a small steel plate, lit along its top edge."""
+    img = new(12, 4)
+    img[:, :] = (*STONE[1], 255)
+    img[0, 1:-1] = (*STONE[3], 255)
+    img[3, :] = (*STONE[0], 255)
+    img[1:3, 0] = img[1:3, -1] = (*STONE[0], 255)
+    img[0, 0] = img[0, -1] = 0
+    return Effect([img], (.5, 0.), 1)
+
+
 # ------------------------------------------------------------------------------------------------------------ combo
 
 def aura(ramps, w, h, tongues, seed) -> Effect:
@@ -1100,6 +1175,141 @@ def confetti(ramp) -> Effect:
     return Effect(frames, (.5, .5), 10, loop=True)
 
 
+# --------------------------------------------------------------------------------------------------- combo exhaust
+
+# The combo's flames are the roach's exhaust, not a bonfire on its back: rooted under its rear and streaming backwards
+# (the run goes right, so to the left) in a tapering trail whose ripples travel along it, longer and hotter each tier:
+# fire, then fire round a white-blue core, then a blue-white comet. From the second tier horizontal speed lines stream
+# past the body, on the third a faint shock cone bows ahead of the head. The embers that break off and stay behind in
+# the world are thrown at runtime (src/effects/VisualEffects.ts) from combo-ember-*. Layers: outer, mid, core, hot root.
+EXHAUST_FIRE = [FIRE[1], FIRE[2], FIRE[3], FIRE[4]]
+EXHAUST_HOT = [FIRE[1], FIRE[2], FIRE[4], BLUE[3]]
+EXHAUST_COMET = [BLUE[1], BLUE[2], BLUE[3], BLUE[4]]
+
+
+def exhaust(layers, length: int, thick: int, seed: int, fringe=None) -> Effect:
+    """A flame trail lying along the run, its root at the right edge (the pivot), its tail breaking into blobs at the
+    left. Its edges ripple and the ripples travel tailwards a few texels a frame; the white-hot part stays near the root.
+    `fringe`, if given, is a colour for sparks flicked off its edges (the comet's)."""
+    r = _rng(seed)
+    F = 8
+    tail_room = 14                      # past the tail: the wisps that come off it
+    w, h = length + tail_room, thick + 6
+    yc = h / 2 + .5
+    wisps = [(r.rand(), (r.rand() - .5) * thick * .5, r.rand() * .5 + .5) for _ in range(5)]
+    sparks = [(r.rand(), 1 if r.rand() > .5 else -1, r.rand()) for _ in range(6)]
+    frames = []
+    for f in range(F):
+        img = new(w, h)
+        xs, ys = _grid(img)
+        u = (w - xs) / length                                   # 0 at the root, 1 at the tail
+        flick = 1 + .07 * math.sin(2 * math.pi * f / F * 2)     # the whole trail breathes in length
+        # Full at the root (tucked behind the abdomen), tapering to the tail
+        half = thick / 2 * (.75 + .25 * np.clip(u * 5, 0, 1)) * np.clip(1 - u / flick, 0, 1) ** .9
+        # Tongues on each edge, swept back like a flame in a headwind and running tailwards: the same crest is 1/F of a
+        # wave further left each frame. A saw, not a sine: each tongue rises slowly from the front and drops off behind
+        phase = f / F
+        amp = 1. + 2.2 * u
+        saw_top = ((xs / 8 + phase) % 1)
+        saw_bot = ((xs / 10.5 + phase + .4) % 1)
+        top = half + amp * (saw_top ** 1.6 - .35) + .6 * np.sin(2 * math.pi * (xs / 3.7 + 2 * phase))
+        bottom = half * .85 + amp * .7 * (saw_bot ** 1.6 - .35)
+        dy = ys - yc
+        edge = np.where(dy < 0, top, bottom)
+        d = np.abs(dy) / np.maximum(edge, .1)
+        inside = (u >= 0) & (u <= 1.02) & (d <= 1) & (half > .2)
+        # The far end breaks up into blobs that travel with the ripples
+        blobs = np.sin(2 * math.pi * (xs / 7 + phase)) + .6 * np.sin(2 * math.pi * (xs / 3.1 + 2 * phase))
+        inside &= ~((u > .62) & (blobs < (u - .62) * 4.2 - 1))
+        # Layers: the hot root only near the nozzle, the core into the first half, the mid most of the way
+        level = np.zeros_like(u, dtype=int)
+        level = np.where((d < .78) & (u < .9), 1, level)
+        level = np.where((d < .5) & (u < .58), 2, level)
+        level = np.where((d < .3) & (u < .22), 3, level)
+        # Lit from above: the top half's outer layer a step brighter where it is thick enough to show it
+        level = np.where((level == 0) & (dy < -1) & (half > 2.5), 1, level)
+        table = np.array(layers, np.uint8)
+        img[inside, :3] = table[level[inside]]
+        img[inside, 3] = 255
+        # Wisps leaving the tail
+        for p0, oy, size in wisps:
+            p = (p0 + f / F) % 1
+            x = w - length - 1 - p * (tail_room - 2)
+            if p < .7:
+                put(img, x, yc + oy, layers[1] if p < .35 else layers[0])
+                if size > .75 and p < .35:
+                    put(img, x - 1, yc + oy, layers[0])
+        if fringe is not None:
+            for p0, side, k in sparks:
+                p = (p0 + f / F) % 1
+                x = w - 6 - p * length * .8
+                uu = (w - x) / length
+                y = yc + side * (thick / 2 * (1 - uu) + 1.5 + k)
+                if p < .8:
+                    put(img, x, y, fringe)
+        frames.append(img)
+    return Effect(frames, (1., yc / h), 16, loop=True)
+
+
+def combo_lines(count: int, seed: int) -> Effect:
+    """Speed lines streaming back past the roach's body, horizontal, light: thin streaks at a few heights, each moving
+    tailwards fast and wrapping round. Laid behind the roach, so they show round its body; the right edge (the pivot)
+    is its head, so nothing reaches ahead of it."""
+    r = _rng(seed)
+    F = 6
+    w, h = 100, 44
+    lines = []
+    for i in range(count):
+        y = int(3 + (h - 6) * (i + .5) / count + (r.rand() - .5) * 3)
+        lines.append((y, r.rand(), int(14 + r.rand() * 18), 1 + r.rand() * .6))
+    frames = []
+    for f in range(F):
+        img = new(w, h)
+        for y, phase, length, speed in lines:
+            head = w - ((phase + speed * f / F) % 1) * (w + length)
+            for x in range(int(head), int(head + length)):
+                if 0 <= x < w:
+                    u = (x - head) / length               # 0 at the streak's front-most texel on the left
+                    colour = BLUE[3] if u < .12 else BLUE[2] if u < .45 else BLUE[1]
+                    put(img, x, y, colour)
+        frames.append(img)
+    return Effect(frames, (1., .5), 20, loop=True, light=True)
+
+
+def combo_cone() -> Effect:
+    """A faint shock cone bowing ahead of the head on the third tier: a curved line of light, flickering."""
+    F = 4
+    w, h = 9, 22
+    frames = []
+    for f in range(F):
+        img = new(w, h)
+        for y in range(h):
+            v = (y - h / 2 + .5) / (h / 2)
+            x = 7.5 - 6 * v * v                                # the bow's nose at the right, its arms swept back
+            if abs(v) > .95 or (f % 2 and abs(v) > .75):
+                continue
+            put(img, x, y, BLUE[1] if abs(v) > .55 else BLUE[2])
+            if abs(v) < .3 and f != 3:
+                put(img, x, y, BLUE[3])
+        frames.append(img)
+    return Effect(frames, (1., .5), 12, loop=True, light=True)
+
+
+def combo_ember(ramp) -> Effect:
+    """An ember broken off the exhaust, left behind: a hot speck that cools and shrinks."""
+    frames = []
+    for size, colour in [(3, ramp[-1]), (2, ramp[-2]), (2, ramp[-3]), (1, ramp[-3]), (1, ramp[1])]:
+        img = new(3, 3)
+        o = (3 - size) // 2
+        for y in range(size):
+            for x in range(size):
+                if size == 3 and (x, y) in [(0, 0), (2, 0), (0, 2), (2, 2)]:
+                    continue
+                put(img, o + x, o + y, colour)
+        frames.append(img)
+    return Effect(frames, (.5, .5), 10)
+
+
 EFFECTS = {
     "dust": dust_step,
     "dust-land": dust_land,
@@ -1128,11 +1338,23 @@ EFFECTS = {
     "collect-apple": collect_apple,
     "collect-beer": collect_beer,
     "collect-pill": collect_pill,
+    "cord": cord,
+    "lamp-mount": lamp_mount,
+    "zone-warn": lambda: zone("warn", "tile"),
+    "zone-warn-end": lambda: zone("warn", "cap"),
+    "zone-kill": lambda: zone("kill", "tile"),
+    "zone-kill-end": lambda: zone("kill", "cap"),
     "plate": lambda: plate(GOLD),
     "plate-red": lambda: plate(RED),
-    "aura-1": lambda: aura([FIRE], 44, 24, 5, 1),
-    "aura-2": lambda: aura([MAGENTA], 52, 30, 6, 2),
-    "aura-3": lambda: aura([BLUE], 60, 36, 7, 3),
+    "aura-1": lambda: exhaust(EXHAUST_FIRE, 58, 16, 1),
+    "aura-2": lambda: exhaust(EXHAUST_HOT, 80, 18, 2),
+    "aura-3": lambda: exhaust(EXHAUST_COMET, 112, 21, 3, fringe=FIRE[3]),
+    "combo-lines-2": lambda: combo_lines(6, 5),
+    "combo-lines-3": lambda: combo_lines(10, 6),
+    "combo-cone": combo_cone,
+    "combo-ember-1": lambda: combo_ember(FIRE),
+    "combo-ember-2": lambda: combo_ember(EXHAUST_HOT + [BLUE[4]]),
+    "combo-ember-3": lambda: combo_ember(BLUE),
     "aura-pill": lambda: aura([PINK, CYAN], 52, 30, 6, 4),
     "multup": multup,
     "crack": crack,

@@ -86,11 +86,12 @@ def _strand(a: np.ndarray, x0: int, y0: int, x1: int, y1: int) -> None:
 
 
 def glue() -> list[Image.Image]:
-    """The glue trap: two flies stuck on the glue, glossy strands, and a shine sliding across it, then a rest."""
+    """The glue trap: two flies stuck on the glue, glossy strands, and a shine sliding across it, then a rest. A low flat
+    thing on the ledge: a third of its render's grid, well short of the roach's length."""
     tray = at_size(f"{PICKED}/glue-trap.png", 1, ground=True)
     frames = []
     for i in range(6):
-        shiny = down(_glint(tray, -.2 + i * .35) if i < 4 else tray, 2)
+        shiny = down(_glint(tray, -.2 + i * .35) if i < 4 else tray, 3)
         h, w = shiny.shape[:2]
         for x0, y0, x1, y1 in ((int(w * .3), int(h * .35), int(w * .45), int(h * .3)), (int(w * .55), int(h * .5), int(w * .7), int(h * .42))):
             _strand(shiny, x0, y0, x1, y1)
@@ -109,15 +110,27 @@ def _bright(a: np.ndarray, colour=(196, 240, 60), amount: float = .45) -> np.nda
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
+# The back of the room the jug sits in: it is dimmed towards this, and smaller, so it reads as scenery behind the lane
+BACKDROP = np.array([44, 58, 62], float)
+
+
+def _backdrop(a: np.ndarray, amount: float) -> np.ndarray:
+    out = a.astype(float)
+    out[..., :3] = out[..., :3] * (1 - amount) + BACKDROP * amount
+    return out.astype(np.uint8)
+
+
 def bleach() -> list[Image.Image]:
-    """The jug, tipped on its side with its cap down at the left, rocking a little as it drips."""
+    """The jug, tipped on its side with its cap down at the left, rocking a little as it drips: at the back of the upper
+    shelf, smaller and dimmed towards the room behind, so it is plainly not in the lane. Only its drop is lit."""
     jug = np.rot90(_still("bleach-bottle", 1), 1)  # a quarter turn: lying, cap at the left
     # Tipped well over the edge: its cap end down, plainly pouring
-    return _canvas([_pose(np.ascontiguousarray(jug), tilt=t) for t in (-32, -34, -32, -30)])
+    return _canvas([_backdrop(_pose(np.ascontiguousarray(jug), .8, tilt=t), .45) for t in (-32, -34, -32, -30)])
 
 
 def bleach_drop() -> list[Image.Image]:
-    """A drop swelling at the cap (three sizes), then whole and falling."""
+    """A drop swelling at the cap (three sizes, harmless-looking: no glow, bake.py's PARTLY_LIT), then whole and falling
+    (with the enemies' red glow, shown only once it is under the shelf)."""
     drop = _bright(_still("bleach-drop", 1))
     return _canvas([_pose(drop, s) for s in (.6, 1, 1.4)] + [_pose(drop, 1.6)], anchor="top")
 

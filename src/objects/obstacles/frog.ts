@@ -35,7 +35,7 @@ export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
   const lick = kit.createSprite(plan.x, laneY(plan.lane), 'frog', 'frog', null);
   lick.anims.stop();
   lick.setVisible(false).setData('floor', plan.lane).setData('harmless', true).setData('telegraphs', true);
-  const band = kit.laneBand(frog, TONGUE, DEPTH.CONTACT_SHADOW);
+  const hazard = kit.hazard(frog);
   const mouth = plan.x - TIMINGS.frog.mouth;
 
   kit.drive(frog, plan, (now, before) => {
@@ -45,9 +45,11 @@ export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
     tongue.setVisible(out).setPosition(tp.x, y).setSize(Math.max(1, len), TONGUE_H);
     under.setVisible(out).setPosition(tp.x, y + TONGUE_H / 2).setSize(Math.max(1, len), 2);
     tip.setVisible(out).setPosition(tp.x, y);
-    band(now.warn, now.pose === 'windup' ? .22 : .3);
+    // Winding up, the stretch it will lick warns; out, the tongue's length kills
+    hazard(now.pose === 'windup' ? now.warn ?? null : null, out ? [{ lane: plan.lane, x0: tp.x, x1: mouth }] : []);
     lick.setData('harmless', !out);
-    if (out) {
+    // The hitbox can go before the frog (left behind off screen, or punted by a dash or a pill): nothing left to size
+    if (out && lick.active) {
       const w = len / SPRITE_SCALE;
       const b = lick.body as Phaser.Physics.Arcade.Body;
       lick.x = tp.x + len / 2;

@@ -4,6 +4,10 @@
  * it drops back, a lone obstacle to hop (a hit punts it and the step repeats), a trail of apples across both lanes with
  * the combo hint, "Powodzenia!", and the regular course takes over. Each step moves on when the player does the thing.
  *
+ * It is a level 0 that looks like level 1: nothing counts while it is on (no distance, score, clock, bosses, records;
+ * GameScene keeps it so), the roach cannot die in it, and when it is over (done or skipped) `onDone` hands over to the
+ * real run, which GameScene starts from 0 m and 0 points with the course behind it.
+ *
  * Solo only and never seeded: it exists in no multiplayer match and no Karaluch Dnia, and it draws nothing from a seed.
  * The flag is set when the last step completes (or on "Pomiń"), so quitting halfway shows it again. Step logic is in
  * `tutorialFlow`; this class is the Phaser side: prompts, the laid pieces, the grace on a hit.
@@ -17,7 +21,7 @@ import { bodyStyle, popupStyle, smallStyle, UI_TEXT } from '../utils/TextStyles'
 import { setTutorialDone } from '../utils/Storage';
 import { SpawnManager } from './SpawnManager';
 import {
-  COURSE_GAP_PX, TutorialFlow, applePlan, dodgeDue, hopKey, isNudging, type TutorialStep,
+  TutorialFlow, applePlan, dodgeDue, hopKey, isNudging, type TutorialStep,
 } from './tutorialFlow';
 
 /** The keycap rides this far over the roach, its caption a line above that. */
@@ -25,8 +29,6 @@ const PROMPT_ABOVE_PX = 96;
 const CAPTION_ABOVE_PX = 44;
 /** The lesson's pieces are laid this far past the screen's right edge, so they scroll in. */
 const LAY_AHEAD_PX = 30;
-/** The regular course starts no nearer than this past the screen's right edge. */
-const COURSE_AHEAD_PX = 100;
 /** After a hit the roach blinks unhurt this long. */
 const GRACE_MS = 900;
 const FLASH_MS = 1200;
@@ -39,6 +41,8 @@ export interface TutorialDeps {
   spawnManager: SpawnManager;
   /** The pause menu has the keyboard then, and Enter there must not skip. */
   isPaused: () => boolean;
+  /** The lesson is over, played through or skipped: the real run starts now. */
+  onDone: () => void;
 }
 
 export class Tutorial {
@@ -138,16 +142,13 @@ export class Tutorial {
       case 'obstacle':
         this.layCourse();
         break;
-      case 'apples':
-        // The regular course follows the last apple, off screen
-        this.deps.spawnManager.resumeSpawning(Math.max(this.flow.lastAppleX + COURSE_GAP_PX, this.cameraRight() + COURSE_AHEAD_PX));
-        break;
       case 'finish':
         this.cheer();
         break;
       case 'done':
         setTutorialDone(true);
         this.dismiss();
+        this.deps.onDone();
         break;
       default:
         break;
@@ -177,7 +178,7 @@ export class Tutorial {
     for (const sprite of [...this.obstacleSprites, ...this.appleSprites]) if (sprite.active) sprite.destroy();
     this.obstacleSprites = [];
     this.appleSprites = [];
-    this.deps.spawnManager.resumeSpawning(this.cameraRight() + COURSE_AHEAD_PX);
+    this.deps.onDone();
   }
 
   private cheer(): void {

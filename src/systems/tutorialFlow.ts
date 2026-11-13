@@ -26,8 +26,6 @@ export const SHOW_WITHIN_PX = 560;
 export const APPLES_AFTER_PX = 380;
 export const APPLE_STEP_PX = 80;
 export const APPLES_PER_LANE = 3;
-/** Regular beats start this far past the last apple. */
-export const COURSE_GAP_PX = 700;
 
 export const otherLane = (lane: Lane): Lane => (lane === 'top' ? 'bottom' : 'top');
 
@@ -79,9 +77,9 @@ export class TutorialFlow {
     this.lastAppleX = lastAppleX;
   }
 
-  /** Hits do no harm until the send-off: the obstacle is punted and the step repeats, a couple of times. */
+  /** Hits do no harm until it is over: the obstacle is punted and the step repeats, a couple of times. */
   get protects(): boolean {
-    return this.step !== 'finish' && this.step !== 'done';
+    return this.step !== 'done';
   }
 
   hit(): HitVerdict {

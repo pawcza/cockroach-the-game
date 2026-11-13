@@ -8,7 +8,7 @@ import { VFX_ATLAS } from '../effects/Fx';
 
 /** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
  * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
-const ASSET_REV = '?v=14';
+const ASSET_REV = '?v=15';
 
 /** What index.html's loading screen offers the game. */
 interface LoadingScreen {

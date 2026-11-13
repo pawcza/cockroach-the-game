@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { sfxVolume } from '../audio/AudioManager';
 import { DEPTH, PIXEL_BLOCK } from '../config/constants';
 import { ATLAS, SPRITE_SCALE, frameOf } from '../config/sprites';
-import { getLevelForDistance, getLevelProgress, getLevelDistances, LevelConfig } from '../config/levels';
+import { getLevelForDistance, LevelConfig, LEVELS } from '../config/levels';
 import { headingStyle, hudStyle, smallStyle, buttonStyle, popupStyle, UI_TEXT } from '../utils/TextStyles';
 import { createButton, UIButton } from './shared';
 import { textBeat } from '../utils/TweenPatterns';
@@ -14,6 +14,9 @@ import { AbilityStrip, type AbilityView } from './AbilityStrip';
 const PAUSE_RADIUS = 12 * SPRITE_SCALE;
 const PAUSE_ALPHA = 0.88;
 
+/** Emitted on the scene when a level is announced. */
+export const LEVEL_ANNOUNCED_EVENT = 'level-announced';
+
 export interface HUDUpdateData {
   score: number;
   distance: number;
@@ -24,6 +27,10 @@ export interface HUDUpdateData {
   timeNow: number;
   /** What the run owns; left out while watching someone else's. */
   abilities?: AbilityView;
+  /** The level the run is in, when it is not simply the one for the distance (it waits on a boss). */
+  level?: number;
+  /** The opening tutorial is on: the bar says so instead of a level. */
+  tutorial?: boolean;
 }
 
 export class GameHUD {
@@ -189,7 +196,7 @@ export class GameHUD {
     this.touchPauseBtn.on('pointerupoutside', () => sink(false));
 
     // Draw initial bar state so it's visible during countdown
-    this.drawLevelBar(0);
+    this.drawLevelBar(0, LEVELS[0], false);
   }
 
   /** Moves everything centered or right-aligned after the screen changes shape. */
@@ -225,11 +232,12 @@ export class GameHUD {
     this.abilityStrip.sync(data.abilities);
 
     // === BOTTOM: Level progress bar ===
-    this.drawLevelBar(data.distance);
+    const level = data.level !== undefined ? LEVELS[data.level - 1] : getLevelForDistance(data.distance);
+    this.drawLevelBar(data.distance, level, data.tutorial === true);
 
     // Speed text + color from level
     this.speedText.setText(`${data.speedMultiplier.toFixed(1)}x`);
-    const speedColor = getLevelForDistance(data.distance).color;
+    const speedColor = level.color;
     if (speedColor !== this.lastSpeedColor) {
       this.lastSpeedColor = speedColor;
       this.speedText.setColor('#' + speedColor.toString(16).padStart(6, '0'));
@@ -258,7 +266,7 @@ export class GameHUD {
 
   }
 
-  private drawLevelBar(distance: number): void {
+  private drawLevelBar(distance: number, levelConfig: LevelConfig, tutorial: boolean): void {
     // Boss HP mode — repurpose the level bar
     if (this.bossMode) {
       this.drawBar(this.bossHP / this.bossMaxHP, 0xcc0000, 0xff0000, 0x330000, false);
@@ -269,8 +277,8 @@ export class GameHUD {
 
     this.speedText.setVisible(true);
 
-    const levelConfig = getLevelForDistance(distance);
-    const { levelSpan } = getLevelDistances(distance);
+    const index = LEVELS.indexOf(levelConfig);
+    const levelSpan = index + 1 < LEVELS.length ? LEVELS[index + 1].distanceThreshold - levelConfig.distanceThreshold : 0;
     const barColor = levelConfig.color;
 
     const cr = (barColor >> 16) & 0xff;
@@ -285,11 +293,18 @@ export class GameHUD {
       Math.min(255, Math.floor(cb * 1.4)),
     );
 
-    this.drawBar(getLevelProgress(distance), barColor, highlightColor, borderColor, true);
+    if (tutorial) {
+      this.drawBar(0, barColor, highlightColor, borderColor, true);
+      this.levelBarText.setText('Samouczek');
+      return;
+    }
+    const progress = levelSpan > 0 ? Phaser.Math.Clamp((distance - levelConfig.distanceThreshold) / levelSpan, 0, 1) : 1;
+    this.drawBar(progress, barColor, highlightColor, borderColor, true);
 
     // Bar text — show total distance / next level threshold
     const nextThreshold = levelConfig.distanceThreshold + levelSpan;
-    const distLabel = levelSpan > 0 ? `(${Math.floor(distance)}/${nextThreshold})m` : `${Math.floor(distance)}m`;
+    // Past the level's end while its boss waits (the fight is fought in the old level) there is no "next" to count to
+    const distLabel = levelSpan > 0 && distance < nextThreshold ? `(${Math.floor(distance)}/${nextThreshold})m` : `${Math.floor(distance)}m`;
     this.levelBarText.setText(`Lv${levelConfig.level} ${levelConfig.name} ${distLabel}`);
   }
 
@@ -361,6 +376,8 @@ export class GameHUD {
 
   showLevelAnnouncement(config: LevelConfig): void {
     const w = this.scene.cameras.main.width;
+    // The bosses keep quiet over it (TauntDirector)
+    this.scene.events.emit(LEVEL_ANNOUNCED_EVENT);
 
     const levelLabel = `POZIOM ${config.level}`;
     const nameLabel = config.name.toUpperCase();

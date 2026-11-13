@@ -5,7 +5,7 @@ import { LEVELS } from '../src/config/levels';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
 import { EnemyPlan, Lane, laneY } from '../src/objects/obstacles/behaviours';
 import { CAST, CourseClock, ENEMIES, EnemyId, OWN_PATTERN, VACUUM_LEAD, castFor, chaseFor, enemyState, nominalCourse } from '../src/objects/obstacles/cast';
-import { CourseLayout, SlotItem } from '../src/systems/CourseLayout';
+import { BOSS_RESUME_PX, BOSS_RUNWAY_PX, CourseLayout, SlotItem, bossX, courseEnd } from '../src/systems/CourseLayout';
 import { beatSpacing } from '../src/systems/RunPatterns';
 import { Laid, simulate } from './support/enemySim';
 
@@ -215,4 +215,42 @@ test('enemies hurt only low over their lane', () => {
       }
     }
   }
+});
+
+test('the course stops in an empty runway short of each boss and picks up past it, the same on every client', () => {
+  assert.equal(courseEnd([]), Infinity);
+  assert.equal(courseEnd([1200, 250]), bossX(250) - BOSS_RUNWAY_PX);
+  // SpawnManager's loop: slots every beat up to the course's end; a beaten boss moves it on, and the course resumes a
+  // fixed distance past the boss
+  const lay = (triggers: number[], seed: number): { x: number; items: SlotItem[] }[] => {
+    const layout = new CourseLayout(new SeededRNG(seed));
+    let bosses = [...triggers];
+    let next = 550;
+    const laid: { x: number; items: SlotItem[] }[] = [];
+    for (let roach = 0; roach < bossX(2700); roach += 100) {
+      // The roach meets a boss and beats it
+      const due = bosses.find(m => roach >= bossX(m));
+      if (due !== undefined) {
+        bosses = bosses.filter(m => m > due);
+        next = Math.max(next, bossX(due) + BOSS_RESUME_PX);
+      }
+      const end = courseEnd(bosses);
+      while (next <= roach + 1700 && next < end) {
+        const level = Math.min(10, 1 + LEVELS.filter(l => l.distanceThreshold * 50 + 150 <= next).length - 1);
+        laid.push({ x: next, items: layout.next(next, level) });
+        next += beatSpacing(level);
+      }
+    }
+    return laid;
+  };
+  const solo = [250, 1200, 1800, 2600];
+  const laid = lay(solo, 99);
+  for (const m of solo) {
+    const inRunway = laid.filter(s => s.x >= bossX(m) - BOSS_RUNWAY_PX && s.x < bossX(m) + BOSS_RESUME_PX);
+    assert.deepEqual(inRunway.map(s => s.x), [], `slots round the boss at ${m} m`);
+    assert.ok(laid.some(s => s.x >= bossX(m) + BOSS_RESUME_PX), `the course goes on after ${m} m`);
+  }
+  // Two clients of a match (its one boss at 1800 m) lay the same slots
+  assert.deepEqual(lay([1800], 7), lay([1800], 7));
+  assert.ok(lay([1800], 7).some(s => s.x > bossX(250) && s.x < bossX(1200)), 'a match has no runway at the solo bosses');
 });

@@ -24,7 +24,17 @@ import { BOSS_SHOUTS } from './tauntLines';
 const HERO_ACCENT = 0xe8892b;
 
 /** A press this soon after the hold begins still counts as part of the mash that was ignored during the entrance. */
-const PRESS_GUARD_MS = 150;
+export const PRESS_GUARD_MS = 150;
+
+/**
+ * The "press to go on" line under a held screen (this splash, and the reward beat after a boss): its look and words,
+ * and how it fades in and blinks gently once the hold has begun (`sinceMs` into it).
+ */
+export const PRESS_PROMPT_STYLE = { color: '#f1e3c6', strokeThickness: 5 } as const;
+export const PRESS_PROMPT_SIZE = 3 * FONT_GRID;
+export const pressPromptText = (touch: boolean, touchLine: string): string => (touch ? touchLine : 'Naciśnij dowolny klawisz');
+export const pressPromptAlpha = (sinceMs: number): number =>
+  Math.min(1, Math.max(0, sinceMs / 250)) * (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(sinceMs * 0.004)));
 /** In a match, how long the finished picture stays before it goes by itself. */
 const MATCH_HOLD_MS = 800;
 const WIPE_MS = 220;
@@ -470,9 +480,9 @@ export class VersusSplash {
     this.epithetWidth = 0;
 
     const touch = !this.scene.sys.game.device.os.desktop;
-    this.prompt = this.makeText(bodyStyle({ color: '#f1e3c6', strokeThickness: 5 }), [0.5, 0.5]);
-    this.prompt.setFontSize(3 * FONT_GRID);
-    this.prompt.setText(touch ? 'Dotknij, aby walczyć' : 'Naciśnij dowolny klawisz');
+    this.prompt = this.makeText(bodyStyle({ ...PRESS_PROMPT_STYLE }), [0.5, 0.5]);
+    this.prompt.setFontSize(PRESS_PROMPT_SIZE);
+    this.prompt.setText(pressPromptText(touch, 'Dotknij, aby walczyć'));
   }
 
   // ── Per frame ─────────────────────────────────────────────────────
@@ -764,9 +774,7 @@ export class VersusSplash {
     const waiting = this.isWaiting(ct);
     this.prompt.setVisible(waiting);
     if (waiting) {
-      const since = ct - P.holdAt;
-      const blink = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(since * 0.004));
-      this.prompt.setAlpha(clamp01(since / 250) * blink);
+      this.prompt.setAlpha(pressPromptAlpha(ct - P.holdAt));
       this.prompt.setPosition(centerX, this.layout.promptY * unit + oy * unit);
     }
   }

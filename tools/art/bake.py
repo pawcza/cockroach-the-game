@@ -37,6 +37,8 @@ RED = (255, 40, 50)
 GREEN = (50, 255, 110)
 PICKUPS = {"apple", "pill", *(f"beer-{n}" for n in range(1, 7))}
 UNLIT = {"bleach", "spray-big"}  # drawn without the enemies' red glow: harmless props, only what they drop or puff hurts
+# Strips lit only on some frames: the bleach's drop glows only as it falls (frame 3), not while it swells at the cap
+PARTLY_LIT = {"bleach-drop": {3}}
 ATLAS_WIDTH = 2048  # with the shop's skins; at most 2048 either way, which every phone takes
 
 
@@ -74,6 +76,23 @@ def _resize(frames: list[np.ndarray], name: str) -> list[Image.Image]:
     small = [pixels.snap(f, palette) for f in small]
     SIZES[name] = (first.shape[1], first.shape[0], n, round(first.shape[1] * scale), round(first.shape[0] * scale))
     return [Image.fromarray(f) for f in small]
+
+
+# The pickups, one family a little smaller than the enemies, by less than a whole factor (an apple 36x48 texels would
+# halve to 18x24): scaled on the 8x grid and read back block by block, so they stay crisp
+PICKUP_SCALE = {"apple": .72, "pill": .9, **{f"beer-{n}": .8 for n in range(1, 7)}}
+
+
+def _rescaled(frames: list[Image.Image], scale: float) -> list[Image.Image]:
+    """Frames sharing one canvas, scaled together on the 8x grid (nearest) and read back 8x with pixels.down."""
+    if scale == 1:
+        return frames
+    out = []
+    for f in frames:
+        w, h = round(f.width * scale), round(f.height * scale)
+        big = Image.fromarray(pixels.up(np.asarray(f), 8)).resize((w * 8, h * 8), Image.NEAREST)
+        out.append(Image.fromarray(pixels.down(np.asarray(big), 8)))
+    return out
 
 
 def _padded(frame: Image.Image) -> Image.Image:
@@ -127,15 +146,15 @@ def collect() -> tuple[dict, dict]:
                                      "with": list(item.companions)}
     for name, make in {**CREATURES, **OBJECTS}.items():
         colour = GREEN if name in PICKUPS else RED
-        frames = [_with_glow(f, colour) for f in _resize(make(), name)]
+        frames = [_with_glow(f, colour) for f in _rescaled(_resize(make(), name), PICKUP_SCALE.get(name, 1))]
         sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
     # The swatters, the hop and gun acts' enemies: already at game size from their picked renders, one canvas per strip;
     # the ammo box is drawn at game size
     for name, make in {**SWATTERS, **HOPACT, **GUNACT, **GUNACT_PICKUPS}.items():
         # The bleach jug and the spray's big can stand out of the way at the back of the ledge: no red glow
-        frames = [f if name in UNLIT else _with_glow(f, GREEN if name in GUNACT_PICKUPS else RED) for f in make()]
-        if name in UNLIT:
-            frames = [_padded(f) for f in frames]
+        lit = PARTLY_LIT.get(name)
+        frames = [_padded(f) if name in UNLIT or (lit is not None and i not in lit) else _with_glow(f, GREEN if name in GUNACT_PICKUPS else RED)
+                  for i, f in enumerate(make())]
         sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
     sheet.update(buttons.frames())
     return sheet, anchors

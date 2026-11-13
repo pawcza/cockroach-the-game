@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { DEPTH } from '../config/constants';
-import { ROACH_FEET_OFFSET } from '../config/sprites';
+import { COMBO_FLAMES, DEPTH } from '../config/constants';
+import { ROACH_FEET_OFFSET, SPRITE_SCALE } from '../config/sprites';
 import type { Player } from '../objects/Player';
 import { popupStyle } from '../utils/TextStyles';
 import { getFx, type Fx, type FxHandle } from './Fx';
@@ -11,8 +11,24 @@ const VIGNETTE_FROM = 2.7; // ~Lv8
 const VIGNETTE_MAX = 0.35;
 const MAX_SPEED = 3.4;
 
-/** The combo's flames: from this many pickups in a row, each a bigger set. */
-const AURA_TIERS: [number, string][] = [[100, 'aura-3'], [50, 'aura-2'], [10, 'aura-1']];
+/**
+ * The combo's flames are the roach's exhaust (tools/art/vfx.py, "combo exhaust"): rooted under its rear and streaming
+ * back, longer and hotter each tier, with speed lines round the body from the second and a shock cone at the head on
+ * the third, and embers breaking off the trail that stay behind in the world. All of it behind the roach and nothing
+ * ahead of its head but the faint cone, so it never covers the roach or what is coming.
+ */
+interface ComboFlame { from: number; flame: string; lines?: string; cone: boolean; ember: string; emberMs: number }
+const COMBO_FLAME_TIERS: ComboFlame[] = [
+  { from: COMBO_FLAMES[2], flame: 'aura-3', lines: 'combo-lines-3', cone: true, ember: 'combo-ember-3', emberMs: 35 },
+  { from: COMBO_FLAMES[1], flame: 'aura-2', lines: 'combo-lines-2', cone: false, ember: 'combo-ember-2', emberMs: 55 },
+  { from: COMBO_FLAMES[0], flame: 'aura-1', cone: false, ember: 'combo-ember-1', emberMs: 85 },
+];
+/** Where each piece sits on the roach, in texels from its middle: the trail's root under its rear, the cone at its head. */
+const FLAME_AT = { x: -24, y: 5 };
+const LINES_AT = { x: 17, y: 0 };
+const CONE_AT = { x: 42, y: -3 };
+/** Embers come off the trail this far back along it (texels), and drift this fast (px/s) in the world. */
+const EMBER_FROM = [30, 70];
 
 /** Which burst each pickup throws, by its frame's art. */
 const COLLECT_BURST: [string, string][] = [['apple', 'collect-apple'], ['beer', 'collect-beer'], ['pill', 'collect-pill']];
@@ -26,6 +42,10 @@ export class VisualEffects {
   private flashOverlay!: Phaser.GameObjects.Rectangle;
   private aura: FxHandle | null = null;
   private auraName = '';
+  private comboFlame: ComboFlame | null = null;
+  private lines: FxHandle | null = null;
+  private cone: FxHandle | null = null;
+  private emberIn = 0;
   /** The killing hit already had its impact (the hit-stop), so the death doesn't spark again. */
   private hitShown = false;
 
@@ -86,12 +106,32 @@ export class VisualEffects {
     }
   }
 
-  update(speedMultiplier: number): void {
+  /** Every frame of the run; `running` is false in a boss fight, where the roach stands and its exhaust is out. */
+  update(speedMultiplier: number, running = true): void {
     if (!this.initialized) return;
     const closing = Math.min(Math.max(speedMultiplier - VIGNETTE_FROM, 0) / (MAX_SPEED - VIGNETTE_FROM), 1);
     this.vignetteGraphics.setAlpha(closing * VIGNETTE_MAX);
-    // The pill brings its own flames; dead, there are none
-    this.aura?.image.setVisible(!!this.player && !this.player.isPillActive && !this.player.isDead);
+    // The pill brings its own flames; dead, or standing in a fight, there are none
+    const show = running && !!this.player && !this.player.isPillActive && !this.player.isDead;
+    for (const handle of [this.aura, this.lines, this.cone]) {
+      if (handle?.alive) handle.image.setVisible(show);
+    }
+    if (show) this.throwEmbers();
+  }
+
+  /** Bits breaking off the trail's far end, left where they came off: the world runs on and they fall behind. */
+  private throwEmbers(): void {
+    const tier = this.comboFlame;
+    if (!tier || !this.player) return;
+    this.emberIn -= this.scene.game.loop.delta;
+    if (this.emberIn > 0) return;
+    this.emberIn = tier.emberMs * (0.6 + Math.random() * 0.8);
+    const { x, y } = this.player;
+    const back = EMBER_FROM[0] + Math.random() * (EMBER_FROM[1] - EMBER_FROM[0]);
+    this.fx.play(tier.ember, x + (FLAME_AT.x - back) * SPRITE_SCALE, y + (FLAME_AT.y + (Math.random() - 0.5) * 8) * SPRITE_SCALE, {
+      depth: this.player.sprite.depth - 0.3, vx: -20 + Math.random() * 40, vy: -40 + Math.random() * 50, drag: 1.5,
+      fps: 6 + Math.random() * 4,
+    });
   }
 
   /**
@@ -108,14 +148,20 @@ export class VisualEffects {
   /** The combo's flames grow with it, and go out with it. Called with the combo after every change. */
   setCombo(combo: number): void {
     if (!this.initialized || !this.player) return;
-    const name = AURA_TIERS.find(([from]) => combo >= from)?.[1] ?? '';
+    const tier = COMBO_FLAME_TIERS.find(t => combo >= t.from) ?? null;
+    const name = tier?.flame ?? '';
     if (name === this.auraName) return;
-    this.aura?.stop();
-    this.aura = null;
+    for (const handle of [this.aura, this.lines, this.cone]) handle?.stop();
+    this.aura = this.lines = this.cone = null;
     this.auraName = name;
-    if (!name) return;
+    this.comboFlame = tier;
+    if (!tier) return;
     const sprite = this.player.sprite;
-    this.aura = this.fx.play(name, 0, ROACH_FEET_OFFSET, { follow: sprite, depth: sprite.depth - 0.2 });
+    const at = (p: { x: number; y: number }) => [p.x * SPRITE_SCALE, p.y * SPRITE_SCALE] as const;
+    // Behind the roach and its dash ghosts (depth - 0.1), the lines behind the trail
+    this.aura = this.fx.play(tier.flame, ...at(FLAME_AT), { follow: sprite, depth: sprite.depth - 0.2 });
+    if (tier.lines) this.lines = this.fx.play(tier.lines, ...at(LINES_AT), { follow: sprite, depth: sprite.depth - 0.25 });
+    if (tier.cone) this.cone = this.fx.play('combo-cone', ...at(CONE_AT), { follow: sprite, depth: sprite.depth + 0.1 });
   }
 
   comboLostEffect(comboLost: number): void {
@@ -191,9 +237,10 @@ export class VisualEffects {
       clearTimeout(this.deathSlowMoTimeout);
       this.deathSlowMoTimeout = null;
     }
-    this.aura?.stop();
-    this.aura = null;
+    for (const handle of [this.aura, this.lines, this.cone]) handle?.stop();
+    this.aura = this.lines = this.cone = null;
     this.auraName = '';
+    this.comboFlame = null;
     this.vignetteGraphics.destroy();
     this.flashOverlay.destroy();
     this.initialized = false;

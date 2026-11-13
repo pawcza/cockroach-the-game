@@ -3,7 +3,7 @@
  * walls. Pure and seeded: every client of a match, and every daily runner, gets the same list for the same slots, in
  * the same order of random draws, whatever their own roach is doing. SpawnManager only builds what this returns.
  */
-import { BEER_CHANCE, PILL_CHANCE } from '../config/constants';
+import { BEER_CHANCE, COCKROACH_START_X, PILL_CHANCE } from '../config/constants';
 import { EnemyPicker, Random, CourseClock, nominalCourse } from '../objects/obstacles/cast';
 import type { EnemyPlan, Lane } from '../objects/obstacles/behaviours';
 import { AMMO_CHANCE, AMMO_FROM_LEVEL } from './gunRules';
@@ -15,6 +15,24 @@ export type SlotItem =
   | { kind: 'wall' }
   /** The spray's cloud wall: built like a wall (only with the dash owned), its phase from its x. */
   | { kind: 'cloud'; plan: EnemyPlan };
+
+/**
+ * Before a boss the course ends in an empty runway this long (world px) short of its trigger, and nothing more is laid
+ * until it is beaten: no enemy, pickup or wall of the next stretch shows up behind the fight. After it the course picks
+ * up this far past the trigger: a fixed place, the same on every client and in every daily run (the fight holds the
+ * roach near the trigger; a match puts every roach on the server's trigger x). The slots in between are not laid at
+ * all, so no draw is made for them: the course after a boss is the course that would have come next.
+ */
+export const BOSS_RUNWAY_PX = 900;
+export const BOSS_RESUME_PX = 1000;
+
+/** A boss's trigger distance (m) as world x. */
+export const bossX = (metres: number): number => COCKROACH_START_X + metres * 50;
+
+/** How far the course may be laid with these bosses still to beat (their trigger distances, m): Infinity if none. */
+export function courseEnd(unbeaten: readonly number[]): number {
+  return unbeaten.length === 0 ? Infinity : bossX(Math.min(...unbeaten)) - BOSS_RUNWAY_PX;
+}
 
 /** Six beer labels; which one stands where comes from its x, so it never depends on the order things were drawn in. */
 const BEER_ARTS = 6;

@@ -45,8 +45,9 @@ export class ScoreTracker {
     if (tier) this.vfx.comboTierUp();
     this.vfx.setCombo(this.run.pickupCombo);
     this.audio.playComboTick(this.run.pickupCombo);
-    // The HUD shows the multiplier to one decimal: it goes up when that figure does
-    if (comboMultiplier(this.run.pickupCombo).toFixed(1) !== comboMultiplier(this.run.pickupCombo - 1).toFixed(1)) {
+    // On each whole step of the multiplier (x2, x3...), where the flames and the notices are: a tick every tenth was
+    // every fourth pickup, constant noise
+    if (Math.floor(comboMultiplier(this.run.pickupCombo)) !== Math.floor(comboMultiplier(this.run.pickupCombo - 1))) {
       this.audio.playSfx('mult-up', VOL.stinger);
     }
   }
@@ -57,6 +58,14 @@ export class ScoreTracker {
     this.run.pickupCombo = 0;
     this.comboFeedback.onComboLost();
     this.vfx.setCombo(0);
+  }
+
+  /** The combo starts over without a word: the tutorial's apples are gone when the real run starts. */
+  clearCombo(): void {
+    this.run.pickupCombo = 0;
+    this.comboFeedback.onComboLost();
+    this.vfx.setCombo(0);
+    this.hud.updateScore(this.run.score);
   }
 
   /** +1 point per second survived. */

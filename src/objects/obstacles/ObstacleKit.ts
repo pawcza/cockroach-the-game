@@ -3,13 +3,13 @@ import Phaser from 'phaser';
 import { AudioManager } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { addContactShadow } from '../../effects/ContactShadow';
+import { KillZone, type ZoneState } from '../../effects/KillZone';
 import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../../config/sprites';
 import { Floor } from '../Player';
 import { EnemyPlan, EnemyState, Lane, OBSTACLE_SINK, laneY } from './behaviours';
 
-type Warn = NonNullable<EnemyState['warn']>;
-/** A lane band's height: the roach's body, a little more. */
-const BAND_H = 60;
+/** A stretch of one lane, for the kill-zone look. */
+export interface Stretch { lane: Lane; x0: number; x1: number }
 import { ENEMIES, EnemyId, enemyState, shotSpan } from './cast';
 
 /** Contact shadow width against the obstacle's hitbox. */
@@ -228,26 +228,26 @@ export class ObstacleKit {
   }
 
   /**
-   * A hard-edged band over a stretch of one lane, as tall as the roach (world px; clipped to the screen): the warning,
-   * or the light, of something that closes a lane. Returns its updater; it goes with the sprite.
+   * The run's one kill-zone look (effects/KillZone.ts) under an enemy: call the updater every frame with the stretch
+   * that is about to be deadly (warn) and the stretches that are deadly now (kill), each on its lane, or nothing. What
+   * is passed must be what hurts (the behaviour's own zones and warning). It goes with the sprite.
    */
-  laneBand(sprite: Phaser.GameObjects.GameObject, colour: number, depth: number, light = false): (warn?: Warn, alpha?: number) => void {
-    const band = this.scene.add.rectangle(0, 0, 10, BAND_H, colour, 1).setOrigin(0, 1).setDepth(depth).setVisible(false);
-    if (light) band.setBlendMode(Phaser.BlendModes.ADD);
-    sprite.once('destroy', () => band.destroy());
-    return (warn, alpha = 1) => {
-      if (!warn || alpha <= 0) {
-        band.setVisible(false);
-        return;
-      }
-      const camera = this.scene.cameras.main;
-      const x0 = Math.max(warn.x0, camera.scrollX - 8);
-      const x1 = Math.min(warn.x1, camera.scrollX + camera.width + 8);
-      if (x1 <= x0) {
-        band.setVisible(false);
-        return;
-      }
-      band.setPosition(x0, laneY(warn.lane) + 2).setSize(x1 - x0, BAND_H).setAlpha(alpha).setVisible(true);
+  hazard(sprite: Phaser.GameObjects.GameObject): (warn: Stretch | Stretch[] | null, kill?: Stretch[]) => void {
+    const zones: KillZone[] = [];
+    sprite.once('destroy', () => zones.forEach(z => z.destroy()));
+    return (warn, kill = []) => {
+      const warns = warn === null ? [] : Array.isArray(warn) ? warn : [warn];
+      const all: [Stretch, ZoneState][] = [
+        ...warns.map(w => [w, 'warn'] as [Stretch, ZoneState]),
+        ...kill.map(k => [k, 'kill'] as [Stretch, ZoneState]),
+      ];
+      while (zones.length < all.length) zones.push(new KillZone(this.scene));
+      zones.forEach((zone, i) => {
+        const entry = all[i];
+        if (!entry) { zone.hide(); return; }
+        const [stretch, state] = entry;
+        zone.show(laneY(stretch.lane) - OBSTACLE_SINK, stretch.x0, stretch.x1, state);
+      });
     };
   }
 

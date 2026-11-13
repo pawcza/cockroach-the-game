@@ -7,7 +7,6 @@ import { EnemyPlan, laneY } from './behaviours';
 import { TIMINGS } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
-const MIST = 0x88dd44;
 /** The cloud's hitbox height in each lane, frame px. */
 const CLOUD_H = 26;
 /** How far back on the upper ledge the can stands (px up from the lane): a prop out of the way, like the bleach jug. */
@@ -39,14 +38,16 @@ export function spawnSprayWall(kit: ObstacleKit, plan: EnemyPlan): void {
     b.setOffset((c.width - w) / 2, c.height * c.originY - CLOUD_H);
     return c;
   });
-  const bands = (['top', 'bottom'] as const).map(() => kit.laneBand(can, MIST, DEPTH.CONTACT_SHADOW));
+  const hazard = kit.hazard(can);
   kit.drive(can, plan, (now, before) => {
     can.setDepth(DEPTH.OBSTACLES - 1);
     can.y -= SET_BACK;
     can.setData('harmless', true);
     const puffing = now.pose === 'strike';
     clouds.forEach(c => c.setData('harmless', !puffing));
-    (['top', 'bottom'] as const).forEach((lane, i) => bands[i](now.warn && { ...now.warn, lane }, puffing ? .2 : .14));
+    // Both lanes: winding up they warn, the hanging cloud kills (its zones, one a lane)
+    const warn = now.warn;
+    hazard(!puffing && warn ? (['top', 'bottom'] as const).map(lane => ({ ...warn, lane })) : null, puffing ? now.zones : []);
     can.anims.timeScale = now.pose === 'windup' ? 3 : 1;
     if (!before || now.pose === before.pose || !kit.isOnScreen(can)) return;
     if (now.pose === 'windup') fx.play('flare-big-green', can.x - 10, can.y - can.displayHeight * .7, { depth: DEPTH.PICKUPS + 1 });

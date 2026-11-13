@@ -28,7 +28,7 @@ export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
   zapper.setData('flies', true);
   (zapper.body as Phaser.Physics.Arcade.Body).checkCollision.none = true;
   const cord = scene.add.rectangle(plan.x, 0, SPRITE_SCALE, 10, CORD).setOrigin(0.5, 0).setDepth(DEPTH.OBSTACLES - 0.1);
-  const band = kit.laneBand(zapper, BOLT, DEPTH.CONTACT_SHADOW);
+  const hazard = kit.hazard(zapper);
   // The bolt: a violet streak along the lane with a white core, and its drop from the tube
   const glow = scene.add.rectangle(0, 0, 10, BOLT_H, BOLT, 1).setOrigin(0, 0.5).setDepth(DEPTH.OBSTACLES + 1)
     .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
@@ -51,7 +51,8 @@ export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
     cord.setPosition(Math.round(zapper.x), 0).setSize(SPRITE_SCALE, Math.max(0, top + 4));
     const striking = now.pose === 'strike';
     hurt.setData('harmless', !striking);
-    band(now.warn && { ...now.warn }, striking ? 0.3 : 0.12 + 0.12 * (now.warn?.level ?? 0));
+    // Charging, its stretch warns; the bolt kills along exactly it
+    hazard(!striking ? now.warn ?? null : null, striking ? now.zones : []);
     const y = laneY(plan.lane) - 24;
     const x0 = now.warn?.x0 ?? plan.x;
     const x1 = now.warn?.x1 ?? plan.x;

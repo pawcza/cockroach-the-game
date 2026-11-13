@@ -165,7 +165,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   },
   flipper: {
     id: 'flipper', type: 'flipper', art: SWAT_HAND ? 'flipper-swat-hand' : 'flipper-swat',
-    frame: SWAT_HAND ? { w: 86, h: 63, pivotY: 0.873 } : { w: 67, h: 53, pivotY: 0.8491 }, hitbox: DEFAULT_HITBOX,
+    frame: SWAT_HAND ? { w: 86, h: 63, pivotY: 0.873 } : { w: 66, h: 53, pivotY: 0.8491 }, hitbox: DEFAULT_HITBOX,
     footprint: TIMINGS.flipper.footprint, role: 'swatter', laneBound: true, behave: depthSwat(TIMINGS.flipper), telegraphs: true, shotWhereItHurts: true,
   },
   spray: {
@@ -204,11 +204,11 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     role: 'charger', laneBound: true, behave: charger(TIMINGS.bison), telegraphs: true,
   },
   glue: {
-    id: 'glue', type: 'glue', art: 'glue', frame: { w: 60, h: 44, pivotY: 0.8182 }, hitbox: { w: 0.75, h: 0.6 },
+    id: 'glue', type: 'glue', art: 'glue', frame: { w: 45, h: 34, pivotY: 0.7647 }, hitbox: { w: 0.75, h: 0.6 },
     role: 'blocker', laneBound: true, behave: blocker, telegraphs: false,
   },
   bleach: {
-    id: 'bleach', type: 'bleach', art: 'bleach', frame: { w: 53, h: 54, pivotY: 0.8519 }, hitbox: DEFAULT_HITBOX,
+    id: 'bleach', type: 'bleach', art: 'bleach', frame: { w: 45, h: 46, pivotY: 0.8261 }, hitbox: DEFAULT_HITBOX,
     footprint: TIMINGS.bleach.spot, role: 'dripper', laneBound: true, lanes: ['bottom'], both: true, behave: drip(TIMINGS.bleach),
     telegraphs: true,
   },

@@ -116,11 +116,22 @@ export const DEPTH = {
   DEATH_REPLAY_LABEL: 6004,
 } as const;
 
+/**
+ * The combo's exhaust flames (VisualEffects): fire from 40 in a row, hotter with speed lines from 120, a comet from 200.
+ * They fall on whole multiplier steps (x2, x4, x6: comboMultiplier adds 0.025 a pickup). Measured on headless bot runs
+ * that missed almost nothing: about 30 in a row by the end of level 2, 75 by the end of level 4, 100-120 by the end of
+ * level 6, and the streak broke in the gun act (level 7+); the course lays about one pickup every 10 m, so an unbroken
+ * streak reaches 200 near level 9. The first flames are earned after Lodzia, the second by a clean run to DJ Bigos,
+ * the third by a near-perfect one.
+ */
+export const COMBO_FLAMES = [40, 120, 200] as const;
+
+/** The combo notices, the flames' tiers among them (40, 120, 200) and x3 between (80). */
 export const COMBO_TIERS = [
-  { threshold: 5,   color: 0x44ff44, label: 'NIEZŁE!' },
-  { threshold: 10,  color: 0xffff00, label: 'MASAKRA!' },
-  { threshold: 25,  color: 0xff6600, label: 'SZALEŃSTWO!' },
-  { threshold: 50,  color: 0xff00ff, label: 'TURBOKOMPOT!' },
-  { threshold: 100, color: 0x00ffff, label: 'ULTRA KARALUCH!' },
-  { threshold: 150, color: 0xff0000, label: 'NIEMOŻLIWE!!!' },
+  { threshold: 10,  color: 0x44ff44, label: 'NIEZŁE!' },
+  { threshold: 25,  color: 0xffff00, label: 'MASAKRA!' },
+  { threshold: 40,  color: 0xff6600, label: 'SZALEŃSTWO!' },
+  { threshold: 80,  color: 0xff00ff, label: 'TURBOKOMPOT!' },
+  { threshold: 120, color: 0x00ffff, label: 'ULTRA KARALUCH!' },
+  { threshold: 200, color: 0xff0000, label: 'NIEMOŻLIWE!!!' },
 ] as const;

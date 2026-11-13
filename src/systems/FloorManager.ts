@@ -46,6 +46,16 @@ export class FloorManager {
   private steppedTopRanges: { from: number; to: number; lastFallX: number }[] = [];
   private steppedBottomRanges: { from: number; to: number; lastFallX: number }[] = [];
   private lastTrackedFloor: 'top' | 'bottom' = 'bottom';
+  /**
+   * The highest level a tile may wear (LevelProgression.levelCap): past a boss still to be beaten the ledge keeps the
+   * level before it, so the next level's floor never shows ahead of the fight.
+   */
+  levelCap = Infinity;
+  /**
+   * How far the tile grid is shifted, after the world was moved back under the camera (rebase): the ledge keeps its
+   * place on screen and its painted pattern, whatever the distance moved.
+   */
+  private phase = 0;
 
   get topBody(): Phaser.GameObjects.Rectangle { return this.floorTopBody; }
   get bottomBody(): Phaser.GameObjects.Rectangle { return this.floorBottomBody; }
@@ -60,6 +70,7 @@ export class FloorManager {
 
   create(camWidth: number): void {
     const startSnap = Math.floor(COCKROACH_START_X / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    this.phase = 0;
     this.steppedTopRanges = [];
     this.steppedBottomRanges = [{ from: startSnap, to: COCKROACH_START_X, lastFallX: startSnap - FLOOR_TILE_STEP }];
     this.lastTrackedFloor = 'bottom';
@@ -132,7 +143,7 @@ export class FloorManager {
       const ranges = trackFloor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges;
 
       if (trackFloor !== this.lastTrackedFloor) {
-        const snapX = Math.floor(trackX / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+        const snapX = this.snap(trackX);
         ranges.push({ from: snapX, to: trackX, lastFallX: snapX - FLOOR_TILE_STEP });
         this.lastTrackedFloor = trackFloor;
       }
@@ -146,7 +157,7 @@ export class FloorManager {
     this.dropRangesBehind(camX - 100, this.steppedTopRanges);
     this.dropRangesBehind(camX - 100, this.steppedBottomRanges);
 
-    const firstTileX = Math.floor((camX - 100) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    const firstTileX = this.snap(camX - 100);
     for (let i = 0; i < this.floorTopSprites.length; i++) {
       const tx = firstTileX + i * FLOOR_TILE_STEP;
       this.floorTopSprites[i].x = tx;
@@ -182,12 +193,13 @@ export class FloorManager {
     this.generateRoundedFloorTextures();
   }
 
-  /** How the tile at this world x looks, or null while its level's art is still loading. */
+  /** How the tile at this world x looks, or null while its level's art is still loading (it keeps the look it had). */
   private tileLook(tx: number): TileLook | null {
-    const config = getLevelForDistance((tx - COCKROACH_START_X) / 50);
+    const byX = getLevelForDistance((tx - COCKROACH_START_X) / 50);
+    const config = byX.level > this.levelCap ? LEVELS[this.levelCap - 1] : byX;
     if (config.painted) {
       if (!this.scene.textures.exists(config.floorKey)) return null;
-      const index = Math.floor(tx / FLOOR_TILE_STEP);
+      const index = Math.round((tx + this.phase) / FLOOR_TILE_STEP);
       const segment = ((index % LEDGE_SEGMENTS) + LEDGE_SEGMENTS) % LEDGE_SEGMENTS;
       return { key: config.floorKey, frame: `segment-${segment}`, scale: PIXEL_BLOCK, lift: LEDGE_LIFT };
     }
@@ -251,8 +263,26 @@ export class FloorManager {
 
   /** Whether the ledge under this world x has crumbled away behind a runner. */
   isGap(x: number, floor: 'top' | 'bottom'): boolean {
-    const tileX = Math.floor(x / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    const tileX = this.snap(x);
     return this.isTileStepped(tileX, floor === 'top' ? this.steppedTopRanges : this.steppedBottomRanges);
+  }
+
+  /** The left edge of the tile under world x. */
+  private snap(x: number): number {
+    return Math.floor((x + this.phase) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP - this.phase;
+  }
+
+  /**
+   * The world moved back by `dx` under the camera (the tutorial's hand-off): the grid and what has crumbled move with
+   * it, so the ledge on screen does not change. The tiles themselves follow the camera on the next update.
+   */
+  rebase(dx: number): void {
+    this.phase = (((this.phase + dx) % (FLOOR_TILE_STEP * LEDGE_SEGMENTS)) + FLOOR_TILE_STEP * LEDGE_SEGMENTS) % (FLOOR_TILE_STEP * LEDGE_SEGMENTS);
+    for (const range of [...this.steppedTopRanges, ...this.steppedBottomRanges]) {
+      range.from -= dx;
+      range.to -= dx;
+      range.lastFallX -= dx;
+    }
   }
 
   /** The newest range is the one still growing, so it always stays. */
@@ -269,7 +299,7 @@ export class FloorManager {
   }
 
   private spawnFallingTilesForRange(range: { from: number; to: number; lastFallX: number }, floorY: number): void {
-    let startX = Math.floor((range.lastFallX + 1) / FLOOR_TILE_STEP) * FLOOR_TILE_STEP;
+    let startX = this.snap(range.lastFallX + 1);
     if (startX <= range.lastFallX) startX += FLOOR_TILE_STEP;
 
     const MAX_TILES_PER_FRAME = 3;

@@ -71,6 +71,7 @@ export class GameOverHandler {
   private getReplayData: (obstacleType: string | null) => ReplayData | null;
   private getRunTrack: () => RunTrack | null;
   private getRunSnapshot: () => RunSnapshot;
+  private isPractice: () => boolean;
 
   constructor(
     scene: Phaser.Scene,
@@ -97,6 +98,8 @@ export class GameOverHandler {
       /** This run's path, kept for its ghost when it beats the record. */
       getRunTrack: () => RunTrack | null;
       getRunSnapshot: () => RunSnapshot;
+      /** The tutorial is still on: nothing of this run counts, so a death in it (which it should not allow) saves nothing. */
+      isPractice?: () => boolean;
     },
   ) {
     this.scene = scene;
@@ -121,21 +124,23 @@ export class GameOverHandler {
     this.getReplayData = callbacks.getReplayData;
     this.getRunTrack = callbacks.getRunTrack;
     this.getRunSnapshot = callbacks.getRunSnapshot;
+    this.isPractice = callbacks.isPractice ?? (() => false);
     this.mpMyName = getPlayerNameOrDefault();
   }
 
   die(obstacleType?: string | null): void {
     if (this.player.isDead) return;
+    const practice = this.isPractice();
     this.setIsDead();
     this.player.die();
     // Every run counts in your stats, solo or in a match. What it earns shows on the solo results; in a match the
     // run stays on screen while you spectate, so it shows there
     const snapshot = this.getRunSnapshot();
-    const earned = recordRun(snapshot);
+    const earned = practice ? [] : recordRun(snapshot);
     if (this.isMultiplayer) for (const achievement of earned) showAchievement(this.scene, achievement);
     // Signed in, the run counts towards your missions. Solo, the results show what it paid; in a match, whatever is
     // on screen when the answer comes
-    const missions = reportRun(snapshot, this.isMultiplayer);
+    const missions = practice ? Promise.resolve([]) : reportRun(snapshot, this.isMultiplayer);
     if (this.isMultiplayer) {
       void missions.then((done) => {
         const scene = this.scene.game.scene.getScenes(true)[0];
@@ -192,13 +197,15 @@ export class GameOverHandler {
     const daily = this.daily;
     const previousBest = daily ? getDailyBest(daily.date) : getHighScore();
     const previousBestDistance = getBestDistance();
-    incrementGamesPlayed();
-    if (daily) updateDailyBestIfBetter(daily.date, score);
-    else updateHighScoreIfBetter(score);
-    // A new best becomes the ghost the next run races
-    const track = score > previousBest ? this.getRunTrack() : null;
-    if (track) saveBestTrack(track, daily?.date);
-    updateBestDistanceIfBetter(this.getDistance());
+    if (!practice) {
+      incrementGamesPlayed();
+      if (daily) updateDailyBestIfBetter(daily.date, score);
+      else updateHighScoreIfBetter(score);
+      // A new best becomes the ghost the next run races
+      const track = score > previousBest ? this.getRunTrack() : null;
+      if (track) saveBestTrack(track, daily?.date);
+      updateBestDistanceIfBetter(this.getDistance());
+    }
     const replayData = this.getReplayData(obstacleType || null);
 
     // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)

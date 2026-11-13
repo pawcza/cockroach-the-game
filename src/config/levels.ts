@@ -39,24 +39,11 @@ export function getLevelForDistance(distance: number): LevelConfig {
   return config;
 }
 
-/** Returns progress (0-1) within the current level toward the next */
-export function getLevelProgress(distance: number): number {
-  const config = getLevelForDistance(distance);
-  const nextIndex = LEVELS.findIndex((l) => l.level === config.level) + 1;
-  if (nextIndex >= LEVELS.length) return 1; // max level
-  const nextThreshold = LEVELS[nextIndex].distanceThreshold;
-  const currentThreshold = config.distanceThreshold;
-  return Math.min((distance - currentThreshold) / (nextThreshold - currentThreshold), 1);
-}
-
-/** Returns distance within current level and the level's total span. */
-export function getLevelDistances(distance: number): { inLevel: number; levelSpan: number } {
-  const config = getLevelForDistance(distance);
-  const idx = LEVELS.findIndex((l) => l.level === config.level);
-  const nextThreshold = idx + 1 < LEVELS.length ? LEVELS[idx + 1].distanceThreshold : config.distanceThreshold;
-  const currentThreshold = config.distanceThreshold;
-  return {
-    inLevel: Math.floor(distance - currentThreshold),
-    levelSpan: nextThreshold - currentThreshold,
-  };
+/**
+ * The level a run is in at this distance while the boss at `gate` metres is still to be beaten (Infinity: no boss
+ * ahead). A level that starts at or past that boss is not reached until it is beaten: the fight is fought in the level
+ * before, and the new one arrives after it, as the reward.
+ */
+export function levelBefore(distance: number, gate: number): LevelConfig {
+  return getLevelForDistance(Math.min(distance, gate - 1e-6));
 }

@@ -1,8 +1,10 @@
 /**
  * The "new ability" beat after a boss falls, before the run picks up: the power's icon rises out of the dark with rays
- * behind it, "NOWA MOC: ..." slams in, and one line says how to use it. About a second and a half, and any key or tap
- * skips it. Its timeline is its own clock, driven by the scene's update event, so it plays over a frozen world (like the
- * versus splash). The icon is the touch button's own art for the dash and the gun; the wylinka's is a pale shell.
+ * behind it, "NOWA MOC: ..." slams in, and one line says how to use it. Like the versus splash it then holds, the rays
+ * turning and the icon bobbing, with the splash's blinking prompt, until a key or a tap: presses during the entrance
+ * (and a moment after it) are ignored, and Esc only ever pauses. Its timeline is its own clock, driven by the scene's
+ * update event, so it plays over a frozen world. The icon is the touch button's own art for the dash and the gun; the
+ * wylinka's is a pale shell.
  */
 import Phaser from 'phaser';
 import { AudioManager, VOL } from '../audio/AudioManager';
@@ -12,11 +14,19 @@ import { VFX_ATLAS, vfxFrame } from '../effects/Fx';
 import { ICON_BITMAPS, drawBitmap } from '../ui/AbilityStrip';
 import { bodyStyle, titleStyle, UI_TEXT } from '../utils/TextStyles';
 import { ABILITY_TEXT, type AbilityId } from './abilities';
+import { PRESS_GUARD_MS, PRESS_PROMPT_SIZE, PRESS_PROMPT_STYLE, pressPromptAlpha, pressPromptText } from './boss/VersusSplash';
 
-const TOTAL_MS = 1500;
-const FADE_OUT_MS = 200;
-const SKIP_LOCKOUT_MS = 500;
-const SKIP_FADE_MS = 140;
+/** Everything has landed (the line under the title last): the hold begins. */
+const HOLD_AT_MS = 1100;
+/** After the press it fades out this fast. */
+const FADE_OUT_MS = 160;
+/** The title's height on the screen, and the how-to line's below it: high enough that the prompt under them clears the
+ * level bar at the foot. */
+const TITLE_AT = 0.6;
+const HOW_BELOW = 60;
+/** The prompt sits this far under the how-to line, never closer than this to the screen's foot. */
+const PROMPT_GAP = 30;
+const PROMPT_FOOT = 26;
 /** A frame that took longer than this (a hitch, a hidden tab) counts as this much. */
 const MAX_FRAME_MS = 50;
 
@@ -49,8 +59,8 @@ export interface AbilityRewardDeps {
 export class AbilityReward {
   private deps: AbilityRewardDeps;
   private t = 0;
-  private endAt = TOTAL_MS;
-  private fadeMs = FADE_OUT_MS;
+  /** Infinity until the press that ends the hold. */
+  private endAt = Infinity;
   private ended = false;
   private landed = false;
   private slammed = false;
@@ -62,11 +72,13 @@ export class AbilityReward {
   private icon: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
   private title: Phaser.GameObjects.Text;
   private how: Phaser.GameObjects.Text;
+  private prompt: Phaser.GameObjects.Text;
+  private promptPlate: Phaser.GameObjects.Rectangle;
 
   private onKey = (event: KeyboardEvent): void => {
-    if (event.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) this.skip();
+    if (event.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) this.press();
   };
-  private onPointer = (): void => this.skip();
+  private onPointer = (): void => this.press();
 
   constructor(deps: AbilityRewardDeps) {
     this.deps = deps;
@@ -89,13 +101,20 @@ export class AbilityReward {
       .setScale(SPRITE_SCALE).setBlendMode(Phaser.BlendModes.ADD);
     this.icon = ability === 'moult' ? this.shellIcon() : scene.add.image(0, 0, ATLAS, frameOf(`btn-${ability}`, 0));
     fixed(this.icon, DEPTH.REWARD + 0.5);
-    this.title = fixed(scene.add.text(width / 2, height * 0.66, `NOWA MOC: ${text.name}`, titleStyle({
+    this.title = fixed(scene.add.text(width / 2, height * TITLE_AT, `NOWA MOC: ${text.name}`, titleStyle({
       fontSize: '32px', color: ACCENT[ability].name, strokeThickness: 8,
     })).setOrigin(0.5), DEPTH.REWARD_TEXT);
-    this.how = fixed(scene.add.text(width / 2, height * 0.66 + 70, touch ? text.how.touch : text.how.keyboard, bodyStyle({
+    this.how = fixed(scene.add.text(width / 2, height * TITLE_AT + HOW_BELOW, touch ? text.how.touch : text.how.keyboard, bodyStyle({
       fontSize: '16px', color: UI_TEXT.bone, strokeThickness: 4, align: 'center', wordWrap: { width: Math.min(width - 60, 620) },
     })).setOrigin(0.5, 0), DEPTH.REWARD_TEXT);
     this.flash = fixed(scene.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0), DEPTH.REWARD_TEXT + 1);
+    this.prompt = fixed(scene.add.text(width / 2, 0, pressPromptText(touch, 'Dotknij, aby grać dalej'), bodyStyle({
+      ...PRESS_PROMPT_STYLE, fontSize: `${PRESS_PROMPT_SIZE}px`,
+    })).setOrigin(0.5), DEPTH.REWARD_TEXT);
+    this.prompt.setY(Math.round(Math.min(height - PROMPT_FOOT, this.how.y + this.how.height + PROMPT_GAP)));
+    // A dark plate under it, as under the splash's
+    const plateW = Math.ceil((this.prompt.width + 40) / PIXEL_BLOCK) * PIXEL_BLOCK;
+    this.promptPlate = fixed(scene.add.rectangle(width / 2, this.prompt.y, plateW, 30, 0x000000, 0), DEPTH.REWARD_TEXT - 0.5);
 
     this.render(0);
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.update, this);
@@ -119,11 +138,10 @@ export class AbilityReward {
     return g;
   }
 
-  /** Cuts the beat short, once the first moment has landed. */
-  skip(): void {
-    if (this.ended || this.t < SKIP_LOCKOUT_MS || this.t >= this.endAt - SKIP_FADE_MS) return;
-    this.endAt = this.t + SKIP_FADE_MS;
-    this.fadeMs = SKIP_FADE_MS;
+  /** The first press once the hold has begun (and its guard has passed) ends it. */
+  private press(): void {
+    if (this.ended || this.t < HOLD_AT_MS + PRESS_GUARD_MS || this.endAt !== Infinity) return;
+    this.endAt = this.t + FADE_OUT_MS;
   }
 
   private update(_time: number, delta: number): void {
@@ -136,7 +154,7 @@ export class AbilityReward {
   private render(t: number): void {
     const { scene, ability } = this.deps;
     const { width, height } = scene.cameras.main;
-    const out = 1 - clamp01((t - (this.endAt - this.fadeMs)) / this.fadeMs);
+    const out = this.endAt === Infinity ? 1 : 1 - clamp01((t - (this.endAt - FADE_OUT_MS)) / FADE_OUT_MS);
     const cx = width / 2;
     const accent = ACCENT[ability].glow;
 
@@ -170,7 +188,13 @@ export class AbilityReward {
       scene.cameras.main.shake(220, 0.006);
     }
     const line = clamp01((t - 800) / 240);
-    this.how.setAlpha(line * out).setY(height * 0.66 + 70 + (1 - line) * 10);
+    this.how.setAlpha(line * out).setY(height * TITLE_AT + HOW_BELOW + (1 - line) * 10);
+
+    // Held: the prompt fades in under it and blinks until the press
+    const holding = t >= HOLD_AT_MS;
+    const since = t - HOLD_AT_MS;
+    this.prompt.setVisible(holding).setAlpha(holding ? pressPromptAlpha(since) * out : 0);
+    this.promptPlate.setFillStyle(0x000000, holding ? 0.82 * clamp01(since / 250) * out : 0);
   }
 
   private finish(): void {
@@ -186,6 +210,6 @@ export class AbilityReward {
     scene.events.off(Phaser.Scenes.Events.UPDATE, this.update, this);
     scene.input.keyboard?.off('keydown', this.onKey);
     scene.input.off('pointerdown', this.onPointer);
-    for (const o of [this.dim, this.flash, this.rays, this.glow, this.icon, this.title, this.how]) o.destroy();
+    for (const o of [this.dim, this.flash, this.rays, this.glow, this.icon, this.title, this.how, this.prompt, this.promptPlate]) o.destroy();
   }
 }

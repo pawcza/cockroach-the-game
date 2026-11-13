@@ -63,6 +63,8 @@ export class Player {
   private _dashReady = true;
   private dashTrail: TrailHandle | null = null;
   private _dashStartTime = 0;
+  /** The dash under way was forced (forceDash): no cooldown after it. */
+  private cooldownWaived = false;
 
   // Invulnerability
   private _isInvulnerable = false;
@@ -264,12 +266,23 @@ export class Player {
       if (this._isDashing && dashElapsed >= DASH_DURATION) {
         this.endDash();
       }
-      if (!this._isDashing && dashElapsed >= DASH_DURATION + DASH_COOLDOWN) {
+      if (!this._isDashing && (dashElapsed >= DASH_DURATION + DASH_COOLDOWN || this.cooldownWaived)) {
         this._dashReady = true;
         this._dashStartTime = 0;
+        this.cooldownWaived = false;
         this.playDashReadyEffect();
       }
     }
+  }
+
+  /**
+   * A dash whatever the cooldown, done for the player: the first dash lesson's rescue at its wall. Its own cooldown is
+   * waived, so the dash is ready again the moment it ends.
+   */
+  forceDash(): void {
+    if (this._isDashing) return;
+    this.startDash();
+    this.cooldownWaived = true;
   }
 
   updatePill(): void {
