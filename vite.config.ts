@@ -21,6 +21,8 @@ export default defineConfig({
     // tailnet in. Google sign-in still needs http://localhost:5678, its registered redirect
     host: true,
     allowedHosts: ['pc', '.ts.net'],
+    // Work in progress lives in git worktrees inside the repo: editing those must not reload the page being played
+    watch: { ignored: ['**/.worktrees/**'] },
     proxy: {
       '/api': {
         target: 'http://localhost:3456',
