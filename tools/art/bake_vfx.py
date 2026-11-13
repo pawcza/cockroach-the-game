@@ -42,7 +42,7 @@ def pack(effects: dict) -> None:
     anims = {}
     for name, effect in effects.items():
         # The plate's pieces and the kill zone's tiles are laid side by side by the game: they keep their own sizes
-        frames, pivot = ([Image.fromarray(f) for f in effect.frames], effect.pivot) if name.startswith(("plate", "zone", "cord")) else _trimmed(effect)
+        frames, pivot = ([Image.fromarray(f) for f in effect.frames], effect.pivot) if name.startswith(("plate", "zone", "cord", "land-")) else _trimmed(effect)
         anims[name] = {"frames": len(frames), "fps": effect.fps, "loop": effect.loop, "light": effect.light}
         for i, frame in enumerate(frames):
             items.append((f"{name}_{i}", frame, pivot))

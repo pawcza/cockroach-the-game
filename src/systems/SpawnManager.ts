@@ -20,10 +20,14 @@ import { MULTIPLAYER_BOSS, soloLadder } from './boss/fights';
 
 /**
  * Pickups hover in their lane's airspace, not on its ledge: their middle this high over the ledge's surface (a lane is
- * 136 px tall; the roach's body 52), bobbing a little, a soft shadow on the ledge under them. Their hitbox reaches from
- * their top down to the ledge, so a running roach of any height takes them as surely as it did off the floor.
+ * 136 px tall; the roach's body 52; set by hand in the sprite tuner), bobbing a little, a soft shadow on the ledge under
+ * them. Their hitbox reaches from their top down to the ledge, so a running roach of any height takes them as surely as
+ * it did off the floor.
  */
-const PICKUP_HOVER = 60;
+const PICKUP_HOVER = 40;
+/** The soft shadow under a pickup, hand-tuned: this much lower than the ledge's surface and this much wider. */
+const PICKUP_SHADOW_DY = 6;
+const PICKUP_SHADOW_SIZE = 1.2;
 const PICKUP_BOB = 4;
 const PICKUP_BOB_MS = 650;
 const PICKUP_HITBOX_W = 0.9;
@@ -385,7 +389,7 @@ export class SpawnManager {
       delay: Math.random() * PICKUP_BOB_MS,
     });
 
-    const shadow = addContactShadow(this.scene, x, ledge, w * SPRITE_SCALE).setAlpha(0.6);
+    const shadow = addContactShadow(this.scene, x, ledge + PICKUP_SHADOW_DY, w * SPRITE_SCALE * PICKUP_SHADOW_SIZE).setAlpha(0.6);
     sprite.once('destroy', () => { this.scene.tweens.killTweensOf(sprite); shadow.destroy(); });
     return sprite;
   }

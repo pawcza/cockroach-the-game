@@ -6,12 +6,13 @@ Each is one strip of poses the game picks by hand (obstacles/swatter.ts), not a 
   2-4 swing   coming in towards the camera, growing and turning flat, with a smear of where it just was
   5 impact    flat on the ledge, squashed by the slap
   6 landed    lying flat along the ledge
-  7-8 peel    one end lifting first, then going back into the room
+  7-8 peel    the held end lifting first, then going back into the room
 
 From the picked renders in art/sprites/enemies (raised, swinging and flat stills, each read at its own pixel
-grid with its ground line taken off). The in-betweens are made on the native image blown up 8x (scaled, turned,
-squashed, all nearest) and read back 8x with pixels.down, so every pose stays on the texel grid. Nothing is rotated or
-scaled at runtime.
+grid with its ground line taken off). Both are held by one end and swung about it (see _swing_strip). The in-betweens
+are made on the native image blown up 8x (scaled, turned, squashed, all nearest) and read back 8x with pixels.down, so
+every pose stays on the texel grid; only the slipper's two mid-swing poses are renders of their own. Nothing is
+rotated or scaled at runtime.
 
 Two builds: without a hand (what the game uses) and with the hand holding it (`-hand`), kept for comparison: its arm
 reaches in from the top right, its cut end dithered away so it never ends in a hard edge.
@@ -130,11 +131,8 @@ def _with_sole(a: np.ndarray, thickness: int = 1) -> np.ndarray:
     return _over((_darker(a, .55), 0, thickness), (a, 0, 0))
 
 
-def _strip(far: np.ndarray, mid: np.ndarray, flat: np.ndarray, sole: int, lead_left: bool = False) -> list[np.ndarray]:
-    """lead_left: the striking end (the slipper's toe, the paper's far end) is at the left, towards the runner, and the
-    held end at the right, where the hand is: the fastest frame comes down striking end first, and the peel lifts the
-    held end first."""
-    held = -1 if lead_left else 1
+def _strip(far: np.ndarray, mid: np.ndarray, flat: np.ndarray, sole: int) -> list[np.ndarray]:
+    """The hand variants' strip, from rotated raised renders: the held end leading."""
     poses = [
         _hazed(_pose(far, .5), .45),
         # Wound back: the striking end cocked up
@@ -142,10 +140,10 @@ def _strip(far: np.ndarray, mid: np.ndarray, flat: np.ndarray, sole: int, lead_l
         _hazed(_smear(_pose(far, .72)), .25),
         _hazed(_smear(_pose(mid, .9)), .1),
         # The fastest frame: stretched a little along the swing
-        _smear(_pose(flat, tilt=12 * held, stretch=1.12)),
+        _smear(_pose(flat, tilt=12, stretch=1.12)),
         _with_sole(_pose(flat, squash=.72, stretch=1.08), sole) if sole else _pose(flat, squash=.72, stretch=1.08),
         _with_sole(flat, sole) if sole else flat,
-        _pose(flat, tilt=14 * held),
+        _pose(flat, tilt=14),
         _hazed(_pose(mid, .82), .25),
     ]
     # One canvas for the strip, every pose standing on its bottom edge, centred
@@ -160,6 +158,115 @@ def _strip(far: np.ndarray, mid: np.ndarray, flat: np.ndarray, sole: int, lead_l
     return out
 
 
+def _end(a: np.ndarray, toward: tuple[float, float]) -> tuple[int, int]:
+    """The texel at the far end of the shape in direction `toward` (x right, y down): the mean of its last two texels."""
+    ys, xs = np.nonzero(a[..., 3])
+    reach = xs * toward[0] + ys * toward[1]
+    near = reach >= reach.max() - 2
+    return int(round(xs[near].mean())), int(round(ys[near].mean()))
+
+
+def _turn(a: np.ndarray, heel: tuple[int, int], degrees: float) -> tuple[np.ndarray, int]:
+    """The pose turned counterclockwise by `degrees` about the `heel` texel, on the 8x grid and read back, and the heel's
+    column in the result: the pivot of the swing stays where the hand is."""
+    h, w = a.shape[:2]
+    r = max(heel[0], w - heel[0], heel[1], h - heel[1]) + 2
+    pad = np.zeros((2 * r + 1, 2 * r + 1, 4), np.uint8)
+    pad[r - heel[1]:r - heel[1] + h, r - heel[0]:r - heel[0] + w] = a
+    big = Image.fromarray(np.ascontiguousarray(up(pad, WORK)))
+    c = r * WORK + WORK // 2
+    out = down(np.asarray(big.rotate(degrees, resample=Image.NEAREST, center=(c, c))), WORK)
+    ys, xs = np.nonzero(out[..., 3])
+    return out[ys.min():ys.max() + 1, xs.min():xs.max() + 1], r - xs.min()
+
+
+# A swatter is swung by one end, the grip: held low, its far end (the slipper's toe, the roll's spiral) up and cocked
+# back, turned about the grip, far end over the top and down until it slaps flat, far end first. Each pose is the far
+# end's heading about the grip (degrees counterclockwise from the right), and the grips share one column of the
+# canvas, so the pivot stays where the hand is. Flat, the far end is straight left, the grip's end to the right
+FLAT_TOE, FLAT_HEADING = (-1., 0.), 180
+# The raised render's far end as a direction in the render (x right, y down) and its heading. The slipper's raised
+# render has the toe at the bottom and its sole facing away: flipped over, the toe is up with the sole to the front
+SLIPPER_RAISED = ((.81, -.59), 37)
+NEWSPAPER_RAISED = ((.37, -.93), 68)
+# The picked mid-swing slipper stills: the toe's direction in each (measured off it: up and a little left, then low on
+# the left) and the scale it is read at
+SLIPPER_SWING = {"slipper-swing-105": ((-.15, -.99), .85), "slipper-swing-145": ((-.89, -.45), 1.0)}
+
+
+def _look(frame: tuple[np.ndarray, int], haze: float = 0, smear: bool = False) -> tuple[np.ndarray, int]:
+    # The streak only grows up and to the right of the pose: the grip keeps its column
+    a, grip = frame
+    return _hazed(_smear(a) if smear else a, haze), grip
+
+
+def _slap(frame: tuple[np.ndarray, int]) -> tuple[np.ndarray, int]:
+    return _with_sole(frame[0], 1), frame[1]
+
+
+def _swing_strip(raised: np.ndarray, raised_end: tuple[tuple[float, float], int], flat: np.ndarray, rest: int,
+                 mids) -> list[np.ndarray]:
+    """The nine poses of a swatter held by one end. `mids(held, lying)` makes the two mid-swing frames, each a pose
+    and its grip's column, from `held(scale, heading)` (the raised render turned about the grip) and `lying(heading,
+    **how)` (the flat one); `rest` is the heading it waits at."""
+    far_end, raised_heading = raised_end
+
+    def about_grip(a: np.ndarray, toward: tuple[float, float], degrees: float) -> tuple[np.ndarray, int]:
+        return _turn(a, _end(a, (-toward[0], -toward[1])), degrees)
+
+    def held(scale: float, heading: float) -> tuple[np.ndarray, int]:
+        return about_grip(_pose(raised, scale), far_end, heading - raised_heading)
+
+    def lying(heading: float = FLAT_HEADING, **how) -> tuple[np.ndarray, int]:
+        return about_grip(_pose(flat, **how), FLAT_TOE, heading - FLAT_HEADING)
+
+    mid_a, mid_b = mids(held, lying)
+    poses = [
+        # Held by the grip, far end up and back; wound further back
+        _look(held(.5, rest), .45), _look(held(.48, 48), .45),
+        # The swing: far end up over the top and down, coming in towards the camera; the last, far end leading, still a
+        # little grip high, stretched along the swing
+        _look(mid_a, .25, True), _look(mid_b, .1, True), _look(lying(FLAT_HEADING + 12, stretch=1.12), 0, True),
+        # The slap, then lying flat
+        _slap(lying(squash=.72, stretch=1.08)), _slap(lying()),
+        # The peel: the grip lifts first, then the far end follows it back up into the room
+        _look(lying(FLAT_HEADING + 14)), _look(held(.82, 135), .25),
+    ]
+    # One canvas for the strip, every pose standing on its bottom edge, all grips in one column, the landed pose
+    # centred (the hitbox is centred on the frame)
+    landed, lx = poses[6]
+    lefts = [lx - hx for _, hx in poses]
+    room = max(0, -min(lefts), max(left + a.shape[1] for (a, _), left in zip(poses, lefts)) - landed.shape[1])
+    width = landed.shape[1] + 2 * room
+    height = max(a.shape[0] for a, _ in poses)
+    out = []
+    for (a, _), left in zip(poses, lefts):
+        canvas = np.zeros((height, width, 4), np.uint8)
+        canvas[height - a.shape[0]:, room + left:room + left + a.shape[1]] = a
+        out.append(canvas)
+    return out
+
+
+def _slipper_strip() -> list[np.ndarray]:
+    """The slipper is swatted by its heel, the sole towards the runner. Its mid-swing poses are renders of their own
+    (a slipper turned in the air shows its sole and strap, which no turned still does), the rest turned stills."""
+    def swung(name: str) -> tuple[np.ndarray, int]:
+        toe, scale = SLIPPER_SWING[name]
+        a = _pose(_still(name, 2), scale)
+        return _turn(a, _end(a, (-toe[0], -toe[1])), 0)
+
+    return _swing_strip(_still("slipper-swat-far-nohand", 1, flip_v=True), SLIPPER_RAISED,
+                        _still("slipper-flat", 2, mirror=True), 70,
+                        lambda held, lying: (swung("slipper-swing-105"), swung("slipper-swing-145")))
+
+
+def _newspaper_strip() -> list[np.ndarray]:
+    """The rolled newspaper is swung by its held end: low, the roll leaning back with its spiral end up. A roll looks
+    the same turned about its axis, so its mid-swing poses are the flat render turned about the grip."""
+    return _swing_strip(_still("newspaper-swat-far-nohand", 1), NEWSPAPER_RAISED, _still("newspaper-flat", 2), 68,
+                        lambda held, lying: (lying(105, scale=.78), lying(145, scale=.92)))
+
+
 def slipper(hand: bool = False) -> list[Image.Image]:
     if hand:
         far = _fade_arm(_still("slipper-swat-far", 2, flip_v=True))
@@ -167,9 +274,7 @@ def slipper(hand: bool = False) -> list[Image.Image]:
         flat = _fade_arm(_still("slipper-swat-flat", 1))
         frames = _strip(far, mid, flat, 0)
     else:
-        # The renders hold it by the toe: mirrored, so the toe leads down at the runner and the hand has the heel
-        frames = _strip(_still("slipper-swat-far-nohand", 1, mirror=True), _still("slipper-swat-mid-nohand", 1, mirror=True),
-                        _still("slipper-flat", 2, mirror=True), 1, lead_left=True)
+        frames = _slipper_strip()
     return [Image.fromarray(f) for f in frames]
 
 
@@ -180,10 +285,7 @@ def newspaper(hand: bool = False) -> list[Image.Image]:
         flat = _fade_arm(_still("newspaper-swat-flat", 2))
         frames = _strip(far, mid, flat, 0)
     else:
-        # The raised renders lead with the gripped end: mirrored, so the roll's far end (its spiral) comes down first;
-        # lying flat, that end is already at the left
-        frames = _strip(_still("newspaper-swat-far-nohand", 1, mirror=True), _still("newspaper-swat-mid-nohand", 1, mirror=True),
-                        _still("newspaper-flat", 2), 0, lead_left=True)
+        frames = _newspaper_strip()
     return [Image.fromarray(f) for f in frames]
 
 

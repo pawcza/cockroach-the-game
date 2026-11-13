@@ -1359,6 +1359,118 @@ PROJECTILES = {
 }
 
 
+# ---------------------------------------------------------------- the solo fight's frames
+
+# The solo fight (ZlewiatanSoloFight) knocks the heads off one at a time. It needs the creature with two heads and with
+# one (a gone head's neck pulled down into the drain with it), those heads ducking into the drain and rising out of it
+# again (`rise-*`, played backwards to duck), a pale frame for a hit, the empty drain gurgling at the end, and each head
+# on its own, off its neck: the block and the pierog rolling, the carp flopping. All of it from the same heads, necks
+# and drain as the frames above, which stay exactly as they were (a match still plays them).
+
+SETS = {"bp": ("block", "pierog"), "bc": ("block", "carp"), "pc": ("pierog", "carp"),
+        "b": ("block",), "p": ("pierog",), "c": ("carp",)}
+HIDDEN = dict(off=(0.0, 260.0), sink=True)
+# Where the heads left sit, texels from their rest: with the carp gone the pierog drops into its place, so each lane has
+# a head to shoot; the last head moves to the middle, where it fills both lanes
+SHIFT = {"bp": {"pierog": (-2.0, 61.0)}, "b": {"block": (0.0, 30.0)}, "p": {"pierog": (0.0, 14.0)}, "c": {"carp": (0.0, -48.0)}}
+
+
+def _shift(key: str, name: str) -> np.ndarray:
+    return np.array(SHIFT.get(key, {}).get(name, (0.0, 0.0)))
+
+
+def _only(poses, keep, key="", upto=None):
+    """The same poses with every head not in `keep` gone down the drain, and whatever it did with it; the heads kept
+    moved to where set `key` has them (on the first `upto` poses, when the rest are placed on their own)."""
+    out = []
+    for i, p in enumerate(poses):
+        hs = {}
+        for n in ORDER:
+            if n not in keep:
+                hs[n] = replace(HP(), **HIDDEN)
+                continue
+            d = _shift(key, n) if upto is None or i < upto else np.zeros(2)
+            hs[n] = replace(p.heads[n], off=tuple(np.array(p.heads[n].off) + d))
+        fx = [item for item in p.fx if not (len(item) > 1 and item[1] in ORDER and item[1] not in keep)]
+        out.append(replace(p, heads=hs, fx=fx, fire=tuple(h for h in p.fire if h in keep)))
+    return out
+
+
+def _rise(keep, key=""):
+    """The heads left surge back up out of the drain, one a frame behind the other, overshoot and settle."""
+    cx, cy = HOLE[0], HOLE[1]
+    seq = [0.0, .4, .8, 1.0, 1.0, 1.0, 1.0, 1.0]
+    over = [0, 0, 0, 8, 2, 0, 0, 0]
+
+    def up(name, f):
+        k = seq[min(len(seq) - 1, max(0, f))]
+        if k <= 0:
+            return dict(HIDDEN)
+        rest = _rest_middle(name) + _shift(key, name)
+        start = np.array([cx + (rest[0] - cx) * .2, cy + 30])
+        o = over[min(len(over) - 1, max(0, f))] if k >= 1 else 0
+        centre = start + (rest - start) * k + np.array([0, -o])
+        sx, sy = .6 + .4 * min(1, k * 1.3), 1.15 - .15 * min(1, k * 1.3)
+        if k >= 1:
+            sx, sy = 1 + o * .004, 1 + o * .01
+        return _centred(name, tuple(centre), 0.0, sx, sy, sink=k < .8, slack=.8 + .2 * k, jaw=.5 if 0 < o else 0.0)
+
+    frames = []
+    for f in range(8):
+        hs = {name: dict(HIDDEN) for name in ORDER}
+        hs.update({name: up(name, f - j) for j, name in enumerate(keep)})
+        fx = [("bubble", cx - 6, 240, 2), ("bubble", cx + 7, 236, 1.5)] if f < 2 else []
+        frames.append(pose(fx=fx, **hs))
+    return frames
+
+
+def _flash(keep, key=""):
+    return [replace(_only(idle(), keep, key)[0], flash=.6)]
+
+
+SOLO = {"flash-bpc": (lambda: _flash(ORDER), 12, False),
+        "drain": (lambda: defeat()[8:], 10, False)}
+for _set, _keep in SETS.items():
+    SOLO[f"idle-{_set}"] = ((lambda k=_keep, s=_set: _only(idle(), k, s)), 8, True)
+    for _head in _keep:
+        SOLO[f"spit-{_head}-{_set}"] = ((lambda k=_keep, h=_head, s=_set: _only(ANIMATIONS[f"spit-{h}"][0](), k, s)), 12, False)
+    SOLO[f"flash-{_set}"] = ((lambda k=_keep, s=_set: _flash(k, s)), 12, False)
+    SOLO[f"rise-{_set}"] = ((lambda k=_keep, s=_set: _rise(k, s)), 14, False)
+    if len(_keep) == 1:
+        # The last head goes down with the creature: the old defeat, its shriek and crash from where it sits, then
+        # sucked down the drain spinning, bubbles and a pop
+        SOLO[f"defeat-{_set}"] = ((lambda k=_keep, s=_set: _only(defeat(), k, s, upto=5)), 10, False)
+ANIMATIONS.update(SOLO)
+
+LOOSE_CELL = 80
+# Off its neck a head is fought on one lane, so it is drawn about 45 texels tall (the lanes are 68 apart): the tower
+# block at under half its size on the body, the others a little over half. The puff it pops off in hides the change.
+LOOSE_SCALE = {"block": .46, "pierog": .6, "carp": .55}
+
+
+def _loose(name, rot, jaw=0.0, sx=1.0, sy=1.0) -> np.ndarray:
+    """One head off its neck, turned `rot` degrees clockwise about its middle, on a square cell centred on it."""
+    head = heads()[name]
+    centre = (X0 + CW / 2, Y0 + CH / 2)
+    k = LOOSE_SCALE[name]
+    hp = replace(HP(), **_centred(name, centre, rot, sx * k, sy * k, jaw=jaw))
+    layer, _, _ = _head_layer(head, hp, _head_place(head.spec, hp, (0.0, 0.0)))
+    x0, y0 = int(CW / 2 - LOOSE_CELL / 2), int(CH / 2 - LOOSE_CELL / 2)
+    out = layer[y0:y0 + LOOSE_CELL, x0:x0 + LOOSE_CELL].copy()
+    out[out[..., 3] < 128] = 0
+    return out
+
+
+# Rolling left at the roach turns them anticlockwise; the carp flops instead, its mouth gasping
+# The pierog's boomerang: a little pieróg spinning (its own face, a third of its size on the body)
+PROJECTILES["pierogi"] = ([_loose("pierog", -k * 45, jaw=.4, sx=.55, sy=.55) for k in range(8)], 16, True, (.5, .5))
+PROJECTILES["roll-block"] = ([_loose("block", -k * 45) for k in range(8)], 12, True, (.5, .5))
+PROJECTILES["roll-pierog"] = ([_loose("pierog", -k * 45, jaw=.35) for k in range(8)], 14, True, (.5, .5))
+PROJECTILES["flop-carp"] = ([_loose("carp", 38 * math.sin(k / 8 * math.tau), jaw=.5 + .5 * math.sin(k / 8 * math.tau * 2),
+                                   sx=1 + .06 * math.cos(k / 8 * math.tau * 2), sy=1 - .06 * math.cos(k / 8 * math.tau * 2))
+                             for k in range(8)], 16, True, (.5, .5))
+
+
 def projectiles_sheet(path: Path) -> None:
     zoom = 6
     rows = list(PROJECTILES.items())

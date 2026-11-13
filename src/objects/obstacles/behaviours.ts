@@ -63,18 +63,30 @@ export interface EnemyState {
   /** How many of its cycles have begun: a new strike is a new number. */
   cycle: number;
   zones: Zone[];
-  /** For an enemy drawn pose by pose (the swatters): which frame of its strip. */
+  /** For an enemy drawn pose by pose (the swatters, the cat's look): which frame of its strip. */
   frame?: number;
   /** Far back in the scene: drawn behind both ledges. */
   behind?: boolean;
-  /** A swatter's landing spot on the lane, and how far its approach has come (0 none, 1 about to land): the spot's shadow. */
-  mark?: { lane: Lane; x: number; progress: number };
-  /** More than one such spot (the boots, one per lane). */
-  marks?: { lane: Lane; x: number; progress: number }[];
+  /**
+   * Where its hit is about to come down from above or from the other lane (a swatter, a dive, a peck, a stomp, a leap),
+   * from the start of its tell until the impact, each with how far it has come: the spots' shadow (effects/LandingShadow.ts).
+   * Only what is still to land: once it hurts there, the zone is what shows.
+   */
+  landings?: Landing[];
+  /** A spreading puddle's reach (the bait): 0 dry, 1 the whole stretch. */
+  wet?: number;
   /** The other things it is made of, each where and how it is now (the bleach's drop and splash). */
   parts?: Record<string, Part>;
   /** A stretch of lane it warns of: one it is about to close (the mop's sweep, the light's lane). */
   warn?: { lane: Lane; x0: number; x1: number; level: number };
+}
+
+/** A spot of a lane a hit will come down on, as wide as the hit; `progress` 0 as its tell begins, 1 at the impact. */
+export interface Landing {
+  lane: Lane;
+  x0: number;
+  x1: number;
+  progress: number;
 }
 
 /** One piece of a many-piece enemy: where it is, which frame, whether it shows, whether it hurts. */
@@ -100,6 +112,8 @@ export interface EnemyPlan {
 export interface Body {
   /** Half the hitbox width, world px. */
   half: number;
+  /** How far right of the state's x the body is drawn and hurts (cast.ts Placement). */
+  dx: number;
   art: Art;
   hitbox: { w: number; h: number };
 }
@@ -156,7 +170,7 @@ const shiver = (t: number, px: number): number => Math.sin(t / 14) * px;
 const alternate = (start: Lane, k: number): Lane => (((k % 2) + 2) % 2 === 0 ? start : otherLane(start));
 
 function zone(lane: Lane, x: number, body: Body, since: number, reach = 0): Zone {
-  return { lane, x0: x - body.half - reach, x1: x + body.half, since };
+  return { lane, x0: x + body.dx - body.half - reach, x1: x + body.dx + body.half, since };
 }
 
 function state(x: number, y: number, lane: Lane | null, pose: Pose, cycle: number, zones: Zone[]): EnemyState {
@@ -192,7 +206,13 @@ export function sweeper(t: { idle: number; windup: number; sweep: number; reach:
         ? { lane: plan.lane, x0: -Infinity, x1: Infinity, since }
         : { lane: plan.lane, x0: x - body.half - t.reach, x1: x - body.half, since });
     }
-    return state(x, laneY(plan.lane) - hop, plan.lane, pose, m.k, zones);
+    const st = state(x, laneY(plan.lane) - hop, plan.lane, pose, m.k, zones);
+    // The stretch the cloud covers, from the shake on: it warns while the can winds up and kills while the cloud is out
+    // (a can that closes the whole lane has no stretch to mark)
+    if (t.reach !== Infinity && m.seg !== 'idle') {
+      st.warn = { lane: plan.lane, x0: plan.x - body.half - t.reach, x1: plan.x - body.half, level: m.seg === 'sweep' ? 1 : m.p };
+    }
+    return st;
   };
 }
 
@@ -203,7 +223,7 @@ export const SWAT_FRAMES = { far: 0, windback: 1, swing: [2, 3, 4], impact: 5, l
  * How a hand kills a cockroach on a shelf: the slipper (or the rolled paper) waits far back in the room over its lane,
  * small and dim; it is pulled back, swings in towards the camera, growing, and lands flat along the lane with a slap,
  * covering `footprint` px of it; a moment later it peels up and goes back into the room. Its landing spot shows a
- * shadow from the wind-back on, growing and darkening until the slap. It hurts only at the slap and just after, never
+ * shadow from the wind-back on, tightening and darkening until the slap. It hurts only at the slap and just after, never
  * while far or lifting. With `alternate` it takes the lanes in turns, so the lane it waits over is the one it hits.
  */
 export function depthSwat(t: {
@@ -228,7 +248,7 @@ export function depthSwat(t: {
     let frame: number = SWAT_FRAMES.far;
     let behind = true;
     let pose: Pose = 'idle';
-    let progress = 0;
+    let progress: number | null = null;
     switch (m.seg) {
       case 'windup':
         x = lerp(home.x, back.x, easeOut(m.p));
@@ -247,15 +267,15 @@ export function depthSwat(t: {
         progress = .25 + .75 * m.p;
         break;
       }
-      case 'slap': x = 0; y = laneY(lane); frame = SWAT_FRAMES.impact; behind = false; pose = 'strike'; progress = 1; break;
+      case 'slap': x = 0; y = laneY(lane); frame = SWAT_FRAMES.impact; behind = false; pose = 'strike'; break;
       case 'down':
         // A small bounce off the ledge
         x = 0; y = laneY(lane) - 2 * Math.sin(Math.PI * Math.min(1, m.p * 2)); frame = SWAT_FRAMES.landed;
-        behind = false; pose = 'strike'; progress = 1;
+        behind = false; pose = 'strike';
         break;
       case 'peel':
         x = 6 * m.p; y = laneY(lane) - 22 * easeOut(m.p);
-        frame = SWAT_FRAMES.peel[m.p < .5 ? 0 : 1]; behind = m.p > .6; pose = 'recover'; progress = 1 - m.p;
+        frame = SWAT_FRAMES.peel[m.p < .5 ? 0 : 1]; behind = m.p > .6; pose = 'recover';
         break;
       case 'recede': {
         const to = far(next);
@@ -270,19 +290,25 @@ export function depthSwat(t: {
     const st = state(plan.x + x, y, over, pose, m.k, zones);
     st.frame = frame;
     st.behind = behind;
-    if (progress > 0) st.mark = { lane, x: plan.x, progress };
+    if (progress !== null) st.landings = [{ lane, x0: plan.x - half, x1: plan.x + half, progress }];
     return st;
   };
 }
 
 /**
  * Circles high, out of reach; then a dive pose (rising, drawing back) over the lane it is about to hit, a dive, a glide
- * along that lane towards the runner and a climb back up. The lanes take turns.
+ * along that lane towards the runner and a climb back up. The lanes take turns. Its landing shadow is where the dive
+ * reaches the lane, from the dive pose on. The skim is what catches runners, so the stretch it will skim (from where the
+ * dive first gets low to the end of the glide, its body's width included) is `warn` from the dive pose on: the kill-zone
+ * look, deadly from the moment it hurts until it is too high to.
  */
 export function swoop(t: { circle: number; windup: number; dive: number; glide: number; climb: number; high: number; glideDx: number }): Behaviour {
   const segs = rhythm([['circle', t.circle], ['windup', t.windup], ['dive', t.dive], ['glide', t.glide], ['climb', t.climb]]);
   const highY = laneY('top') - t.high;
   const diveDx = -10;
+  // Where along its dive it first gets low enough to hurt (the dive's height eases in as p squared), and so its far end
+  const lowAt = Math.sqrt(Math.max(0, 1 - STRIKE_HEIGHT / (t.high + 12)));
+  const skim = { near: Math.max(diveDx, lerp(30, diveDx, lowAt)), far: diveDx + Math.min(0, t.glideDx) };
   return (plan, time, body) => {
     const m = moment(time, plan.phase, segs);
     const lane = alternate(plan.lane, m.k);
@@ -309,34 +335,72 @@ export function swoop(t: { circle: number; windup: number; dive: number; glide: 
     }
     x += plan.x;
     const zones = over === lane && low(y, lane) ? [zone(lane, x, body, m.at('windup'))] : [];
-    return state(x, y, over, pose, m.k, zones);
+    const st = state(x, y, over, pose, m.k, zones);
+    // The stretch it skims: warned from the screech on, deadly while it hurts (low on the dive and the first of the climb too)
+    if (m.seg === 'windup' || m.seg === 'dive' || m.seg === 'glide' || zones.length > 0) {
+      st.warn = { lane, x0: plan.x + skim.far - body.half, x1: plan.x + skim.near + body.half, level: zones.length > 0 ? 1 : .5 };
+    }
+    // Where it will come down, from the start of the screech (the dive pose) until it is low enough to hurt
+    if (zones.length === 0 && (m.seg === 'windup' || m.seg === 'dive')) {
+      const lead = t.windup + t.dive;
+      const spot = plan.x + diveDx;
+      st.landings = [{
+        lane, x0: spot - body.half, x1: spot + body.half,
+        progress: m.seg === 'windup' ? (m.p * t.windup) / lead : (t.windup + m.p * t.dive) / lead,
+      }];
+    }
+    return st;
   };
 }
 
+/** The cat's strip (tools/art/creatures.py): its walk, then the look before a lane swap, turning and then looking. */
+export const CAT_FRAMES = { look: { up: [8, 9], down: [10, 11] } } as const;
+
 /**
- * Sits in its home lane; crouches, pounces over to the other lane, holds there a moment and springs back. Harmless in
- * the air only.
+ * Sits in its lane, then looks towards the other lane (up or down: its head turns and holds there, crouched) for `look`
+ * ms, leaps over and sits down there. Every swap is the same, whichever way: the look, the leap, then at least `hold` ms
+ * of sitting before the next look, so whoever just got out of its way cannot be caught by it coming straight back. It
+ * hurts in the lane it sits in, from `look` + `leap` ms before it sat down there: the look is what makes the lane it
+ * lands in readable. Harmless in the air only.
  */
-export function pounce(t: { sit: number; crouch: number; leap: number; stay: number; back: number }): Behaviour {
-  const segs = rhythm([['sit', t.sit], ['crouch', t.crouch], ['leap', t.leap], ['stay', t.stay], ['back', t.back]]);
+export function pounce(t: { hold: number; look: number; leap: number }): Behaviour {
+  const segs = rhythm([['hold', t.hold], ['look', t.look], ['leap', t.leap]]);
   const arc = 28;
   return (plan, time, body) => {
     const m = moment(time, plan.phase, segs);
-    const home = plan.lane;
+    const home = alternate(plan.lane, m.k);
     const away = otherLane(home);
+    const looking = CAT_FRAMES.look[away === 'top' ? 'up' : 'down'];
     let x = plan.x;
     let y = laneY(home);
     let lane: Lane | null = home;
     let pose: Pose = 'idle';
-    let since = m.start - t.stay - t.back;   // back home: readable since it landed over there
+    let frame: number | undefined;
     switch (m.seg) {
-      // Sinks into a crouch and draws back, trembling, then springs
-      case 'crouch': y += 8 * easeOut(m.p); x += 12 * easeOut(m.p) + shiver(time, 2); pose = 'windup'; break;
-      case 'leap': y = lerp(laneY(home), laneY(away), easeInOut(m.p)) - arc * Math.sin(Math.PI * m.p); x += 12 * (1 - m.p); lane = null; pose = 'air'; break;
-      case 'stay': y = laneY(away); lane = away; pose = 'strike'; since = m.at('crouch'); break;
-      case 'back': y = lerp(laneY(away), laneY(home), easeInOut(m.p)) - arc * Math.sin(Math.PI * m.p); lane = null; pose = 'air'; break;
+      // Sinks into a crouch and draws back, its head turned to where it is going, then springs
+      case 'look':
+        y += 6 * easeOut(Math.min(1, m.p * 3));
+        x += 12 * easeOut(Math.min(1, m.p * 3));
+        pose = 'windup';
+        frame = looking[m.p < .25 ? 0 : 1];
+        break;
+      case 'leap':
+        y = lerp(laneY(home), laneY(away), easeInOut(m.p)) - arc * Math.sin(Math.PI * m.p);
+        x += 12 * (1 - m.p);
+        lane = null;
+        pose = 'air';
+        frame = looking[1];
+        break;
     }
-    return state(x, y, lane, pose, m.k, lane ? [zone(lane, x, body, since)] : []);
+    const since = m.start - t.leap - t.look;
+    const st = state(x, y, lane, pose, m.k, lane ? [zone(lane, x, body, since)] : []);
+    if (frame !== undefined) st.frame = frame;
+    // The lane it lands in, from the first frame of its look: it lands where it sits, in the lane it is looking at
+    if (m.seg === 'look' || m.seg === 'leap') {
+      const elapsed = m.seg === 'look' ? m.p * t.look : t.look + m.p * t.leap;
+      st.landings = [{ lane: away, x0: plan.x - body.half, x1: plan.x + body.half, progress: elapsed / (t.look + t.leap) }];
+    }
+    return st;
   };
 }
 
@@ -417,34 +481,35 @@ export const still: Behaviour = (plan) => state(plan.x, laneY(plan.lane), null, 
 
 // ── The hop act ─────────────────────────────────────────────────────────
 
+/** The bleach jug hangs this far above the upper ledge (px): the vertical middle of the upper lane. */
+export const BLEACH_JUG_UP = 68;
+
 /**
- * A jug of bleach lying tipped at the back of the upper ledge, its cap over the lower lane: a drop swells at the cap,
- * falls and splashes on one spot of the lower lane, leaving a puddle a moment. The jug itself is out of the way (the
- * upper lane runs in front of it); the lower lane hurts only at the splash spot, only while it is wet. The swelling
- * drop is the telegraph, on the enemy.
+ * A jug of bleach tipped in the background of the upper lane, half way up it, out of both lanes. It never stops
+ * dripping: a small bead swells at its cap and falls behind the upper ledge (harmless, the sign of what is coming),
+ * and under the ledge drop after drop falls onto one spot of the lower lane, which stays wet. That spot always hurts,
+ * so the lower lane is closed there and the way past is the upper one.
  */
-export function drip(t: { idle: number; swell: number; fall: number; splash: number; puddle: number; spot: number; jugDx: number }): Behaviour {
-  const segs = rhythm([['idle', t.idle], ['swell', t.swell], ['fall', t.fall], ['splash', t.splash], ['puddle', t.puddle]]);
-  const capY = laneY('top') + 6;
+export function drip(t: { fall: number; splash: number; spot: number; jugDx: number }): Behaviour {
+  const segs = rhythm([['fall', t.fall], ['splash', t.splash]]);
+  const capY = laneY('top') - BLEACH_JUG_UP + 16;
+  /** The bead swells for this much of a cycle, then falls to the ledge as the next drop comes out under it. */
+  const SWELL = 0.6;
   return (plan, time) => {
     const m = moment(time, plan.phase, segs);
-    let pose: Pose = 'idle';
-    const drop: Part = { x: plan.x, y: capY, frame: 0, visible: false, danger: false };
-    const splash: Part = { x: plan.x, y: laneY('bottom'), frame: 0, visible: false, danger: false };
-    switch (m.seg) {
-      case 'swell': drop.visible = true; drop.frame = Math.min(2, Math.floor(m.p * 3)); pose = 'windup'; break;
-      case 'fall': drop.visible = true; drop.frame = 3; drop.y = lerp(capY, laneY('bottom') - 24, easeIn(m.p)); pose = 'windup'; break;
-      case 'splash': splash.visible = true; splash.frame = m.p < .4 ? 0 : 1; splash.danger = true; pose = 'strike'; break;
-      case 'puddle': splash.visible = true; splash.frame = 2; splash.danger = true; pose = 'recover'; break;
-    }
-    const zones: Zone[] = splash.danger
-      ? [{ lane: 'bottom', x0: plan.x - t.spot / 2, x1: plan.x + t.spot / 2, since: m.at('swell') }]
-      : [];
-    // The jug lies to the right of its cap, which is over the spot (plan.x)
-    const st = state(plan.x + t.jugDx, laneY('top'), 'bottom', pose, m.k, zones);
-    st.parts = { drop, splash };
-    // Where it will land: the spot on the lower lane warns while the drop swells and falls (the kill-zone look)
-    if (m.seg === 'swell' || m.seg === 'fall') st.warn = { lane: 'bottom', x0: plan.x - t.spot / 2, x1: plan.x + t.spot / 2, level: 1 };
+    const falling = m.seg === 'fall';
+    const u = (time - m.start) / segs.total;
+    const bead: Part = u < SWELL
+      ? { x: plan.x, y: capY, frame: Math.min(2, Math.floor((u / SWELL) * 3)), visible: true, danger: false }
+      : { x: plan.x, y: lerp(capY, laneY('top'), easeIn((u - SWELL) / (1 - SWELL))), frame: 2, visible: true, danger: false };
+    const drop: Part = {
+      x: plan.x, y: lerp(laneY('top') + 56, laneY('bottom') - 24, easeIn(m.p)), frame: 3, visible: falling, danger: false,
+    };
+    const splash: Part = { x: plan.x, y: laneY('bottom'), frame: falling ? 2 : m.p < .5 ? 0 : 1, visible: true, danger: true };
+    const zones: Zone[] = [{ lane: 'bottom', x0: plan.x - t.spot / 2, x1: plan.x + t.spot / 2, since: -Infinity }];
+    // The jug hangs to the right of its cap, which is over the spot (plan.x)
+    const st = state(plan.x + t.jugDx, laneY('top'), 'bottom', falling ? 'idle' : 'strike', m.k, zones);
+    st.parts = { bead, drop, splash };
     return st;
   };
 }
@@ -516,50 +581,127 @@ export function mopSweep(t: { wait: number; windup: number; press: number; sweep
 
 // ── The dash act ────────────────────────────────────────────────────────
 
-/** The nominal runner's position near a plan's meeting time: its slot at `meetAt`, at its speed there. */
-const nominalX = (plan: EnemyPlan, time: number): number =>
-  plan.x + plan.chase!.speed * (time - plan.chase!.meetAt) / 1000;
+/**
+ * The vacuum cleaner hunts the roach from behind, so like the wasp it is a step function of this client's roach rather
+ * than of the run clock (it used to follow the course's nominal runner, which a roach that has dashed even once is well
+ * ahead of: it stayed off screen, heard and never seen). Once the roach reaches its slot it is heard first (`cue` ms of
+ * roar, dust swept off to the left), then its nozzle slides in from the screen's left edge on the roach's lane, in
+ * `enter` ms, to `start` px behind the tail of a roach that kept cruising. From there it sucks: it keeps pace with the
+ * roach's cruising speed and takes `creep` px/s of it while they share a lane, so the nozzle closes in; reaching the
+ * tail, it has the roach. The pull can't hold a dashing roach: a dash opens the gap, and once the gap has grown
+ * `breakFree` px past its closest the vacuum has lost its grip and drops back off screen. A hop only stops the pull:
+ * `follow` ms later it swings its nozzle over to the roach's new lane (`switch` ms, harmless meanwhile) and goes on
+ * sucking. After `hold` ms of sucking it gives up anyway, so it never outstays its quiet stretch of the course. Each
+ * client's vacuum hunts that client's roach (a local threat, like the wasp). Shared by the game and the tests.
+ */
+export interface VacuumTimings {
+  cue: number; enter: number; start: number; creep: number; breakFree: number;
+  follow: number; switch: number; hold: number; fallBack: number;
+}
+
+export interface Vacuum {
+  /** 'waiting' until the roach reaches its slot; then heard, sliding in, sucking, dropping back, gone. */
+  phase: 'waiting' | 'cue' | 'enter' | 'suck' | 'leave' | 'gone';
+  /** ms in this phase. */
+  t: number;
+  lane: Lane;
+  /** The lane the roach hopped to, and ms since: it swings over `follow` ms later, moving `switch` ms. */
+  wants: Lane | null;
+  wantsFor: number;
+  /** Its lane's change in progress: from, 0 to 1. */
+  from: Lane | null;
+  move: number;
+  /** From the front of its nozzle to the roach's tail, px (at 0 it has the roach), and the closest it has come. */
+  gap: number;
+  closest: number;
+  /** The front of its nozzle, world x. */
+  nozzle: number;
+}
+
+export function newVacuum(lane: Lane): Vacuum {
+  return { phase: 'waiting', t: 0, lane, wants: null, wantsFor: 0, from: null, move: 1, gap: Infinity, closest: Infinity, nozzle: 0 };
+}
+
+/** The roach as the vacuum sees it each step. */
+export interface VacuumPrey {
+  /** Its x (its centre), lane and speed now (px/s, whatever it is doing). */
+  x: number;
+  lane: Lane;
+  speed: number;
+  /** Its cruising speed: what it would run without a dash, a pill or the pull. */
+  cruise: number;
+  /** From its tail back to the screen's left edge, px: the vacuum comes in from there and goes back past it. */
+  edge: number;
+}
+
+/** Its mouth, at the front of the nozzle: the one part of it that hurts (its hitbox in obstacles/vacuum.ts), px. */
+export const VACUUM_MOUTH = 40;
+
+/** Just past the screen's edge: the nozzle (the front of the sprite) is out of sight from here. */
+const OUT_OF_SIGHT = 16;
 
 /**
- * The vacuum cleaner, from behind. From `chase.startAt` its nozzle closes in on the course's nominal runner along its
- * lane until it is `close` px behind the runner's tail, holds there a while, then falls back and is gone. It doesn't
- * outrun anyone: what kills is its suction (the game drags a roach in its lane back towards the nozzle while it is
- * within `reach`). It swings its nozzle to the other lane at fixed moments, with a wind-up. Its zones are the nozzle
- * plus the stretch it pulls from: a roach that stays out of them is never pulled, so hops alone answer it; a dash
- * carries a roach clear of the reach for good (it only ever tracks the nominal runner).
+ * One step of the vacuum, dt ms. It moves against the roach (how far the roach outruns its cruise, less what it slides
+ * in or drops back), so a frame that comes late moves both alike. Returns the share of the roach's cruise it takes
+ * from it now, and the zone it hurts in.
  */
-export function suck(t: {
-  approach: number; hold: number; fallBack: number; start: number; close: number; reach: number;
-  swings: readonly number[]; swingWarn: number; swingMove: number; length: number;
-}): Behaviour {
-  return (plan, time, body) => {
-    const chase = plan.chase!;
-    const s = time - chase.startAt;
-    const gap = s < t.approach ? lerp(t.start, t.close, easeOut(Math.max(0, s / t.approach)))
-      : s < t.approach + t.hold ? t.close
-        : t.close + ((s - t.approach - t.hold) / 1000) * t.fallBack;
-    const nozzle = nominalX(plan, time) - ROACH_BACK - gap;
-    const x = nozzle - body.half;
-    if (time < chase.startAt) return state(x, laneY(plan.lane), null, 'parked', 0, []);
-    // Its lane: it swings at fixed moments after it starts, each announced by a wind-up
-    let lane: Lane = plan.lane;
-    let pose: Pose = 'idle';
-    let since = chase.startAt;
-    for (const at of t.swings) {
-      const sw = chase.startAt + at;
-      if (time >= sw + t.swingMove) { lane = otherLane(lane); since = sw - t.swingWarn; continue; }
-      if (time >= sw) {
-        return state(x, lerp(laneY(lane), laneY(otherLane(lane)), easeInOut((time - sw) / t.swingMove)), null, 'air', 0, []);
-      }
-      if (time >= sw - t.swingWarn) pose = 'windup';
-      break;
-    }
-    const gone = s > t.approach + t.hold + 4000;
-    const zones: Zone[] = gone ? [] : [{ lane, x0: nozzle - t.length, x1: nozzle + t.reach, since }];
-    const st = state(x, laneY(lane), lane, pose, 0, zones);
-    st.frame = Math.floor(time / 50) % 2;
-    return st;
+export function stepVacuum(v: Vacuum, t: VacuumTimings, plan: EnemyPlan, dt: number, roach: VacuumPrey): { pull: number; zones: Zone[] } {
+  const none = { pull: 0, zones: [] as Zone[] };
+  if (v.phase === 'gone') return none;
+  const from = roach.edge + OUT_OF_SIGHT;
+  if (v.phase === 'waiting') {
+    if (roach.x < plan.x) return none;
+    v.phase = 'cue';
+    v.t = 0;
+    v.lane = roach.lane;
+    v.gap = from;
+  } else {
+    v.t += dt;
+  }
+  const outran = ((roach.speed - roach.cruise) * dt) / 1000;
+  const next = (phase: Vacuum['phase'], over: number): boolean => {
+    if (v.t < over) return false;
+    v.phase = phase;
+    v.t -= over;
+    return true;
   };
+  // How far in it has slid by `at` ms into its entry
+  const slid = (at: number): number => (from - t.start) * easeOut(Math.min(1, Math.max(0, at / t.enter)));
+  if (v.phase === 'cue') {
+    v.gap = from;
+    if (next('enter', t.cue)) v.gap -= slid(v.t);
+  } else if (v.phase === 'enter') {
+    v.gap += outran - (slid(v.t) - slid(v.t - dt));
+  } else if (v.phase === 'suck') {
+    v.gap += outran;
+  } else {
+    v.gap += outran + (t.fallBack * dt) / 1000;
+    if (v.gap > from) v.phase = 'gone';
+  }
+  v.nozzle = roach.x - ROACH_BACK - v.gap;
+  if (v.phase === 'cue' || v.phase === 'leave' || v.phase === 'gone') return none;
+  if (v.phase === 'enter') next('suck', t.enter);
+  // It swings over to the lane the roach hops to
+  if (roach.lane !== v.lane && v.from === null) {
+    if (v.wants !== roach.lane) { v.wants = roach.lane; v.wantsFor = 0; }
+    v.wantsFor += dt;
+    if (v.wantsFor >= t.follow) { v.from = v.lane; v.lane = roach.lane; v.move = 0; v.wants = null; }
+  } else if (roach.lane === v.lane) {
+    v.wants = null;
+  }
+  if (v.from !== null) {
+    v.move = Math.min(1, v.move + dt / t.switch);
+    if (v.move >= 1) v.from = null;
+  }
+  v.closest = Math.min(v.closest, v.gap);
+  if (v.gap > v.closest + t.breakFree || (v.phase === 'suck' && v.t >= t.hold)) {
+    v.phase = 'leave';
+    v.t = 0;
+    return none;
+  }
+  if (v.from !== null) return none;
+  const zones: Zone[] = [{ lane: v.lane, x0: v.nozzle - VACUUM_MOUTH, x1: v.nozzle, since: -Infinity }];
+  return { pull: v.phase === 'suck' && v.lane === roach.lane ? t.creep / roach.cruise : 0, zones };
 }
 
 /**
@@ -594,8 +736,12 @@ export function peck(t: { idle: number; windup: number; peck: number; hold: numb
       head: { x: lerp(neck.x, spot, reachP), y: lerp(neck.y, laneY('bottom') - 4, reachP), frame: 0, visible: reachP > 0, danger: pecking },
       neck: { x: neck.x, y: neck.y, frame: 0, visible: reachP > 0, danger: false },
     };
-    if (m.seg === 'windup') st.mark = { lane: 'bottom', x: spot, progress: m.p };
-    if (pecking) st.mark = { lane: 'bottom', x: spot, progress: 1 };
+    // The spot she will peck, from the cluck until her beak is there
+    if (m.seg === 'windup' || (m.seg === 'peck' && !pecking)) {
+      const lead = t.windup + t.peck * .7;
+      const elapsed = m.seg === 'windup' ? m.p * t.windup : t.windup + m.p * t.peck;
+      st.landings = [{ lane: 'bottom', x0: spot - t.spot / 2, x1: spot + t.spot / 2, progress: Math.min(1, elapsed / lead) }];
+    }
     return st;
   };
 }
@@ -644,22 +790,33 @@ export function scuttle(t: { speed: number; from: number; switches: readonly num
     let lane: Lane = plan.lane;
     let pose: Pose = 'idle';
     let since = -Infinity;
+    let landing: Landing | undefined;
     for (const before of switches) {
       const at = chase.meetAt - before;
       if (time >= at + t.jump) { lane = otherLane(lane); since = at - t.warn; continue; }
-      if (time >= at) return state(x, lerp(laneY(lane), laneY(otherLane(lane)), easeInOut((time - at) / t.jump)), null, 'air', 0, []);
+      // From the rearing on, the spot in the other lane where it will come down: it runs on all the while
+      if (time >= at - t.warn) {
+        const spot = plan.x - t.speed * (at + t.jump - chase.meetAt) / 1000;
+        landing = { lane: otherLane(lane), x0: spot - body.half, x1: spot + body.half, progress: (time - (at - t.warn)) / (t.warn + t.jump) };
+      }
+      if (time >= at) {
+        const air = state(x, lerp(laneY(lane), laneY(otherLane(lane)), easeInOut((time - at) / t.jump)), null, 'air', 0, []);
+        air.landings = [landing!];
+        return air;
+      }
       if (time >= at - t.warn) pose = 'windup';
       break;
     }
     const st = state(x, laneY(lane) - (pose === 'windup' ? 6 : 0), lane, pose, 0, [zone(lane, x, body, since)]);
     st.frame = Math.floor(time / 70) % 2;
+    if (landing) st.landings = [landing];
     return st;
   };
 }
 
 /**
- * A pair of dancing boots at one x, one over each lane, stomping in turn on one beat shared by every pair (a row of
- * them is one dance): the boot that is up hangs over its lane, its shadow where it will land; it comes down, stays a
+ * A pair of dancing boots at one x, one over each lane, stomping in turn on one beat shared by every pair (a dance line
+ * is pairs a slot apart): the boot that is up hangs over its lane, its shadow where it will land; it comes down, stays a
  * moment and lifts as the other comes down. Each stomp hurts only under that boot.
  */
 export function stomp(t: { beat: number; down: number; lift: number; height: number }): Behaviour {
@@ -688,10 +845,11 @@ export function stomp(t: { beat: number; down: number; lift: number; height: num
     const st = state(top.part.x, top.part.y, null, zones.length ? 'strike' : 'idle', Math.floor(time / t.beat), zones);
     st.frame = top.part.frame;
     st.parts = { bottom: bottom.part };
-    st.marks = [
-      { lane: 'top', x: top.part.x, progress: top.progress },
-      { lane: 'bottom', x: bottom.part.x, progress: bottom.progress },
-    ];
+    // The boot that is up shows where it will land, from when it lifted until it is down
+    const landings = [{ lane: 'top' as Lane, part: top }, { lane: 'bottom' as Lane, part: bottom }]
+      .filter(b => !b.part.zone)
+      .map(b => ({ lane: b.lane, x0: b.part.part.x - body.half, x1: b.part.part.x + body.half, progress: b.part.progress }));
+    if (landings.length) st.landings = landings;
     return st;
   };
 }
@@ -804,7 +962,7 @@ export function lure(t: { idle: number; ooze: number; flood: number; dry: number
     // How far the puddle has spread: 0 dry, 1 the whole stretch
     const wet = m.seg === 'flood' ? 1 : m.seg === 'ooze' ? .25 * m.p : m.seg === 'dry' ? 1 - m.p : 0;
     st.parts = { puddle: { x: plan.x, y: laneY(plan.lane), frame: 0, visible: wet > 0, danger: m.seg === 'flood' } };
-    st.mark = { lane: plan.lane, x: plan.x, progress: wet };
+    st.wet = wet;
     return st;
   };
 }
@@ -812,14 +970,15 @@ export function lure(t: { idle: number; ooze: number; flood: number; dry: number
 /**
  * The jewel wasp hunts the roach itself, so unlike every other enemy it is not a function of the run clock: it enters
  * ahead of the roach, hovers there in the roach's lane and, when the roach hops, follows it to the other lane after a
- * wind-up; then it draws back (its lane locked from then on) and dives sting first along its lane. Hop late, after it
- * has locked on, and the dive goes by in the other lane; dash through it; or shoot it while it hovers. Each client's
+ * wind-up; then it draws back `drawBack` px (its lane locked from then on, the stretch the dive will sweep warned on
+ * the lane) and dives sting first along its lane. Hop late, after it has locked on, and the dive goes by in the other
+ * lane; dash through it; or shoot it while it hovers. Each client's
  * wasp hunts that client's roach (a local threat, like the vacuum's pull); the course only says where it comes in.
  * This is its step function, shared by the game and the tests.
  */
 export interface WaspTimings {
   enter: number; hover: number; follow: number; switch: number; windup: number; dive: number;
-  ahead: number; diveTo: number; height: number; cue: number;
+  ahead: number; drawBack: number; diveTo: number; height: number; cue: number;
 }
 
 export interface Wasp {
@@ -872,8 +1031,8 @@ export function stepWasp(w: Wasp, t: WaspTimings, plan: EnemyPlan, dt: number, r
   switch (w.phase) {
     case 'enter': w.dx = lerp(t.ahead + 260, t.ahead, easeOut(Math.min(1, w.t / t.enter))); next('hover', t.enter); break;
     case 'hover': w.dx = t.ahead; next('windup', t.hover); break;
-    case 'windup': w.dx = t.ahead + 18 * easeOut(Math.min(1, w.t / t.windup)); next('dive', t.windup); break;
-    case 'dive': w.dx = lerp(t.ahead + 18, t.diveTo, Math.min(1, w.t / t.dive)); next('gone', t.dive); break;
+    case 'windup': w.dx = t.ahead + t.drawBack * easeOut(Math.min(1, w.t / t.windup)); next('dive', t.windup); break;
+    case 'dive': w.dx = lerp(t.ahead + t.drawBack, t.diveTo, Math.min(1, w.t / t.dive)); next('gone', t.dive); break;
     case 'gone': return [];
   }
   w.x = roachX + w.dx;
@@ -883,4 +1042,13 @@ export function stepWasp(w: Wasp, t: WaspTimings, plan: EnemyPlan, dt: number, r
   w.y = laneHeight - lift;
   if (w.phase !== 'dive' || w.from !== null) return [];
   return [{ lane: w.lane, x0: w.x - body.half, x1: w.x + body.half, since: -Infinity }];
+}
+
+/**
+ * While it draws back, the stretch of its (locked) lane its dive will sweep, from where it is to where the dive ends
+ * behind the roach: the lane's warning. Null at any other time.
+ */
+export function waspDiveLane(w: Wasp, t: WaspTimings, roachX: number, body: Body): { lane: Lane; x0: number; x1: number } | null {
+  if (w.phase !== 'windup' || w.from !== null) return null;
+  return { lane: w.lane, x0: roachX + t.diveTo - body.half, x1: w.x + body.half };
 }

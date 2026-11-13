@@ -52,6 +52,10 @@ def cat() -> list:
             "tail": 14 * wave(t), "swipe": swipe[i], "head": 4 * wave(t, .15),
             "rear": 4 * wave(t), "front": -3 * wave(t),
         }, {"body": (0, .8 * wave(t, .25))}))
+    # Frames 8-11 (not part of the walk loop): the look before a lane swap. The head turns up, then down, in two
+    # steps each (turning, then looking), the rest of the body as in the walk's first frame. Positive turns it up.
+    for angle, lift in [(11, -1), (24, -2), (-11, 1), (-24, 2)]:
+        frames.append(rig.pose({"head": angle}, {"head": (0, lift)}))
     return [native(f) for f in frames]
 
 

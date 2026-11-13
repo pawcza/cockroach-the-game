@@ -4,25 +4,23 @@ import { AudioManager } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { addContactShadow } from '../../effects/ContactShadow';
 import { KillZone, type ZoneState } from '../../effects/KillZone';
+import { LandingShadow } from '../../effects/LandingShadow';
 import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../../config/sprites';
 import { Floor } from '../Player';
 import { EnemyPlan, EnemyState, Lane, OBSTACLE_SINK, laneY } from './behaviours';
 
 /** A stretch of one lane, for the kill-zone look. */
 export interface Stretch { lane: Lane; x0: number; x1: number }
-import { ENEMIES, EnemyId, enemyState, shotSpan } from './cast';
+import { ENEMIES, EnemyId, enemyState, placeOf, shotSpan } from './cast';
 
 /** Contact shadow width against the obstacle's hitbox. */
-const SHADOW_WIDTH = 1.5;
+const SHADOW_WIDTH = 1.8;
 
 /** Default hitbox ratios used by most obstacles. */
 const DEFAULT_HITBOX = { w: 0.6, h: 0.7 };
 
 /** A swatter's hitbox height, frame px: low on the lane, where it lies flat. */
 const SWATTER_BODY_H = 18;
-/** Its landing shadow starts this wide (of its footprint) and grows to the full stretch. */
-const MARK_MIN = .3;
-const MARK_H = 10;
 
 /** How far past the screen edge an obstacle may be and still throw particles. */
 const CULL_MARGIN = 100;
@@ -149,7 +147,8 @@ export class ObstacleKit {
   enemy(plan: EnemyPlan, opts: { shadow?: boolean } = {}): Phaser.Physics.Arcade.Sprite {
     const def = ENEMIES[plan.id as EnemyId];
     const now = enemyState(plan, this.scene.runTime);
-    const sprite = this.createSprite(now.x, now.y, def.art, def.type, opts.shadow === false ? null : plan.lane, { hitbox: def.hitbox });
+    const place = placeOf(plan.id);
+    const sprite = this.createSprite(now.x + place.dx, now.y + place.dy, def.art, def.type, opts.shadow === false ? null : plan.lane, { hitbox: def.hitbox });
     if (def.footprint) {
       // A swatter hurts along the stretch it lands on: a box that wide, low on the lane, under its flat pose
       const w = def.footprint / SPRITE_SCALE;
@@ -177,42 +176,31 @@ export class ObstacleKit {
     onChange?: (now: EnemyState, before: EnemyState | null) => void,
   ): void {
     const def = ENEMIES[plan.id as EnemyId];
+    const place = placeOf(plan.id);
     const shadow = sprite.getData('shadow') as Phaser.GameObjects.Image | undefined;
     const shadowAlpha = shadow?.alpha ?? 1;
-    let mark: Phaser.GameObjects.Ellipse[] | null = null;
+    let landing: LandingShadow | null = null;
     let before: EnemyState | null = null;
     const update = (): void => {
       if (!sprite.body?.enable) {
-        mark?.forEach(m => m.setVisible(false));
+        landing?.hide();
         return;
       }
       const now = enemyState(plan, this.scene.runTime);
-      sprite.setPosition(now.x, now.y);
+      sprite.setPosition(now.x + place.dx, now.y + place.dy);
       // Far back in the room it is behind both ledges; close, in front of its lane
       sprite.setDepth(now.behind ? DEPTH.BEHIND_LEDGE : DEPTH.OBSTACLES);
       if (now.frame !== undefined) sprite.setFrame(frameOf(def.art, now.frame));
-      // A swatter's landing spot: a shadow exactly where it will land, growing and darkening as it comes
-      // Landing spots: each a dark patch with a darker core, flat on the ledge
-      const marks = now.marks ?? (now.mark ? [now.mark] : []);
-      if (marks.length) {
-        mark ??= [];
-        while (mark.length < marks.length * 2) mark.push(this.scene.add.ellipse(0, 0, 10, 10, 0x000000).setDepth(DEPTH.CONTACT_SHADOW));
-        marks.forEach((m, i) => {
-          const p = m.progress;
-          const width = (def.footprint ?? sprite.body!.width) * (MARK_MIN + (1 - MARK_MIN) * p);
-          const y = laneY(m.lane) - 1;
-          mark![i * 2].setPosition(m.x, y).setSize(width, MARK_H).setFillStyle(0x000000, .25 + .35 * p).setVisible(true);
-          mark![i * 2 + 1].setPosition(m.x, y).setSize(width * .6, MARK_H * .6).setFillStyle(0x000000, .2 + .3 * p).setVisible(true);
-        });
-        for (let i = marks.length * 2; i < mark.length; i++) mark[i].setVisible(false);
-      } else {
-        mark?.forEach(m => m.setVisible(false));
-      }
+      // Where its hit will come down: the shared landing shadow, from the start of its tell until it lands
+      if (now.landings) (landing ??= new LandingShadow(this.scene)).show(now.landings);
+      else landing?.hide();
       sprite.setData('floor', now.lane);
       sprite.setData('harmless', !now.danger);
       if (shadow) {
-        shadow.x = now.x;
-        shadow.setVisible(now.lane !== null);
+        shadow.x = sprite.x;
+        // Coming down onto its lane, the landing shadow is its shadow: its own would be a second, off to one side
+        const comingDown = now.landings?.some(l => l.lane === now.lane) ?? false;
+        shadow.setVisible(now.lane !== null && !comingDown);
         if (now.lane) {
           shadow.y = laneY(now.lane);
           // Fainter the higher it is over its lane: the shadow under a raised slipper is its cue
@@ -223,7 +211,7 @@ export class ObstacleKit {
       before = now;
     };
     update();
-    sprite.once('destroy', () => mark?.forEach(m => m.destroy()));
+    sprite.once('destroy', () => landing?.destroy());
     this.track(sprite, { updates: [update] });
   }
 

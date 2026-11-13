@@ -1,190 +1,234 @@
 /**
- * The Eksterminator, the last boss: everything the roach has learnt, at once. He stands at the right of the screen
- * with his sprayer; the roach stands armed at its spot. He sprays a lane (be on the other), lobs gas canisters (shoot
- * them down, or leave the lane to the cloud, or dash through it), and later mixes the two and sweeps both lanes after a
- * pump. Bullets only hurt him while his tank is under pressure, after a pump and during and just after a spray; the
- * rest of the time they ping off the suit. Each third of his tank gone, he staggers and the next, faster phase starts;
- * empty, it bursts. The attacks are in eksterminatorPatterns, his frames in eksterminatorConfig, the stream, canister
- * and cloud in eksterminatorHazards.
+ * The Eksterminator, the last boss: a tradesman on a job, and the roach's final exam. Every tool has a job at once.
+ *
+ * The gun is the main verb, and every bullet that reaches him counts at once: the bar moves, his tank sparks, a number
+ * pops. While the tank is under pressure (during and just after a spray, through a pump's sweep, after the wand is
+ * knocked aside) it swells and whistles with a glow round it and every bullet counts triple. Each of his attacks can be
+ * turned back on him. A canister coming down on the roach's lane can be shot out of the air: it bursts on him in his
+ * own gas and he reels. Its cloud, left to land, boils ahead of the roach and rolls at it: hop it, or dash through it
+ * and it is blown back into him. A spray holds a whole lane (marked as a kill zone, the only thing here that is): hop,
+ * and shoot him from the safe lane while he is rooted. From the second phase he walks in between attacks; close, a dash
+ * reaches him and shoves him home. In the third he pumps (dash into him then, close, and the wand flies: the sweep is
+ * off) and lobs mines onto the roach's spot, which hold that stretch of lane until dashed away. Nearly empty, the tank
+ * leaks; he backs off out of reach and sprays lane after lane on the count until a bullet bursts it.
+ *
+ * He answers aggression: hit hard in one pressure window he vents it at the roach's lane; shot a lot between attacks he
+ * drops a canister at his own feet and sends its cloud down the lane. A thrown thing never marks the lane: its warning is
+ * on him (the canister glowing in his fist), on itself (its trail) and the landing shadow where it will come down.
+ *
+ * What comes when, what a hit does and where he stands are eksterminatorPatterns (and its tests), played here on the
+ * fight's own clock, which a hit-stop holds; his frames are eksterminatorConfig, the stream eksterminatorHazards.
  */
 import Phaser from 'phaser';
-import { DASH_DURATION, DEPTH } from '../../config/constants';
+import { DEPTH } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { gunfire } from '../../effects/Gunfire';
-import { popup } from '../../effects/Popup';
+import { KillZone } from '../../effects/KillZone';
+import { LandingShadow, type Spot } from '../../effects/LandingShadow';
+import { addArrowKeycap, addKeycap, keycapBob } from '../../ui/Keycap';
 import { popupStyle } from '../../utils/TextStyles';
 import { NEAR_MISS_SCORE } from '../RiskBonus';
 import { BossFight, BossFightContext } from './BossFight';
+import { glint, Halo, sparkBurst, Trail } from './bossTelegraph';
 import {
-  BOTTOM_STREAM_Y, createEksAnimations, EKS_POINTS, EKS_REACH, EKS_TEXTURE, EksAnim, eksAnimKey, eksFrame,
-  RELEASE_FRAME,
+  BOTTOM_STREAM_Y, createEksAnimations, EKS_ANIMS, EKS_POINTS, EKS_REACH, EKS_TEXTURE, EksAnim, eksFrame,
 } from './eksterminatorConfig';
-import { Canister, GasCloud, SprayStream } from './eksterminatorHazards';
-import { glint, Halo, sparkBurst } from './bossTelegraph';
+import { frameAt, SprayStream } from './eksterminatorHazards';
 import {
-  Attack, buildPhases, CLOUD_HIT_PX, CLOUD_LAND_AHEAD, CLOUD_ROLL_SPEED, CLOUD_SIT_MS, comboSpray, DOUBLE_LOB_GAP_MS, Lane,
-  Phase, PUMP_HOLD_MS, SWEEP_FIRST_HOLD_MS, SWEEP_SPRAY_MS, SWEEP_SWITCH_HOLD_MS,
+  Attack, BODY_PX, bodyX, buildPhases, canisterAt, chainAt, chargeAt, CLOUD_HIT_PX, CLOUD_ROLL,
+  cloudPrompt, DASH_MS, DIST, EksDirector, FAR, inLine, LOB_RELEASE_MS, MEET_MS, Timed,
+  fightRandom, HazardKind, HitSource, KNOCK_OPEN_MS, landX, Lane, LANE_Y, LUNGE_OUT_MS, LUNGE_REACH, lungeOffset,
+  MINE_AT, MINE_HALF_PX, MUZZLE_DX, NEAR, PHASE_BREATHER_MS, Pos, Prompt, promptFor, releasePoint,
+  resolve, RETURN_MS, SHOOT_MS, SHOVE_MS, SHOVE_PROMPT, STAGGER_MS, Step, stepLength, STREAM_REACH_MS, Throw,
+  timeAttack, BULLET_SPEED, INTERCEPT_PX, TANK_HP, WALK_STEP_MS,
 } from './eksterminatorPatterns';
-import { fightRandom } from './lodziaPatterns';
 
 const S = SPRITE_SCALE;
-const windupOf = (lane: Lane): EksAnim => (lane === 'top' ? 'spray-top-windup' : 'spray-bottom-windup');
-const sprayOf = (lane: Lane): EksAnim => (lane === 'top' ? 'spray-top' : 'spray-bottom');
-const releaseOf = (lane: Lane): EksAnim => (lane === 'top' ? 'spray-top-release' : 'spray-bottom-release');
 
-// ── Numbers ─────────────────────────────────────────────────────────
-/** His tank: one bullet that finds it under pressure takes one. At two thirds and one third the next phase starts. */
-const TANK_HP = 36;
+// ── Score ───────────────────────────────────────────────────────────
 const VICTORY_BONUS = 800;
-/** A spray or a cloud got past without touching the roach. */
-const DODGE_SCORE = 15;
-/** Dashed through a cloud. */
-const DASH_THROUGH_SCORE = 20;
-/** A canister shot out of the air. */
-const CANISTER_SCORE = 25;
-/** Every bullet in his tank. */
-const TANK_HIT_SCORE = 5;
+/** A spray or a cloud gone past on the other lane. */
+const DODGE_SCORE = 10;
+/** Per bullet in his tank, a canister shot down, a cloud or mine sent back, a shove, a knock: times the combo's multiplier. */
+const SCORE: Record<HitSource, number> = { bullet: 1, parry: 40, blowback: 30, shove: 20, knock: 80, crash: 80 };
 /** Out of the sprayed lane this close before the stream reaches the roach: "NA STYK!", as in the run. */
 const CLOSE_CALL_MS = 250;
+/** Every this many hits in a row without being touched, the score multiplier goes up one, to the most. */
+const COMBO_STEP = 8;
+const COMBO_MAX_MULT = 4;
 
-/** The tank stays under pressure this long after a spray ends. */
-const EXPOSED_AFTER_MS = 650;
-/** The stream races from the nozzle to the screen's left edge in this long. */
-const STREAM_GROW_MS = 160;
-/** How high the canister's arc peaks above the higher of its ends. */
-const CANISTER_PEAK_PX = 60;
-/** A bullet meets a canister in its lane this close. */
-const INTERCEPT_PX = 30;
+// ── Feel ────────────────────────────────────────────────────────────
+/** The fight holds still a moment on the hits that matter: a bullet under pressure, a canister, a knock, a third gone. */
+const FREEZE_PRESSURE_MS = 30;
+const FREEZE_PARRY_MS = 120;
+const FREEZE_BLOWBACK_MS = 80;
+const FREEZE_SHOVE_MS = 90;
+const FREEZE_KNOCK_MS = 160;
+const FREEZE_PHASE_MS = 280;
+/** A killing hit holds the world this long on the impact, a moulted one this long; then the death plays at once, what hit
+ * the roach flashing over it this long. */
+const KILL_STOP_MS = 110;
+const MOULT_STOP_MS = 90;
+const CULPRIT_FLASH_MS = 500;
+const BLINK_MS = 70;
+/** The longest a single frame moves the fight's clock: a pause doesn't count, a hitch only this much. */
+const MAX_STEP_MS = 250;
+const SHAKE_MS = 140;
+const SHAKE = 0.01;
 
-/** A lethal hit holds the frame this long, what hit the roach blinking, before game over; an absorbed one blinks
- * this long. */
-const HIT_SHOW_MS = 420;
-const MOULT_FLASH_MS = 240;
-const FLASH_BLINK_MS = 70;
-/** He walks in from past the right edge while the roach brakes. */
-const WALK_MS = 2200;
-const SETTLE_MS = 600;
-/** Staggered at a third: the breather before the next phase. */
-const PHASE_BREATHER_MS = 1300;
+// ── Looks ───────────────────────────────────────────────────────────
+/** He walks in from past the right edge while the roach brakes and draws. */
+const WALK_IN_MS = 2200;
+const SETTLE_MS = 500;
+const DRAW_MS = 500;
 const DEFEAT_HOLD_MS = 1400;
 const FADE_MS = 400;
-/** His sprayer reaching back stays this far inside the right edge. */
-const EDGE_MARGIN = 6;
-/** The roach rears and draws the pistol before he arrives. */
-const DRAW_MS = 500;
-
-/** The dash, in the fight: the roach lunges this far ahead and back, and nothing hurts it while it does. */
-const LUNGE_PX = 70;
-/** A dash goes through a cloud rolling in on its lane while it is this close, px. */
-const DASH_THROUGH_REACH = 200;
-const SHOOT_COOLDOWN = 250;
-const BULLET_SPEED = 600;
+/** The lunge stops this far short of what it meets. */
+const LUNGE_SHORT = 6;
 const RECOIL_PX = 4;
 const RECOIL_MS = 120;
-/** Half the width of his body that bullets meet, from his middle. */
-const BODY_HIT_PX = 70;
-
-const WARN_SPRAY = 0xff3b2f;
-/** The canister's green: its landing mark, the glow on it in his fist, the burst as it leaves, its trail. */
 const GAS_GLOW = 0x9be04a;
-const STREAM_LOOP = 0.45;
-const GAS_LOOP = 0.4;
-const WARN_PX = 8;
-const WARN_GLOW_PX = 26;
-const WARN_PULSE_MS = 160;
-const TANK_RING = 0xffe14a;
+const PRESSURE_GLOW = 0xffe14a;
+const KEYCAP_ABOVE_PX = 96;
+/** A canister in his fist from the lob's second frame (the cock) to its release. */
+const HOLD_FROM_MS = 100;
+/** His own gas over him when a canister bursts on him, this long. */
+const OWN_GAS_MS = 700;
+/** The landing shadow's footprint for a cloud, and for a mine its stretch. */
+const CLOUD_FOOT_PX = 60;
+const BULLET_SCALE = 0.4;
 
 const SFX = {
-  spray: 'ex-pressure',
-  throw: 'ex-lob',
-  splat: 'ex-canister-pop',
-  pop: 'shot-down',
-  ping: 'bullet-ricochet',
-  tankHit: 'ex-tank-ping',
-  vent: 'ex-tank-vent',
-  pump: 'ex-pump',
-  closeCall: 'na-styk',
-  defeatBurst: 'ex-tank-burst',
-  lastPuff: 'ex-mask',
-  victory: 'boss-victory',
-  shot: 'boss-pistol',
+  spray: 'ex-pressure', throw: 'ex-lob', land: 'ex-canister-pop', shotDown: 'shot-down', parry: 'przebicie',
+  tank: 'ex-tank-ping', tankHot: 'bullet-hit', vent: 'ex-tank-vent', pump: 'ex-pump', closeCall: 'na-styk',
+  burst: 'ex-tank-burst', mask: 'ex-mask', victory: 'boss-victory', shot: 'boss-pistol', knock: 'vs-slam-2',
+  shove: 'vs-slam-1', whiff: 'bullet-ricochet', struck: 'vs-slam-2', hiss: 'bigos-sizzle',
 };
 const BGM = 'boss-bgm';
+
+interface Can {
+  release: number; flight: number; lane: Lane; land: Throw['land']; from: { x: number; y: number };
+  to: { x: number; y: number }; th: Throw; cue: number; canShoot: boolean;
+  shot: boolean; landed: boolean; sprite: Phaser.GameObjects.Sprite | null; trail: Trail | null; threat: Threat;
+}
+
+/** One thing coming at the roach: the same record the simulation keeps, with what draws it. */
+interface Threat {
+  kind: HazardKind; lane: Lane; cue: number; at: number; lasts: number; fire: number; until: number;
+  step: number; gone: boolean; passed: boolean; windup: number;
+  /** A stream has reached the roach's spot (a hop just before it is a close call). */
+  reached: boolean;
+  can: Can | null;
+  stream: SprayStream | null;
+  sprite: Phaser.GameObjects.Sprite | null;
+  /** Gas over a mine once it is armed. */
+  gas: Phaser.GameObjects.Sprite | null;
+}
+
+interface Bullet { sprite: Phaser.GameObjects.Image; t0: number; lane: Lane; y0: number; pressured: boolean; lastX?: number }
+
+/** Something sent back into him: from where, since when; it hits on arriving. */
+interface Flyer { sprite: Phaser.GameObjects.Sprite; x: number; y: number; t0: number; ms: number; source: HitSource }
+
+type Anim = { anim: EksAnim; start: number; then: EksAnim | 'rest' | null };
 
 export class EksterminatorFight extends BossFight {
   readonly victoryBonus = VICTORY_BONUS;
 
+  private readonly director: EksDirector;
   private readonly boss: Phaser.GameObjects.Sprite;
-  private readonly phases: Phase[];
-  /** The roach's shots in flight, each remembering the lane it was fired from. */
-  private readonly bullets: Phaser.Physics.Arcade.Group;
-  private phaseIndex = 0;
-  private step = 0;
-  /** Bumped when a phase ends: callbacks of the attack it cut short see a stale token and stop. */
-  private token = 0;
-  private hp = TANK_HP;
-
+  private clock = 0;
+  private lastNow: number | null = null;
+  private events: { at: number; fn: () => void }[] = [];
+  /** Bumped when a step is cut short (a phase over, the wand knocked): what it still had scheduled is dropped. */
+  private gen = 0;
+  private freezeUntil = 0;
   private stopped = false;
-  private walkX: number | null;
-  private stream: SprayStream | null = null;
-  /** The stream has reached the roach's spot. */
-  private streamArrived = false;
-  private canisters: Canister[] = [];
-  private clouds: GasCloud[] = [];
-  /** Under pressure until then (scene time): bullets hurt. A pump holds it open with no end until its sweep is over. */
-  private exposedUntil = 0;
-  private pumped = false;
-  private staggeredThisWindow = false;
 
-  /**
-   * Each lane's mark, while one is up: the red strip for a stream (it holds the whole lane), or, for a canister, only
-   * the spot it will land on (a thrown thing marks no lane: its warning is his lob).
-   */
-  private warnings = new Map<Lane, { g: Phaser.GameObjects.Graphics; pulse: Phaser.Tweens.Tween; kind: 'spray' | 'gas' }>();
-  /** The canister in his fist through the lob's wind-up, and the glow on it. */
-  private heldCanister: Phaser.GameObjects.Sprite | null = null;
+  /** His middle, px along the lane from the roach's spot; walking or shoved, from where to where. */
+  private bx: number = DIST[FAR];
+  private move: { from: number; to: number; t0: number; ms: number; pos: Pos | null } | null = null;
+  /** Before the roach has stopped he walks in on the screen. */
+  private walkScreenX: number | null;
+  private anim: Anim = { anim: 'walk', start: 0, then: null };
+  private reelUntil = -1;
+  private reelStart = -1;
+
+  private current: Step | null = null;
+  private lobsSeen = 0;
+  /** His charge in progress: from when, its timings, the lanes out and back. */
+  private charge: { t0: number; c: NonNullable<Timed['charge']>; out: Lane; back: Lane } | null = null;
+  /** The bouncing grenade and the chained canister in play: what draws them and their timings. */
+  private grenade: { sprite: Phaser.GameObjects.Sprite; t0: number; bounces: NonNullable<Timed['bounces']>; lanes: Lane[]; threat: Threat } | null = null;
+  private chain: { sprite: Phaser.GameObjects.Sprite; trail: Trail; t0: number; c: NonNullable<Timed['chain']>; out: Lane; back: Lane } | null = null;
+  private stageFree = Infinity;
+  private threats: Threat[] = [];
+  private cans: Can[] = [];
+  private pressure: { from: number; to: number }[] = [];
+  private knock: { from: number; to: number; done: boolean; step: number } | null = null;
+  private bullets: Bullet[] = [];
+  private flyers: Flyer[] = [];
+  private ownGas: { sprite: Phaser.GameObjects.Sprite; until: number } | null = null;
+  private shotAt = -Infinity;
+  private recoil = 0;
+  private lunge: { t0: number; reach: number; hitsHim: boolean; arrived: boolean } | null = null;
+  private combo = 0;
+
+  private readonly zones: Record<Lane, KillZone>;
+  private readonly mineZones: Record<Lane, KillZone>;
+  private readonly shadow: LandingShadow;
+  private readonly tankHalo: Halo;
   private readonly heldHalo: Halo;
+  private held: Phaser.GameObjects.Sprite | null = null;
+  private readonly hotText: Phaser.GameObjects.Text;
+  private readonly comboText: Phaser.GameObjects.Text;
+  private effects: Phaser.GameObjects.GameObject[] = [];
   private streamLoop: Phaser.Sound.BaseSound | null = null;
   private gasLoop: Phaser.Sound.BaseSound | null = null;
-  private ring: Phaser.GameObjects.Graphics;
-  private effects: Phaser.GameObjects.GameObject[] = [];
-  private shootCooldown = 0;
-  private recoil = 0;
-  private lungeStart = -1;
+  private wispAt = 0;
+
+  private prompted = new Set<Prompt['key']>();
+  private prompt: { key: Prompt['key']; from: number; to: number; lane: Lane | null } | null = null;
+  private keycap: Phaser.GameObjects.Text | Phaser.GameObjects.Image | null = null;
+  /** A killing hit: what hit the roach, flashed over its death even after the fight is taken down. */
+  private culprit: Phaser.GameObjects.Components.Alpha[] | null = null;
+  private hitStop: { until: number; culprit: Phaser.GameObjects.Components.Alpha[]; deadly: boolean } | null = null;
 
   constructor(ctx: BossFightContext) {
     super(ctx);
     const { scene, player, abilities } = ctx;
     createEksAnimations(scene);
-    this.phases = buildPhases(fightRandom(ctx.seed, ctx.boss.id), player.currentFloor);
-    this.bullets = scene.physics.add.group();
-    this.ring = scene.add.graphics().setDepth(DEPTH.OBSTACLES + 1);
+    const rand = fightRandom(ctx.seed, ctx.boss.id);
+    this.director = new EksDirector(buildPhases(rand), rand);
+    this.zones = { top: new KillZone(scene), bottom: new KillZone(scene) };
+    this.mineZones = { top: new KillZone(scene), bottom: new KillZone(scene) };
+    this.shadow = new LandingShadow(scene);
+    this.tankHalo = new Halo(scene, PRESSURE_GLOW, DEPTH.OBSTACLES + 0.5);
     this.heldHalo = new Halo(scene, GAS_GLOW, DEPTH.OBSTACLES + 1);
+    this.hotText = scene.add.text(0, 0, 'x3', popupStyle({ fontSize: '12px', color: '#ffe14a' }))
+      .setOrigin(0.5).setDepth(DEPTH.POPUP - 1).setVisible(false);
+    this.comboText = scene.add.text(0, 0, '', popupStyle({ fontSize: '12px', color: '#ffd36a' }))
+      .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.HUD).setVisible(false);
 
     const cam = scene.cameras.main;
-    this.walkX = cam.width + EKS_REACH.left * S;
-    this.boss = scene.add.sprite(cam.scrollX + this.walkX, ctx.floorBottomY, EKS_TEXTURE, eksFrame('walk'));
-    this.boss.setScale(S).setDepth(DEPTH.OBSTACLES);
-    this.play('walk');
+    this.walkScreenX = cam.width + EKS_REACH.left * S;
+    this.boss = scene.add.sprite(cam.scrollX + this.walkScreenX, ctx.floorBottomY, EKS_TEXTURE, eksFrame('walk'))
+      .setScale(S).setDepth(DEPTH.OBSTACLES);
 
-    // The pistol: owned by now in any real run, drawn as the roach rears. A run that reached him without it (a dev
-    // shortcut before DJ Bigos had his fight) is handed it here, so the fight can always be played
+    // The pistol: owned by now in any real run; a dev shortcut that reached him without it is handed it here
     if (!abilities.canShoot) abilities.grant('gun');
 
     let ready = 0;
     const both = () => { if (++ready === 2) this.delay(SETTLE_MS, () => this.startFighting()); };
+    // He walks to his spot on the screen: as far from the roach's spot (the camera keeps it 200 px in) as the set says
+    const roachScreenX = player.x - cam.scrollX;
     scene.tweens.add({
       targets: this,
-      walkX: cam.width - this.standFromRight,
-      duration: WALK_MS,
+      walkScreenX: Math.min(cam.width - EKS_REACH.right * S - 6, roachScreenX + DIST[FAR]),
+      duration: WALK_IN_MS,
       ease: 'Sine.easeOut',
-      onComplete: () => {
-        this.boss.x = cam.scrollX + this.walkX!;
-        this.walkX = null;
-        this.play('idle');
-        both();
-      },
+      onComplete: () => both(),
     });
     this.brake(() => {
       this.stopped = true;
@@ -196,621 +240,1162 @@ export class EksterminatorFight extends BossFight {
     });
   }
 
-  /** His middle, this far in from the right edge: as close to it as keeps the sprayer on his back on screen. */
-  private get standFromRight(): number {
-    return EKS_REACH.right * S + EDGE_MARGIN;
-  }
+  get inputLive(): boolean { return super.inputLive && !this.hitStop; }
 
   private startFighting(): void {
+    const cam = this.ctx.scene.cameras.main;
+    this.bx = cam.scrollX + this.walkScreenX! - this.holdX;
+    this.walkScreenX = null;
+    this.play('idle', null);
     this.state = 'fighting';
-    // The boss music loads after boot with his frames; a fight reached before it has (a cold dev start) goes on without it
     try {
       if (this.ctx.scene.cache.audio.exists(BGM)) this.ctx.audio.switchBGM(BGM);
     } catch {
       // the fight goes on without its music
     }
-    this.ctx.showBar(this.hp, TANK_HP);
-    this.next();
+    this.ctx.showBar(TANK_HP, TANK_HP);
+    this.stageFree = this.clock;
   }
 
-  // ── Frame ─────────────────────────────────────────────────────────
+  // ── The clock ─────────────────────────────────────────────────────
+
+  private atMs(t: number, fn: () => void): void {
+    let i = this.events.length;
+    while (i > 0 && this.events[i - 1].at > t) i--;
+    this.events.splice(i, 0, { at: t, fn });
+  }
+
+  /** Part of the step in progress: dropped if it is cut short first. */
+  private stepAt(t: number, fn: () => void): void {
+    const gen = this.gen;
+    this.atMs(t, () => { if (gen === this.gen && this.state === 'fighting') fn(); });
+  }
+
+  private freeze(ms: number): void {
+    this.freezeUntil = Math.max(this.freezeUntil, this.ctx.scene.time.now + ms);
+  }
+
+  private pressured(t = this.clock): boolean {
+    return this.pressure.some(w => t >= w.from && t < w.to);
+  }
+
+  /** The bar's hp, and what the fight shows of it. */
+  private get over(): boolean { return this.state === 'done'; }
+  private get fighting(): boolean { return this.state === 'fighting'; }
+
+  // ── Every frame ───────────────────────────────────────────────────
 
   update(delta: number): void {
-    if (this.state === 'done') return;
-    if (this.walkX !== null) this.boss.x = this.ctx.scene.cameras.main.scrollX + this.walkX;
-    if (!this.stopped) return;
+    if (this.over) return;
+    if (this.holdHitStop()) return;
+    const { scene, player } = this.ctx;
+    const now = scene.time.now;
+    const step = this.lastNow === null ? 0 : Math.min(MAX_STEP_MS, Math.max(0, now - this.lastNow));
+    this.lastNow = now;
+    if (this.walkScreenX !== null) this.boss.x = scene.cameras.main.scrollX + this.walkScreenX;
+    if (now < this.freezeUntil) {
+      // Held on a hit: the dash's own timer waits too, so the lunge and its protection stay together
+      player.adjustTimersForPause(step);
+      return;
+    }
+    this.clock += step;
+    while (this.events.length && this.events[0].at <= this.clock && !this.over && !this.hitStop) this.events.shift()!.fn();
+    if (this.over || this.hitStop) return;
+    if (this.stopped) {
+      player.updateDash();
+      this.recoil = Math.max(0, this.recoil - (RECOIL_PX * delta) / RECOIL_MS);
+      const forward = this.updateLunge();
+      if (this.over) return;
+      this.holdPlayer(Math.round(this.recoil - forward));
+    }
+    if (this.walkScreenX === null) this.updateMove();
+    if (this.fighting) {
+      const pending = this.threats.some(t => !t.gone && !t.passed && t.kind !== 'mine' && this.clock < t.at + t.lasts);
+      if (this.clock >= this.stageFree && !pending && !this.flyers.length) this.advance();
+      this.updateCans();
+      this.updateBullets();
+      if (this.over || this.hitStop) return;
+      this.updateFlyers();
+      if (this.over || this.hitStop) return;
+      this.reachRoach();
+      if (this.over || this.hitStop) return;
+    }
+    this.draw();
+  }
+
+  // ── Steps ─────────────────────────────────────────────────────────
+
+  /** The stage is free: the next thing the job has. */
+  private advance(): void {
     const { player } = this.ctx;
-    player.updateDash();
-    this.recoil = Math.max(0, this.recoil - (RECOIL_PX * delta) / RECOIL_MS);
-    this.holdPlayer(Math.round(this.recoil - this.lunge()));
-    if (this.shootCooldown > 0) this.shootCooldown -= delta;
-    this.drawTankRing();
-    this.syncLoops();
-    if (this.state !== 'fighting') return;
-
-    this.stream?.update();
-    for (const can of this.canisters) if (can.update()) this.land(can);
-    this.canisters = this.canisters.filter(can => !can.landed);
-    for (const cloud of this.clouds) cloud.update(delta);
-    // Each of these can end the fight (the last bullet in his tank, a hit on the roach): nothing after it works on a fight
-    // that is over, and a hit must not be judged twice
-    this.resolveBullets();
-    if (this.inFight()) this.checkStream();
-    if (this.inFight()) this.checkClouds();
-    if (!this.inFight()) return;
-    for (const cloud of this.clouds.filter(c => c.done)) cloud.destroy();
-    this.clouds = this.clouds.filter(c => !c.done);
-  }
-
-  /** Still fighting: nothing has just won or lost the fight in this frame. */
-  private inFight(): boolean { return this.state === 'fighting'; }
-
-  /** How far ahead of its spot the dash has carried the roach right now. */
-  private lunge(): number {
-    if (this.lungeStart < 0) return 0;
-    const t = (this.ctx.scene.time.now - this.lungeStart) / DASH_DURATION;
-    if (t >= 1) {
-      this.lungeStart = -1;
-      return 0;
+    // A mine he left lying on the lane the roach is not on: the next attack is one it can answer without that lane
+    const mine = this.threats.find(t => t.kind === 'mine' && !t.gone && this.clock < t.until);
+    if (mine && this.current?.kind === 'attack' && this.current.attack.kind === 'mine' && mine.lane !== player.currentFloor) {
+      this.director.mineStays();
     }
-    return LUNGE_PX * Math.sin(Math.PI * t);
-  }
-
-  // ── Attacks ───────────────────────────────────────────────────────
-
-  private get stage(): Phase { return this.phases[this.phaseIndex]; }
-
-  /** Whether an attack started under this token may still go on. */
-  private live(token: number): boolean {
-    return token === this.token && this.state === 'fighting';
-  }
-
-  private next(): void {
-    if (this.state !== 'fighting') return;
-    const { opening, loop } = this.stage;
-    const attack = this.step < opening.length ? opening[this.step] : loop[(this.step - opening.length) % loop.length];
-    this.step++;
-    const token = this.token;
-    this.run(attack, token, () => this.delay(this.stage.gap, () => { if (this.live(token)) this.next(); }));
-  }
-
-  private run(attack: Attack, token: number, done: () => void): void {
-    const other = (lane: Lane): Lane => (lane === 'top' ? 'bottom' : 'top');
-    switch (attack.kind) {
-      case 'spray':
-        this.spray(attack.lane, this.stage.hold, this.stage.spray, token, done);
-        break;
-      case 'lob':
-        this.lob(attack.lane, token, () => {}, done);
-        break;
-      case 'doubleLob': {
-        let left = 2;
-        const one = () => { if (--left === 0) done(); };
-        this.lob(attack.first, token, () => this.delay(DOUBLE_LOB_GAP_MS, () => {
-          if (this.live(token)) this.lob(other(attack.first), token, () => {}, one);
-        }), one);
-        break;
+    this.threats = this.threats.filter(t => !t.gone && !(t.passed && t.kind !== 'mine'));
+    const step = this.director.next();
+    const at = this.clock;
+    this.current = step;
+    this.stageFree = at + stepLength(step);
+    if (step.kind === 'walk') {
+      this.walkTo((step.pos + 1) as Pos, at, Math.round(WALK_STEP_MS * step.tempo));
+      if ((step.pos + 1) === NEAR && !this.prompted.has('dash-shove')) {
+        this.prompted.add('dash-shove');
+        this.prompt = { key: 'dash-shove', from: at + SHOVE_PROMPT.from, to: at + SHOVE_PROMPT.to, lane: null };
       }
-      case 'cloudSpray': {
-        let left = 2;
-        const one = () => { if (--left === 0) done(); };
-        const sprayLane = other(attack.cloud);
-        // The stream holds the other lane from a little before the cloud reaches the roach until a little after
-        const { start, length } = comboSpray(this.stage);
-        this.lob(attack.cloud, token, () => this.delay(start, () => {
-          if (this.live(token)) this.spray(sprayLane, this.stage.hold, length, token, one);
-        }), one);
-        break;
-      }
-      case 'sweep':
-        this.sweep(attack.first, token, done);
-        break;
+      return;
     }
+    this.playAttack(step.attack, step, at, player.currentFloor);
   }
 
-  /** The wind-up for a lane, held, then the stream down it; then the release. */
-  private spray(lane: Lane, hold: number, length: number, token: number, done: () => void, skipWindup = false): void {
-    this.warn(lane);
-    const fire = () => this.delay(hold, () => {
-      if (!this.live(token)) return;
-      this.startStream(lane);
-      this.play(sprayOf(lane));
-      this.delay(length, () => {
-        if (!this.live(token)) return;
-        this.endStream(true);
-        this.play(releaseOf(lane), () => { if (this.live(token)) this.play('idle'); });
-        done();
-      });
-    });
-    if (skipWindup) fire();
-    else this.play(windupOf(lane), () => { if (this.live(token)) fire(); });
-  }
-
-  private startStream(lane: Lane): void {
-    const { scene, floorBottomY } = this.ctx;
-    this.unwarn(lane);
-    const nozzle = lane === 'top' ? EKS_POINTS.nozzleTop : EKS_POINTS.nozzleBottom;
-    const x = this.boss.x + nozzle.x * S;
-    const y = this.boss.y + nozzle.y * S;
-    this.stream = new SprayStream(scene, {
-      lane,
-      nozzleX: x,
-      nozzleY: y,
-      laneY: lane === 'top' ? y : floorBottomY + BOTTOM_STREAM_Y * S,
-      growMs: STREAM_GROW_MS,
-    });
-    this.streamArrived = false;
-    this.exposedUntil = Number.POSITIVE_INFINITY;
-    this.staggeredThisWindow = false;
-    this.sfx(SFX.spray, 0.7);
-    scene.cameras.main.shake(120, 0.004);
-  }
-
-  /** The stream stops; dodged, it scores. The tank stays open a moment after. */
-  private endStream(dodged: boolean): void {
-    if (!this.stream) return;
-    const lane = this.stream.lane;
-    this.stream.destroy();
-    this.stream = null;
-    if (!this.pumped) this.exposedUntil = this.ctx.scene.time.now + EXPOSED_AFTER_MS;
-    if (dodged && this.streamArrived) this.dodged(lane);
-  }
-
-  /** The pump, the glint, then the stream down one lane and straight on to the other. The tank is open throughout. */
-  private sweep(first: Lane, token: number, done: () => void): void {
-    this.pumped = true;
-    this.exposedUntil = Number.POSITIVE_INFINITY;
-    this.staggeredThisWindow = false;
-    for (let i = 0; i < 4; i++) this.delay(i * 200, () => { if (this.live(token)) this.sfx(SFX.pump, 0.6); });
-    const secondLane: Lane = first === 'top' ? 'bottom' : 'top';
-    this.play('pump', () => this.delay(PUMP_HOLD_MS, () => {
-      if (!this.live(token)) return;
-      this.spray(first, Math.min(this.stage.hold, SWEEP_FIRST_HOLD_MS), SWEEP_SPRAY_MS, token, () => {
-        this.spray(secondLane, SWEEP_SWITCH_HOLD_MS, SWEEP_SPRAY_MS, token, () => {
-          this.pumped = false;
-          this.exposedUntil = this.ctx.scene.time.now + EXPOSED_AFTER_MS;
-          done();
-        });
-      });
+  private playAttack(attack: Attack, step: Extract<Step, { kind: 'attack' }>, at: number, roachLane: Lane): void {
+    const timed = timeAttack(attack, step.pos, step.tempo);
+    if (timed.approach > 0) this.walkTo(NEAR, at, timed.approach);
+    for (const w of timed.pressure) {
+      if (!this.pressured(at + w.from)) this.director.pressureOpened();
+      this.pressure.push({ from: at + w.from, to: at + w.to });
+    }
+    this.knock = timed.knock ? { from: at + timed.knock.from, to: at + timed.knock.to, done: false, step: step.index } : null;
+    const made: Threat[] = timed.hazards.map(h => ({
+      kind: h.kind, lane: resolve(h.lane, roachLane), cue: at + h.cue, at: at + h.t, lasts: h.lasts, fire: at + h.fire,
+      until: h.kind === 'mine' ? at + h.t + h.lasts : at + h.t + h.lasts, step: step.index, gone: false, passed: false,
+      windup: at + (h.windup ?? h.cue), reached: false, can: null, stream: null, sprite: null, gas: null,
     }));
+    timed.throws.forEach((th, i) => {
+      const threat = made[timed.hazards.findIndex(h => h.from === i)];
+      const lane = resolve(th.lane, roachLane);
+      const from = releasePoint(step.pos);
+      const to = { x: landX(th.land, step.pos), y: LANE_Y[lane] };
+      const can: Can = {
+        release: at + th.release, flight: th.flight, lane, land: th.land, from, to, th, cue: at, canShoot: th.glide > 0,
+        shot: false, landed: false, sprite: null, trail: null, threat,
+      };
+      threat.can = can;
+      this.cans.push(can);
+      this.lob(can);
+    });
+    this.threats.push(...made);
+    for (const t of made) if (t.kind === 'stream') this.spray(t, attack);
+    if (attack.kind === 'pump') this.pump(at + timed.approach);
+    if (attack.kind === 'charge') this.startCharge(timed, at, made);
+    if (attack.kind === 'bounce') this.startBounce(timed, at, made, roachLane);
+    if (attack.kind === 'chain') this.startChain(timed, at, roachLane);
+    if (attack.kind === 'vent') {
+      this.sfx(SFX.vent, 0.7);
+      this.popupAt(this.tank.x, this.tank.y - 40, 'SPUST!', '#ffe14a', 14);
+      // Venting, the tank lets go: the pressure window he was in is over
+      this.pressure = this.pressure.map(w => ({ from: w.from, to: Math.min(w.to, at) }));
+    }
+    if (attack.kind === 'smoke') this.popupAt(this.boss.x, this.ctx.floorBottomY - 150, 'ZASŁONA!', '#c8ff7a', 12);
+    // The first of each kind that teaches something carries its prompt
+    const prompt = promptFor(attack, step.pos) ?? cloudPrompt(attack, step.pos);
+    if (prompt && !this.prompted.has(prompt.key)) {
+      this.prompted.add(prompt.key);
+      this.prompt = { key: prompt.key, from: at + prompt.from, to: at + prompt.to, lane: resolve(prompt.lane, roachLane) };
+    } else if (attack.kind === 'lob' && !this.prompted.has('dash-cloud') && this.lobsSeen++ >= 1) {
+      // The canister's lesson came first; the next one teaches the dash through its cloud
+      const cloud = cloudPrompt(attack, step.pos)!;
+      this.prompted.add('dash-cloud');
+      this.prompt = { key: 'dash-cloud', from: at + cloud.from, to: at + cloud.to, lane: roachLane };
+    }
   }
 
-  /**
-   * A canister onto a lane: the landing spot marked, the lob, and the canister in the air from the release frame.
-   * thrown fires as it leaves his hand; resolved once it is shot down or its cloud is past the roach.
-   */
-  private lob(lane: Lane, token: number, thrown: () => void, resolved: () => void): void {
-    const { scene } = this.ctx;
-    const to = { x: this.holdX + CLOUD_LAND_AHEAD, y: this.laneY(lane) };
-    this.markLanding(lane, to.x);
-    const releaseFrame = eksFrame('lob', RELEASE_FRAME);
-    let released = false;
-    const release = () => {
-      if (released || !this.live(token)) return;
-      released = true;
-      this.boss.off(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
-      this.sfx(SFX.throw, 0.5);
-      const from = { x: this.boss.x + EKS_POINTS.release.x * S, y: this.boss.y + EKS_POINTS.release.y * S };
-      this.dropHeld();
-      glint(scene, from.x, from.y, GAS_GLOW, 24, 300);
-      sparkBurst(scene, from.x, from.y, GAS_GLOW, 10, -1, 48);
-      const can = new Canister(scene, {
-        from, to, flightMs: this.stage.flight, peakPx: CANISTER_PEAK_PX, lands: lane,
-      });
-      can.onResolved = resolved;
-      this.canisters.push(can);
-      thrown();
-    };
-    const onFrame = (_a: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame) => {
-      if (frame.textureFrame === releaseFrame) release();
-      else if (frame.textureFrame === eksFrame('lob', 1)) this.holdCanister(EKS_POINTS.cocked, 0, true);
-      else if (frame.textureFrame === eksFrame('lob', 2)) this.holdCanister(EKS_POINTS.whip, 1, false);
-    };
-    this.boss.on(Phaser.Animations.Events.ANIMATION_UPDATE, onFrame);
-    this.play('lob', () => {
-      release();
-      if (this.live(token)) this.play('idle');
+  /** A walk step in, or the pump's walk in: his walk, and his place moving with it. */
+  private walkTo(pos: Pos, at: number, ms: number): void {
+    this.stepAt(at, () => {
+      this.move = { from: this.bx, to: DIST[pos], t0: this.clock, ms, pos };
+      this.play('walk', null);
     });
   }
 
+  private updateMove(): void {
+    const m = this.move;
+    if (!m) return;
+    const k = Phaser.Math.Clamp((this.clock - m.t0) / m.ms, 0, 1);
+    this.bx = Phaser.Math.Linear(m.from, m.to, k);
+    if (k < 1) return;
+    this.move = null;
+    if (m.pos !== null) this.director.moved(m.pos);
+    if (this.anim.anim === 'walk') this.play('idle', null);
+  }
+
+  // ── The spray ─────────────────────────────────────────────────────
+
+  /** From its wind-up the lane is marked (the stream will hold all of it), then the stream, then his release. */
+  private spray(t: Threat, attack: Attack): void {
+    const lane = t.lane;
+    const length = t.lasts;
+    this.stepAt(t.windup, () => this.play(lane === 'top' ? 'spray-top-windup' : 'spray-bottom-windup', null));
+    this.stepAt(t.fire, () => {
+      const { scene, floorBottomY } = this.ctx;
+      const nozzle = lane === 'top' ? EKS_POINTS.nozzleTop : EKS_POINTS.nozzleBottom;
+      const x = this.boss.x + nozzle.x * S;
+      const y = floorBottomY + nozzle.y * S;
+      const cam = scene.cameras.main;
+      // Its front reaches the roach STREAM_REACH_MS after it leaves, as the set says, and races on to the edge
+      const toRoach = Math.max(1, x - this.holdX);
+      const growMs = STREAM_REACH_MS * (x - cam.scrollX + 20) / toRoach;
+      t.stream = new SprayStream(scene, {
+        lane, nozzleX: x, nozzleY: y, laneY: lane === 'top' ? y : floorBottomY + BOTTOM_STREAM_Y * S, startedAt: this.clock, growMs,
+      });
+      this.play(lane === 'top' ? 'spray-top' : 'spray-bottom', null);
+      this.sfx(SFX.spray, attack.kind === 'jets' ? 0.45 : 0.7);
+      scene.cameras.main.shake(SHAKE_MS, attack.kind === 'vent' ? SHAKE * 0.6 : SHAKE * 0.4);
+    });
+    this.stepAt(t.fire + length, () => {
+      t.stream?.destroy();
+      t.stream = null;
+      if (attack.kind !== 'jets') this.play(lane === 'top' ? 'spray-top-release' : 'spray-bottom-release', 'rest');
+    });
+  }
+
+  // ── The pump ──────────────────────────────────────────────────────
+
+  /** He pumps twice, the tank swelling and hissing harder each stroke, then braces, the nozzle glinting: dash now. */
+  private pump(start: number): void {
+    this.stepAt(start, () => {
+      this.play('pump', null);
+      for (let i = 0; i < 4; i++) this.stepAt(this.clock + i * 150, () => this.sfx(SFX.pump, 0.6));
+    });
+  }
+
+  // ── Canisters ─────────────────────────────────────────────────────
+
   /**
-   * His telegraph for the lob: the canister is in his fist from the cocked frame, glowing, and flares as it is drawn
-   * back and again as he whips it over (frames 1 and 2; frame 3 lets it go).
+   * A canister: in his fist, glowing, from the lob's cock; its landing spot shadowed from the start (a spot, not the
+   * lane); out of his hand on the release frame, trailing green, to its spot, where it is a cloud or a mine.
    */
-  private holdCanister(at: { x: number; y: number }, frame: number, first: boolean): void {
-    const { scene } = this.ctx;
-    const x = this.boss.x + at.x * S;
-    const y = this.boss.y + at.y * S;
-    if (!this.heldCanister) {
-      this.heldCanister = scene.add.sprite(x, y, EKS_TEXTURE, eksFrame('canister', frame))
+  private lob(can: Can): void {
+    this.stepAt(can.cue, () => this.play('lob', 'rest'));
+    this.stepAt(can.cue + HOLD_FROM_MS, () => {
+      const at = this.handAt(EKS_POINTS.cocked);
+      this.held?.destroy();
+      this.held = this.ctx.scene.add.sprite(at.x, at.y, EKS_TEXTURE, eksFrame(can.land === 'spot' ? 'mine' : 'canister'))
         .setScale(S).setDepth(DEPTH.OBSTACLES + 2);
-    }
-    this.heldCanister.setFrame(eksFrame('canister', frame)).setPosition(x, y - 4 * S);
-    this.heldHalo.show(x, y - 4 * S, first ? 24 : 32, first ? 0.8 : 1);
-    glint(scene, x, y - 4 * S, GAS_GLOW, first ? 18 : 30, first ? 280 : 340);
+      glint(this.ctx.scene, at.x, at.y, GAS_GLOW, 18, 280);
+    });
+    this.stepAt(can.release, () => {
+      this.dropHeld();
+      const { scene } = this.ctx;
+      const p = this.world(can.from);
+      glint(scene, p.x, p.y, GAS_GLOW, 24, 300);
+      sparkBurst(scene, p.x, p.y, GAS_GLOW, 10, -1, 48);
+      can.sprite = scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame(can.land === 'spot' ? 'mine' : 'canister'))
+        .setScale(S).setDepth(DEPTH.PICKUPS + 2);
+      can.trail = new Trail(scene, GAS_GLOW, 340, 10, DEPTH.PICKUPS + 1);
+      this.sfx(SFX.throw, 0.5);
+    });
+  }
+
+  private world(p: { x: number; y: number }): { x: number; y: number } {
+    return { x: this.holdX + p.x, y: this.ctx.floorBottomY + p.y };
+  }
+
+  private handAt(point: { x: number; y: number }): { x: number; y: number } {
+    return { x: this.boss.x + point.x * S, y: this.ctx.floorBottomY + point.y * S - 4 * S };
   }
 
   private dropHeld(): void {
-    this.heldCanister?.destroy();
-    this.heldCanister = null;
+    this.held?.destroy();
+    this.held = null;
     this.heldHalo.hide();
   }
 
-  /** The canister comes down: a splat, and its cloud on the lane. */
-  private land(can: Canister): void {
+  private updateCans(): void {
+    for (const can of this.cans) {
+      if (can.shot || can.landed || this.clock < can.release || !can.sprite) continue;
+      const elapsed = this.clock - can.release;
+      if (elapsed >= can.flight) {
+        this.landCan(can);
+        continue;
+      }
+      const p = this.world(canisterAt(elapsed, can.th, can.from, can.to));
+      can.sprite.setPosition(p.x, p.y);
+      const anim = can.land === 'spot' ? 'mine' : 'canister';
+      can.sprite.setFrame(eksFrame(anim, frameAt(anim, this.clock)));
+      // In the pistol's line (its glide): it flashes, the moment a shot meets it
+      if (inLine(elapsed, can.th) && Math.floor(this.clock / 40) % 2 === 0) can.sprite.setTintFill(0xffffff);
+      else can.sprite.clearTint();
+      can.trail?.push(p.x, p.y);
+    }
+    this.cans = this.cans.filter(c => !c.shot && !c.landed);
+  }
+
+  /** Down: a splat, and its cloud boiling on the spot, or a mine lying on the roach's. */
+  private landCan(can: Can): void {
     const { scene } = this.ctx;
-    can.destroy();
-    this.unwarn(can.lands);
-    this.sfx(SFX.splat, 0.8);
+    can.landed = true;
+    can.trail?.destroy();
+    can.trail = null;
+    const t = can.threat;
+    const p = this.world(can.to);
+    if (t.gone) {
+      can.sprite?.destroy();
+      can.sprite = null;
+      return;
+    }
+    this.sfx(SFX.land, can.land === 'spot' ? 0.6 : 0.8);
     scene.cameras.main.shake(100, 0.005);
-    this.puff(can.target.x, can.target.y - 10, 10, 30);
-    const cloud = new GasCloud(scene, {
-      lane: can.lands, x: can.target.x, laneY: can.target.y, sitMs: CLOUD_SIT_MS, rollSpeed: CLOUD_ROLL_SPEED,
-    });
-    cloud.onResolved = can.onResolved;
-    this.clouds.push(cloud);
-  }
-
-  // ── Hits ──────────────────────────────────────────────────────────
-
-  /** The stream gets the roach in its lane once its front has reached it. */
-  private checkStream(): void {
-    const stream = this.stream;
-    if (!stream) return;
-    const { player, scene } = this.ctx;
-    if (stream.frontX > player.x) return;
-    if (!this.streamArrived) {
-      this.streamArrived = true;
-      const hop = player.lastHop;
-      if (player.currentFloor !== stream.lane && hop && hop.from === stream.lane && scene.time.now - hop.at <= CLOSE_CALL_MS) {
-        this.sfx(SFX.closeCall, 0.6);
-        this.ctx.addScore(NEAR_MISS_SCORE);
-        this.popup(`NA STYK! +${NEAR_MISS_SCORE}`, '#7fe0ff');
-      }
-    }
-    if (player.currentFloor === stream.lane) this.hit(stream.parts);
-  }
-
-  /** A cloud gets the roach in its lane as it rolls over it, unless it dashes through. */
-  private checkClouds(): void {
-    const { player } = this.ctx;
-    for (const cloud of this.clouds) {
-      if (cloud.resolved) continue;
-      const gap = cloud.x - player.x;
-      if (gap < -CLOUD_HIT_PX) {
-        cloud.resolved = true;
-        if (cloud.dashedThrough) {
-          this.ctx.addScore(DASH_THROUGH_SCORE);
-          this.popup(`PRZEZ GAZ! +${DASH_THROUGH_SCORE}`, '#c8ff7a');
-        } else {
-          this.dodged(cloud.lane);
-        }
-        cloud.onResolved?.();
-        continue;
-      }
-      // Dashed into it: it is through, and the rest of the cloud can't touch it
-      if (cloud.dashedThrough || Math.abs(gap) > CLOUD_HIT_PX || player.currentFloor !== cloud.lane) continue;
-      if (player.isDashing) {
-        cloud.dashedThrough = true;
-        continue;
-      }
-      this.hit([cloud.sprite]);
-    }
-  }
-
-  /**
-   * Something got the roach: the moult takes it, once, or it is over. Either way what hit it flashes; a lethal hit
-   * holds the frame a moment first, so you see what it was. Returns true when the roach lives on.
-   */
-  private hit(culprit: Phaser.GameObjects.Components.Tint[]): boolean {
-    const { player } = this.ctx;
-    // Dashing nothing touches it; just out of its shell, hits pass through
-    if (player.isDashing || player.inMoultGrace) return true;
-    if (this.ctx.survivesHit()) {
-      this.flash(culprit, MOULT_FLASH_MS);
-      return true;
-    }
-    this.killedBy(culprit);
-    return false;
-  }
-
-  /** The hit-stop: everything holds, what hit the roach flashes, then the run is over. Nothing here can stall that. */
-  private killedBy(culprit: Phaser.GameObjects.Components.Tint[]): void {
-    if (this.state !== 'fighting') return;
-    this.state = 'victory';                    // no more attacks, no input; update() stops moving the lanes
-    this.token++;
-    const finish = () => { if (this.state !== 'done') this.lose('eksterminator'); };
-    this.ctx.scene.time.delayedCall(HIT_SHOW_MS, finish);
-    // And on the wall clock, should the scene's ever stand still
-    window.setTimeout(finish, HIT_SHOW_MS + 500);
-    try {
-      this.unwarn();
-      this.dropHeld();
-      this.boss.anims.pause();
-      this.ctx.player.sprite.anims.pause();
-      this.ctx.scene.cameras.main.shake(HIT_SHOW_MS / 2, 0.01);
-      this.flash(culprit, HIT_SHOW_MS);
-    } catch {
-      // the looks are extra: the timers above end the run regardless
-    }
-  }
-
-  /** What hit the roach blinks white for a moment. */
-  private flash(culprit: Phaser.GameObjects.Components.Tint[], ms: number): void {
-    const blinks = Math.max(1, Math.round(ms / FLASH_BLINK_MS));
-    for (let i = 0; i <= blinks; i++) {
-      this.ctx.scene.time.delayedCall(i * FLASH_BLINK_MS, () => {
-        // Inside the scene's clock: a throw here would stall every timer after it, the fight's own included
-        try {
-          for (const obj of culprit) {
-            if (!(obj as unknown as Phaser.GameObjects.GameObject).active) continue;
-            // White where tints draw (WebGL), and a blink of its alpha everywhere (the canvas renderer ignores tints)
-            const lit = i % 2 === 0 && i < blinks;
-            if (lit) obj.setTintFill(0xffffff);
-            else obj.clearTint();
-            (obj as unknown as Phaser.GameObjects.Components.Alpha).setAlpha(lit || i === blinks ? 1 : 0.3);
-          }
-        } catch {
-          // a blink lost is nothing
-        }
+    this.puff(p.x, p.y - 10, 10, 30);
+    if (can.land === 'spot') {
+      can.sprite!.setFrame(eksFrame('mine', 0)).setPosition(p.x, p.y).setDepth(DEPTH.PICKUPS + 1);
+      t.sprite = can.sprite;
+      can.sprite = null;
+      this.stepAt(t.at, () => {
+        if (t.gone) return;
+        this.sfx(SFX.hiss, 0.5);
+        t.gas = scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame('cloud')).setScale(S).setDepth(DEPTH.PICKUPS + 1);
       });
+      return;
     }
+    can.sprite?.destroy();
+    can.sprite = null;
+    t.sprite = scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame('cloud')).setScale(S).setDepth(DEPTH.PICKUPS + 1);
   }
 
-  private dodged(lane: Lane): void {
-    if (this.ctx.player.currentFloor === lane) return;
-    this.ctx.addScore(DODGE_SCORE);
-    this.popup(`+${DODGE_SCORE}`, '#ffdd00');
+  /** Where a cloud is along its lane now, px from the roach's spot (null before it lands). */
+  private cloudX(t: Threat): number | null {
+    if (!t.can || this.clock < t.fire) return null;
+    const x0 = t.can.to.x;
+    const sit = t.at - t.fire - ((x0 - CLOUD_HIT_PX) / CLOUD_ROLL) * 1000;
+    return this.clock < t.fire + sit ? x0 : x0 - ((this.clock - t.fire - sit) * CLOUD_ROLL) / 1000;
   }
 
-  private get exposed(): boolean {
-    return this.ctx.scene.time.now < this.exposedUntil;
-  }
-
-  /** Bullets: a canister in their lane pops; whatever reaches him hits the tank if it is open, or pings off the suit. */
-  private resolveBullets(): void {
-    const bullets = this.bullets.getChildren().slice() as Phaser.Physics.Arcade.Sprite[];
-    const right = this.ctx.scene.cameras.main.scrollX + this.ctx.scene.cameras.main.width + 50;
-    for (const bullet of bullets) {
-      if (!bullet.active) continue;
-      if (bullet.x > right) {
-        bullet.destroy();
-        continue;
-      }
-      const lane = bullet.getData('lane') as Lane;
-      // Where it was last frame too: a slow frame must not carry a bullet clean past a canister
-      const from = (bullet.getData('lastX') as number | undefined) ?? bullet.x;
-      bullet.setData('lastX', bullet.x);
-      const can = this.canisters.find(c => !c.landed && c.lane === lane
-        && c.x > from - INTERCEPT_PX && c.x < bullet.x + INTERCEPT_PX);
-      if (can) {
-        bullet.destroy();
-        this.shootDown(can);
-        continue;
-      }
-      if (bullet.x >= this.boss.x - BODY_HIT_PX) {
-        bullet.destroy();
-        if (this.exposed) this.tankHit();
-        else this.ping(bullet.x, bullet.y);
-      }
-    }
-  }
-
-  private shootDown(can: Canister): void {
-    this.canisters = this.canisters.filter(c => c !== can);
-    can.destroy();
-    this.unwarn(can.lands);
-    this.sfx(SFX.pop, 0.35);
-    this.puff(can.x, can.y, 8, 22);
-    this.ctx.addScore(CANISTER_SCORE);
-    this.popup(`ZESTRZELONY! +${CANISTER_SCORE}`, '#ffdd00');
-    can.onResolved?.();
-  }
-
-  private tankHit(): void {
-    if (this.state !== 'fighting') return;
-    const tank = this.tankPoint;
-    this.sfx(SFX.tankHit, 0.55);
-    this.puff(tank.x + 6, tank.y - 10, 5, 16);
-    this.sparks(tank.x - 10, tank.y, 4);
-    this.ctx.addScore(TANK_HIT_SCORE);
-    this.hp--;
-    this.ctx.updateBar(this.hp);
-    const third = TANK_HP / 3;
-    if (this.hp <= 0) {
-      this.defeat();
-    } else if (this.phaseIndex < 2 && this.hp <= TANK_HP - third * (this.phaseIndex + 1)) {
-      this.nextPhase();
-    } else if (!this.staggeredThisWindow && !this.stream && !this.pumped) {
-      // Caught between attacks, he reels
-      this.staggeredThisWindow = true;
-      const anim = this.boss.anims.getName();
-      if (anim === eksAnimKey('idle')) this.play('stagger', () => { if (this.state === 'fighting') this.play('idle'); });
-    }
-  }
-
-  /** A third of his tank gone: whatever he was doing stops, he staggers, and a faster phase begins after a breather. */
-  private nextPhase(): void {
-    this.token++;
-    this.unwarn();
-    this.dropHeld();
-    this.endStream(false);
-    this.pumped = false;
-    this.exposedUntil = 0;
-    this.phaseIndex++;
-    this.step = 0;
-    // What is still in the air or on a lane goes up in a harmless puff: the new phase starts on clean lanes
-    for (const can of this.canisters) {
-      this.puff(can.x, can.y, 6, 18);
-      can.destroy();
-    }
-    this.canisters = [];
-    for (const cloud of this.clouds) {
-      this.puff(cloud.x, cloud.sprite.y - 30, 8, 40);
-      cloud.destroy();
-    }
-    this.clouds = [];
-    this.sfx(SFX.vent, 0.6);
-    this.ctx.scene.cameras.main.shake(220, 0.01);
-    const token = this.token;
-    this.play('stagger', () => {
-      if (!this.live(token)) return;
-      this.play('idle');
-      this.delay(PHASE_BREATHER_MS, () => { if (this.live(token)) this.next(); });
-    });
-  }
-
-  private defeat(): void {
-    const { scene } = this.ctx;
-    this.state = 'victory';
-    this.token++;
-    this.unwarn();
-    this.dropHeld();
-    this.endStream(false);
-    for (const can of this.canisters) can.destroy();
-    this.canisters = [];
-    for (const cloud of this.clouds) {
-      cloud.resolved = true;
-      scene.tweens.add({ targets: cloud.sprite, alpha: 0, duration: FADE_MS });
-    }
-    this.clearBullets();
-    this.exposedUntil = 0;
-    scene.cameras.main.shake(400, 0.02);
-    this.sfx(SFX.defeatBurst, 0.6);
-    const tank = this.tankPoint;
-    this.puff(tank.x, tank.y, 18, 60);
-    this.play('defeat', () => {
-      this.sfx(SFX.lastPuff, 0.6);
-      this.sfx(SFX.victory, 0.7);
-      this.delay(DEFEAT_HOLD_MS, () => {
-        this.ctx.player.celebrate();
-        scene.tweens.add({ targets: this.boss, alpha: 0, duration: FADE_MS, onComplete: () => this.win() });
-      });
-    });
-  }
-
-  // ── The roach ─────────────────────────────────────────────────────
+  // ── The roach's gun ───────────────────────────────────────────────
 
   shoot(): void {
-    if (this.state !== 'fighting' || this.shootCooldown > 0) return;
-    this.shootCooldown = SHOOT_COOLDOWN;
+    if (!this.fighting || this.hitStop || this.clock - this.shotAt < SHOOT_MS) return;
+    this.shotAt = this.clock;
     const { scene, player } = this.ctx;
     const muzzle = player.shoot();
-    // The pistol's shot, as in Zlewiatan's fight: the same shell, speed and sound
-    const bullet = this.bullets.create(muzzle.x, muzzle.y, 'boss-shell') as Phaser.Physics.Arcade.Sprite;
-    bullet.setData('lane', player.currentFloor).setScale(0.4).setDepth(DEPTH.GODRAY);
-    (bullet.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    bullet.setVelocityX(BULLET_SPEED);
+    const sprite = scene.add.image(muzzle.x, muzzle.y, 'boss-shell').setScale(BULLET_SCALE).setDepth(DEPTH.GODRAY);
+    this.bullets.push({ sprite, t0: this.clock, lane: player.currentFloor, y0: muzzle.y, pressured: this.pressured() });
     this.sfx(SFX.shot, 0.5);
     gunfire(scene, muzzle, player.sprite.depth);
     this.recoil = RECOIL_PX;
   }
 
-  /** The dash: a lunge ahead and back, untouchable while it lasts; the run's cooldown and the button's sweep. */
+  /** Bullets: a canister coming down on their lane is met (they curve up into it), else his tank. */
+  private updateBullets(): void {
+    const right = this.ctx.scene.cameras.main.scrollX + this.ctx.scene.cameras.main.width + 50;
+    for (const b of this.bullets) {
+      const x = MUZZLE_DX + ((this.clock - b.t0) * BULLET_SPEED) / 1000;
+      const prevX = b.lastX ?? x;
+      b.lastX = x;
+      // Flat along its lane at the pistol's height: it meets a canister only while that glides in the same line, as
+      // it crosses it (one high in its arc it passes under)
+      const can = this.cans.find(c => c.canShoot && !c.shot && !c.landed && c.lane === b.lane
+        && inLine(this.clock - c.release, c.th) && (cx => x >= cx - INTERCEPT_PX && prevX <= cx + INTERCEPT_PX)(
+          canisterAt(this.clock - c.release, c.th, c.from, c.to).x));
+      if (can) {
+        b.t0 = -Infinity;
+        this.shootDown(can);
+        if (this.over || this.hitStop) return;
+        continue;
+      }
+      b.sprite.setPosition(this.holdX + x, b.y0);
+      const hx = this.himX;
+      if (hx - BODY_PX > MUZZLE_DX && x >= hx - BODY_PX) {
+        b.t0 = -Infinity;
+        this.hit('bullet', b.pressured || this.pressured(), b.sprite.x, b.sprite.y);
+        if (this.over || this.hitStop) return;
+      } else if (b.sprite.x > right) b.t0 = -Infinity;
+    }
+    for (const b of this.bullets.filter(b => b.t0 === -Infinity)) b.sprite.destroy();
+    this.bullets = this.bullets.filter(b => b.t0 !== -Infinity);
+  }
+
+  /** A canister shot out of the air: it pops, and its gas bursts over him. */
+  private shootDown(can: Can): void {
+    const { scene } = this.ctx;
+    can.shot = true;
+    can.threat.gone = true;
+    const at = can.sprite ? { x: can.sprite.x, y: can.sprite.y } : this.world(can.to);
+    can.sprite?.destroy();
+    can.sprite = null;
+    can.trail?.destroy();
+    can.trail = null;
+    this.sfx(SFX.shotDown, 0.5);
+    this.sfx(SFX.parry, 0.7);
+    glint(scene, at.x, at.y, 0xffffff, 30, 260);
+    this.puff(at.x, at.y, 8, 22);
+    this.streak(at, this.tank, GAS_GLOW);
+    this.gasOverHim();
+    this.reel();
+    this.hit('parry', false, this.tank.x, this.tank.y);
+  }
+
+  /** His own gas bursting over him, a moment. */
+  private gasOverHim(): void {
+    const { scene } = this.ctx;
+    this.ownGas?.sprite.destroy();
+    const sprite = scene.add.sprite(this.boss.x - 10, this.ctx.floorBottomY - 60, EKS_TEXTURE, eksFrame('cloud'))
+      .setScale(S).setDepth(DEPTH.OBSTACLES + 1.5);
+    this.ownGas = { sprite, until: this.clock + OWN_GAS_MS };
+    this.puff(this.tank.x, this.tank.y, 12, 50);
+  }
+
+  // ── The roach's dash ──────────────────────────────────────────────
+
   dash(): void {
-    if (this.state !== 'fighting') return;
-    const { player } = this.ctx;
-    if (!player.dashReady || player.isDashing) return;
+    const { player, scene } = this.ctx;
+    if (!this.fighting || this.lunge || this.hitStop || !player.dashReady || player.isDashing) return;
     player.startDash();
-    this.lungeStart = this.ctx.scene.time.now;
-    // A dash at a cloud rolling in on its lane goes through it, even pressed a beat early: the lunge carries the roach
-    // into it, and it is behind the roach before the roach is back
-    for (const cloud of this.clouds) {
-      const gap = cloud.x - player.x;
-      if (cloud.lane === player.currentFloor && !cloud.resolved && gap > -CLOUD_HIT_PX && gap < DASH_THROUGH_REACH) {
-        cloud.dashedThrough = true;
+    this.prompt = null;
+    this.hideKeycap();
+    const lane = player.currentFloor;
+    // Him charging, the chain or the grenade, met as they come at the roach: the lunge runs into them
+    const passing = (t: Threat) => (t.kind === 'roller' || t.kind === 'chain' || t.kind === 'him')
+      && this.clock >= t.fire && this.clock >= t.at - MEET_MS && this.clock <= t.at + t.lasts;
+    const meet = this.threats.filter(t => !t.gone && !t.passed && t.lane === lane && passing(t)).sort((a, b) => a.at - b.at)[0];
+    if (meet) {
+      this.lunge = { t0: this.clock, reach: 40, hitsHim: false, arrived: false };
+      if (meet.kind === 'him') {
+        this.stepAt(this.clock + LUNGE_OUT_MS, () => this.crash());
+      } else {
+        meet.gone = true;
+        const sprite = meet.kind === 'roller' ? this.grenade?.sprite : this.chain?.sprite;
+        if (meet.kind === 'roller') this.grenade = null;
+        if (meet.kind === 'chain' && this.chain) {
+          for (const t of this.threats) if (t.kind === 'chain') t.gone = true;
+          this.chain.trail.destroy();
+          this.chain = null;
+        }
+        if (sprite) this.flyers.push({ sprite, x: sprite.x, y: sprite.y, t0: this.clock + LUNGE_OUT_MS, ms: RETURN_MS, source: meet.kind === 'chain' ? 'parry' : 'blowback' });
+      }
+      this.sfx(SFX.parry, 0.7);
+      return;
+    }
+    // The first thing in reach on its lane takes the lunge: a cloud or a mine, blown back into him
+    const met = this.threats.filter(t => !t.gone && !t.passed && t.lane === lane && (
+      (t.kind === 'mine' && this.clock >= t.fire && this.clock < t.until)
+      || (t.kind === 'cloud' && (x => x !== null && x > -CLOUD_HIT_PX && x <= LUNGE_REACH)(this.cloudX(t)))));
+    if (met.length) {
+      const near = Math.min(...met.map(t => (t.kind === 'mine' ? MINE_AT : this.cloudX(t)!)));
+      this.lunge = { t0: this.clock, reach: Math.max(20, near), hitsHim: false, arrived: false };
+      for (const t of met) {
+        t.gone = true;
+        if (t.kind === 'mine') this.director.mineGone();
+        const sprite = t.sprite;
+        t.sprite = null;
+        t.gas?.destroy();
+        t.gas = null;
+        if (sprite) this.flyers.push({ sprite, x: sprite.x, y: sprite.y, t0: this.clock + LUNGE_OUT_MS, ms: RETURN_MS, source: 'blowback' });
+      }
+      this.sfx(SFX.parry, 0.6);
+      return;
+    }
+    const reaches = bodyX(this.director.pos) <= LUNGE_REACH && !this.director.finale && !this.charge;
+    const reach = reaches ? this.bx - BODY_PX - LUNGE_SHORT : LUNGE_REACH;
+    this.lunge = { t0: this.clock, reach, hitsHim: reaches, arrived: false };
+    if (!reaches) scene.cameras.main.shake(SHAKE_MS / 3, SHAKE / 4);
+  }
+
+  /** The roach's offset along its lunge; on arriving, a knock, a shove or nothing. */
+  private updateLunge(): number {
+    const lunge = this.lunge;
+    if (!lunge) return 0;
+    const t = this.clock - lunge.t0;
+    if (t >= LUNGE_OUT_MS && !lunge.arrived) {
+      lunge.arrived = true;
+      this.arrive(lunge);
+      if (this.over) return 0;
+    }
+    if (t >= DASH_MS) {
+      this.lunge = null;
+      return 0;
+    }
+    return lungeOffset(t, lunge.reach);
+  }
+
+  private arrive(lunge: { hitsHim: boolean; reach: number }): void {
+    const { scene } = this.ctx;
+    if (!lunge.hitsHim) {
+      // A lunge into empty air (a cloud or mine it met is sent back on its own)
+      if (lunge.reach >= LUNGE_REACH) {
+        this.sfx(SFX.whiff, 0.3);
+        this.combo = 0;
+      }
+      return;
+    }
+    const knock = this.knock;
+    if (knock && !knock.done && this.clock >= knock.from && this.clock < knock.to) {
+      knock.done = true;
+      // The wand flies aside: the sweep is off, he reels, the tank hisses open
+      this.gen++;
+      for (const t of this.threats) {
+        if (t.step !== knock.step || t.kind !== 'stream') continue;
+        t.gone = true;
+        t.stream?.destroy();
+        t.stream = null;
+      }
+      if (!this.pressured()) this.director.pressureOpened();
+      this.pressure = [{ from: this.clock, to: this.clock + KNOCK_OPEN_MS }];
+      this.stageFree = this.clock + STAGGER_MS + KNOCK_OPEN_MS;
+      this.play('idle', null);
+      this.reel(STAGGER_MS + 300);
+      glint(scene, this.boss.x + EKS_POINTS.nozzleTop.x * S, this.ctx.floorBottomY + EKS_POINTS.nozzleTop.y * S, 0xffffff, 34, 320);
+      this.popupAt(this.boss.x, this.ctx.floorBottomY - 170, 'WYTRĄCONY!', '#7fe0ff', 16);
+      this.sfx(SFX.knock, 0.8);
+      this.sfx(SFX.vent, 0.6);
+      this.hit('knock', false, this.tank.x, this.tank.y);
+      return;
+    }
+    // A shove: he is sent reeling back home
+    this.move = { from: this.bx, to: DIST[FAR], t0: this.clock, ms: SHOVE_MS, pos: null };
+    this.director.moved(FAR);
+    this.reel(SHOVE_MS);
+    this.popupAt(this.boss.x, this.ctx.floorBottomY - 170, 'ODEPCHNIĘTY!', '#ffb070', 12);
+    this.sfx(SFX.shove, 0.7);
+    this.hit('shove', false, this.boss.x - 60, this.ctx.floorBottomY - 60);
+  }
+
+  /** Clouds and mines sent back fly into his tank, and hit on arriving. */
+  private updateFlyers(): void {
+    for (const f of this.flyers) {
+      const k = Phaser.Math.Clamp((this.clock - f.t0) / f.ms, 0, 1);
+      const to = this.tank;
+      f.sprite.setPosition(Phaser.Math.Linear(f.x, to.x, k), Phaser.Math.Linear(f.y, to.y, k * k));
+      if (k < 1) continue;
+      f.sprite.destroy();
+      f.ms = -1;
+      this.gasOverHim();
+      this.reel();
+      this.popupAt(this.tank.x, this.tank.y - 40, f.source === 'parry' ? 'ODDANY!' : 'Z POWROTEM!', '#c8ff7a', 12);
+      this.hit(f.source, false, to.x, to.y);
+      if (this.over || this.hitStop) return;
+    }
+    this.flyers = this.flyers.filter(f => f.ms >= 0);
+  }
+
+  /** His middle along the lane from the roach's spot, wherever he is (charging, walking, home). */
+  private get himX(): number { return this.bx; }
+
+  // ── His charge ────────────────────────────────────────────────────
+
+  /**
+   * He braces (crouched, on the lane he will charge: up onto the top ledge if that one), charges along it past the
+   * roach and off the screen, turns onto the other lane and charges home along it. A dash into him as he passes sends
+   * him reeling home, the tank open.
+   */
+  private startCharge(timed: Timed, at: number, made: Threat[]): void {
+    const c = timed.charge!;
+    const out = made[0].lane;
+    this.stepAt(at, () => {
+      this.charge = { t0: this.clock, c, out, back: out === 'top' ? 'bottom' : 'top' };
+      this.play('charge', null);
+      this.sfx(SFX.pump, 0.6, 0.7);
+      glint(this.ctx.scene, this.boss.x, this.laneY(out) - 120, 0xff5a3c, 26, 320);
+    });
+    this.stepAt(at + c.go, () => this.sfx(SFX.knock, 0.6));
+    this.stepAt(at + c.back, () => this.sfx(SFX.knock, 0.6));
+  }
+
+  private drawCharge(): void {
+    const ch = this.charge;
+    if (!ch) return;
+    const ms = this.clock - ch.t0;
+    if (ms >= ch.c.home) {
+      this.endCharge();
+      return;
+    }
+    const at = chargeAt(ms, ch.c);
+    this.bx = at.x;
+    const lane = at.leg === 'back' ? ch.back : ch.out;
+    const k = at.leg === 'brace' ? Phaser.Math.Clamp(ms / 300, 0, 1) : 1;
+    this.boss.y = Phaser.Math.Linear(this.ctx.floorBottomY, this.laneY(lane), k);
+    this.boss.setFlipX(at.leg === 'back');
+  }
+
+  private endCharge(): void {
+    this.charge = null;
+    this.boss.setFlipX(false);
+    this.boss.y = this.ctx.floorBottomY;
+    this.bx = DIST[FAR];
+    this.director.moved(FAR);
+    this.play('idle', null);
+  }
+
+  /** A dash into him as he charges past: he is thrown home reeling, the rest of the charge is off, the tank open. */
+  private crash(): void {
+    if (!this.charge) return;
+    for (const t of this.threats) if (t.kind === 'him') t.gone = true;
+    this.charge = null;
+    this.boss.setFlipX(false);
+    this.boss.y = this.ctx.floorBottomY;
+    this.move = { from: Math.max(this.bx, 60), to: DIST[FAR], t0: this.clock, ms: SHOVE_MS * 2, pos: null };
+    this.director.moved(FAR);
+    if (!this.pressured()) this.director.pressureOpened();
+    this.pressure = [{ from: this.clock, to: this.clock + KNOCK_OPEN_MS }];
+    this.stageFree = this.clock + STAGGER_MS + KNOCK_OPEN_MS;
+    this.play('idle', null);
+    this.reel(STAGGER_MS + 300);
+    glint(this.ctx.scene, this.ctx.player.x + 40, this.ctx.player.y - 30, 0xffffff, 34, 320);
+    this.popupAt(this.holdX + 120, this.ctx.floorBottomY - 170, 'ZDERZENIE!', '#7fe0ff', 16);
+    this.sfx(SFX.knock, 0.9);
+    this.hit('crash', false, this.ctx.player.x + 40, this.ctx.player.y - 30);
+  }
+
+  // ── The bouncing grenade ──────────────────────────────────────────
+
+  /** Like Pani Lodzia's curler: three landings on a steady beat, each shadowed ahead; the third settles it, with a
+   * flash and a bigger puff, on the roach's lane, and it rolls at the roach. */
+  private startBounce(timed: Timed, at: number, made: Threat[], roachLane: Lane): void {
+    const bounces = timed.bounces!;
+    const threat = made.find(t => t.kind === 'roller')!;
+    this.stepAt(at, () => this.play('lob', 'rest'));
+    this.stepAt(at + LOB_RELEASE_MS, () => {
+      const p = this.world(releasePoint(this.director.pos));
+      const sprite = this.ctx.scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame('canister')).setScale(S).setDepth(DEPTH.PICKUPS + 2);
+      this.grenade = { sprite, t0: at, bounces, lanes: bounces.map(b => resolve(b.lane, roachLane)), threat };
+      this.sfx(SFX.throw, 0.5);
+    });
+    bounces.forEach((b, k) => this.stepAt(at + b.at, () => {
+      const g = this.grenade;
+      if (!g) return;
+      const last = k === bounces.length - 1;
+      this.sfx(SFX.land, last ? 0.8 : 0.5);
+      const w = this.world({ x: b.x, y: LANE_Y[g.lanes[k]] });
+      this.puff(w.x, w.y - 6, last ? 8 : 4, last ? 26 : 14);
+      if (last) glint(this.ctx.scene, w.x, w.y - 12, GAS_GLOW, 22, 260);
+    }));
+  }
+
+  private drawGrenade(): void {
+    const g = this.grenade;
+    if (!g) return;
+    if (g.threat.gone && !this.flyers.some(f => f.sprite === g.sprite)) {
+      g.sprite.destroy();
+      this.grenade = null;
+      return;
+    }
+    const ms = this.clock - g.t0;
+    const b = g.bounces;
+    const last = b.length - 1;
+    const pt = (k: number) => ({ x: b[k].x, y: LANE_Y[g.lanes[k]] - 6 });
+    let pos: { x: number; y: number };
+    if (ms < b[0].at) {
+      pos = canisterAt(ms - LOB_RELEASE_MS, { flight: b[0].at - LOB_RELEASE_MS, glide: 0, land: 'ahead' }, releasePoint(this.director.pos), pt(0));
+    } else if (ms < b[last].at) {
+      const k = b.findIndex(x => ms < x.at) - 1;
+      const f = (ms - b[k].at) / (b[k + 1].at - b[k].at);
+      const a = pt(k);
+      const z = pt(k + 1);
+      pos = { x: Phaser.Math.Linear(a.x, z.x, f), y: Phaser.Math.Linear(a.y, z.y, f) - 50 * Math.sin(Math.PI * f) };
+    } else {
+      // Settled: rolling at the roach, reaching it in the middle of its touch, and on off the screen
+      const t = g.threat;
+      const settle = b[last].at + g.t0;
+      const f = (this.clock - settle) / Math.max(1, t.at + t.lasts / 2 - settle);
+      pos = { x: b[last].x * (1 - f), y: LANE_Y[g.lanes[last]] - 6 };
+    }
+    const w = this.world(pos);
+    g.sprite.setPosition(w.x, w.y).setFrame(eksFrame('canister', frameAt('canister', this.clock)));
+    if (pos.x < -400) {
+      g.sprite.destroy();
+      this.grenade = null;
+    }
+  }
+
+  /** The grenade's next landing, shadowed on its spot from the bounce before. */
+  private grenadeSpot(): Spot | null {
+    const g = this.grenade;
+    if (!g) return null;
+    const ms = this.clock - g.t0;
+    const k = g.bounces.findIndex(b => ms < b.at);
+    if (k < 0) return null;
+    const from = k === 0 ? LOB_RELEASE_MS : g.bounces[k - 1].at;
+    const x = this.holdX + g.bounces[k].x;
+    return { x0: x - 20, x1: x + 20, y: this.laneY(g.lanes[k]) - 1, progress: (ms - from) / (g.bounces[k].at - from) };
+  }
+
+  // ── The chained canister ──────────────────────────────────────────
+
+  /** Swung off his hand along the roach's lane, under the pistol's line, round the far end and back along the other. */
+  private startChain(timed: Timed, at: number, roachLane: Lane): void {
+    const c = timed.chain!;
+    this.stepAt(at, () => this.play('lob', 'rest'));
+    this.stepAt(at + c.go, () => {
+      const sprite = this.ctx.scene.add.sprite(0, 0, EKS_TEXTURE, eksFrame('canister')).setScale(S).setDepth(DEPTH.PICKUPS + 2);
+      this.chain = {
+        sprite, trail: new Trail(this.ctx.scene, GAS_GLOW, 260, 8, DEPTH.PICKUPS + 1), t0: at, c, out: roachLane,
+        back: roachLane === 'top' ? 'bottom' : 'top',
+      };
+      this.sfx(SFX.throw, 0.6);
+    });
+  }
+
+  private drawChain(): void {
+    const ch = this.chain;
+    if (!ch) return;
+    const at = chainAt(this.clock - ch.t0, ch.c);
+    if (!at) {
+      ch.sprite.destroy();
+      ch.trail.destroy();
+      this.chain = null;
+      return;
+    }
+    const w = this.world({ x: at.x, y: LANE_Y[at.out ? ch.out : ch.back] - 10 });
+    ch.sprite.setPosition(w.x, w.y).setFrame(eksFrame('canister', frameAt('canister', this.clock)));
+    ch.trail.push(w.x, w.y);
+  }
+
+  // ── Hits on him ───────────────────────────────────────────────────
+
+  private get tank(): { x: number; y: number } {
+    return { x: this.boss.x + EKS_POINTS.tank.x * S, y: this.ctx.floorBottomY + EKS_POINTS.tank.y * S };
+  }
+
+  /** He reels: his stagger over whatever he is doing, which goes on underneath. */
+  private reel(ms = STAGGER_MS): void {
+    if (this.clock >= this.reelUntil) this.reelStart = this.clock;
+    this.reelUntil = Math.max(this.reelUntil, this.clock + ms);
+  }
+
+  /** A hit lands: the bar, a number, sparks, the combo, a hit-stop for the big ones; and what it did to the fight. */
+  private hit(source: HitSource, pressured: boolean, x: number, y: number): void {
+    if (!this.fighting) return;
+    const r = this.director.hit(source, pressured);
+    if (r.dealt <= 0) return;
+    const { scene } = this.ctx;
+    this.ctx.updateBar(this.director.hp);
+    this.combo++;
+    const hot = r.mult > 1;
+    const big = source !== 'bullet';
+    this.popupAt(x, y - 24, hot ? `-${r.dealt} x${r.mult}` : `-${r.dealt}`, big ? '#7fe0ff' : hot ? '#ffe14a' : '#ffb070', big ? 16 : hot ? 12 : 9);
+    this.score(SCORE[source]);
+    getFx(scene).play('spark', x, y, { depth: DEPTH.POPUP - 1 });
+    if (source === 'bullet') {
+      this.sfx(hot ? SFX.tankHot : SFX.tank, hot ? 0.6 : 0.45);
+      if (hot) {
+        sparkBurst(scene, x, y, PRESSURE_GLOW, 6, 1, 30);
+        this.puff(x + 6, y - 10, 3, 12);
+        this.freeze(FREEZE_PRESSURE_MS);
+      }
+    } else {
+      sparkBurst(scene, x, y, GAS_GLOW, 14, 1, 60);
+      scene.cameras.main.shake(SHAKE_MS, SHAKE);
+      this.freeze({ parry: FREEZE_PARRY_MS, blowback: FREEZE_BLOWBACK_MS, shove: FREEZE_SHOVE_MS, knock: FREEZE_KNOCK_MS, crash: FREEZE_KNOCK_MS, bullet: 0 }[source]);
+    }
+    if (r.rage !== null && !r.won) {
+      // Rage: a step faster, the tank whistling higher each time
+      this.popupAt(this.boss.x, this.ctx.floorBottomY - 200, 'SZYBCIEJ!', '#ff5a3c', 16);
+      this.sfx(SFX.hiss, 0.8, 1 + (1 - r.rage) * 2.5);
+      this.puff(this.tank.x, this.tank.y - 20, 10, 40);
+    }
+    if (r.won) this.defeat();
+    else if (r.phaseStarted !== null || r.finale) this.nextStage(r.finale);
+    else if (r.vents) this.pressure = this.pressure.map(w => ({ from: w.from, to: Math.min(w.to, this.clock) }));
+  }
+
+  /** A third of his tank gone, or the leak: the stage clears, he reels, and what comes next is new. */
+  private nextStage(finale: boolean): void {
+    const { scene } = this.ctx;
+    this.clearStage();
+    this.freeze(FREEZE_PHASE_MS);
+    this.stageFree = this.clock + PHASE_BREATHER_MS;
+    this.reel(STAGGER_MS * 2);
+    scene.cameras.main.shake(SHAKE_MS * 2, SHAKE * 1.5);
+    this.sfx(SFX.vent, 0.8);
+    this.puff(this.tank.x, this.tank.y, 16, 50);
+    const word = finale ? 'CIEKNIE!' : this.director.phase === 1 ? 'PODCHODZI!' : 'POMPUJE!';
+    this.popupAt(this.boss.x, this.ctx.floorBottomY - 190, word, '#ff9a3c', 18);
+    // Leaking, he backs off out of reach
+    if (finale) this.move = { from: this.bx, to: DIST[FAR], t0: this.clock, ms: SHOVE_MS * 2, pos: null };
+  }
+
+  /** Everything he had going goes up in a harmless puff: the next stage starts on clean lanes. */
+  private clearStage(): void {
+    this.gen++;
+    for (const t of this.threats) {
+      if (!t.gone && !t.passed) {
+        const s = t.sprite ?? t.can?.sprite;
+        if (s) this.puff(s.x, s.y - 20, 6, 24);
+      }
+      this.dropThreat(t);
+    }
+    this.threats = [];
+    for (const c of this.cans) this.dropCan(c);
+    this.cans = [];
+    this.pressure = [];
+    this.knock = null;
+    this.dropHeld();
+    this.prompt = null;
+    this.hideKeycap();
+    for (const lane of ['top', 'bottom'] as Lane[]) {
+      this.zones[lane].hide();
+      this.mineZones[lane].hide();
+    }
+    this.shadow.hide();
+    if (this.charge) this.endCharge();
+    this.grenade?.sprite.destroy();
+    this.grenade = null;
+    if (this.chain) {
+      this.chain.sprite.destroy();
+      this.chain.trail.destroy();
+      this.chain = null;
+    }
+    if (this.move?.pos !== null && this.move?.pos !== undefined) this.director.moved(this.move.pos);
+    if (this.anim.anim !== 'walk') this.play('idle', null);
+  }
+
+  private dropThreat(t: Threat): void {
+    t.gone = true;
+    t.stream?.destroy();
+    t.stream = null;
+    t.sprite?.destroy();
+    t.sprite = null;
+    t.gas?.destroy();
+    t.gas = null;
+  }
+
+  private dropCan(c: Can): void {
+    c.shot = true;
+    c.sprite?.destroy();
+    c.sprite = null;
+    c.trail?.destroy();
+    c.trail = null;
+  }
+
+  private defeat(): void {
+    const { scene } = this.ctx;
+    this.state = 'victory';
+    this.clearStage();
+    for (const b of this.bullets) b.sprite.destroy();
+    this.bullets = [];
+    this.freeze(FREEZE_PHASE_MS);
+    scene.cameras.main.shake(400, 0.02);
+    this.sfx(SFX.burst, 0.7);
+    this.puff(this.tank.x, this.tank.y, 18, 60);
+    this.popupAt(this.boss.x, this.ctx.floorBottomY - 190, 'PĘKŁ!', '#ff9a3c', 20);
+    this.reelUntil = -1;
+    this.play('defeat', null);
+    const ms = (EKS_ANIMS.defeat.frames * 1000) / EKS_ANIMS.defeat.fps;
+    this.atMs(this.clock + ms, () => {
+      this.sfx(SFX.mask, 0.6);
+      this.sfx(SFX.victory, 0.7);
+    });
+    this.atMs(this.clock + ms + DEFEAT_HOLD_MS, () => {
+      this.ctx.player.celebrate();
+      scene.tweens.add({ targets: this.boss, alpha: 0, duration: FADE_MS, onComplete: () => this.win() });
+    });
+  }
+
+  // ── What reaches the roach ────────────────────────────────────────
+
+  /** Whether the roach is on this lane: pressed for it and drawn on it, so a hit is never on a lane it visibly left. */
+  private onLane(lane: Lane): boolean {
+    const { player, floorTopY, floorBottomY } = this.ctx;
+    const drawn: Lane = player.sprite.y < (floorTopY + floorBottomY) / 2 ? 'top' : 'bottom';
+    return player.currentFloor === lane && drawn === lane;
+  }
+
+  private reachRoach(): void {
+    const { player } = this.ctx;
+    for (const t of this.threats) {
+      if (t.gone || t.passed) continue;
+      if (t.kind === 'mine') {
+        if (this.clock >= t.until) {
+          t.passed = true;
+          this.fizzle(t);
+          continue;
+        }
+        if (this.clock >= t.at && this.onLane(t.lane) && !player.isDashing && !player.inMoultGrace) {
+          this.struck([t.gas, t.sprite].filter((s): s is Phaser.GameObjects.Sprite => !!s));
+          return;
+        }
+        continue;
+      }
+      if (this.clock < t.at) continue;
+      if (!t.reached) {
+        t.reached = true;
+        this.closeCall(t);
+      }
+      if (this.clock >= t.at + t.lasts) {
+        t.passed = true;
+        if (t.kind === 'cloud' && t.sprite) this.rollOff(t);
+        this.dodged(t);
+        continue;
+      }
+      if (this.onLane(t.lane) && !player.isDashing && !player.inMoultGrace) {
+        const culprit = t.stream ? t.stream.parts : t.kind === 'him' ? [this.boss]
+          : t.kind === 'roller' ? [this.grenade?.sprite] : t.kind === 'chain' ? [this.chain?.sprite] : [t.sprite];
+        this.struck(culprit.filter((o): o is Phaser.GameObjects.Sprite | Phaser.GameObjects.Image => !!o));
+        return;
       }
     }
   }
 
-  // ── Looks ─────────────────────────────────────────────────────────
+  /** A mine's gas thins out and it is gone. */
+  private fizzle(t: Threat): void {
+    const objs = [t.sprite, t.gas].filter((s): s is Phaser.GameObjects.Sprite => !!s);
+    t.sprite = t.gas = null;
+    for (const s of objs) this.ctx.scene.tweens.add({ targets: s, alpha: 0, duration: 300, onComplete: () => s.destroy() });
+  }
 
-  /** A sound, never in the way: one that fails to play must not stop the fight, least of all the way to game over. */
-  private sfx(key: string, volume: number): void {
-    try {
-      this.ctx.audio.playSfx(key, volume);
-    } catch {
-      // a missing or undecodable sound: play on in silence
+  /** A cloud past the roach rolls on off the screen, harmless now. */
+  private rollOff(t: Threat): void {
+    const s = t.sprite!;
+    t.sprite = null;
+    this.effects.push(s);
+    this.ctx.scene.tweens.add({ targets: s, x: s.x - 260, alpha: 0, duration: 1100, onComplete: () => {
+      this.effects = this.effects.filter(o => o !== s);
+      s.destroy();
+    } });
+  }
+
+  private dodged(t: Threat): void {
+    if (this.ctx.player.currentFloor !== t.lane) this.ctx.addScore(DODGE_SCORE);
+  }
+
+  /** Out of a lane just before its stream got there: "NA STYK!", as in the run. */
+  private closeCall(t: Threat): void {
+    const { player, scene } = this.ctx;
+    const hop = player.lastHop;
+    if (t.kind !== 'stream' || player.currentFloor === t.lane || !hop || hop.from !== t.lane) return;
+    if (scene.time.now - hop.at > CLOSE_CALL_MS) return;
+    this.sfx(SFX.closeCall, 0.6);
+    this.ctx.addScore(NEAR_MISS_SCORE);
+    this.popup(`NA STYK! +${NEAR_MISS_SCORE}`, '#7fe0ff');
+  }
+
+  /**
+   * Something got the roach. The moult takes it: the world holds a blink and the fight goes on. Otherwise the world
+   * holds only on the impact, then the death plays at once, what hit it still flashing over it.
+   */
+  private struck(culprit: Phaser.GameObjects.Components.Alpha[]): void {
+    const { scene } = this.ctx;
+    const moulted = this.ctx.survivesHit();
+    this.combo = 0;
+    this.sfx(SFX.struck, 0.8);
+    scene.cameras.main.shake(SHAKE_MS * 2, SHAKE * 2);
+    this.hideKeycap();
+    this.hitStop = { until: scene.time.now + (moulted ? MOULT_STOP_MS : KILL_STOP_MS), culprit, deadly: !moulted };
+    if (!moulted) this.culprit = culprit;
+  }
+
+  private holdHitStop(): boolean {
+    const stop = this.hitStop;
+    if (!stop) return false;
+    const now = this.ctx.scene.time.now;
+    this.blink(stop.culprit, now);
+    if (now < stop.until) return true;
+    this.hitStop = null;
+    if (stop.deadly) {
+      this.lose('eksterminator');
+      return true;
+    }
+    for (const c of stop.culprit) c.setAlpha(1);
+    this.lastNow = now;
+    return false;
+  }
+
+  private blink(objs: Phaser.GameObjects.Components.Alpha[], now: number): void {
+    const on = Math.floor(now / BLINK_MS) % 2 === 0;
+    for (const c of objs) {
+      if ((c as unknown as Phaser.GameObjects.GameObject).active) c.setAlpha(on ? 1 : 0.15);
     }
   }
 
-  private play(anim: EksAnim, then?: () => void): void {
-    const key = eksAnimKey(anim);
-    this.boss.play(key);
-    if (then) this.boss.once(`${Phaser.Animations.Events.ANIMATION_COMPLETE_KEY}${key}`, () => {
-      if (this.state !== 'done') then();
-    });
+  // ── Drawing ───────────────────────────────────────────────────────
+
+  private play(anim: EksAnim, then: Anim['then']): void {
+    if (this.state === 'victory' && anim !== 'defeat') return;
+    this.anim = { anim, start: this.clock, then };
   }
 
-  private laneY(lane: Lane): number { return lane === 'top' ? this.ctx.floorTopY : this.ctx.floorBottomY; }
-
-  private get tankPoint(): { x: number; y: number } {
-    return { x: this.boss.x + EKS_POINTS.tank.x * S, y: this.boss.y + EKS_POINTS.tank.y * S };
-  }
-
-  /** While the tank is under pressure, a ring pulses round it and it leaks: shoot now. */
-  private drawTankRing(): void {
-    const g = this.ring;
-    g.clear();
-    if (!this.exposed || this.state !== 'fighting') return;
-    const { x, y } = this.tankPoint;
-    const t = this.ctx.scene.time.now;
-    const pulse = (Math.sin(t / 90) + 1) / 2;
-    g.lineStyle(2, TANK_RING, 0.45 + 0.45 * pulse).strokeCircle(x, y, 34 + 4 * pulse);
-    g.lineStyle(2, TANK_RING, 0.25 * pulse).strokeCircle(x, y, 44 + 6 * pulse);
-    if (Math.random() < 0.25) this.puff(x + 8, y - 44, 1, 8);
-  }
-
-  /** The lane the stream is about to hold glows red along its edge: all of it is closed. */
-  private warn(lane: Lane): void {
-    this.unwarn(lane);
-    const { scene } = this.ctx;
+  private draw(): void {
+    const { scene, floorBottomY } = this.ctx;
+    this.drawCharge();
+    if (this.walkScreenX === null) this.boss.x = this.holdX + this.bx;
+    if (!this.charge) this.boss.y = floorBottomY;
+    this.drawGrenade();
+    this.drawChain();
+    this.drawBoss();
+    // The streams, the clouds rolling, the mines and their stretch, the landing shadows
     const cam = scene.cameras.main;
-    const y = this.laneY(lane);
-    const g = scene.add.graphics().setScrollFactor(0).setDepth(DEPTH.CONTACT_SHADOW);
-    g.fillStyle(WARN_SPRAY, 0.3).fillRect(0, y - WARN_GLOW_PX, cam.width, WARN_GLOW_PX);
-    g.fillStyle(WARN_SPRAY, 1).fillRect(0, y - 2, cam.width, WARN_PX);
-    g.setAlpha(0.4);
-    const pulse = scene.tweens.add({ targets: g, alpha: 0.85, duration: WARN_PULSE_MS, yoyo: true, repeat: -1 });
-    this.warnings.set(lane, { g, pulse, kind: 'spray' });
+    const zone: Record<Lane, 'warn' | 'kill' | null> = { top: null, bottom: null };
+    for (const t of this.threats) {
+      if (t.gone) continue;
+      if (t.kind === 'stream') {
+        t.stream?.update(this.clock);
+        if (this.clock >= Math.min(t.windup, t.cue) && this.clock < t.fire + t.lasts) {
+          zone[t.lane] = this.clock >= t.fire ? 'kill' : zone[t.lane] ?? 'warn';
+        }
+      } else if (t.kind === 'him' && !t.passed) {
+        // His charge runs the whole lane: marked from its read until he is past
+        if (this.clock >= t.cue && this.clock < t.at + t.lasts) zone[t.lane] = this.clock >= t.at ? 'kill' : zone[t.lane] ?? 'warn';
+      } else if (t.kind === 'cloud' && t.sprite && !t.passed) {
+        const x = this.cloudX(t);
+        if (x !== null) t.sprite.x = this.holdX + x;
+        t.sprite.setFrame(eksFrame('cloud', frameAt('cloud', this.clock)));
+      }
+    }
+    for (const lane of ['top', 'bottom'] as Lane[]) {
+      const state = zone[lane];
+      const nozzle = this.boss.x + (lane === 'top' ? EKS_POINTS.nozzleTop.x : EKS_POINTS.nozzleBottom.x) * S;
+      if (state) this.zones[lane].show(this.laneY(lane), cam.scrollX, nozzle, state);
+      else this.zones[lane].hide();
+      const mine = this.threats.find(t => t.kind === 'mine' && t.lane === lane && !t.gone && !t.passed && this.clock >= t.fire);
+      if (mine) {
+        const x = this.holdX + MINE_AT;
+        this.mineZones[lane].show(this.laneY(lane), x - MINE_HALF_PX, x + MINE_HALF_PX, this.clock >= mine.at ? 'kill' : 'warn');
+        mine.sprite?.setFrame(eksFrame('mine', frameAt('mine', this.clock)));
+        mine.gas?.setFrame(eksFrame('cloud', frameAt('cloud', this.clock)));
+      } else this.mineZones[lane].hide();
+    }
+    const spots: Spot[] = [];
+    for (const c of this.cans) {
+      if (c.landed || c.shot) continue;
+      const half = c.land === 'spot' ? MINE_HALF_PX : CLOUD_FOOT_PX / 2;
+      const x = this.holdX + c.to.x;
+      spots.push({ x0: x - half, x1: x + half, y: this.laneY(c.lane) - 1, progress: (this.clock - c.cue) / (c.release + c.flight - c.cue) });
+    }
+    const next = this.grenadeSpot();
+    if (next) spots.push(next);
+    this.shadow.showSpots(spots);
+    // The canister in his fist through the lob's cock and whip, glowing brighter
+    if (this.held) {
+      const k = Phaser.Math.Clamp((this.clock - this.anim.start - HOLD_FROM_MS) / 200, 0, 1);
+      const at = this.handAt(k < 0.5 ? EKS_POINTS.cocked : EKS_POINTS.whip);
+      this.held.setPosition(at.x, at.y);
+      this.heldHalo.show(at.x, at.y, 22 + 12 * k, 0.7 + 0.3 * k);
+    }
+    if (this.ownGas) {
+      this.ownGas.sprite.setPosition(this.boss.x - 10, floorBottomY - 60)
+        .setFrame(eksFrame('cloud', frameAt('cloud', this.clock)))
+        .setAlpha(Phaser.Math.Clamp((this.ownGas.until - this.clock) / 300, 0, 1));
+      if (this.clock >= this.ownGas.until) {
+        this.ownGas.sprite.destroy();
+        this.ownGas = null;
+      }
+    }
+    this.drawPressure();
+    this.drawCombo();
+    this.drawKeycap();
+    this.syncLoops();
   }
 
-  /** Where a canister will land: its shadow on the lane and a green ring round it (a spot, not the lane). */
-  private markLanding(lane: Lane, landingX: number): void {
-    this.unwarn(lane);
-    const { scene } = this.ctx;
-    const y = this.laneY(lane);
-    const g = scene.add.graphics().setDepth(DEPTH.CONTACT_SHADOW);
-    g.fillStyle(0x000000, 0.55).fillEllipse(landingX, y + 1, 84, 10);
-    g.lineStyle(2, GAS_GLOW, 1).strokeEllipse(landingX, y + 1, 84, 10);
-    g.setAlpha(0.5);
-    const pulse = scene.tweens.add({ targets: g, alpha: 1, duration: WARN_PULSE_MS, yoyo: true, repeat: -1 });
-    this.warnings.set(lane, { g, pulse, kind: 'gas' });
+  private drawBoss(): void {
+    let { anim, start } = this.anim;
+    if (this.clock < this.reelUntil && this.state !== 'victory') {
+      // Reeling: the stagger's frames, played through once and held on its last
+      anim = 'stagger';
+      start = this.reelStart;
+    }
+    const spec = EKS_ANIMS[anim];
+    let index: number;
+    if (spec.loop) {
+      index = Math.floor((this.clock * spec.fps) / 1000) % spec.frames;
+    } else {
+      index = Math.floor(((this.clock - start) * spec.fps) / 1000);
+      if (index >= spec.frames && anim === this.anim.anim && this.anim.then) {
+        this.play(this.anim.then === 'rest' ? 'idle' : this.anim.then, null);
+        this.drawBoss();
+        return;
+      }
+      index = Phaser.Math.Clamp(index, 0, spec.frames - 1);
+    }
+    // At rest under pressure he breathes with the tank swollen and whistling
+    if (anim === 'idle' && (this.pressured() || this.director.tempo < 1) && this.fighting) {
+      anim = 'idle-hot';
+      index = Math.floor((this.clock * EKS_ANIMS['idle-hot'].fps) / 1000) % EKS_ANIMS['idle-hot'].frames;
+    }
+    this.boss.setFrame(eksFrame(anim, index));
   }
 
-  /** The stream roars while it runs and the gas hisses while any cloud lies on a lane; silent otherwise. */
+  /** Under pressure: a glow round the tank, gas curling off it, and "x3" over it. In the finale it leaks all the time. */
+  private drawPressure(): void {
+    const hot = this.fighting && this.pressured();
+    const tank = this.tank;
+    if (hot) {
+      const pulse = (Math.sin(this.clock / 90) + 1) / 2;
+      this.tankHalo.show(tank.x, tank.y, 30 + 6 * pulse, 0.55 + 0.35 * pulse);
+      this.hotText.setVisible(true).setPosition(Math.round(tank.x + 6), Math.round(tank.y - 58 + keycapBob(this.clock) / 2));
+    } else {
+      this.tankHalo.hide();
+      this.hotText.setVisible(false);
+    }
+    const leaking = this.fighting && this.director.finale;
+    if ((hot || leaking) && this.clock > this.wispAt) {
+      this.wispAt = this.clock + (leaking ? 90 : 160);
+      this.puff(tank.x + 8, tank.y - 30, 2, 10);
+    }
+  }
+
+  private get multiplier(): number { return Math.min(COMBO_MAX_MULT, 1 + Math.floor(this.combo / COMBO_STEP)); }
+
+  private drawCombo(): void {
+    const cam = this.ctx.scene.cameras.main;
+    const mult = this.multiplier;
+    this.comboText.setVisible(this.fighting && this.combo >= 3).setPosition(cam.width / 2, cam.height - 68)
+      .setText(mult > 1 ? `COMBO ${this.combo}  x${mult}` : `COMBO ${this.combo}`);
+  }
+
+  /**
+   * The first time something asks for a tool: the keycap over the roach, only while pressing then is right (on the
+   * canister's lane, on the safe lane under pressure, the dash ready with him in reach or the cloud in reach).
+   */
+  private drawKeycap(): void {
+    const prompt = this.prompt;
+    const { player, scene } = this.ctx;
+    if (!prompt || !this.fighting || this.clock > prompt.to) {
+      if (prompt && this.clock > prompt.to) this.prompt = null;
+      this.hideKeycap();
+      return;
+    }
+    const dash = prompt.key.startsWith('dash');
+    const near = this.director.pos === NEAR && !this.move;
+    const honest = this.clock >= prompt.from
+      && (prompt.lane === null || player.currentFloor === prompt.lane)
+      && (!dash || (player.dashReady && !player.isDashing))
+      && (prompt.key !== 'dash-knock' && prompt.key !== 'dash-shove' || near)
+      && (prompt.key !== 'dash-shove' || !this.threats.some(t => !t.gone && !t.passed));
+    if (!honest) {
+      this.hideKeycap();
+      return;
+    }
+    if (!this.keycap) {
+      const touch = !scene.sys.game.device.os.desktop;
+      this.keycap = dash
+        ? (touch ? addKeycap(scene, 'DASH') : addArrowKeycap(scene, 'right'))
+        : addKeycap(scene, touch ? 'STRZAŁ' : 'SPACJA');
+    }
+    this.keycap.setPosition(Math.round(player.sprite.x), Math.round(player.sprite.y - KEYCAP_ABOVE_PX + keycapBob(scene.time.now)));
+  }
+
+  private hideKeycap(): void {
+    this.keycap?.destroy();
+    this.keycap = null;
+  }
+
+  /** The stream roars while one runs and the gas hisses while any cloud or mine lies on a lane. */
   private syncLoops(): void {
     const { audio } = this.ctx;
-    const fighting = this.state === 'fighting';
-    if (fighting && this.stream && !this.streamLoop) this.streamLoop = audio.startLoop('ex-stream', STREAM_LOOP);
-    else if ((!fighting || !this.stream) && this.streamLoop) {
+    const live = this.fighting;
+    const streaming = live && this.threats.some(t => t.stream);
+    const gassy = live && this.threats.some(t => !t.gone && (t.gas || (t.kind === 'cloud' && t.sprite)));
+    if (streaming && !this.streamLoop) this.streamLoop = audio.startLoop('ex-stream', 0.45);
+    else if (!streaming && this.streamLoop) {
       audio.stopLoop(this.streamLoop);
       this.streamLoop = null;
     }
-    if (fighting && this.clouds.length > 0 && !this.gasLoop) this.gasLoop = audio.startLoop('ex-gas', GAS_LOOP);
-    else if ((!fighting || this.clouds.length === 0) && this.gasLoop) {
+    if (gassy && !this.gasLoop) this.gasLoop = audio.startLoop('ex-gas', 0.4);
+    else if (!gassy && this.gasLoop) {
       audio.stopLoop(this.gasLoop);
       this.gasLoop = null;
     }
   }
 
-  /** Takes a lane's warning down, or every lane's. */
-  private unwarn(lane?: Lane): void {
-    for (const [key, { g, pulse }] of [...this.warnings]) {
-      if (lane && key !== lane) continue;
-      pulse.remove();
-      g.destroy();
-      this.warnings.delete(key);
+  private laneY(lane: Lane): number { return lane === 'top' ? this.ctx.floorTopY : this.ctx.floorBottomY; }
+
+  /** A sound, never in the way: one that fails to play must not stop the fight. */
+  private sfx(key: string, volume: number, rate = 1): void {
+    try {
+      this.ctx.audio.playSfx(key, volume, rate);
+    } catch {
+      // play on in silence
     }
   }
 
@@ -821,79 +1406,140 @@ export class EksterminatorFight extends BossFight {
     });
   }
 
-  /** A bullet pinging off the suit: a few sparks, no harm done. */
-  private ping(x: number, y: number): void {
-    this.sfx(SFX.ping, 0.5);
-    this.sparks(x, y, 5);
+  /** A quick line of blocks from one point to another, fading: something sent back, seen. */
+  private streak(from: { x: number; y: number }, to: { x: number; y: number }, color: number): void {
+    const { scene } = this.ctx;
+    const g = scene.add.graphics().setDepth(DEPTH.PICKUPS + 1);
+    const steps = Math.max(2, Math.floor(Math.hypot(to.x - from.x, to.y - from.y) / 8));
+    for (let i = 0; i <= steps; i++) {
+      const f = i / steps;
+      const size = Math.round(Phaser.Math.Linear(8, 4, f) / S) * S;
+      g.fillStyle(color, 0.5 + 0.4 * (1 - f)).fillRect(
+        Math.round(Phaser.Math.Linear(from.x, to.x, f) / S) * S - size / 2,
+        Math.round(Phaser.Math.Linear(from.y, to.y, f) / S) * S - size / 2, size, size);
+    }
+    this.effects.push(g);
+    scene.tweens.add({ targets: g, alpha: 0, duration: 220, onComplete: () => {
+      this.effects = this.effects.filter(o => o !== g);
+      g.destroy();
+    } });
   }
 
-  /** A white-hot spark where it struck, bits thrown back off it. */
-  private sparks(x: number, y: number, count: number): void {
-    const fx = getFx(this.ctx.scene);
-    fx.play('spark', x, y, { depth: DEPTH.POPUP - 1 });
-    fx.burst('bit-white', x, y, count, 2, { depth: DEPTH.POPUP - 1, speed: [60, 130], angle: [150, 220], drag: 3, life: 300 });
+  /** Points times the combo's multiplier. */
+  private score(points: number): void {
+    this.ctx.addScore(points * this.multiplier);
   }
 
-  private popup(text: string, color: string): void {
-    const { scene, player } = this.ctx;
-    popup(scene, player.x, player.y - 46, text, popupStyle({ fontSize: '10px', color }), { hold: 300 });
+  private popup(text: string, color: string, size = 10): void {
+    const { player } = this.ctx;
+    this.popupAt(player.x, player.y - 46, text, color, size);
   }
 
-  private clearBullets(): void {
-    // On scene shutdown the physics world has already destroyed the group, and its sprites with it
-    if (this.bullets.children) this.bullets.clear(true, true);
-  }
-
-  private track(obj: Phaser.GameObjects.GameObject): void {
-    this.effects.push(obj);
-  }
-
-  private untrack(obj: Phaser.GameObjects.GameObject): void {
-    this.effects = this.effects.filter(o => o !== obj);
-    obj.destroy();
+  private popupAt(x: number, y: number, text: string, color: string, size = 10): void {
+    const { scene } = this.ctx;
+    const label = scene.add.text(x, y, text, popupStyle({ fontSize: `${size}px`, color })).setOrigin(0.5).setDepth(DEPTH.POPUP);
+    this.effects.push(label);
+    scene.tweens.add({
+      targets: label, y: label.y - 24, alpha: { from: 1, to: 0 }, duration: 700, ease: 'Power2',
+      onComplete: () => {
+        this.effects = this.effects.filter(o => o !== label);
+        label.destroy();
+      },
+    });
   }
 
   protected teardown(): void {
-    this.unwarn();
-    this.dropHeld();
-    this.heldHalo.destroy();
+    const keep = new Set<unknown>(this.culprit ?? []);
+    this.clearStageForTeardown(keep);
+    if (this.grenade && !keep.has(this.grenade.sprite)) this.grenade.sprite.destroy();
+    if (this.chain) {
+      if (!keep.has(this.chain.sprite)) this.chain.sprite.destroy();
+      this.chain.trail.destroy();
+    }
+    this.grenade = this.chain = null;
+    this.charge = null;
     this.ctx.audio.stopLoop(this.streamLoop);
     this.ctx.audio.stopLoop(this.gasLoop);
     this.streamLoop = this.gasLoop = null;
-    this.stream?.destroy();
-    this.stream = null;
-    for (const can of this.canisters) can.destroy();
-    this.canisters = [];
-    for (const cloud of this.clouds) cloud.destroy();
-    this.clouds = [];
-    this.clearBullets();
-    this.ring.destroy();
+    for (const b of this.bullets) b.sprite.destroy();
+    this.bullets = [];
+    for (const f of this.flyers) f.sprite.destroy();
+    this.flyers = [];
+    this.ownGas?.sprite.destroy();
+    this.ownGas = null;
+    this.hideKeycap();
+    for (const obj of [this.zones.top, this.zones.bottom, this.mineZones.top, this.mineZones.bottom, this.shadow,
+      this.tankHalo, this.heldHalo, this.hotText, this.comboText]) obj.destroy();
     for (const obj of this.effects) obj.destroy();
     this.effects = [];
+    this.events = [];
+    if (this.culprit) this.flashOverDeath(this.culprit);
     const boss = this.boss;
     if (!boss.active) return;
-    boss.anims.stop();
     this.ctx.scene.tweens.add({ targets: boss, alpha: 0, duration: FADE_MS, delay: 300, onComplete: () => boss.destroy() });
   }
 
-  // ── For tests driving the fight ───────────────────────────────────
+  /** Everything still up comes down, but what killed the roach, which flashes on over its death a moment. */
+  private clearStageForTeardown(keep: Set<unknown>): void {
+    for (const t of this.threats) {
+      const objs: { destroy(): void }[] = [];
+      if (t.stream) {
+        if (t.stream.parts.some(p => keep.has(p))) continue;
+        objs.push(t.stream);
+      }
+      for (const s of [t.sprite, t.gas]) if (s && !keep.has(s)) objs.push(s);
+      for (const o of objs) o.destroy();
+    }
+    this.threats = [];
+    for (const c of this.cans) this.dropCan(c);
+    this.cans = [];
+    this.dropHeld();
+  }
 
-  /** What is coming at the roach right now, for a script to dodge (or walk into). */
-  get threat(): {
-    phase: number; hp: number; exposed: boolean; streamLane: Lane | null;
-    canisters: { lane: Lane | null; lands: Lane; x: number }[]; clouds: { lane: Lane; gap: number; rolling: boolean }[];
-    /** The lanes marked right now: red for a stream coming, green under a canister. */
-    warned: { top: 'spray' | 'gas' | null; bottom: 'spray' | 'gas' | null };
+  /** The killing hit's culprit blinks over the death, on the wall clock (the scene's may be stopping), then goes. */
+  private flashOverDeath(culprit: Phaser.GameObjects.Components.Alpha[]): void {
+    const started = Date.now();
+    const objs = culprit as unknown as Phaser.GameObjects.GameObject[];
+    const tick = window.setInterval(() => {
+      const t = Date.now() - started;
+      try {
+        if (t < CULPRIT_FLASH_MS) {
+          this.blink(culprit, t);
+          return;
+        }
+        for (const o of objs) if (o.active && o !== this.boss) o.destroy();
+      } catch {
+        // a blink lost is nothing
+      }
+      window.clearInterval(tick);
+    }, BLINK_MS / 2);
+  }
+
+  // ── For scripted runs ─────────────────────────────────────────────
+
+  /** What is coming, from the set's own numbers, on the fight's clock: a script plays the fight from this. */
+  get script(): {
+    clock: number; stopped: boolean; phase: number; finale: boolean; hp: number; pos: Pos; dashReady: boolean;
+    pressured: boolean; knock: { from: number; to: number; done: boolean } | null;
+    threats: {
+      kind: HazardKind; lane: Lane; cue: number; at: number; lasts: number; fire: number; until: number; windup: number;
+      /** A cloud: where it is along its lane, px from the roach's spot. */
+      x: number | null; canShoot: boolean; landed: boolean;
+    }[];
+    cans: { lane: Lane; release: number; flight: number; glide: number; canShoot: boolean; shot: boolean; landed: boolean }[];
+    current: string | null;
   } {
-    const px = this.ctx.player.x;
     return {
-      phase: this.phaseIndex,
-      hp: this.hp,
-      exposed: this.exposed,
-      streamLane: this.stream?.lane ?? null,
-      canisters: this.canisters.map(c => ({ lane: c.lane, lands: c.lands, x: c.x - px })),
-      clouds: this.clouds.filter(c => !c.resolved).map(c => ({ lane: c.lane, gap: c.x - px, rolling: c.rolling })),
-      warned: { top: this.warnings.get('top')?.kind ?? null, bottom: this.warnings.get('bottom')?.kind ?? null },
+      clock: this.clock, stopped: this.stopped && this.fighting, phase: this.director.phase, finale: this.director.finale,
+      hp: this.director.hp, pos: this.director.pos, dashReady: this.ctx.player.dashReady, pressured: this.pressured(),
+      knock: this.knock && { from: this.knock.from, to: this.knock.to, done: this.knock.done },
+      threats: this.threats.filter(t => !t.gone && !t.passed).map(t => ({
+        kind: t.kind, lane: t.lane, cue: t.cue, at: t.at, lasts: t.lasts, fire: t.fire, until: t.until, windup: t.windup,
+        x: t.kind === 'cloud' ? this.cloudX(t) : t.kind === 'mine' ? MINE_AT : null, canShoot: t.can?.canShoot ?? false,
+        landed: this.clock >= t.fire,
+      })),
+      cans: this.cans.map(c => ({ lane: c.lane, release: c.release, flight: c.flight, glide: c.th.glide, canShoot: c.canShoot, shot: c.shot, landed: c.landed })),
+      current: this.current ? (this.current.kind === 'walk' ? 'walk' : this.current.attack.kind) : null,
     };
   }
 }

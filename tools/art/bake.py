@@ -37,8 +37,9 @@ RED = (255, 40, 50)
 GREEN = (50, 255, 110)
 PICKUPS = {"apple", "pill", *(f"beer-{n}" for n in range(1, 7))}
 UNLIT = {"bleach", "spray-big"}  # drawn without the enemies' red glow: harmless props, only what they drop or puff hurts
-# Strips lit only on some frames: the bleach's drop glows only as it falls (frame 3), not while it swells at the cap
-PARTLY_LIT = {"bleach-drop": {3}}
+# Strips lit only on some frames: the bleach's drop glows only as it falls (frame 3), not while it swells at the cap; a
+# dancing boot only stomped down (frame 1), never lifted
+PARTLY_LIT = {"bleach-drop": {3}, "boot": {1}}
 ATLAS_WIDTH = 2048  # with the shop's skins; at most 2048 either way, which every phone takes
 
 
@@ -79,8 +80,9 @@ def _resize(frames: list[np.ndarray], name: str) -> list[Image.Image]:
 
 
 # The pickups, one family a little smaller than the enemies, by less than a whole factor (an apple 36x48 texels would
-# halve to 18x24): scaled on the 8x grid and read back block by block, so they stay crisp
-PICKUP_SCALE = {"apple": .72, "pill": .9, **{f"beer-{n}": .8 for n in range(1, 7)}}
+# halve to 18x24): scaled on the 8x grid and read back block by block, so they stay crisp. The owner's hand-tuned sizes
+# (the sprite tuner) are on top: the apple x .8, beers 3, 4 and 6 x .9; the bison, 1.5 times what its rig gives
+RESCALE = {"apple": .72 * .8, "pill": .9, **{f"beer-{n}": .8 * (.9 if n in (3, 4, 6) else 1) for n in range(1, 7)}, "bison": 1.5}
 
 
 def _rescaled(frames: list[Image.Image], scale: float) -> list[Image.Image]:
@@ -146,7 +148,7 @@ def collect() -> tuple[dict, dict]:
                                      "with": list(item.companions)}
     for name, make in {**CREATURES, **OBJECTS}.items():
         colour = GREEN if name in PICKUPS else RED
-        frames = [_with_glow(f, colour) for f in _rescaled(_resize(make(), name), PICKUP_SCALE.get(name, 1))]
+        frames = [_with_glow(f, colour) for f in _rescaled(_resize(make(), name), RESCALE.get(name, 1))]
         sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
     # The swatters, the hop and gun acts' enemies: already at game size from their picked renders, one canvas per strip;
     # the ammo box is drawn at game size

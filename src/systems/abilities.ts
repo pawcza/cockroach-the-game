@@ -4,6 +4,7 @@
  * one place that answers "can the player X now?": the input, the touch buttons and the HUD all ask here.
  */
 import type { BossDef } from './boss/bosses';
+import { MAGAZINE } from './gunRules';
 
 export type AbilityId = 'dash' | 'gun' | 'moult';
 
@@ -38,7 +39,11 @@ export const ABILITY_TEXT: Record<AbilityId, AbilityText> = {
   },
   gun: {
     name: 'PISTOLET',
-    how: { keyboard: 'Spacja: strzał, też w biegu', touch: 'Przycisk strzału w prawym dolnym rogu' },
+    // Its second line says what the magazine's pips will mean: the run's ammo is short, the boxes refill it
+    how: {
+      keyboard: `Spacja: strzał, też w biegu\nTylko ${MAGAZINE} naboi! Zbieraj skrzynki z amunicją`,
+      touch: `Przycisk strzału w prawym dolnym rogu\nTylko ${MAGAZINE} naboi! Zbieraj skrzynki z amunicją`,
+    },
   },
   moult: {
     name: 'WYLINKA',

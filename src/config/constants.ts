@@ -5,6 +5,9 @@ export const GAME_HEIGHT = 512;
 // scaled by a whole number of device pixels per native pixel.
 export const PIXEL_BLOCK = 2;
 
+/** A pickup's burst plays this much higher than the pickup's baseline: where pickups hovered before they were lowered. */
+export const PICKUP_BURST_RISE = 20;
+
 
 // Floor positions (Y coordinates)
 export const FLOOR_BOTTOM_Y = 408;

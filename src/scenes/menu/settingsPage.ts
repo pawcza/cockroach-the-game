@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { playUi } from '../../audio/AudioManager';
 import { buttonStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
-import { getMusicVolume, getSfxVolume, getTauntsEnabled, setMusicVolume, setSfxVolume, setTauntsEnabled } from '../../utils/Storage';
+import { getMusicVolume, getRecordGhostEnabled, getSfxVolume, getTauntsEnabled, setMusicVolume, setRecordGhostEnabled, setSfxVolume, setTauntsEnabled } from '../../utils/Storage';
 import { createButton, UIButton } from '../../ui/shared';
 import { account, deleteAccount } from '../../ui/Account';
 
@@ -109,15 +109,20 @@ export function buildSettingsPage(
   });
   const sfx = createSlider(startY + 84, 'Efekty', getSfxVolume, setSfxVolume);
 
-  // The bosses' taunts while you run: a switch, pressed to flip
-  let taunts = getTauntsEnabled();
-  const tauntRow = createButton(scene, width / 2, startY + 146, ROW_W, 28, '', 0x444444, buttonStyle({ fontSize: '10px' }), () => {
-    taunts = !taunts;
-    setTauntsEnabled(taunts);
-    tauntRow.setLabel(`Docinki bossów: ${taunts ? 'TAK' : 'NIE'}`);
-  });
-  tauntRow.setLabel(`Docinki bossów: ${taunts ? 'TAK' : 'NIE'}`);
-  container.add(tauntRow.all);
+  // Switches, pressed to flip: the bosses' taunts while you run, and the record run racing beside you
+  const createSwitch = (x: number, label: string, get: () => boolean, set: (on: boolean) => void): UIButton => {
+    let on = get();
+    const text = (): string => `${label}: ${on ? 'TAK' : 'NIE'}`;
+    const button = createButton(scene, x, startY + 146, 160, 28, text(), 0x444444, buttonStyle({ fontSize: '8px' }), () => {
+      on = !on;
+      set(on);
+      button.setLabel(text());
+    });
+    container.add(button.all);
+    return button;
+  };
+  const tauntRow = createSwitch(width / 2 - 90, 'Docinki bossów', getTauntsEnabled, setTauntsEnabled);
+  const ghostRow = createSwitch(width / 2 + 90, 'Duch rekordu', getRecordGhostEnabled, setRecordGhostEnabled);
 
   if (scene.sys.game.device.os.desktop) container.add(scene.add.text(Math.round(width / 2), startY + 174, 'Strzałki w bok: głośność', smallStyle({
     fontSize: '7px', color: UI_TEXT.muted, strokeThickness: 0,
@@ -152,5 +157,5 @@ export function buildSettingsPage(
   };
   refresh();
 
-  return { buttons: [music, sfx, privacy, remove, tauntRow], refresh };
+  return { buttons: [music, sfx, privacy, remove, tauntRow, ghostRow], refresh };
 }

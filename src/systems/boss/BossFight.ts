@@ -6,6 +6,7 @@ import Phaser from 'phaser';
 import { AudioManager } from '../../audio/AudioManager';
 import { GameEventBridge } from '../../multiplayer/GameEventBridge';
 import { Player } from '../../objects/Player';
+import type { BossSegment } from '../../ui/GameHUD';
 import type { Abilities } from '../abilities';
 import { BossDef, BossId } from './bosses';
 
@@ -32,7 +33,11 @@ export interface BossFightContext {
   addScore: (points: number) => void;
   /** The bar in place of the level bar, under the boss's name: its HP, or whatever else this fight counts down. */
   showBar: (value: number, max: number) => void;
-  updateBar: (value: number) => void;
+  /** `last`: the boss is on its last legs, and the bar says so. */
+  updateBar: (value: number, last?: boolean) => void;
+  /** The bar split into labelled parts (each one's value and max), for a boss fought part by part: shown and updated
+   * by giving all of them. */
+  showSegments?: (segments: BossSegment[]) => void;
   /** The victory has played out: the run takes over again. */
   onWon: () => void;
   /** The roach died in the fight, of this death type. */

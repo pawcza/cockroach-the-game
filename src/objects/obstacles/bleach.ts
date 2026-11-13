@@ -3,30 +3,23 @@ import { VOL } from '../../audio/AudioManager';
 import { DEPTH, FLOOR_TOP_Y } from '../../config/constants';
 import { ATLAS, SPRITE_SCALE, frameOf } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
-import { EnemyPlan, laneY } from './behaviours';
-import { TIMINGS } from './cast';
+import { BLEACH_JUG_UP, EnemyPlan, laneY } from './behaviours';
+import { TIMINGS, partOf, placeOf } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
-/**
- * The jug lies at the back of the upper shelf, behind its front edge: this far down into the ledge (px), so the edge
- * hides its foot. It is baked small and dimmed towards the room (tools/art/hopact.py): scenery, not in the lane.
- */
-const SINK_BEHIND = 6;
-/** The upper ledge's underside: the falling drop is lit (red glow, the danger) only below it, in the lower lane. */
-const SHELF_UNDERSIDE = FLOOR_TOP_Y + 30;
-/** The drop's frames: three swelling at the cap, unlit (harmless-looking), then the falling one, lit. */
+/** The falling drop's frame: the lit one (the three before it are the bead swelling at the cap, unlit). */
 const FALLING = 3;
-/** The transparent margin round an atlas frame, world px (8 frame px). */
-const GLOW_MARGIN = 8 * SPRITE_SCALE;
+/** The splash is heard on one drop in this many: every one would be a rattle. */
+const HEARD_EVERY = 4;
 /** The splash's hitbox: the spot that hurts (frame px). */
 const SPLASH_BODY_W = TIMINGS.bleach.spot / SPRITE_SCALE;
 const SPLASH_BODY_H = 16;
 
 /**
- * Dripping bleach (drip in behaviours.ts): a jug lying tipped at the back of the upper shelf, dim and behind the
- * ledge's edge, its cap over the lower lane. A drop swells at the cap (the telegraph, unlit) while the spot it will hit
- * on the lower lane warns; it falls, lit only once it is under the shelf, and splashes on that spot, which stays wet a
- * moment: only that spot, only then, hurts (the kill-zone look over exactly it). Sounds (placeholders): the spray's hiss when it splashes.
+ * Dripping bleach (drip in behaviours.ts): a jug tipped in the background half way up the upper lane, dim, in neither
+ * lane. A bead swells at its cap and falls behind the upper ledge, unlit: it never hurts. Under the ledge lit drops
+ * fall one after another onto one spot of the lower lane, which stays wet and always hurts (the kill-zone look over
+ * exactly it). Sounds (placeholders): the spray's hiss on some of the splashes.
  */
 export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -34,46 +27,40 @@ export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   const jug = kit.enemy(plan, { shadow: false });
   jug.anims.timeScale = 0.5;
   jug.setDepth(DEPTH.BEHIND_LEDGE);
-  // The jug never hurts: the lane runs in front of it
+  // The jug never hurts: both lanes run in front of it
   (jug.body as Phaser.Physics.Arcade.Body).checkCollision.none = true;
   jug.setData('flies', true);
 
-  const drop = scene.add.image(plan.x, laneY('top'), ATLAS, frameOf('bleach-drop', 0))
+  const bead = scene.add.image(plan.x, laneY('top'), ATLAS, frameOf('bleach-drop', 0))
+    .setScale(SPRITE_SCALE).setDepth(DEPTH.BEHIND_LEDGE);
+  const drop = scene.add.image(plan.x, laneY('bottom'), ATLAS, frameOf('bleach-drop', FALLING))
     .setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES).setVisible(false);
+  // The jug and its bead are hand-tuned (cast.ts Placement); the drop, the splash and the wet spot stay put
+  const jugAt = placeOf(plan.id);
+  const beadAt = partOf(plan.id, 'bead');
   const hazard = kit.hazard(jug);
   const splash = kit.createSprite(plan.x, laneY('bottom'), 'bleach-splash', 'bleach', null);
   splash.anims.stop();
-  splash.setVisible(false);
   splash.setData('floor', 'bottom');
-  splash.setData('harmless', true);
-  splash.setData('telegraphs', true);
+  splash.setData('telegraphs', false);
   const body = splash.body as Phaser.Physics.Arcade.Body;
   body.setSize(SPLASH_BODY_W, SPLASH_BODY_H, false);
   body.setOffset((splash.width - SPLASH_BODY_W) / 2, splash.height * splash.originY - SPLASH_BODY_H);
+  const spot = { lane: 'bottom' as const, x0: plan.x - TIMINGS.bleach.spot / 2, x1: plan.x + TIMINGS.bleach.spot / 2 };
 
   kit.drive(jug, plan, (now, before) => {
-    // The jug carries no lane: what hurts is the splash. It lies back from the edge, out of the way
+    // The jug carries no lane: what hurts is the wet spot. It hangs centred on the middle of the upper lane
     jug.setData('harmless', true);
     jug.setDepth(DEPTH.BEHIND_LEDGE);
-    jug.y += SINK_BEHIND;
-    const d = now.parts!.drop;
-    const s = now.parts!.splash;
-    // It hangs off the shelf's front edge unlit; falling, it is lit (the danger) only once it is under the shelf
-    drop.setVisible(d.visible).setPosition(d.x, d.y).setFrame(frameOf('bleach-drop', Math.min(d.frame, FALLING - 1)));
-    // (Its frame's pivot is its baseline: the drop's own top is that far up, less the glow's margin)
-    const top = d.y - drop.displayHeight * drop.originY + GLOW_MARGIN;
-    if (d.frame === FALLING && top > SHELF_UNDERSIDE) drop.setFrame(frameOf('bleach-drop', FALLING));
-    const spot = { lane: 'bottom' as const, x0: plan.x - TIMINGS.bleach.spot / 2, x1: plan.x + TIMINGS.bleach.spot / 2 };
-    hazard(now.warn ?? null, s.danger ? [spot] : []);
-    splash.setVisible(s.visible).setFrame(frameOf('bleach-splash', s.frame));
-    splash.setData('harmless', !s.danger);
-    if (now.pose === before?.pose || !before || !kit.isOnScreen(jug)) return;
-    if (now.pose === 'windup' && before.pose === 'idle') fx.play('flare-big-green', d.x, d.y + 6, { depth: DEPTH.PICKUPS + 1 });
-    if (now.pose === 'strike') {
-      fx.play('splash-toxic', plan.x, laneY('bottom'), { depth: DEPTH.OBSTACLES + 1 });
-      fx.burst('bit-green', plan.x, laneY('bottom') - 6, 5, 6, { depth: DEPTH.OBSTACLES + 1, speed: [60, 130], angle: [200, 340], gravity: 400, life: 400 });
-      if (kit.isAhead(jug)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
-    }
+    jug.y = FLOOR_TOP_Y - BLEACH_JUG_UP + jug.displayHeight * (jug.originY - 0.5) + jugAt.dy;
+    const { bead: b, drop: d, splash: s } = now.parts!;
+    bead.setPosition(b.x + beadAt.dx, b.y + beadAt.dy).setFrame(frameOf('bleach-drop', b.frame));
+    drop.setVisible(d.visible).setPosition(d.x, d.y);
+    hazard(null, [spot]);
+    splash.setFrame(frameOf('bleach-splash', s.frame));
+    if (now.pose !== 'strike' || before?.pose === 'strike' || !before || !kit.isOnScreen(jug)) return;
+    fx.burst('bit-green', plan.x, laneY('bottom') - 6, 3, 6, { depth: DEPTH.OBSTACLES + 1, speed: [60, 130], angle: [200, 340], gravity: 400, life: 400 });
+    if (now.cycle % HEARD_EVERY === 0 && kit.isAhead(jug)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
   });
-  kit.track(jug, { objects: [drop, splash] });
+  kit.track(jug, { objects: [bead, drop, splash] });
 }

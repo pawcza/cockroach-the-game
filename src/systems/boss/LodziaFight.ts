@@ -1,10 +1,12 @@
 /**
  * Pani Lodzia: no guns, the roach only hops. She stands at the right of the screen and throws everything she has at
- * the lane the roach is on, one thing at a time: her slipper slammed on a lane (a shockwave runs it), slippers whipped
- * along the lane from her housecoat pocket, a boomerang slipper that comes back along the other lane and hits her in
- * the face, and curlers that bounce from lane to lane and settle on the roach's. Three phases with a breather between
- * them; her stamina goes with every dodge, more with a close one, a lot with every boomerang in the face, and the
- * moment it is gone she goes down.
+ * the lane the roach is on, one idea at a time: her slipper slammed on a lane (a shockwave runs it), slippers whipped
+ * along the lane from her housecoat pocket (singly, or three in a row along both lanes), a boomerang slipper that
+ * comes back along the other lane and hits her in the face, and curlers that bounce from lane to lane and settle on
+ * the roach's. Three phases with a breather between
+ * them; her stamina goes with every dodge, more with a close one, a lot with every boomerang in the face. Dodges only
+ * wear her to a sliver: she is on her last legs, the bar blinks, and the boomerang in her face is what puts her down
+ * (the next attack is one, if none is out already).
  *
  * What comes when is in lodziaPatterns (and tested there); this plays it, and moves what she throws so it reaches the
  * roach exactly when the patterns say.
@@ -16,6 +18,7 @@ import { DEPTH } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { popup } from '../../effects/Popup';
+import { LandingShadow, ShadowLook, Spot } from '../../effects/LandingShadow';
 import { popupStyle } from '../../utils/TextStyles';
 import { NEAR_MISS_SCORE } from '../RiskBonus';
 import { BossFight, BossFightContext } from './BossFight';
@@ -24,9 +27,10 @@ import {
   LodziaAnim, lodziaAnimKey, lodziaFrame,
 } from './lodziaConfig';
 import {
-  Attack, attackLength, BOOMERANG_RELEASE_MS, buildPhases, CLOSE_CALL_DAMAGE, curlerArrival, curlerLanding,
-  CURLER_LANDINGS, DODGE_DAMAGE, FACE_MS, fightRandom, HazardKind, Lane, other, Phase, resolve, SLAM_IMPACT_MS,
-  SMACK_DAMAGE, STAMINA, TANTRUM_RELEASE_MS, THROW_RELEASE_MS, timeAttack, WAVE_MS, WINDUP_MS,
+  Attack, atSliver, attackLength, BOOMERANG_RELEASE_MS, buildPhases, CLOSE_CALL_DAMAGE, CLOSE_CALL_MS, curlerArrival,
+  curlerLanding, CURLER_LANDINGS, DODGE_DAMAGE, dodgeWear, FACE_MS, fightRandom, HazardKind, Lane, nextStep, other,
+  Phase, resolve, SLAM_IMPACT_MS, SMACK_DAMAGE, smackWear, STAMINA, TANTRUM_RELEASE_MS, THROW_MS, THROW_RELEASE_MS,
+  timeAttack, WAVE_MS, WINDUP_MS,
 } from './lodziaPatterns';
 import { Flight, Pass, Projectile } from './lodziaProjectiles';
 import { glint, Halo, sparkBurst } from './bossTelegraph';
@@ -35,8 +39,6 @@ import { Shockwave } from './lodziaShockwave';
 const VICTORY_BONUS = 300;
 /** Every hazard dodged. */
 const DODGE_SCORE = 10;
-/** A hop out of a lane this close before what comes down it reaches the roach: "NA STYK!", as in the run. */
-const CLOSE_CALL_MS = 250;
 
 /** Her drawn-back slipper stays this far inside the screen's right edge. */
 const EDGE_MARGIN = 6;
@@ -54,12 +56,16 @@ const FADE_MS = 300;
 
 /** What flies, flies this high over its lane: about the roach's middle. */
 const FLY_HEIGHT = 24;
-/** A curler's leap from lane to lane peaks this high over the higher lane, so the arc reads well ahead. */
-const CURLER_ARC = 46;
-/** Once settled on the roach's lane it rolls on in small hops, this high, two of them. */
-const CURLER_ROLL_HOP = 10;
-/** It flattens as it lands, for this long. */
+/** Each of a curler's three leaps peaks this high over the higher lane: every one clearly lower than the last. */
+const CURLER_ARCS = [44, 26, 10];
+/** It flattens as it lands, by this much, for this long; the last landing, the settle, flat for longer. */
+const CURLER_SQUASH = 0.5;
 const CURLER_SQUASH_MS = 110;
+const CURLER_SETTLE_HOLD_MS = 140;
+const CURLER_SETTLE_SQUASH_MS = 220;
+/** The shadow where it will land next: a plain one, and a wider pink one for the settle. */
+const CURLER_MARK_WIDTH = 56;
+const CURLER_MARK_SETTLE_WIDTH = 90;
 /** A curler is bigger than a slipper: it flies this much lower, its middle about the roach's. */
 const CURLER_FLY_HEIGHT = 22;
 /** The boomerang turns back this far inside the screen's left edge. */
@@ -119,8 +125,13 @@ export class LodziaFight extends BossFight {
   private readonly lodzia: Phaser.GameObjects.Sprite;
   private readonly phases: Phase[];
   private stamina = STAMINA;
+  /** The attack in play is the last one her list had to give: its smack takes whatever she has left. */
+  private lethalSmack = false;
   private phaseIndex = 0;
   private attackIndex = 0;
+  /** The shadow on the lane where a curler will land next: where, and in which look (the settle's is pink). */
+  private landingMark: { spot: Spot; look: ShadowLook } | null = null;
+  private readonly landingShadow: LandingShadow;
   private slamWarning: { lane: Lane; g: Phaser.GameObjects.Graphics; pulse: Phaser.Tweens.Tween } | null = null;
   /** What she is winding up to throw: it glows in her hand, flaring on `flares` (frames of the animation). */
   private held: { anim: HeldAnim; flares: number[]; last: number; shown: boolean; flared: Set<number> } | null = null;
@@ -151,6 +162,7 @@ export class LodziaFight extends BossFight {
     this.lodzia.setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES);
     this.play('walk');
     this.heldHalo = new Halo(scene, SLIPPER_GLOW, DEPTH.OBSTACLES - 0.2);
+    this.landingShadow = new LandingShadow(scene);
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.onPostUpdate);
 
     let ready = 0;
@@ -204,6 +216,7 @@ export class LodziaFight extends BossFight {
     // Won or lost this frame (a hit tears the fight down from inside this loop): nothing more to move or draw
     if (this.over) return;
     this.drawHeld();
+    if (this.landingMark) this.landingShadow.showSpots([this.landingMark.spot], this.landingMark.look);
     for (const wave of this.shockwaves) wave.update();
     this.shockwaves = this.shockwaves.filter(w => !w.done);
     const laneAt = (time: number) => this.laneAt(time);
@@ -218,23 +231,19 @@ export class LodziaFight extends BossFight {
 
   private nextAttack(): void {
     if (this.state !== 'fighting') return;
-    const phase = this.phases[this.phaseIndex];
-    if (this.attackIndex >= phase.attacks.length) {
+    const step = nextStep(this.phases, this.phaseIndex, this.attackIndex, this.stamina);
+    if (step.kind === 'breather') {
       this.endPhase();
       return;
     }
-    const attack = phase.attacks[this.attackIndex++];
-    this.run(attack);
+    if (step.listed) this.attackIndex++;
+    this.lethalSmack = step.lethal;
+    this.run(step.attack);
     // The next wind-up only once this attack's threat has gone past the roach (and her part is done)
-    this.delay(attackLength(attack), () => this.nextAttack());
+    this.delay(attackLength(step.attack), () => this.nextAttack());
   }
 
   private endPhase(): void {
-    if (this.phaseIndex >= this.phases.length - 1) {
-      // Her list ran out with stamina left (only a moult-saved run can get here): she is done anyway
-      this.finishHer();
-      return;
-    }
     this.play('hurt', () => {
       this.play('tired');
       this.delay(TIRED_MS, () => {
@@ -246,11 +255,12 @@ export class LodziaFight extends BossFight {
     });
   }
 
-  /** The bar is empty: on this frame. What is in the air goes up in puffs, a beat's hit-stop, and down she goes. */
+  /** The boomerang finished her: on this frame. What is in the air goes up in puffs, a beat's hit-stop, and down she goes. */
   private finishHer(): void {
     if (this.state !== 'fighting') return;
     this.state = 'victory';
     this.unwarnSlam();
+    this.clearLandingMark();
     this.held = null;
     this.heldHalo.hide();
     for (const p of this.projectiles) {
@@ -290,6 +300,17 @@ export class LodziaFight extends BossFight {
       case 'throw':
         this.throwSlipper(roachLane, attack.travel, now);
         break;
+      case 'volley': {
+        // One after another, each with its own wind-up; closer than her throw takes, she whips them faster
+        const scale = Math.min(1, attack.spacing / THROW_MS);
+        attack.lanes.forEach((rel, i) => {
+          const lane = resolve(rel, roachLane);
+          const go = () => this.throwSlipper(lane, attack.travel, now + i * attack.spacing, scale);
+          if (i === 0) go();
+          else this.delay(i * attack.spacing, go);
+        });
+        break;
+      }
       case 'boomerang':
         this.boomerang(roachLane, attack.travel, attack.back, now);
         break;
@@ -307,7 +328,7 @@ export class LodziaFight extends BossFight {
     const landsAt = startedAt + WINDUP_MS + hold + SLAM_IMPACT_MS;
     this.delay(WINDUP_MS + hold, () => {
       this.ctx.audio.playSfx(SFX.whoosh, VOL.boss);
-      this.play(`slam-${lane}`, () => this.play('idle'));
+      this.play(`slam-${lane}`, () => this.rest());
       this.delay(Math.max(0, landsAt - this.ctx.scene.time.now), () => this.impact(lane, landsAt));
     });
   }
@@ -339,11 +360,11 @@ export class LodziaFight extends BossFight {
   // ── Thrown ────────────────────────────────────────────────────────
 
   /** She pulls a fresh slipper from her pocket and whips it along the lane. */
-  private throwSlipper(lane: Lane, travel: number, startedAt: number): void {
+  private throwSlipper(lane: Lane, travel: number, startedAt: number, scale = 1): void {
     this.ctx.audio.playSfx(SFX.pocket, VOL.obstacle);
-    this.play(`throw-${lane}`, () => this.play('idle'));
+    this.play(`throw-${lane}`, () => this.rest(), 1 / scale);
     this.hold(`throw-${lane}`, SLIPPER_GLOW, [3], 3);
-    const releasedAt = startedAt + THROW_RELEASE_MS;
+    const releasedAt = startedAt + THROW_RELEASE_MS * scale;
     this.delay(Math.max(0, releasedAt - this.ctx.scene.time.now), () => {
       this.ctx.audio.playSfx(SFX.throw, VOL.boss);
       const from = this.release(`throw-${lane}`);
@@ -372,7 +393,7 @@ export class LodziaFight extends BossFight {
 
   /** Twirled overhead, thrown far: out along the lane, off the left edge, back along the other lane, into her face. */
   private boomerang(lane: Lane, travel: number, back: number, startedAt: number): void {
-    this.play('boomerang', () => this.play('idle'));
+    this.play('boomerang', () => this.rest());
     this.hold('boomerang', BOOMERANG_GLOW, [5], 5);
     const releasedAt = startedAt + BOOMERANG_RELEASE_MS;
     this.delay(Math.max(0, releasedAt - this.ctx.scene.time.now), () => {
@@ -428,15 +449,15 @@ export class LodziaFight extends BossFight {
     this.ctx.audio.playSfx(SFX.smack, VOL.big);
     this.ctx.scene.cameras.main.shake(SHAKE_MS, SHAKE);
     this.puff(face.x, face.y);
-    this.play('hurt', () => this.play('idle'));
-    this.wear(SMACK_DAMAGE);
+    this.play('hurt', () => this.rest());
+    this.setStamina(smackWear(this.stamina, this.lethalSmack));
     this.popupAt(face.x, face.y - 30, `AUĆ! -${SMACK_DAMAGE}`, '#ffb070');
   }
 
-  /** Stamping, she hurls a curler: it bounces from lane to lane a beat apart and settles on the roach's lane, rolling
-   * on at it, so its last landing says where it will hit with time to get out. */
+  /** Stamping, she hurls a curler: it bounces three times on a steady beat, each leap lower, and the third landing,
+   * where it settles on the roach's lane, is the cue: it rolls flat at the roach, the same time every attack. */
   private tantrum(roachLane: Lane, beat: number, settle: number, startedAt: number): void {
-    this.play('tantrum', () => this.play('idle'));
+    this.play('tantrum', () => this.rest());
     this.hold('tantrum', CURLER_GLOW, [1], 2);
     this.delay(0, () => this.ctx.audio.playSfx(SFX.stamp, VOL.big));
     const releasedAt = startedAt + TANTRUM_RELEASE_MS;
@@ -458,49 +479,62 @@ export class LodziaFight extends BossFight {
     const left = this.ctx.scene.cameras.main.scrollX - 40;
     const flyY = (lane: Lane) => this.laneY(lane) - CURLER_FLY_HEIGHT;
     const landings = Array.from({ length: CURLER_LANDINGS }, (_, k) => curlerLanding(beat, k));
-    const last = landings[landings.length - 1];
-    const rollHop = settle / 2;
+    const last = landings.length - 1;
+    const xAt = (t: number) => from.x - speed * t;
     let landed = 0;
+    // The first landing's shadow is there from the moment it leaves her fist
+    this.markLanding(xAt(landings[0]), this.curlerLane(arrive, 0), false);
     return {
       sprite: 'curler',
       trail: CURLER_TRAIL,
       at: (t) => {
-        const x = from.x - speed * t;
-        // Every landing sparks and clicks; the last, where it stays, flashes bigger
+        const x = xAt(t);
+        // Every landing sparks and clicks and shows the next one's shadow; the last, the settle, lands like the slam
         while (landed < landings.length && t >= landings[landed]) {
           const lane = this.curlerLane(arrive, landed);
-          const settled = landed === landings.length - 1;
+          const settled = landed === last;
           this.ctx.audio.playSfx(SFX.curler, settled ? VOL.boss : VOL.pickup);
           sparkBurst(this.ctx.scene, x, this.laneY(lane) - 2, CURLER_GLOW, settled ? 10 : 6, -1, settled ? 40 : 26);
-          if (settled) glint(this.ctx.scene, x, flyY(lane), CURLER_GLOW, 34, 380);
+          if (settled) {
+            this.clearLandingMark();
+            this.ctx.audio.playSfx(SFX.slap, VOL.boss);
+            this.ctx.scene.cameras.main.shake(SHAKE_MS / 2, SHAKE / 2);
+            this.burst(x, this.laneY(lane));
+            glint(this.ctx.scene, x, flyY(lane), CURLER_GLOW, 34, 380);
+          } else {
+            this.markLanding(xAt(landings[landed + 1]), this.curlerLane(arrive, landed + 1), landed + 1 === last);
+          }
           landed++;
         }
-        let y: number;
-        let squash = 0;
-        if (t < landings[0]) {
-          // Out of her fist in an arc down onto its first lane
-          const u = t / landings[0];
-          y = Phaser.Math.Linear(from.y, flyY(this.curlerLane(arrive, 0)), u) - Math.sin(u * Math.PI) * CURLER_ARC * 0.6;
-        } else if (t < last) {
-          // A big clear leap to the other lane, a beat long
-          const k = landings.findIndex(at => at > t) - 1;
-          const u = (t - landings[k]) / beat;
-          const a = flyY(this.curlerLane(arrive, k));
-          const b = flyY(this.curlerLane(arrive, k + 1));
-          y = Phaser.Math.Linear(a, b, u) - Math.sin(u * Math.PI) * CURLER_ARC;
-          squash = Math.max(0, 1 - (t - landings[k]) / CURLER_SQUASH_MS);
-        } else {
-          // Settled on the roach's lane: it rolls on in small hops
-          const since = t - last;
-          const u = (since % rollHop) / rollHop;
-          y = flyY(arrive) - Math.sin(u * Math.PI) * CURLER_ROLL_HOP;
-          squash = Math.max(0, 1 - since / CURLER_SQUASH_MS);
+        if (t >= landings[last]) {
+          // Settled: it stops bouncing and rolls flat along the roach's lane, after a squash that holds
+          const since = t - landings[last];
+          const squash = since < CURLER_SETTLE_HOLD_MS ? 1 : Math.max(0, 1 - (since - CURLER_SETTLE_HOLD_MS) / CURLER_SETTLE_SQUASH_MS);
+          return { x, y: flyY(arrive), lane: arrive, squash };
         }
-        return { x, y, lane: t < last ? this.curlerLane(arrive, Math.max(0, landings.findIndex(at => at > t) - 1)) : arrive, squash };
+        // Each leap a beat long, from where it was (her fist, then the lane it landed on) to the next landing, lower each time
+        const k = Math.floor(t / beat);
+        const u = (t - k * beat) / beat;
+        const a = k === 0 ? from.y : flyY(this.curlerLane(arrive, k - 1));
+        const b = flyY(this.curlerLane(arrive, k));
+        const y = Phaser.Math.Linear(a, b, u) - Math.sin(u * Math.PI) * CURLER_ARCS[k];
+        const squash = k === 0 ? 0 : CURLER_SQUASH * Math.max(0, 1 - (t - k * beat) / CURLER_SQUASH_MS);
+        return { x, y, lane: this.curlerLane(arrive, k), squash };
       },
       passes: [{ at: arrival, lane: arrive }],
       duration: (from.x - left) / speed,
     };
+  }
+
+  /** The shadow on the lane where the curler comes down next, hot; the settle's is wider and pink. */
+  private markLanding(x: number, lane: Lane, settle: boolean): void {
+    const half = (settle ? CURLER_MARK_SETTLE_WIDTH : CURLER_MARK_WIDTH) / 2;
+    this.landingMark = { spot: { x0: x - half, x1: x + half, y: this.laneY(lane) + 1, progress: 1 }, look: settle ? 'pink' : 'warm' };
+  }
+
+  private clearLandingMark(): void {
+    this.landingMark = null;
+    this.landingShadow.hide();
   }
 
   private launch(flight: Flight, releasedAt: number): Projectile {
@@ -531,7 +565,7 @@ export class LodziaFight extends BossFight {
     }
     if (inLane) {
       this.seen.absorbed = (this.seen.absorbed ?? 0) + 1;
-      this.wear(DODGE_DAMAGE);
+      this.wearDodge(DODGE_DAMAGE);
       return;
     }
     const hop = player.lastHop;
@@ -539,14 +573,21 @@ export class LodziaFight extends BossFight {
     if (close) audio.playSfx(SFX.closeCall, VOL.stinger);
     const points = close ? DODGE_SCORE + NEAR_MISS_SCORE : DODGE_SCORE;
     this.ctx.addScore(points);
-    this.wear(close ? DODGE_DAMAGE + CLOSE_CALL_DAMAGE : DODGE_DAMAGE);
+    this.wearDodge(close ? DODGE_DAMAGE + CLOSE_CALL_DAMAGE : DODGE_DAMAGE);
     this.popupAt(player.x, player.y - 40, close ? `NA STYK! +${points}` : `+${points}`, close ? '#7fe0ff' : '#ffdd00');
   }
 
-  private wear(amount: number): void {
-    this.stamina = Math.max(0, this.stamina - amount);
-    this.ctx.updateBar(this.stamina);
+  /** A dodge wears her down, but never into the sliver's last points: those are the boomerang's. */
+  private wearDodge(amount: number): void {
+    this.setStamina(dodgeWear(this.stamina, amount));
+  }
+
+  private setStamina(value: number): void {
+    const wasLast = atSliver(this.stamina);
+    this.stamina = Math.max(0, value);
+    this.ctx.updateBar(this.stamina, atSliver(this.stamina));
     if (this.stamina <= 0) this.finishHer();
+    else if (atSliver(this.stamina) && !wasLast && this.lodzia.anims.getName() === lodziaAnimKey('idle')) this.play('tired');
   }
 
   // ── Looks ─────────────────────────────────────────────────────────
@@ -565,6 +606,11 @@ export class LodziaFight extends BossFight {
   private release(anim: keyof typeof LODZIA_RELEASE): { x: number; y: number } {
     const at = LODZIA_RELEASE[anim];
     return { x: this.lodzia.x + at.x * SPRITE_SCALE, y: this.ctx.floorBottomY + at.y * SPRITE_SCALE };
+  }
+
+  /** What she does between attacks: stands, or on her last legs, sags. */
+  private rest(): void {
+    this.play(atSliver(this.stamina) ? 'tired' : 'idle');
   }
 
   private play(anim: LodziaAnim, then?: () => void, timeScale = 1): void {
@@ -706,6 +752,8 @@ export class LodziaFight extends BossFight {
     this.shockwaves = [];
     this.projectiles = [];
     this.unwarnSlam();
+    this.clearLandingMark();
+    this.landingShadow.destroy();
     for (const obj of this.effects) obj.destroy();
     this.effects = [];
     // Lost, she stays a moment where she stood

@@ -547,6 +547,15 @@ def collect_pill() -> Effect:
     return Effect(frames, (.5, .5), 18)
 
 
+COLLECT_SIZE = 1.2   # the owner's hand-tuned size for what a pickup bursts into (the sprite tuner)
+
+
+def _grown(effect: Effect, k: float) -> Effect:
+    """The same effect k times as big, each frame redrawn by whole texels (nearest), its pivot where it was."""
+    frames = [np.asarray(Image.fromarray(f).resize((round(f.shape[1] * k), round(f.shape[0] * k)), Image.NEAREST)) for f in effect.frames]
+    return Effect(frames, effect.pivot, effect.fps, effect.loop, effect.light)
+
+
 PLATE_MIDDLE = 32   # texels of the stretching middle: wide, so the canvas renderer's half-texel overdraw stays small
 
 
@@ -616,6 +625,102 @@ def _zone_cap(state: str, f: int) -> np.ndarray:
 def zone(state: str, part: str) -> Effect:
     frames = [(_zone_tile if part == "tile" else _zone_cap)(state, f) for f in range(4)]
     return Effect(frames, (0., 1.), 8 if state == "warn" else 14, loop=True)
+
+
+# ----------------------------------------------------------------------------------------------------- landing shadow
+
+# The kill zone's sibling for a spot: where something will come down (src/effects/LandingShadow.ts). A flat ellipse on
+# the ledge, drawn in the zone's own palette, that is a strip of LANDING_STAGES stages the game picks from by how far the
+# hit has come: wide and faint dashes of amber at first, then the zone's marching amber stripes round a dark dithered
+# core as it tightens and fills, and at the last stage it is hot, the zone's red with a white-hot root and flickering
+# teeth. The game stretches the width of the stripe by laying a left end, a tiled middle and a right end (as the zone
+# does) and sets the ring's width per stage; the height is baked. Two frames of flicker per stage. "pink" is the same
+# strip for the boss's glowing last landing.
+LANDING_STAGES = 8
+LANDING_CAP = 8     # texels: an end, half an ellipse this wide
+LANDING_TILE = 8    # texels of middle per tile; every pattern repeats every 4, so tiles and ends join
+LANDING_H = 12      # the canvas: the tallest stage, its outline and the teeth over it
+# Stage heights (the ellipse's rows, outline excluded): it flattens as it tightens
+LANDING_ROWS = [9, 9, 9, 8, 8, 8, 8, 8]
+
+
+def _shrunk(mask: np.ndarray) -> np.ndarray:
+    out = mask.copy()
+    out[1:] &= mask[:-1]
+    out[:-1] &= mask[1:]
+    out[:, 1:] &= mask[:, :-1]
+    out[:, :-1] &= mask[:, 1:]
+    return out
+
+
+def _landing_full(look: str, stage: int, f: int) -> np.ndarray:
+    """One stage, one flicker frame, a stripe of end + 3 tiles + end, as wide as the ends and tiles it is cut into."""
+    cap, tile = LANDING_CAP, LANDING_TILE
+    w = 2 * cap + 3 * tile
+    amber = AMBER if look == "warm" else PINK[:4]
+    hot = ALERT if look == "warm" else PINK
+    rows = LANDING_ROWS[stage]
+    cy = LANDING_H - 1 - 1 - rows / 2   # the outline below it, the teeth above
+    xs, ys = _grid(new(w, LANDING_H))
+    u = np.where(xs < cap, (cap - xs) / cap, np.where(xs > w - cap, (xs - (w - cap)) / cap, 0.))
+    half = rows / 2 * np.sqrt(1 - u ** 2)
+    mask = np.abs(ys - cy) <= half
+    inner = _shrunk(mask)
+    ring = mask & ~inner
+    core = inner
+    if stage >= 4:   # the ring thickens as it heats
+        core = _shrunk(inner)
+        ring |= inner & ~core
+    x = np.floor(xs).astype(int)
+    y = np.floor(ys).astype(int)
+    stripe = (x + y + f * 2) % 4 < 2
+    checker = (x + y + f) % 2 == 0
+    img = new(w, LANDING_H)
+    # A dark outline round it, so it reads on sand as well as on the dark ledge
+    outer = np.zeros_like(mask)
+    outer[1:] |= mask[:-1]
+    outer[:-1] |= mask[1:]
+    outer[:, 1:] |= mask[:, :-1]
+    outer[:, :-1] |= mask[:, 1:]
+    outer &= ~mask
+    if stage >= 2:
+        paint(img, outer, INK[0])
+    if stage < 2:       # far: dashes and a few dark specks, wide and faint
+        paint(img, ring & ((x + f * 2) % 8 < (4 if stage == 0 else 6)), amber[1] if stage == 0 else amber[2])
+        paint(img, core & (x % 2 == 0) & (y % 2 == f % 2), INK[0])
+    elif stage < 4:     # the zone's marching stripes, dim, round a dithered core
+        paint(img, ring, amber[0])
+        paint(img, ring & stripe, amber[1] if stage == 2 else amber[2])
+        paint(img, core & checker, INK[0])
+    elif stage < 6:     # brighter and closer: a solid core
+        paint(img, core, INK[0])
+        paint(img, ring, amber[1])
+        paint(img, ring & stripe, amber[2] if stage == 4 else amber[3])
+    else:               # hot: the zone's red, a white-hot root along the near edge, flickering teeth on the far one
+        root = ring & (ys > cy) & ~_shrunk(ring | core)
+        last = stage == 7
+        paint(img, core, hot[2] if last else hot[1])
+        paint(img, core & checker, hot[1] if last else hot[0])
+        paint(img, ring, hot[3] if last else hot[2])
+        paint(img, ring & stripe & (not last), hot[3])
+        paint(img, root | (ring & (ys > cy) & last), hot[4] if last else hot[3])
+        r = _rng(31 + f * 7 + stage)
+        for col in range(cap // 2, w - cap // 2):
+            top = int(np.argmax(mask[:, col]))
+            if r.rand() < (.5 if last else .3):
+                img[top - 1, col, :3] = hot[2] if last else hot[1]
+                img[top - 1, col, 3] = 255
+    return img
+
+
+def landing(look: str, stage: int, part: str) -> Effect:
+    cap, tile = LANDING_CAP, LANDING_TILE
+    frames = []
+    for f in range(2):
+        full = _landing_full(look, stage, f)
+        w = full.shape[1]
+        frames.append({"left": full[:, :cap], "tile": full[:, cap:cap + tile], "right": full[:, w - cap:]}[part].copy())
+    return Effect(frames, (0., .5), 8, loop=True)
 
 
 # ------------------------------------------------------------------------------------------------------------- lamp
@@ -1335,15 +1440,18 @@ EFFECTS = {
     "twinkle-teal": lambda: twinkle(TEAL),
     "twinkle-pink": lambda: twinkle(PINK),
     "twinkle-violet": lambda: twinkle(VIOLET),
-    "collect-apple": collect_apple,
-    "collect-beer": collect_beer,
-    "collect-pill": collect_pill,
+    "collect-apple": lambda: _grown(collect_apple(), COLLECT_SIZE),
+    "collect-beer": lambda: _grown(collect_beer(), COLLECT_SIZE),
+    "collect-pill": lambda: _grown(collect_pill(), COLLECT_SIZE),
     "cord": cord,
     "lamp-mount": lamp_mount,
     "zone-warn": lambda: zone("warn", "tile"),
     "zone-warn-end": lambda: zone("warn", "cap"),
     "zone-kill": lambda: zone("kill", "tile"),
     "zone-kill-end": lambda: zone("kill", "cap"),
+    **{f"land-{look}-{stage}{suffix}": (lambda look=look, stage=stage, part=part: landing(look, stage, part))
+       for look in ("warm", "pink") for stage in range(LANDING_STAGES)
+       for suffix, part in (("-l", "left"), ("", "tile"), ("-r", "right"))},
     "plate": lambda: plate(GOLD),
     "plate-red": lambda: plate(RED),
     "aura-1": lambda: exhaust(EXHAUST_FIRE, 58, 16, 1),

@@ -4,11 +4,11 @@ import { DEPTH } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { EnemyPlan, laneY } from './behaviours';
-import { TIMINGS } from './cast';
+import { TIMINGS, feetY } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 /** The cloud's hitbox height in each lane, frame px. */
-const CLOUD_H = 26;
+export const CLOUD_H = 26;
 /** How far back on the upper ledge the can stands (px up from the lane): a prop out of the way, like the bleach jug. */
 const SET_BACK = 8;
 
@@ -54,7 +54,7 @@ export function spawnSprayWall(kit: ObstacleKit, plan: EnemyPlan): void {
     if (puffing) {
       for (const lane of ['top', 'bottom'] as const) {
         for (const dx of [0, t.reach / 2]) {
-          const at = { x: plan.x - dx, y: laneY(lane) };
+          const at = { x: plan.x - dx, y: feetY(plan.id, lane) };
           fx.play('spray-cloud', at.x, at.y, { depth: DEPTH.OBSTACLES + 1, life: t.puff, onComplete: () => fx.play('spray-cloud-out', at.x, at.y, { depth: DEPTH.OBSTACLES + 1 }) });
         }
       }

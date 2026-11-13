@@ -12,7 +12,8 @@ export interface Laid { x: number; items: SlotItem[] }
 
 /**
  * The simulated player: it runs at a steady speed, sees an enemy once it is on screen (the chaser once its cue shows)
- * and learns of each attack when the attack telegraphs (each zone's `since`), then needs `reaction` ms to act on it. It
+ * and learns of each attack when the attack telegraphs (each zone's `since`), then needs `reaction` ms to act on it (the
+ * dancing boots: one pair at a time, see below). Its lane changes count from the press, as the game's do. It
  * plans lane changes against what it knows (fewest hops), replans when it learns more, and dies if the real danger
  * (known or not) catches it. Its dash only breaks walls, so everything else must be beatable with hops.
  */
@@ -96,14 +97,30 @@ export function simulate(course: Laid[], sim: Sim, startX: number): Outcome {
           const s = enemyState(plan, i * DT);
           if (s.pose === 'parked') continue;
           const ahead = s.x - half <= xs[i] + SCREEN_AHEAD && s.x + half >= xs[i] - SCREEN_BEHIND;
-          // A chaser is announced by its cue; the vacuum by its roar and the left edge, from the moment it sets off
-          const cued = plan.id === 'vacuum' || (plan.chase !== undefined
-            && xs[i] - ROACH_BACK - (s.x + half) <= ((plan.chase.speed - sim.speed) * CHASER_CUE_MS) / 1000);
+          // A chaser is announced by its cue
+          const cued = plan.chase !== undefined
+            && xs[i] - ROACH_BACK - (s.x + half) <= ((plan.chase.speed - sim.speed) * CHASER_CUE_MS) / 1000;
           if (ahead || cued) { visibleFrom = i * DT; break; }
         }
         threats.push({ id: plan.id, anchor, visibleFrom, zones: t => enemyState(plan, t).zones });
       }
     }
+  }
+
+  // The dancing boots stomp on one beat shared by every pair, so which lane a pair leaves open is read by counting the
+  // beat to the moment the roach gets there. A player counts it for one pair at a time: the next pair is read from
+  // when the roach is past the one before it, not from when it came on screen
+  let cleared = -Infinity;
+  const dancers = threats
+    .filter(t => t.anchor !== null && ENEMIES[t.id as EnemyId]?.role === 'dancer')
+    .sort((a, b) => a.anchor! - b.anchor!);
+  for (const threat of dancers) {
+    threat.visibleFrom = Math.max(threat.visibleFrom, cleared);
+    // Past the furthest any of its boots comes down
+    let end = threat.anchor!;
+    for (let t = 0; t < TIMINGS.boots.beat * 2; t += DT) for (const z of threat.zones(t)) end = Math.max(end, z.x1);
+    const past = xs.findIndex(x => x - ROACH_BACK > end);
+    cleared = past < 0 ? Infinity : past * DT;
   }
 
   // Per step and lane: whether it is deadly, and from when the player could know it. The player keeps a little room

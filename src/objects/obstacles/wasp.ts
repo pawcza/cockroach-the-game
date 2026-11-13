@@ -3,7 +3,7 @@ import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { frameOf } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
-import { EnemyPlan, Lane, newWasp, stepWasp } from './behaviours';
+import { EnemyPlan, Lane, newWasp, stepWasp, waspDiveLane } from './behaviours';
 import { ENEMIES, WASP, bodyOf } from './cast';
 import { ObstacleKit, Shootable } from './ObstacleKit';
 
@@ -12,9 +12,10 @@ const roachLane = (y: number, kit: ObstacleKit): Lane => (y > (kit.topY + kit.bo
 
 /**
  * The jewel wasp (stepWasp in behaviours.ts): it flies in ahead of the roach and hovers there, buzzing, in the roach's
- * lane; when the roach hops it follows after a moment. Then it draws back, a red glint on its sting (its lane is locked
- * from here on), and dives sting first down that lane. Hop once it has locked on, dash through the dive, or shoot it
- * while it hovers. It hunts this client's roach only. Sounds (placeholders): the pigeon's screech, high, for the lock.
+ * lane; when the roach hops it follows after a moment. Then it draws back, trembling in its sting-first pose, a glint on
+ * its sting and the stretch of lane its dive will sweep marked (its lane is locked from here on), and dives sting first
+ * down that lane. Hop once it has locked on, dash through the dive, or shoot it while it hovers. It hunts this client's
+ * roach only. Sounds (placeholders): the pigeon's screech, high, for the lock.
  */
 export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -25,6 +26,7 @@ export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
   const body = bodyOf(ENEMIES.wasp);
   const w = newWasp(plan.lane);
   wasp.setData('hunt', w);
+  const hazard = kit.hazard(wasp);
   let last = scene.runTime;
   let was = w.phase;
   const update = (): void => {
@@ -32,16 +34,19 @@ export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
     const now = scene.runTime;
     const dt = Math.min(50, now - last);
     last = now;
-    if (scene.isDead) return;
+    if (scene.isDead) { hazard(null); return; }
     const roach = scene.cockroach;
     const zones = stepWasp(w, WASP, plan, dt, roach.x, roachLane(roach.y, kit), body);
     if (w.phase === 'waiting') return;
     if (w.phase === 'gone') { wasp.destroy(); return; }
-    wasp.setVisible(true).setPosition(Math.round(w.x), Math.round(w.y));
-    // Locked on it flickers between hovering and its sting-first pose: the cue to hop now
-    const frame = w.phase === 'dive' ? 2 : w.phase === 'windup' ? (Math.floor(now / 70) % 2 ? 2 : 0) : Math.floor(now / 45) % 2;
+    // Locked on, it holds its sting-first pose and trembles as it draws back: the cue to hop now
+    const shiver = w.phase === 'windup' ? Math.round(Math.sin(now / 14) * 2) : 0;
+    wasp.setVisible(true).setPosition(Math.round(w.x) + shiver, Math.round(w.y));
+    const frame = w.phase === 'dive' || w.phase === 'windup' ? 2 : Math.floor(now / 45) % 2;
     wasp.setFrame(frameOf('wasp', frame));
     wasp.setData('floor', w.lane).setData('harmless', zones.length === 0);
+    // The stretch of its lane the dive will sweep, from the lock; then where the sting is
+    hazard(waspDiveLane(w, WASP, roach.x, body), zones);
     if (w.phase !== was) {
       if (w.phase === 'windup') {
         // A glint on its sting and a pink flare round it, riding with it as it draws back

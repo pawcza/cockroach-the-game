@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COMBO_FLAMES, DEPTH } from '../config/constants';
+import { COMBO_FLAMES, DEPTH, PICKUP_BURST_RISE } from '../config/constants';
 import { ROACH_FEET_OFFSET, SPRITE_SCALE } from '../config/sprites';
 import type { Player } from '../objects/Player';
 import { popupStyle } from '../utils/TextStyles';
@@ -142,7 +142,7 @@ export class VisualEffects {
     if (!this.initialized) return;
     const burst = COLLECT_BURST.find(([art]) => frameName.startsWith(art))?.[1];
     if (!burst) return;
-    this.fx.play(burst, x, y, { depth: DEPTH.VFX_TEXT });
+    this.fx.play(burst, x, y - PICKUP_BURST_RISE, { depth: DEPTH.VFX_TEXT });
   }
 
   /** The combo's flames grow with it, and go out with it. Called with the combo after every change. */

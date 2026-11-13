@@ -1,8 +1,8 @@
 import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { getFx } from '../../effects/Fx';
-import { EnemyPlan, laneY } from './behaviours';
-import { TIMINGS } from './cast';
+import { EnemyPlan } from './behaviours';
+import { TIMINGS, feetY, placeOf } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 /** Its gallop played faster pawing and charging, slower walking back. */
@@ -16,7 +16,9 @@ const WALK = 0.7;
  */
 export function spawnBison(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
-  const standY = laneY(plan.lane);
+  const standY = feetY(plan.id, plan.lane);
+  // Its dust is thrown from fixed distances off its hooves: they grow with it
+  const k = placeOf(plan.id).size;
   const depth = DEPTH.OBSTACLES + 0.5;
   const bison = kit.enemy(plan);
   kit.playSoundOnVisible(bison, 'bison-sfx', 0.5);
@@ -42,14 +44,14 @@ export function spawnBison(kit: ObstacleKit, plan: EnemyPlan): void {
       // The pawing's first frame: an orange flare on its horns, a ring of light round it, dust off its hooves
       fx.play('flare-big-orange', bison.x - bison.displayWidth * 0.3, bison.y - bison.displayHeight * 0.62, { depth: DEPTH.PICKUPS + 1 });
       fx.play('shield', bison.x, bison.getCenter().y, { depth: DEPTH.PICKUPS + 1 });
-      fx.play('dust', bison.x - 12, standY, { depth });
+      fx.play('dust', bison.x - 12 * k, standY, { depth });
       if (kit.isAhead(bison)) kit.audio.playSfx('bison-sfx', VOL.obstacle * 0.5);
     }
   });
 
   // Dust off its hooves while it paws, and kicked up behind it as it charges
   const dustTimer = kit.emitWhileOnScreen(bison, 110, () => {
-    if (pose === 'windup') fx.play('dust', bison.x + (Math.random() < .5 ? -14 : 10), standY, { depth });
+    if (pose === 'windup') fx.play('dust', bison.x + (Math.random() < .5 ? -14 : 10) * k, standY, { depth });
     if (pose === 'strike') fx.play('skid', bison.x + bison.displayWidth * 0.3, standY, { depth });
   });
 

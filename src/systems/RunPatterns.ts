@@ -41,6 +41,8 @@ type Step =
 interface Chunk {
   name: string;
   minLevel: number;
+  /** The last level it is laid on, when what it asks for leaves the cast (cast.ts CAST). */
+  maxLevel?: number;
   /** How much it adds to the wave's heat. Breathers add none and end a wave. */
   heat: number;
   weight: number;
@@ -68,8 +70,8 @@ const CHUNKS: Chunk[] = [
   // down the lane to be on
   { name: 'light', minLevel: 2, heat: 2, weight: 1.5, steps: [['empty'], ['empty'], ['obstacle', 'A', 'light'], ['pickup', 'B'], ['pickup', 'B'], ['empty']] },
   { name: 'mop', minLevel: 2, heat: 2, weight: 1.5, steps: [['pickup', 'B'], ['obstacle', 'A', 'mop'], ['pickup', 'B'], ['empty']] },
-  // The dash act. The vacuum comes from behind near its slot, holds behind the runner a while and swings its nozzle
-  // twice: a stretch without obstacles, apples in the lane it leaves free
+  // The dash act. The vacuum comes from behind as the roach reaches its slot and closes in until a dash breaks its grip
+  // (or it gives up): a stretch without obstacles as long as it can last, apples in both lanes
   { name: 'vacuum', minLevel: 3, heat: 3, weight: 1, steps: [['obstacle', 'A', 'chaser'], ['pickup', 'B'], ['pickup', 'B'], ['empty'], ['pickup', 'A'], ['pickup', 'A'], ['empty']] },
   // A cloud wall where a wall would go: shut while it hangs, open between puffs, always open to a dash
   { name: 'cloud', minLevel: 3, heat: 3, weight: 1, steps: [['pickup', 'A'], ['empty'], ['cloud'], ['empty']] },
@@ -77,8 +79,10 @@ const CHUNKS: Chunk[] = [
   { name: 'hen', minLevel: 4, heat: 2, weight: 2, steps: [['empty'], ['obstacle', 'A', 'pecker'], ['pickup', 'A'], ['empty']] },
   { name: 'frog', minLevel: 5, heat: 2, weight: 2, steps: [['empty'], ['pickup', 'B'], ['obstacle', 'A', 'licker'], ['pickup', 'B'], ['empty']] },
   { name: 'centipede', minLevel: 6, heat: 2, weight: 1.5, steps: [['empty'], ['obstacle', 'A', 'scuttler'], ['pickup', 'B'], ['empty']] },
-  // A dance line: pairs of boots in a row, all stomping on one beat
-  { name: 'dance', minLevel: 6, heat: 3, weight: 1.5, steps: [['empty'], ['obstacle', null, 'dancer'], ['obstacle', null, 'dancer'], ['obstacle', null, 'dancer'], ['empty']] },
+  // A dance line: three pairs of boots, all stomping on one beat, each with a slot of floor before the next. Which lane
+  // a pair leaves open depends on where in the beat the roach gets to it, so each pair is its own read: in slots side by
+  // side the next one had to be read while still under the last (tests/enemies.test.ts, the dance line)
+  { name: 'dance', minLevel: 6, maxLevel: 7, heat: 3, weight: 1.5, steps: [['empty'], ['obstacle', null, 'dancer'], ['empty'], ['obstacle', null, 'dancer'], ['empty'], ['obstacle', null, 'dancer'], ['empty']] },
   // The gun act. The wasp comes in ahead of the roach and hunts it for a couple of seconds: nothing else meanwhile but
   // apples to take while it hovers
   { name: 'wasp', minLevel: 7, heat: 2.5, weight: 1.5, steps: [['obstacle', 'A', 'tracker'], ['empty'], ['empty'], ['pickup', 'B'], ['pickup', 'A'], ['empty']] },
@@ -191,7 +195,7 @@ export class RunPatterns {
     // A wall waits for its cooldown and the queue it is laid from must not start with one already behind
     const wallReady = this.beatsSinceWall >= WALL_COOLDOWN_BEATS;
     // The cloud wall goes where a wall goes and waits for the same dash
-    const open = CHUNKS.filter(c => c.minLevel <= level && ((c.name !== 'wall' && c.name !== 'cloud') || wallReady));
+    const open = CHUNKS.filter(c => c.minLevel <= level && level <= (c.maxLevel ?? Infinity) && ((c.name !== 'wall' && c.name !== 'cloud') || wallReady));
     const total = open.reduce((sum, c) => sum + c.weight, 0);
     let roll = this.rng.next() * total;
     let chosen = open[open.length - 1];

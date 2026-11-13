@@ -14,6 +14,7 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -30,12 +31,15 @@ def _release_frame(name: str) -> int:
     return next(i for i, p in enumerate(poses) if p.fire)
 
 
-def _front(frames, box, pivot_px) -> list:
-    """The leftmost drawn px on every row of the cell, over all the frames given: native px from the pivot, or None."""
-    import numpy as np
+def _front(frames, box, pivot_px, layer=None) -> list:
+    """The leftmost drawn px on every row of the cell, over all the frames given: native px from the pivot, or None.
+    `layer`: only what that layer of the rig drew (one head)."""
     alpha = np.zeros((box[3] - box[1], box[2] - box[0]), bool)
     for d in frames:
-        alpha |= np.asarray(d.image.crop(box).getchannel("A")) > 128
+        if layer is None:
+            alpha |= np.asarray(d.image.crop(box).getchannel("A")) > 128
+        else:
+            alpha |= d.masks[layer][box[1]:box[3], box[0]:box[2]]
     out = []
     for row in alpha:
         xs = np.nonzero(row)[0]
@@ -100,6 +104,22 @@ def bake_zlewiatan() -> None:
         release[name] = (i, head, round(mx - z.CONTAINER[0]), round(my - z.CONTAINER[1]))
     front_idle = _front(rendered["idle"], box, pivot_px)
     front_charge = _front(rendered["charge"], box, pivot_px)
+    # The solo fight: each head's own front (where a bullet stops on it), each set of heads' front with its necks (where
+    # a bullet glances off the pipes), and where each head's middle is at rest (where it falls off from)
+    head_front = {h: _front(rendered["idle"], box, pivot_px, layer=h) for h in z.ORDER}
+    set_front = {k: _front(rendered[f"idle-{k}"], box, pivot_px) for k in z.SETS}
+    middles = {h: tuple(round(float(c), 1) for c in z._rest_middle(h) - np.array(z.CONTAINER)) for h in z.ORDER}
+    # Per set of heads left (bpc: all three): where each head sits, its mouth as it spits, its front on every row
+    set_heads = {}
+    for key, keep in [("bpc", tuple(z.ORDER))] + list(z.SETS.items()):
+        idle = rendered["idle" if key == "bpc" else f"idle-{key}"]
+        set_heads[key] = {}
+        for h in keep:
+            spit = rendered[f"spit-{h}" if key == "bpc" else f"spit-{h}-{key}"][_release_frame(f"spit-{h}")]
+            mid = z._rest_middle(h) + z._shift(key, h) - np.array(z.CONTAINER)
+            mouth = np.array(spit.mouths[h]) - np.array(z.CONTAINER)
+            set_heads[key][h] = (tuple(round(float(c), 1) for c in mid), tuple(round(float(c)) for c in mouth),
+                                 _front(idle, box, pivot_px, layer=h))
     halves = {}
     for name in ("slab", "radiator", "skwarka", "bone", "bubble", "smietana"):
         images, _, _, (px, py) = z.PROJECTILES[name]
@@ -110,14 +130,15 @@ def bake_zlewiatan() -> None:
             ws.append(max(cx - box_[0], box_[2] - cx))
             hs.append(max(cy - box_[1], box_[3] - cy))
         halves[name] = (round(sum(ws) / len(ws), 1), round(sum(hs) / len(hs), 1))
-    _write_ts(anims, release, front_idle, front_charge, pivot_px, (cell_w, cell_h), halves)
+    _write_ts(anims, release, front_idle, front_charge, pivot_px, (cell_w, cell_h), halves, head_front, set_front, middles,
+              set_heads)
     print("shots, half width x half height, native px:", halves)
     print(f"zlewiatan: {len(frames)} frames, cell {cell_w}x{cell_h}, pivot {pivot[0]:.4f},{pivot[1]:.4f}, "
           f"atlas {atlas.size}, {(OUT / 'zlewiatan.webp').stat().st_size // 1024} KB")
     print("release:", release)
 
 
-def _write_ts(anims, release, front_idle, front_charge, pivot_px, cell, halves) -> None:
+def _write_ts(anims, release, front_idle, front_charge, pivot_px, cell, halves, head_front, set_front, middles, set_heads) -> None:
     def arr(values):
         return "[" + ", ".join("null" if v is None else str(v) for v in values) + "]"
     names = " | ".join(f"'{n}'" for n in anims)
@@ -156,6 +177,27 @@ def _write_ts(anims, release, front_idle, front_charge, pivot_px, cell, halves) 
         "export const SHOT_HALF = {",
         *[f"  '{n}': {{ w: {w}, h: {h} }}," for n, (w, h) in halves.items()],
         "} as const;",
+        "",
+        "/** The solo fight: each head's own leftmost drawn px on each row, through the idle loop (rows as FRONT_IDLE). */",
+        "export const HEAD_FRONT: Record<'block' | 'pierog' | 'carp', readonly (number | null)[]> = {",
+        *[f"  {h}: {arr(v)}," for h, v in head_front.items()],
+        "};",
+        "/** With only these heads left (b block, p pierog, c carp): the creature's front, necks and all, through its idle. */",
+        "export const SET_FRONT: Record<'bp' | 'bc' | 'pc' | 'b' | 'p' | 'c', readonly (number | null)[]> = {",
+        *[f"  {k}: {arr(v)}," for k, v in set_front.items()],
+        "};",
+        "/** Each head's middle at rest, from the pivot: where it falls off from. */",
+        "export const HEAD_MIDDLE = {",
+        *[f"  {h}: {{ x: {x}, y: {y} }}," for h, (x, y) in middles.items()],
+        "} as const;",
+        "",
+        "/** By the heads left (bpc: all three): where each sits (its middle), its mouth as it spits, its front on every row. */",
+        "export const SET_HEADS: Record<string, Partial<Record<'block' | 'pierog' | 'carp', { mid: { x: number; y: number }; "
+        "mouth: { x: number; y: number }; front: readonly (number | null)[] }>>> = {",
+        *[f"  {k}: {{ " + " ".join(f"{h}: {{ mid: {{ x: {m[0]}, y: {m[1]} }}, mouth: {{ x: {mo[0]}, y: {mo[1]} }}, front: {arr(fr)} }},"
+                                    for h, (m, mo, fr) in v.items()) + " },"
+          for k, v in set_heads.items()],
+        "};",
         "",
     ]
     FRAMES_TS.write_text("\n".join(lines))

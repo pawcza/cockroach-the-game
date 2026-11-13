@@ -1,7 +1,8 @@
 import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { getFx } from '../../effects/Fx';
-import { EnemyPlan, laneY } from './behaviours';
+import { EnemyPlan } from './behaviours';
+import { feetY } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 /** A curl of stink off its top, and a tear down its side, this often. */
@@ -12,7 +13,7 @@ const TEAR_MS = 800;
 export function spawnOnion(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
   const { x } = plan;
-  const standY = laneY(plan.lane);
+  const standY = feetY(plan.id, plan.lane);
 
   const onion = kit.enemy(plan);
   kit.drive(onion, plan);

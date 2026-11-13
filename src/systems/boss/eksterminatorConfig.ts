@@ -9,14 +9,15 @@ export const EKS_TEXTURE = 'boss-eksterminator';
 export const EKS_ATLAS = { image: 'boss/eksterminator.webp', json: 'boss/eksterminator.json' };
 
 export type EksAnim =
-  'idle' | 'walk' | 'pump' |
+  'idle' | 'idle-hot' | 'walk' | 'pump' |
   'spray-top-windup' | 'spray-top' | 'spray-top-release' |
   'spray-bottom-windup' | 'spray-bottom' | 'spray-bottom-release' |
-  'lob' | 'stagger' | 'defeat';
+  'lob' | 'stagger' | 'defeat' | 'charge';
 
 /** As baked: the bake checks these against the rig. */
 export const EKS_ANIMS: Record<EksAnim, { frames: number; fps: number; loop: boolean }> = {
   'idle': { frames: 8, fps: 6, loop: true },
+  'idle-hot': { frames: 8, fps: 6, loop: true },
   'walk': { frames: 8, fps: 8, loop: true },
   'pump': { frames: 6, fps: 10, loop: false },
   'spray-top-windup': { frames: 4, fps: 10, loop: false },
@@ -28,10 +29,11 @@ export const EKS_ANIMS: Record<EksAnim, { frames: number; fps: number; loop: boo
   'lob': { frames: 6, fps: 10, loop: false },
   'stagger': { frames: 5, fps: 14, loop: false },
   'defeat': { frames: 12, fps: 10, loop: false },
+  'charge': { frames: 8, fps: 16, loop: true },
 };
 
 /** His sprites: frame counts and speeds. */
-export type EksSprite = 'jet' | 'jet-burst' | 'jet-dive' | 'jet-splash' | 'canister' | 'cloud';
+export type EksSprite = 'jet' | 'jet-burst' | 'jet-dive' | 'jet-splash' | 'canister' | 'cloud' | 'mine';
 export const EKS_SPRITES: Record<EksSprite, { frames: number; fps: number }> = {
   'jet': { frames: 4, fps: 14 },
   'jet-burst': { frames: 3, fps: 14 },
@@ -39,6 +41,7 @@ export const EKS_SPRITES: Record<EksSprite, { frames: number; fps: number }> = {
   'jet-splash': { frames: 3, fps: 14 },
   'canister': { frames: 3, fps: 14 },
   'cloud': { frames: 6, fps: 8 },
+  'mine': { frames: 3, fps: 6 },
 };
 
 /** Native px, as baked. */

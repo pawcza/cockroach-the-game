@@ -24,6 +24,7 @@ import {
   blocker,
   bodyWidth,
   drip,
+  laneY,
   light,
   mopSweep,
   chaser,
@@ -35,7 +36,6 @@ import {
   scuttle,
   still,
   stomp,
-  suck,
   sweeper,
   swoop,
   tongue,
@@ -44,6 +44,7 @@ import {
   patrol,
   rings,
   lure,
+  VacuumTimings,
   WaspTimings,
   Zone,
 } from './behaviours';
@@ -84,6 +85,8 @@ export interface EnemyDef {
   behave: Behaviour;
   /** It shows its own attack (pose, motion): no red "!" as it arrives. */
   telegraphs: boolean;
+  /** Where its picture sits against its lane, hand-tuned (see Placement). */
+  place?: Placement;
   /** Bullets it takes to go down (the run's pistol): 1 unless it is tough. */
   hits?: number;
   /**
@@ -96,6 +99,26 @@ export interface EnemyDef {
 }
 
 const DEFAULT_HITBOX = { w: 0.6, h: 0.7 };
+
+/**
+ * Where an enemy's picture was hand-tuned against its lane, on top of what its behaviour says (what the owner set in
+ * the sprite tuner). One mechanism for every enemy: ObstacleKit puts the sprite at its state plus the offset, so its
+ * hitbox, its shadow's x and every effect anchored on it move together; the view files read `placeOf` for what they
+ * anchor to the lane. A vertical shift changes no lane and no zone; a horizontal one moves the hurt zone that is the
+ * body (Body.dx), never the stretches it threatens with.
+ */
+export interface Placement {
+  /** World px, right and down positive. */
+  dx?: number;
+  dy?: number;
+  /**
+   * How much its art was grown or shrunk when baked (tools/art): the picture and its hitbox already are at that size, so
+   * only what is anchored by a fixed number of px (a dust puff at its hooves) needs it.
+   */
+  size?: number;
+  /** A sprite that rides with it and has its own offset on top of the enemy's (the bleach's bead). */
+  parts?: Record<string, { dx?: number; dy?: number }>;
+}
 
 /**
  * The swatters drawn with the hand holding them (tools/art/swatters.py, `-hand` strips) instead of on their own. Off:
@@ -111,20 +134,17 @@ export const TIMINGS = {
   spray: { idle: 900, windup: 550, sweep: 550, reach: 56, solid: true },
   newspaper: { idle: 900, windup: 350, swing: 850, slap: 60, down: 160, peel: 280, recede: 500, footprint: 62, alternate: true },
   bird: { circle: 1200, windup: 600, dive: 200, glide: 320, climb: 480, high: 120, glideDx: -40 },
-  cat: { sit: 1400, crouch: 550, leap: 200, stay: 420, back: 200 },
+  // The look is its tell, held for a 400 ms reaction plus the hop before it lands (tests/enemies.test.ts); the hold
+  // after each landing is the grace in which it cannot swap again
+  cat: { hold: 1000, look: 500, leap: 200 },
   catChase: { run: 1250, windup: 450, jump: 220 },
-  bleach: { idle: 700, swell: 650, fall: 260, splash: 150, puddle: 300, spot: 56, jugDx: 30 },
+  bleach: { fall: 320, splash: 130, spot: 56, jugDx: 30 },
   // How far along its lane the light reaches either side of the bulb: most of the screen, but never a roach the bulb
   // has only just come into view for (420 px in from the right edge is time to see it flicker at any speed)
   lamp: { dark: 1600, flicker: 750, on: 550, ahead: 420, behind: 180 },
   mop: { wait: 900, windup: 700, press: 120, sweep: 700, lift: 280, back: 600, from: 130, to: -110, raise: 36 },
   bison: { stand: 1000, paw: 600, rush: 380, halt: 400, back: 620, distance: 120 },
   hedgehog: { stand: 1000, paw: 600, rush: 380, halt: 400, back: 620, distance: 110 },
-  // From its start (VACUUM_LEAD before it meets the slot): closing in, holding just behind the runner, falling back
-  vacuum: {
-    approach: 2200, hold: 2600, fallBack: 220, start: 700, close: 64, reach: 150, length: 120,
-    swings: [2600, 3800], swingWarn: 500, swingMove: 220,
-  },
   hen: { idle: 900, windup: 480, peck: 110, hold: 260, back: 250, ahead: 150, spot: 40 },
   frog: { idle: 1000, windup: 550, shoot: 130, hold: 220, back: 180, reach: 170, mouth: 20 },
   // Its lane switches, ms before it meets the nominal runner at its slot (two, or the last one only)
@@ -146,13 +166,29 @@ export const TIMINGS = {
   aerosol: { fuse: 160, radius: 130, bonus: 30 },
 } as const;
 
-/** The wasp hunts the roach itself (behaviours.stepWasp): where it comes in, how it hovers, follows and dives. */
+/**
+ * The wasp hunts the roach itself (behaviours.stepWasp): where it comes in, how it hovers, follows and dives. From its
+ * lock (the wind-up, drawing back `drawBack` px) to the sting reaching the roach is over 700 ms: a 400 ms reaction and
+ * a hop, with room to spare.
+ */
 export const WASP: WaspTimings = {
-  cue: 700, enter: 350, hover: 1300, follow: 600, switch: 200, windup: 450, dive: 300, ahead: 230, diveTo: -120, height: 34,
+  cue: 700, enter: 350, hover: 1300, follow: 600, switch: 200, windup: 600, dive: 300, ahead: 230, drawBack: 56, diveTo: -120,
+  height: 34,
 };
 
-/** The vacuum sets off this long before it would meet the nominal runner at its slot. */
-export const VACUUM_LEAD = 1500;
+/**
+ * The vacuum hunts the roach itself (behaviours.stepVacuum), from behind. Heard for `cue` ms before its nozzle slides in
+ * (from just past the screen's left edge to `start` px behind the roach's tail, in `enter` ms); from there it closes in
+ * at `creep` px/s while it shares the roach's lane: on screen for well over 2 s before it can bite, past the dash's
+ * cooldown and a 400 ms reaction. A dash opening the gap `breakFree` px breaks its grip; after `hold` ms of sucking it
+ * gives up, before its quiet stretch of the course (RunPatterns) runs out.
+ */
+export const VACUUM: VacuumTimings = {
+  cue: 400, enter: 600, start: 60, creep: 40, breakFree: 50, follow: 300, switch: 220, hold: 2400, fallBack: 900,
+};
+
+/** The centipede sets off this long before it would meet the nominal runner at its slot. */
+export const CENTIPEDE_LEAD = 1500;
 
 /** A chaser runs this much faster than the course's nominal runner where it meets it, and sets off this far behind. */
 export const CHASE_SPEEDUP = 1.6;
@@ -162,19 +198,21 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   onion: {
     id: 'onion', type: 'onion', art: 'onion', frame: { w: 43, h: 37, pivotY: 0.7838 }, hitbox: DEFAULT_HITBOX,
     role: 'blocker', laneBound: true, behave: blocker, telegraphs: false,
+    place: { dy: -24 },
   },
   flipper: {
     id: 'flipper', type: 'flipper', art: SWAT_HAND ? 'flipper-swat-hand' : 'flipper-swat',
-    frame: SWAT_HAND ? { w: 86, h: 63, pivotY: 0.873 } : { w: 66, h: 53, pivotY: 0.8491 }, hitbox: DEFAULT_HITBOX,
+    frame: SWAT_HAND ? { w: 86, h: 63, pivotY: 0.873 } : { w: 85, h: 56, pivotY: 0.8571 }, hitbox: DEFAULT_HITBOX,
     footprint: TIMINGS.flipper.footprint, role: 'swatter', laneBound: true, behave: depthSwat(TIMINGS.flipper), telegraphs: true, shotWhereItHurts: true,
   },
   spray: {
     id: 'spray', type: 'spray', art: 'spray', frame: { w: 34, h: 46, pivotY: 0.8261 }, hitbox: DEFAULT_HITBOX,
     role: 'sweeper', laneBound: true, behave: sweeper(TIMINGS.spray), telegraphs: true,
+    place: { dy: -16 },
   },
   newspaper: {
     id: 'newspaper', type: 'newspaper', art: SWAT_HAND ? 'newspaper-swat-hand' : 'newspaper-swat',
-    frame: SWAT_HAND ? { w: 70, h: 49, pivotY: 0.8367 } : { w: 63, h: 54, pivotY: 0.8519 }, hitbox: DEFAULT_HITBOX,
+    frame: SWAT_HAND ? { w: 70, h: 49, pivotY: 0.8367 } : { w: 81, h: 50, pivotY: 0.84 }, hitbox: DEFAULT_HITBOX,
     footprint: TIMINGS.newspaper.footprint, role: 'swatter', laneBound: false, behave: depthSwat(TIMINGS.newspaper),
     telegraphs: true, shotWhereItHurts: true,
   },
@@ -183,12 +221,12 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     role: 'swoop', laneBound: false, behave: swoop(TIMINGS.bird), telegraphs: true, shotWhereItHurts: true,
   },
   cat: {
-    id: 'cat', type: 'cat', art: 'cat', frame: { w: 63, h: 61, pivotY: 0.8689 }, hitbox: { w: 0.5, h: 0.5 },
+    id: 'cat', type: 'cat', art: 'cat', frame: { w: 64, h: 61, pivotY: 0.8689 }, hitbox: { w: 0.5, h: 0.5 },
     role: 'switcher', laneBound: true, both: true, behave: pounce(TIMINGS.cat), telegraphs: true,
   },
   // The same cat, running the roach down from behind. Dies as 'cat': the server knows no other name for it
   catChase: {
-    id: 'catChase', type: 'cat', art: 'cat', frame: { w: 63, h: 61, pivotY: 0.8689 }, hitbox: { w: 0.5, h: 0.5 },
+    id: 'catChase', type: 'cat', art: 'cat', frame: { w: 64, h: 61, pivotY: 0.8689 }, hitbox: { w: 0.5, h: 0.5 },
     role: 'chaser', laneBound: true, behave: chaser(TIMINGS.catChase), telegraphs: true,
   },
   jellyfish: {
@@ -200,17 +238,20 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     role: 'floater', laneBound: false, behave: floater({ half: 1800 }), telegraphs: false,
   },
   bison: {
-    id: 'bison', type: 'bison', art: 'bison', frame: { w: 63, h: 51, pivotY: 0.8431 }, hitbox: { w: 0.6, h: 0.55 },
+    id: 'bison', type: 'bison', art: 'bison', frame: { w: 86, h: 68, pivotY: 0.8824 }, hitbox: { w: 0.6, h: 0.55 },
     role: 'charger', laneBound: true, behave: charger(TIMINGS.bison), telegraphs: true,
+    place: { dy: 4, size: 1.5 },
   },
   glue: {
     id: 'glue', type: 'glue', art: 'glue', frame: { w: 45, h: 34, pivotY: 0.7647 }, hitbox: { w: 0.75, h: 0.6 },
     role: 'blocker', laneBound: true, behave: blocker, telegraphs: false,
+    place: { dy: -28 },
   },
   bleach: {
     id: 'bleach', type: 'bleach', art: 'bleach', frame: { w: 45, h: 46, pivotY: 0.8261 }, hitbox: DEFAULT_HITBOX,
     footprint: TIMINGS.bleach.spot, role: 'dripper', laneBound: true, lanes: ['bottom'], both: true, behave: drip(TIMINGS.bleach),
-    telegraphs: true,
+    telegraphs: false,
+    place: { dx: -10, dy: 22, parts: { bead: { dx: 10, dy: 44 } } },
   },
   lamp: {
     id: 'lamp', type: 'lamp', art: 'lamp', frame: { w: 50, h: 57, pivotY: 0.8596 }, hitbox: { w: 0.4, h: 0.4 },
@@ -222,19 +263,22 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   },
   vacuum: {
     id: 'vacuum', type: 'vacuum', art: 'vacuum', frame: { w: 82, h: 58, pivotY: 0.8621 }, hitbox: { w: 0.4, h: 0.5 },
-    role: 'chaser', laneBound: true, behave: suck(TIMINGS.vacuum), telegraphs: true,
+    role: 'chaser', laneBound: true, behave: still, telegraphs: true,
+    place: { dy: 10 },
   },
   hen: {
     id: 'hen', type: 'hen', art: 'hen', frame: { w: 49, h: 63, pivotY: 0.873 }, hitbox: { w: 0.6, h: 0.7 },
     role: 'pecker', laneBound: true, lanes: ['top'], both: true, behave: peck(TIMINGS.hen), telegraphs: true,
   },
   frog: {
-    id: 'frog', type: 'frog', art: 'frog', frame: { w: 42, h: 38, pivotY: 0.7895 }, hitbox: { w: 0.7, h: 0.7 },
+    id: 'frog', type: 'frog', art: 'frog', frame: { w: 52, h: 46, pivotY: 0.8261 }, hitbox: { w: 0.7, h: 0.7 },
     role: 'licker', laneBound: true, behave: tongue(TIMINGS.frog), telegraphs: true,
+    place: { dx: 10, dy: 16, size: 1.35 },
   },
   centipede: {
     id: 'centipede', type: 'centipede', art: 'centipede', frame: { w: 67, h: 39, pivotY: 0.7949 }, hitbox: { w: 0.6, h: 0.6 },
     role: 'scuttler', laneBound: true, behave: scuttle(TIMINGS.centipede), telegraphs: true,
+    place: { dy: 22 },
   },
   boots: {
     id: 'boots', type: 'boots', art: 'boot', frame: { w: 45, h: 42, pivotY: 0.8095 }, hitbox: { w: 0.7, h: 0.6 },
@@ -242,13 +286,15 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   },
   // Built now from its two stills, for level 9 later: in no cast yet
   hedgehog: {
-    id: 'hedgehog', type: 'hedgehog', art: 'hedgehog', frame: { w: 56, h: 48, pivotY: 0.8333 }, hitbox: { w: 0.6, h: 0.6 },
+    id: 'hedgehog', type: 'hedgehog', art: 'hedgehog', frame: { w: 68, h: 58, pivotY: 0.8621 }, hitbox: { w: 0.6, h: 0.6 },
     role: 'charger', laneBound: true, behave: charger(TIMINGS.hedgehog), telegraphs: true,
+    place: { dy: 4, size: 1.3 },
   },
   // The spray's cloud wall: laid by the course where walls go (CourseLayout), never picked
   sprayWall: {
     id: 'sprayWall', type: 'spray', art: 'spray-big', frame: { w: 42, h: 62, pivotY: 0.871 }, hitbox: DEFAULT_HITBOX,
     role: 'wall', laneBound: false, behave: cloudWall(TIMINGS.sprayWall), telegraphs: true,
+    place: { dy: 10 },
   },
   blackhole: {
     id: 'blackhole', type: 'blackhole', art: 'blackhole', frame: { w: 62, h: 44, pivotY: 0.8182 }, hitbox: { w: 0.5, h: 0.5 },
@@ -273,27 +319,31 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   robotVacuum: {
     id: 'robotVacuum', type: 'robotVacuum', art: 'robot-vacuum', frame: { w: 66, h: 60, pivotY: 0.8667 }, hitbox: { w: 0.85, h: 0.45 },
     role: 'patrol', laneBound: true, behave: patrol(TIMINGS.robotVacuum), telegraphs: true, hits: 2,
+    place: { dy: -2 },
   },
   repeller: {
     id: 'repeller', type: 'repeller', art: 'repeller', frame: { w: 40, h: 39, pivotY: 0.7949 }, hitbox: { w: 0.7, h: 0.7 },
     role: 'emitter', laneBound: true, behave: rings(TIMINGS.repeller), telegraphs: true, shotAtBody: true,
+    place: { dy: -22 },
   },
   // A blocker that goes off when shot: its blast clears both lanes round it (obstacles/aerosol.ts)
   aerosol: {
     id: 'aerosol', type: 'aerosol', art: 'aerosol', frame: { w: 58, h: 71, pivotY: 0.8873 }, hitbox: { w: 0.36, h: 0.7 },
     role: 'blocker', laneBound: true, behave: blocker, telegraphs: false,
+    place: { dy: 8 },
   },
   bait: {
     id: 'bait', type: 'bait', art: 'bait', frame: { w: 53, h: 38, pivotY: 0.7895 }, hitbox: { w: 0.75, h: 0.6 },
     role: 'lure', laneBound: true, behave: lure(TIMINGS.bait), telegraphs: true, shotAtBody: true,
+    place: { dy: 8 },
   },
 };
 
 /**
  * Who each level fields, and how often. Each level's newcomer leads its weights (those laid by their own patterns, the
  * wasp, the zapper, the repeller and the bait, come by weight within them); the onion and the aerosol just stand there. Past level 10 the table holds at level 10. The light stops at level 6: past it the roach runs too fast to
- * see it flicker long before it is lit. The vacuum stays in the dash act (3-6): faster, its hold behind the runner
- * runs on into whatever comes after its quiet stretch. The chaser (catChase) is off until it has art of its own: its
+ * see it flicker long before it is lit. The vacuum stays in the dash act (3-6): the dash is what breaks its grip, and
+ * past it the gun act has threats of its own. The chaser (catChase) is off until it has art of its own: its
  * behaviour and its 'chase' role are kept, so bringing it back is a weight here and its chunk in RunPatterns.
  */
 export const CAST: Record<number, Partial<Record<EnemyId, number>>> = {
@@ -318,9 +368,25 @@ export function castFor(level: number): { def: EnemyDef; weight: number }[] {
   return (Object.entries(row) as [EnemyId, number][]).map(([id, weight]) => ({ def: ENEMIES[id], weight }));
 }
 
+/** An enemy's hand-tuned placement with its defaults filled in. */
+export function placeOf(id: string): { dx: number; dy: number; size: number } {
+  const place = ENEMIES[id as EnemyId].place;
+  return { dx: place?.dx ?? 0, dy: place?.dy ?? 0, size: place?.size ?? 1 };
+}
+
+/** Where a part that rides with an enemy sits against its state: the enemy's own offset and the part's on top. */
+export function partOf(id: string, part: string): { dx: number; dy: number } {
+  const own = placeOf(id);
+  const extra = ENEMIES[id as EnemyId].place?.parts?.[part];
+  return { dx: own.dx + (extra?.dx ?? 0), dy: own.dy + (extra?.dy ?? 0) };
+}
+
+/** The baseline a lane-coded effect of this enemy is placed at: its lane's, moved with the enemy. */
+export const feetY = (id: string, lane: Lane): number => laneY(lane) + placeOf(id).dy;
+
 /** The hitbox an enemy's behaviour measures with. */
 export function bodyOf(def: EnemyDef): Body {
-  return { half: (def.footprint ?? bodyWidth(def.frame, def.hitbox)) / 2, art: def.frame, hitbox: def.hitbox };
+  return { half: (def.footprint ?? bodyWidth(def.frame, def.hitbox)) / 2, dx: def.place?.dx ?? 0, art: def.frame, hitbox: def.hitbox };
 }
 
 export function enemyState(plan: EnemyPlan, t: number): EnemyState {
@@ -340,7 +406,7 @@ export function shotSpan(plan: EnemyPlan, t: number, lane: Lane): { x0: number; 
   const s = def.behave(plan, t, body);
   if (s.pose === 'parked' || s.behind) return null;
   const spans: Zone[] = def.shotAtBody ? [] : s.zones.filter(z => z.lane === lane);
-  if (!def.shotWhereItHurts && s.lane === lane) spans.push({ lane, x0: s.x - body.half, x1: s.x + body.half, since: 0 });
+  if (!def.shotWhereItHurts && s.lane === lane) spans.push({ lane, x0: s.x + body.dx - body.half, x1: s.x + body.dx + body.half, since: 0 });
   if (spans.length === 0) return null;
   return { x0: Math.min(...spans.map(z => z.x0)), x1: Math.max(...spans.map(z => z.x1)) };
 }
@@ -452,10 +518,10 @@ export class EnemyPicker {
     const phase = Math.floor(this.rng.next() * PHASE_SPAN);
     const plan: EnemyPlan = { id: def.id, x, lane, phase };
     if (def.id === 'catChase') plan.chase = chaseFor(x, this.clock);
-    // The vacuum and the centipede are timed off the nominal runner at their slot
-    if (def.id === 'vacuum' || def.id === 'centipede') {
+    // The centipede is timed off the nominal runner at its slot
+    if (def.id === 'centipede') {
       const meetAt = this.clock.timeAt(x);
-      plan.chase = { meetAt, speed: this.clock.speedAt(x), startAt: meetAt - VACUUM_LEAD };
+      plan.chase = { meetAt, speed: this.clock.speedAt(x), startAt: meetAt - CENTIPEDE_LEAD };
     }
     return plan;
   }

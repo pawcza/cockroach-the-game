@@ -805,6 +805,22 @@ def canister_spin(k: int) -> np.ndarray:
     return cv2.warpAffine(_can_big(), aff, (13, 13), flags=cv2.INTER_NEAREST)
 
 
+def mine(k: int) -> np.ndarray:
+    """A gas mine: the spare canister dropped on its side, its red cap ahead (to the left), 13 x 9 with its bottom on
+    the lane. Frame 1 the cap flashes hot, frame 2 it whistles: armed."""
+    lying = np.rot90(_canister(), 1)              # the cap, the top two rows, comes round to the left
+    out = np.zeros((9, 13, 4), np.uint8)
+    out[2:9, 1:12] = lying
+    cap = out[:, 1:3]
+    red = (cap[..., 0] > cap[..., 1] + 30) & (cap[..., 3] > 0)
+    if k == 1:
+        cap[red] = (255, 96, 70, 255)
+    if k == 2:
+        for t in range(3):                        # a wisp whistling up off the cap
+            out[3 - t, 1 + t // 2] = (236, 246, 230, 255)
+    return out
+
+
 CLOUD_W, CLOUD_H = 48, 34
 # The cloud's own greens, light to dark: billows lit from above, their undersides in shadow
 CLOUD = [(222, 248, 160, 255), (172, 222, 92, 255), (122, 184, 66, 255), (80, 136, 60, 255), (50, 92, 54, 255)]
@@ -891,6 +907,17 @@ def idle():
     return frames
 
 
+def idle_hot():
+    """Breathing as in idle, the tank under pressure: swollen, straining on its straps, and whistling round its cap.
+    The tell that bullets count triple now."""
+    frames = []
+    for i, p in enumerate(idle()):
+        t = i / 8 * math.tau
+        dx, dy, deg, _ = p.tank
+        frames.append(replace(p, tank=(dx, dy - .4, deg, .085 + .02 * math.sin(2 * t)), fx=[("hiss", 2 + (i % 3))] + p.fx))
+    return frames
+
+
 def walk():
     """A slow, heavy advance: each step lands with his weight, the body dips, the tank thumps down a beat later and
     sways with the stride; the nozzle stays on target."""
@@ -905,6 +932,18 @@ def walk():
             arm=2 + 1.2 * math.sin(2 * t + .6), wand=-1.5 * math.sin(2 * t + 1.4),
             legs={"leg_near": (0, -3.2 * max(0.0, math.cos(t)), near), "leg_far": (0, -3.2 * max(0.0, -math.cos(t)), far)},
             tank=(.6 * math.sin(t), -1.4 * math.cos(2 * t - 1.0), 2.0 * math.sin(t - .6), 0)))
+    return frames
+
+
+def charge():
+    """His charge along a lane: bent right over, head down behind the mask, the wand couched like a lance, legs at a
+    run; his walk, leaned into and lengthened."""
+    frames = []
+    for i, p in enumerate(walk()):
+        t = i / 8 * math.tau
+        legs = {k: (dx, dy * 1.6, deg * 2.2) for k, (dx, dy, deg) in p.legs.items()}
+        frames.append(replace(p, lean=p.lean + 16, nod=p.nod + 6, arm=p.arm - 8, wand=p.wand + 6, legs=legs,
+                              lift=p.lift + 1.5 * abs(math.sin(t))))
     return frames
 
 
@@ -1040,6 +1079,7 @@ def defeat():
 ANIMATIONS = {
     # name: (make, fps, loop)
     "idle": (idle, 6, True),
+    "idle-hot": (idle_hot, 6, True),
     "walk": (walk, 8, True),
     "pump": (pump, 10, False),
     "spray-top-windup": (spray_top_windup, 10, False),
@@ -1051,6 +1091,7 @@ ANIMATIONS = {
     "lob": (lob, 10, False),
     "stagger": (stagger, 14, False),
     "defeat": (defeat, 10, False),
+    "charge": (charge, 16, True),
 }
 # The stream, the canister and the cloud: (make, frames, fps)
 SPRITES = {
@@ -1060,6 +1101,7 @@ SPRITES = {
     "jet-splash": (splash, 3, 14),
     "canister": (canister_spin, 3, 14),
     "cloud": (cloud, 6, 8),
+    "mine": (mine, 3, 6),
 }
 
 

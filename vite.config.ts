@@ -22,7 +22,7 @@ export default defineConfig({
     host: true,
     allowedHosts: ['pc', '.ts.net'],
     // Work in progress lives in git worktrees inside the repo: editing those must not reload the page being played
-    watch: { ignored: ['**/.worktrees/**'] },
+    watch: { ignored: ['**/.worktrees/**', '**/.claude/worktrees/**'] },
     proxy: {
       '/api': {
         target: 'http://localhost:3456',

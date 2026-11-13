@@ -1,7 +1,8 @@
 import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { getFx } from '../../effects/Fx';
-import { EnemyPlan, laneY } from './behaviours';
+import { EnemyPlan } from './behaviours';
+import { feetY } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 /**
@@ -23,6 +24,6 @@ export function spawnCentipede(kit: ObstacleKit, plan: EnemyPlan): void {
       fx.play('flare-big-orange', bug.x - bug.displayWidth * .4, bug.y - 10, { depth: DEPTH.PICKUPS + 1 });
       if (kit.isAhead(bug)) kit.audio.playSfx('cat-sfx', VOL.obstacle * 0.35);
     }
-    if (before.pose === 'air' && now.lane) fx.play('dust-land', bug.x, laneY(now.lane), { depth: DEPTH.OBSTACLES + 1 });
+    if (before.pose === 'air' && now.lane) fx.play('dust-land', bug.x, feetY(plan.id, now.lane), { depth: DEPTH.OBSTACLES + 1 });
   });
 }

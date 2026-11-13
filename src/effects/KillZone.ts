@@ -17,6 +17,8 @@ export type ZoneState = 'warn' | 'kill';
 const TILE = 8 * SPRITE_SCALE;
 const CAP = 4 * SPRITE_SCALE;
 const FPS: Record<ZoneState, number> = { warn: 8, kill: 14 };
+/** How far under the ledge's surface each band's bottom edge sits (hand-tuned: the deadly one sits a block higher). */
+const SINK: Record<ZoneState, number> = { warn: PIXEL_BLOCK, kill: 0 };
 /** Off-screen tiles are not drawn: this much past the camera's edges. */
 const MARGIN = 24;
 /** An ember rises off a killing zone about this often, per 100 px of it. */
@@ -51,7 +53,7 @@ export class KillZone {
       if (x + width < left || x > right || width <= 0) return;
       const image = this.images[used] ?? this.make();
       used++;
-      image.setFrame(frame).setPosition(x, floorY + PIXEL_BLOCK).setFlipX(flip).setVisible(true);
+      image.setFrame(frame).setPosition(x, floorY + SINK[state]).setFlipX(flip).setVisible(true);
       // A tile cut short at the far end of the stretch: only what lies inside it shows
       if (width < image.frame.width * SPRITE_SCALE) image.setCrop(0, 0, width / SPRITE_SCALE, image.frame.height);
       else image.setCrop();

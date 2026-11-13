@@ -62,13 +62,16 @@ BASE = {
                           "shelf edge line at the bottom",
     "slipper-swat-far-nohand": "side view, a blue rubber flip-flop sandal raised high and tilted back, the sole facing down, no hand, "
                                "a thin grey shelf edge line at the bottom",
-    "slipper-swat-mid-nohand": "side view, a blue rubber flip-flop sandal swinging down hard, tilted steeply, the sole about to hit "
-                               "the ground, motion streaks, no hand, a thin grey shelf edge line at the bottom",
+    # Mid-swing, held by the heel (3 seeds each; picked: 105 -> seed 37, 145 -> seed 23). The rig reads them as the toe's heading
+    # about the heel, about 100 and 150 degrees
+    "slipper-swing-105": "side view, a blue rubber flip-flop sandal held upright in mid-air by its heel end at the bottom, swinging, the long "
+                         "toe end pointing up and tilted slightly to the left, seen a little from below so the thick rubber sole faces left, "
+                         "the Y-shaped strap on the right side, no hand, nothing else in the picture",
+    "slipper-swing-145": "side view, a blue rubber flip-flop sandal in mid-air swinging down, tilted about 35 degrees above horizontal, the "
+                         "heel end low on the right and the long toe end up on the left, seen a little from below so the thick rubber sole "
+                         "faces down and left, the Y-shaped strap arching over the top, no hand, nothing else in the picture",
     "newspaper-swat-far-nohand": "side view, a tightly rolled-up grey newspaper club raised high and tilted back, newsprint shown only as "
                                  "abstract grey lines, no hand, a thin grey shelf edge line at the bottom",
-    "newspaper-swat-mid-nohand": "side view, a tightly rolled-up grey newspaper club swinging down hard, tilted steeply, about to hit the "
-                                 "ground, motion streaks, newsprint shown only as abstract grey lines, no hand, a thin grey shelf edge "
-                                 "line at the bottom",
     "slipper-swat-flat-t2i": "side view at ground level, a human hand and bare forearm coming in from the right pressing a blue rubber flip-flop "
                              "sandal flat against the ground, the sandal is a very low wide horizontal shape lying on the ground with the "
                              "hand on top of it, impact pose, a thin grey shelf edge line at the bottom",

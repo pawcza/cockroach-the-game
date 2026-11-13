@@ -33,6 +33,17 @@ export interface HUDUpdateData {
   tutorial?: boolean;
 }
 
+/**
+ * One part of a split boss bar. `state`: 'loose' when the part has broken off and is fought on its own (its value is
+ * then what is left of it, in the hot colour), 'gone' once it is beaten.
+ */
+export interface BossSegment {
+  label: string;
+  value: number;
+  max: number;
+  state?: 'on' | 'loose' | 'gone';
+}
+
 export class GameHUD {
   private scene: Phaser.Scene;
 
@@ -71,6 +82,11 @@ export class GameHUD {
   private bossHP = 0;
   private bossMaxHP = 0;
   private bossName = '';
+  /** A boss whose bar is split into parts (each head of Zlewiatan): drawn instead of the one bar. */
+  private bossSegments: BossSegment[] | null = null;
+  private segmentLabels: Phaser.GameObjects.Text[] = [];
+  /** The boss is on its last legs: the bar blinks. */
+  private bossLast = false;
 
   // Level bar dimensions
   private barX = 0;
@@ -268,8 +284,16 @@ export class GameHUD {
 
   private drawLevelBar(distance: number, levelConfig: LevelConfig, tutorial: boolean): void {
     // Boss HP mode — repurpose the level bar
+    if (this.bossMode && this.bossSegments) {
+      this.drawSegments(this.bossSegments);
+      this.levelBarText.setText('');
+      this.speedText.setVisible(false);
+      return;
+    }
     if (this.bossMode) {
-      this.drawBar(this.bossHP / this.bossMaxHP, 0xcc0000, 0xff0000, 0x330000, false);
+      // On its last legs the sliver blinks hot, so the player sees one more thing will do it
+      const hot = this.bossLast && Math.floor(this.scene.time.now / 160) % 2 === 0;
+      this.drawBar(this.bossHP / this.bossMaxHP, hot ? 0xffb347 : 0xcc0000, hot ? 0xffffff : 0xff0000, hot ? 0xff6a00 : 0x330000, false);
       this.levelBarText.setText(`${this.bossName} (${this.bossHP}/${this.bossMaxHP})`);
       this.speedText.setVisible(false);
       return;
@@ -348,6 +372,40 @@ export class GameHUD {
       this.levelBarFillGfx.fillStyle(0xffffff, 0.12);
       this.levelBarFillGfx.fillRoundedRect(bx + 2, by + 1, Math.max(0, fillW - 4), bh * 0.35, { tl: r - 1, tr: fullWidth ? r - 1 : 0, bl: 0, br: 0 });
     }
+  }
+
+  /** The boss bar split into its parts, side by side, each with its own fill and its label in it. */
+  private drawSegments(segments: BossSegment[]): void {
+    const gap = 6;
+    const bx = this.barX - this.barW / 2;
+    const by = this.barY;
+    const w = (this.barW - gap * (segments.length - 1)) / segments.length;
+    const bh = this.barH;
+    const r = 4;
+    const g = this.levelBarGfx.clear();
+    const fill = this.levelBarFillGfx.clear();
+    segments.forEach((seg, i) => {
+      const x = Math.round(bx + i * (w + gap));
+      const loose = seg.state === 'loose';
+      const gone = seg.state === 'gone';
+      g.fillStyle(0x000000, 0.5).fillRoundedRect(x + 2, by + 2, w, bh, r);
+      g.fillStyle(loose ? 0x5a2a00 : 0x330000, 1).fillRoundedRect(x - 1, by - 1, w + 2, bh + 2, r + 1);
+      g.fillStyle(0x111111, 0.9).fillRoundedRect(x, by, w, bh, r);
+      const share = gone ? 0 : Phaser.Math.Clamp(seg.value / Math.max(1, seg.max), 0, 1);
+      const fw = Math.round(w * share);
+      if (fw > 2) {
+        fill.fillStyle(loose ? 0xff8a2a : 0xcc0000, 0.9).fillRoundedRect(x, by, fw, bh, { tl: r, bl: r, tr: fw >= w - r ? r : 0, br: fw >= w - r ? r : 0 });
+        fill.fillStyle(0xffffff, 0.12).fillRect(x + 2, by + 1, Math.max(0, fw - 4), Math.round(bh * 0.35));
+      }
+      let label = this.segmentLabels[i];
+      if (!label) {
+        label = this.scene.add.text(0, 0, '', smallStyle({ fontSize: '7px' })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.HUD_FILL + 1);
+        this.segmentLabels[i] = label;
+      }
+      label.setText(seg.label).setPosition(Math.round(x + w / 2), by + bh / 2)
+        .setAlpha(gone ? 0.45 : 1).setVisible(true);
+    });
+    for (let i = segments.length; i < this.segmentLabels.length; i++) this.segmentLabels[i].setVisible(false);
   }
 
   showPauseOverlay(): void {
@@ -490,12 +548,23 @@ export class GameHUD {
     this.bossMaxHP = maxHP;
   }
 
-  updateBossHP(hp: number): void {
+  updateBossHP(hp: number, last = false): void {
     if (hp > this.bossMaxHP) this.bossMaxHP = hp;
     this.bossHP = hp;
+    this.bossLast = last;
+  }
+
+  /** A boss bar in parts, shown and updated by giving all of them. */
+  showBossSegments(name: string, segments: BossSegment[]): void {
+    this.bossMode = true;
+    this.bossName = name;
+    this.bossSegments = segments.map(s => ({ ...s }));
   }
 
   hideBossHP(): void {
     this.bossMode = false;
+    this.bossSegments = null;
+    for (const label of this.segmentLabels) label.setVisible(false);
+    this.bossLast = false;
   }
 }

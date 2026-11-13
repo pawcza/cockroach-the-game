@@ -16,8 +16,10 @@ WORK = 400
 _UP: dict[int, int] = {}
 
 
-def _load(name: str) -> np.ndarray:
+def _load(name: str, flip: bool = False) -> np.ndarray:
     nat = native(f"{ART}/{name}.png")
+    if flip:
+        nat = np.ascontiguousarray(nat[:, ::-1])
     h, w = nat.shape[:2]
     side = int(max(h, w) * 1.24)
     canvas = np.zeros((side, side, 4), np.uint8)
@@ -109,8 +111,8 @@ def wobble(name: str, angle: float, frames: int = 6, pivot=(.5, .95)) -> list[np
     return _native_frames(source, [_warp(source, _rock(angle * wave(i / frames), pivot)) for i in range(frames)])
 
 
-def shake(name: str) -> list[np.ndarray]:
-    source = _load(name)
+def shake(name: str, flip: bool = False) -> list[np.ndarray]:
+    source = _load(name, flip)
     jolts = [0, .05, -.05, .03, -.03, 0]
     return _native_frames(source, [_warp(source, _rock(a)) for a in jolts])
 
@@ -161,7 +163,8 @@ OBJECTS = {
     "disco": disco,
     "blackhole": blackhole,
     "onion": lambda: wobble("onion", .09),
-    "spray": lambda: shake("spray"),
+    # The render's nozzle points right; the cloud comes out on the left, towards the runner
+    "spray": lambda: shake("spray", flip=True),
     "flipper": lambda: wobble("flipper", .14),
     "newspaper": lambda: wobble("newspaper", .12),
     "pope": lambda: wobble("pope", .11, 8, (.5, .9)),

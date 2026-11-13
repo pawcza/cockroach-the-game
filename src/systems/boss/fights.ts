@@ -8,12 +8,14 @@ import { EKS_TEXTURE } from './eksterminatorConfig';
 import { LodziaFight } from './LodziaFight';
 import { LODZIA_TEXTURE } from './lodziaConfig';
 import { ZlewiatanFight } from './ZlewiatanFight';
+import { ZlewiatanSoloFight } from './ZlewiatanSoloFight';
 import { ZLEWIATAN_TEXTURE } from './zlewiatanConfig';
 
 export const BOSS_FIGHTS: Partial<Record<BossId, BossFightFactory>> = {
   lodzia: (ctx) => new LodziaFight(ctx),
   bigos: (ctx) => new BigosFight(ctx),
-  zlewiatan: (ctx) => new ZlewiatanFight(ctx),
+  // Solo plays the authored fight; a match keeps the server-driven one (the server owns its HP)
+  zlewiatan: (ctx) => (ctx.role === 'solo' ? new ZlewiatanSoloFight(ctx) : new ZlewiatanFight(ctx)),
   eksterminator: (ctx) => new EksterminatorFight(ctx),
 };
 

@@ -4,7 +4,7 @@ import { DEPTH } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { EnemyPlan, laneY } from './behaviours';
-import { TIMINGS } from './cast';
+import { TIMINGS, feetY } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 const GEL = 0x9be23a;
@@ -44,7 +44,7 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
   let bubbles = 0;
   kit.drive(bowl, plan, (now, before) => {
     const p = now.parts?.puddle;
-    const wet = now.mark?.progress ?? 0;
+    const wet = now.wet ?? 0;
     hurt.setData('harmless', !p?.danger);
     // Oozing, the stretch it will flood warns; flooded, it kills
     hazard(now.pose === 'windup' ? now.warn ?? null : null, p?.danger && now.warn ? [now.warn] : []);
@@ -53,18 +53,18 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
     rim.setVisible(wet > 0).setSize(Math.max(0, width - 4), 2);
     foot.setVisible(wet > 0).setSize(width, 2);
     if (now.pose === 'strike' && kit.isOnScreen(bowl) && ++bubbles % 8 === 0) {
-      fx.play('bit-green', plan.x - spread + Math.random() * spread * 2, laneY(plan.lane) - 4, { depth: DEPTH.OBSTACLES + 1, vy: -50, life: 400 });
+      fx.play('bit-green', plan.x - spread + Math.random() * spread * 2, feetY(plan.id, plan.lane) - 4, { depth: DEPTH.OBSTACLES + 1, vy: -50, life: 400 });
     }
     if (!before || now.pose === before.pose || !kit.isOnScreen(bowl)) return;
     if (now.pose === 'windup') fx.play('flare-big-green', bowl.x, bowl.y - bowl.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 1 });
     if (now.pose === 'strike') {
-      fx.play('splash-toxic', bowl.x, laneY(plan.lane), { depth: DEPTH.OBSTACLES + 1 });
+      fx.play('splash-toxic', bowl.x, feetY(plan.id, plan.lane), { depth: DEPTH.OBSTACLES + 1 });
       if (kit.isAhead(bowl)) kit.audio.playSfx('ex-gas', VOL.obstacle * 0.4);
     }
   });
   const shootable = bowl.getData('shootable');
   shootable.onDown = (): boolean => {
-    fx.play('splash-toxic', bowl.x, laneY(plan.lane), { depth: DEPTH.POPUP });
+    fx.play('splash-toxic', bowl.x, feetY(plan.id, plan.lane), { depth: DEPTH.POPUP });
     fx.burst('bit-green', bowl.x, bowl.y - 12, 10, 16, { depth: DEPTH.POPUP, speed: [60, 180] });
     return false;
   };

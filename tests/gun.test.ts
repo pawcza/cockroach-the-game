@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { GAME_WIDTH } from '../src/config/constants';
 import { LEVELS } from '../src/config/levels';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
-import { EnemyPlan, Lane, ROACH_BACK, ROACH_FRONT, newWasp, stepWasp } from '../src/objects/obstacles/behaviours';
+import { EnemyPlan, Lane, ROACH_BACK, ROACH_FRONT, newWasp, stepWasp, waspDiveLane } from '../src/objects/obstacles/behaviours';
 import { ENEMIES, EnemyId, TIMINGS, WASP, bodyOf, castFor, enemyState, nominalCourse, shotSpan } from '../src/objects/obstacles/cast';
 import { Abilities } from '../src/systems/abilities';
 import { CourseLayout, SlotItem } from '../src/systems/CourseLayout';
@@ -213,16 +213,54 @@ function waspRun(speed: number, lane: Lane, hopAt: (w: ReturnType<typeof newWasp
   return { hit: false, hops };
 }
 
-test('the wasp: a roach that never hops is stung; one that hops once the wasp locks on (250 ms to react) is not', () => {
+/** A person's reaction, and the hop's own time to carry the roach out of its lane (HOP_MS in config/sprites.ts, which
+ * needs Phaser). */
+const REACTION_MS = 400;
+const HOP_MS = 90;
+
+test('the wasp: a roach that never hops is stung; one that hops 400 ms after the wasp locks on is not', () => {
   for (const speed of [450, 550, TOP_SPEED]) {
     for (const lane of ['top', 'bottom'] as Lane[]) {
       assert.ok(waspRun(speed, lane, () => false).hit, `stays put at ${speed}`);
       let lockedAt = -1;
       const late = waspRun(speed, lane, (w, ms) => {
         if (w.phase === 'windup' && lockedAt < 0) lockedAt = ms;
-        return lockedAt >= 0 && ms === lockedAt + 250;
+        // The roach is out of its lane half way through the hop
+        return lockedAt >= 0 && ms === lockedAt + Math.ceil((REACTION_MS + HOP_MS / 2) / 10) * 10;
       });
       assert.ok(!late.hit && late.hops === 1, `hops after the lock at ${speed}`);
+    }
+  }
+});
+
+test('the wasp\'s tell can be seen: it draws back well clear, and its dive\'s stretch of lane is warned from the lock', () => {
+  // Its tell used to be an 18 px drift and a flicker between two frames, with nothing on the lane: it read as a wasp
+  // doing nothing, then a sting out of nowhere
+  assert.ok(WASP.drawBack >= 40, `draws back ${WASP.drawBack} px`);
+  const body = bodyOf(ENEMIES.wasp);
+  for (const speed of [450, TOP_SPEED]) {
+    for (const lane of ['top', 'bottom'] as Lane[]) {
+      const plan: EnemyPlan = { id: 'wasp', x: 2000, lane, phase: 0 };
+      const w = newWasp(lane);
+      let roach = 600;
+      let warnedFrom = -1;
+      let warned: ReturnType<typeof waspDiveLane> = null;
+      let stungAt = -1;
+      for (let ms = 0; ms < 8000 && stungAt < 0; ms += 10) {
+        const zones = stepWasp(w, WASP, plan, 10, roach, lane, body);
+        const warn = waspDiveLane(w, WASP, roach, body);
+        if (warn) {
+          if (warnedFrom < 0) warnedFrom = ms;
+          warned = warn;
+          // The warning is on its lane and covers the roach, where the sting will land
+          assert.equal(warn.lane, lane);
+          assert.ok(warn.x0 <= roach - ROACH_BACK && warn.x1 >= roach + ROACH_FRONT, `the warning misses the roach at ${speed}`);
+        }
+        if (zones.some(z => z.lane === lane && z.x1 >= roach - ROACH_BACK && z.x0 <= roach + ROACH_FRONT)) stungAt = ms;
+        roach += (speed * 10) / 1000;
+      }
+      assert.ok(warned && warnedFrom >= 0 && stungAt > 0, `never warned or stung at ${speed}`);
+      assert.ok(stungAt - warnedFrom >= REACTION_MS + HOP_MS + 100, `warned ${stungAt - warnedFrom} ms before the sting at ${speed}`);
     }
   }
 });
@@ -237,8 +275,9 @@ test('the wasp follows a hop made while it hovers: hopping early is no answer, h
     assert.ok(early.hit, `an early hop is followed at ${speed}`);
   }
   // The time from its lock to the sting reaching the roach: what a player has to see it and hop
-  const toSting = WASP.windup + WASP.dive * (WASP.ahead + 18 - ROACH_FRONT - bodyOf(ENEMIES.wasp).half) / (WASP.ahead + 18 - WASP.diveTo);
-  assert.ok(toSting >= 550, `${Math.round(toSting)} ms from the lock to the sting`);
+  const back = WASP.ahead + WASP.drawBack;
+  const toSting = WASP.windup + WASP.dive * (back - ROACH_FRONT - bodyOf(ENEMIES.wasp).half) / (back - WASP.diveTo);
+  assert.ok(toSting >= REACTION_MS + HOP_MS + 100, `${Math.round(toSting)} ms from the lock to the sting`);
 });
 
 // ── The aerosol's blast ─────────────────────────────────────────────────

@@ -10,8 +10,8 @@ import { ObstacleKit } from './ObstacleKit';
 /**
  * The dancing boots (stomp in behaviours.ts): a pair at one x, one over each lane, stomping in turn on the beat every
  * pair shares. The boot that is up hangs over its lane (its shadow where it will land); down, it hurts under itself.
- * A row of pairs is a dance line to hop through on the rhythm, or dash. Sounds (placeholders): the hop's landing thud,
- * one pair only, so a line doesn't drown the music.
+ * A dance line (RunPatterns) is pairs a slot apart, each read on the rhythm on its own, or dashed. Sounds
+ * (placeholders): the hop's landing thud, one pair only, so a line doesn't drown the music.
  */
 export function spawnBoots(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
@@ -26,9 +26,12 @@ export function spawnBoots(kit: ObstacleKit, plan: EnemyPlan): void {
   };
   kit.drive(top, plan, (now, before) => {
     const topDown = now.zones.some(z => z.lane === 'top');
-    top.setData('floor', 'top').setData('harmless', !topDown);
+    // A lifted boot can't hurt: its frame is hazed and unlit, and like the slipper waiting at the back it is drawn
+    // behind the ledges; down, it is in front, in full colour
+    top.setData('floor', 'top').setData('harmless', !topDown).setDepth(topDown ? DEPTH.OBSTACLES : DEPTH.BEHIND_LEDGE);
     const b = now.parts!.bottom;
-    bottom.setPosition(b.x, b.y).setFrame(frameOf('boot', b.frame)).setData('harmless', !b.danger);
+    bottom.setPosition(b.x, b.y).setFrame(frameOf('boot', b.frame)).setData('harmless', !b.danger)
+      .setDepth(b.danger ? DEPTH.OBSTACLES : DEPTH.BEHIND_LEDGE);
     if (!before || !kit.isOnScreen(top)) return;
     const wasTop = before.zones.some(z => z.lane === 'top');
     const wasBottom = before.parts!.bottom.danger;

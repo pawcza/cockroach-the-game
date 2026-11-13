@@ -1,6 +1,6 @@
 /**
- * The pistol the roach carries through the run once it has earned it (cockroach#100): the atlas's pistol strapped on
- * its back behind the head, muzzle forward, pinned before every render to the 'shoulder' anchor of the frame the roach
+ * The pistol the roach carries through the run once it has earned it (cockroach#100): the atlas's pistol held out in
+ * front of its face, in its jaws, muzzle forward, pinned before every render to the 'head' anchor of the frame the roach
  * shows, so it rides the run, hop and dash cycles without a frame of the roach changing. A shot kicks it back a texel
  * or two for a moment; the muzzle flash and the casing are Gunfire's.
  */
@@ -12,8 +12,8 @@ import { ANCHORS_KEY, Anchors, parseRoach } from '../config/skins';
 /** Its grip on the anchor, from the pistol frame's left edge and bottom, native px; the muzzle from there. */
 const GRIP = { x: 4, y: 1 };
 const MUZZLE = { x: 13, y: -6 };
-/** The anchor point on the roach this sits on, nudged back and down onto its back, native px. */
-const SEAT = { x: -3, y: 2 };
+/** The anchor point on the roach this sits on, nudged forward and down to its jaws, native px. */
+const SEAT = { x: 2, y: 8 };
 const KICK_PX = 2 * PIXEL_BLOCK;
 const KICK_MS = 90;
 /** The frames it rides on: on all six legs. Rearing up for a boss it is in the roach's hands instead. */
@@ -53,7 +53,7 @@ export class RunPistol {
       sprite.setVisible(false);
       return;
     }
-    const [ax, ay] = frame.shoulder;
+    const [ax, ay] = frame.head;
     const kick = this.scene.time.now < this.kickUntil ? KICK_PX : 0;
     const x = roach.x + (ax + SEAT.x - GRIP.x - roach.displayOriginX) * roach.scaleX - kick;
     const y = roach.y + (ay + SEAT.y + GRIP.y - roach.displayOriginY) * roach.scaleY;

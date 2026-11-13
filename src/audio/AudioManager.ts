@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import { getMusicVolume, getSfxVolume } from '../utils/Storage';
+import { MusicDeck } from './MusicDeck';
 
 /** How many rising pitches the combo tick has. */
 const COMBO_TICKS = 8;
+/** How long one level's music takes to give way to the next. */
+const CROSSFADE_MS = 800;
 
 /** A sound effect's base volume scaled by the player's Efekty setting. */
 export function sfxVolume(base: number): number {
@@ -46,83 +49,47 @@ export function playUi(scene: Phaser.Scene, key: string): void {
 
 export class AudioManager {
   private scene: Phaser.Scene;
-  private bgm: Phaser.Sound.BaseSound | null = null;
-  private currentBGMKey: string = '';
-  private fadeOutTween: Phaser.Tweens.Tween | null = null;
+  private music: MusicDeck<Phaser.Sound.BaseSound>;
   private loops = new Set<Phaser.Sound.BaseSound>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.stopLoops());
+    this.music = new MusicDeck({
+      play: (key, level) => {
+        const sound = scene.sound.add(key, { volume: level * this.mv(), loop: true });
+        sound.play();
+        return sound;
+      },
+      setLevel: (sound, level) => (sound as Phaser.Sound.WebAudioSound).setVolume(level * this.mv()),
+      end: (sound) => {
+        sound.stop();
+        sound.destroy();
+      },
+      fade: (from, to, onUpdate, onDone) => scene.tweens.addCounter({
+        from, to, duration: CROSSFADE_MS,
+        onUpdate: (tween) => onUpdate(tween.getValue() ?? to),
+        onComplete: onDone,
+      }),
+    });
+    // The sound manager outlives the scene: whatever way the run is left, its music and loops go with it
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
 
   private mv(): number { return getMusicVolume(); }
 
   startBGM(key: string = 'bgm-lv1'): void {
     if (!this.scene.cache.audio.exists(key)) return;
-    if (this.bgm) {
-      this.bgm.destroy();
-    }
-    this.currentBGMKey = key;
-    this.bgm = this.scene.sound.add(key, { volume: 0.5 * this.mv(), loop: true });
-    this.bgm.play();
+    this.music.start(key);
   }
 
   switchBGM(newKey: string): void {
-    if (this.currentBGMKey === newKey) return;
+    if (this.music.key === newKey) return;
     if (!this.scene.cache.audio.exists(newKey)) return;
-    this.currentBGMKey = newKey;
-
-    if (this.fadeOutTween) {
-      const tweenTargetBgm = this.bgm;
-      this.fadeOutTween.stop();
-      this.fadeOutTween = null;
-      if (tweenTargetBgm) {
-        tweenTargetBgm.stop();
-        tweenTargetBgm.destroy();
-      }
-    }
-
-    const oldBgm = this.bgm;
-    if (oldBgm) {
-      this.fadeOutTween = this.scene.tweens.addCounter({
-        from: 50,
-        to: 0,
-        duration: 800,
-        onUpdate: (tween) => {
-          if (oldBgm && oldBgm.isPlaying) {
-            (oldBgm as Phaser.Sound.WebAudioSound).setVolume((tween.getValue() ?? 0) / 100 * this.mv());
-          }
-        },
-        onComplete: () => {
-          oldBgm.stop();
-          oldBgm.destroy();
-          this.fadeOutTween = null;
-        },
-      });
-    }
-
-    this.bgm = this.scene.sound.add(newKey, { volume: 0, loop: true });
-    this.bgm.play();
-
-    this.scene.tweens.addCounter({
-      from: 0,
-      to: 50,
-      duration: 800,
-      onUpdate: (tween) => {
-        if (this.bgm && this.bgm.isPlaying) {
-          (this.bgm as Phaser.Sound.WebAudioSound).setVolume((tween.getValue() ?? 0) / 100 * this.mv());
-        }
-      },
-    });
+    this.music.switchTo(newKey);
   }
 
   stopBGM(): void {
-    if (this.bgm) {
-      this.bgm.stop();
-      this.bgm.destroy();
-      this.bgm = null;
-    }
+    this.music.stop();
   }
 
   /** Plays a one-shot sound effect. A key that isn't loaded (yet) is skipped. */
@@ -215,22 +182,25 @@ export class AudioManager {
   }
 
   glitchBGM(): void {
-    if (!this.bgm || !('setRate' in this.bgm)) return;
-    const sound = this.bgm as Phaser.Sound.WebAudioSound;
+    const bgm = this.music.current;
+    if (!bgm || !('setRate' in bgm)) return;
+    const sound = bgm as Phaser.Sound.WebAudioSound;
     const originalRate = sound.rate;
     sound.setRate(0.5);
     this.scene.time.delayedCall(150, () => {
-      if (this.bgm && this.bgm.isPlaying) {
-        (this.bgm as Phaser.Sound.WebAudioSound).setRate(originalRate);
+      const now = this.music.current;
+      if (now && now.isPlaying) {
+        (now as Phaser.Sound.WebAudioSound).setRate(originalRate);
       }
     });
   }
 
   updatePitch(speedMultiplier: number): void {
-    if (!this.bgm) return;
+    const bgm = this.music.current;
+    if (!bgm) return;
     const rate = Phaser.Math.Clamp(1 + (speedMultiplier - 1) * 0.3, 0.5, 3.0);
-    if ('setRate' in this.bgm) {
-      (this.bgm as Phaser.Sound.WebAudioSound).setRate(rate);
+    if ('setRate' in bgm) {
+      (bgm as Phaser.Sound.WebAudioSound).setRate(rate);
     }
   }
 

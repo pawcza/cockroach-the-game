@@ -239,7 +239,8 @@ export class BossEncounter {
       survivesHit: () => this.deps.absorbHit(),
       addScore: (points) => score.addScore(points),
       showBar: (value, max) => hud.showBossHP(boss.name, value, max),
-      updateBar: (value) => hud.updateBossHP(value),
+      updateBar: (value, last) => hud.updateBossHP(value, last),
+      showSegments: (segments) => hud.showBossSegments(boss.name, segments),
       onWon: () => this.endFight(boss.id, fight.victoryBonus),
       onLost: (deathType) => {
         // Solo the fight goes with the run; in a match it stays on screen for spectators. Nothing in taking it down

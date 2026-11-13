@@ -11,6 +11,7 @@ const KEYS = {
   MUSIC_VOLUME: 'cockroach-music-vol',
   SFX_VOLUME: 'cockroach-sfx-vol',
   TAUNTS: 'cockroach-taunts',
+  RECORD_GHOST: 'cockroach-record-ghost',
   TUTORIAL_DONE: 'cockroach-tutorial-done',
 } as const;
 
@@ -126,6 +127,15 @@ export function getTauntsEnabled(): boolean {
 
 export function setTauntsEnabled(on: boolean): void {
   localStorage.setItem(KEYS.TAUNTS, on ? 'on' : 'off');
+}
+
+/** The record run racing beside you as a pale roach, off unless the player turns it on. */
+export function getRecordGhostEnabled(): boolean {
+  return localStorage.getItem(KEYS.RECORD_GHOST) === 'on';
+}
+
+export function setRecordGhostEnabled(on: boolean): void {
+  localStorage.setItem(KEYS.RECORD_GHOST, on ? 'on' : 'off');
 }
 
 /** Whether the opening tutorial has been finished (or skipped) on this device. */

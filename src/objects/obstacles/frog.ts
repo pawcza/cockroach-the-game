@@ -4,7 +4,7 @@ import { DEPTH } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { EnemyPlan, laneY } from './behaviours';
-import { TIMINGS } from './cast';
+import { TIMINGS, placeOf } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 const TONGUE = 0xd9607a;
@@ -57,7 +57,7 @@ export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
       b.setOffset((lick.width - w) / 2, lick.height * lick.originY - LICK_H - 4);
     }
     if (!before || now.pose === before.pose || !kit.isOnScreen(frog)) return;
-    if (now.pose === 'windup') fx.play('flare-big-pink', frog.x - 10, frog.y - frog.displayHeight * .4, { depth: DEPTH.PICKUPS + 1 });
+    if (now.pose === 'windup') fx.play('flare-big-pink', frog.x - 10 * placeOf(plan.id).size, frog.y - frog.displayHeight * .4, { depth: DEPTH.PICKUPS + 1 });
     if (now.pose === 'strike' && kit.isAhead(frog)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
   });
   kit.track(frog, { objects: [tongue, under, tip, lick] });

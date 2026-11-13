@@ -12,6 +12,7 @@ from PIL import Image
 from scipy import ndimage as ni
 
 from pixels import at_size, down, native, strip_ground, up
+from swatters import HAZE
 
 PICKED = "art/sprites/enemies"
 WORK = 8
@@ -128,11 +129,27 @@ def bleach() -> list[Image.Image]:
     return _canvas([_backdrop(_pose(np.ascontiguousarray(jug), .8, tilt=t), .45) for t in (-32, -34, -32, -30)])
 
 
+# The owner's hand-tuned sizes (the sprite tuner): the frog, the hedgehog, the bead swelling at the bleach's cap
+FROG_SIZE = 1.35
+HEDGEHOG_SIZE = 1.3
+BEAD_SIZE = .85
+
+
+def _about_foot(frame: Image.Image, k: float) -> Image.Image:
+    """The frame's picture scaled by k about the middle of its bottom edge (its pivot), on the same canvas."""
+    big = Image.fromarray(np.ascontiguousarray(up(np.asarray(frame), WORK)))
+    big = big.resize((round(big.width * k), round(big.height * k)), Image.NEAREST)
+    canvas = Image.new("RGBA", (frame.width * WORK, frame.height * WORK))
+    canvas.paste(big, ((canvas.width - big.width) // 2, canvas.height - big.height))
+    return Image.fromarray(down(np.asarray(canvas), WORK))
+
+
 def bleach_drop() -> list[Image.Image]:
     """A drop swelling at the cap (three sizes, harmless-looking: no glow, bake.py's PARTLY_LIT), then whole and falling
-    (with the enemies' red glow, shown only once it is under the shelf)."""
+    (with the enemies' red glow, shown only once it is under the shelf). The swelling bead is BEAD_SIZE of that."""
     drop = _bright(_still("bleach-drop", 1))
-    return _canvas([_pose(drop, s) for s in (.6, 1, 1.4)] + [_pose(drop, 1.6)], anchor="top")
+    frames = _canvas([_pose(drop, s) for s in (.6, 1, 1.4)] + [_pose(drop, 1.6)], anchor="top")
+    return [_about_foot(f, BEAD_SIZE) for f in frames[:3]] + frames[3:]
 
 
 def bleach_splash() -> list[Image.Image]:
@@ -186,7 +203,7 @@ def hen_head() -> list[Image.Image]:
 
 def frog() -> list[Image.Image]:
     """The frog, and the frog with its mouth open, throat swollen."""
-    return _canvas([_still("frog", 1), _still("frog-open", 1)])
+    return _canvas([_pose(_still("frog", 1), FROG_SIZE), _pose(_still("frog-open", 1), FROG_SIZE)])
 
 
 def centipede() -> list[Image.Image]:
@@ -219,20 +236,30 @@ def _largest(a: np.ndarray) -> np.ndarray:
     return a[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
 
 
+# How far a lifted boot is hazed toward the room: as far as the slipper waiting at the back
+BOOT_HAZE = .45
+
+
 def boot() -> list[Image.Image]:
-    """One dancing boot: lifted (heel up, toe down, as the render's back boot), then stomped flat."""
+    """
+    One dancing boot: lifted (heel up, toe down, as the render's back boot), then stomped flat. Lifted it can't hurt:
+    hazed toward the room like the slipper waiting at the back (swatters.HAZE), and baked without the red glow (bake.py
+    PARTLY_LIT); only the stomp is in full colour. Same size both ways, so its hitbox doesn't change.
+    """
     down_boot, lifted = _boots()
-    return _canvas([lifted, down_boot])
+    hazed = lifted.astype(float)
+    hazed[..., :3] = hazed[..., :3] * (1 - BOOT_HAZE) + HAZE * BOOT_HAZE
+    return _canvas([hazed.astype(np.uint8), down_boot])
 
 
 def hedgehog() -> list[Image.Image]:
     """The hedgehog, and curled into its charge."""
-    return _canvas([_still("hedgehog", 1), _still("hedgehog-charge", 1)])
+    return _canvas([_pose(_still("hedgehog", 1), HEDGEHOG_SIZE), _pose(_still("hedgehog-charge", 1), HEDGEHOG_SIZE)])
 
 
 def spray_big() -> list[Image.Image]:
-    """The spray's big can, for its cloud wall: half again as big, shaking."""
-    can = _pose(native("art/sprites/spray.png"), 1.5)
+    """The spray's big can, for its cloud wall: half again as big, shaking. Its nozzle points left, at the runner."""
+    can = _pose(np.ascontiguousarray(native("art/sprites/spray.png")[:, ::-1]), 1.5)
     return _canvas([_pose(can, tilt=t) if t else can for t in (0, 3, -3)])
 
 

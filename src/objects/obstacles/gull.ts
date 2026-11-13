@@ -26,7 +26,10 @@ export function spawnGull(kit: ObstacleKit, plan: EnemyPlan): void {
   shadow?.setDisplaySize(SHADOW_W, SHADOW_H);
   kit.playSoundOnVisible(gull, 'bird-sfx', 0.5);
 
+  // The stretch it will skim: warned from its screech on, deadly while it hurts (the kill-zone look)
+  const hazard = kit.hazard(gull);
   kit.drive(gull, plan, (now, before) => {
+    hazard(now.zones.length === 0 ? now.warn ?? null : null, now.zones.length > 0 && now.warn ? [now.warn] : []);
     if (now.pose === 'strike' && before?.pose === 'strike' && now.lane && now.y >= laneY(now.lane) - 1
         && before.y < laneY(now.lane) - 1 && kit.isOnScreen(gull)) {
       fx.play('dust-land', gull.x, laneY(now.lane), { depth: DEPTH.OBSTACLES + 0.5 });

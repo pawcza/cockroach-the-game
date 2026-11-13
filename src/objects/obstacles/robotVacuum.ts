@@ -2,7 +2,8 @@ import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
 import { frameOf } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
-import { EnemyPlan, laneY } from './behaviours';
+import { EnemyPlan } from './behaviours';
+import { feetY } from './cast';
 import { ObstacleKit, Shootable } from './ObstacleKit';
 
 /** How long the first shot shakes it, and how far. */
@@ -31,7 +32,7 @@ export function spawnRobotVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
     }
     // Driving, dust off its brushes
     if (now.pose === 'strike' && kit.isOnScreen(robot) && smoke++ % 9 === 0) {
-      fx.play('dust', robot.x + robot.displayWidth * 0.3, laneY(plan.lane), { depth: DEPTH.OBSTACLES + 0.5, vx: 60, life: 300 });
+      fx.play('dust', robot.x + robot.displayWidth * 0.3, feetY(plan.id, plan.lane), { depth: DEPTH.OBSTACLES + 0.5, vx: 60, life: 300 });
     }
   });
   const shootable = robot.getData('shootable') as Shootable;

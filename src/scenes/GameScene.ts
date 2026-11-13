@@ -43,7 +43,7 @@ import { DEPTH } from '../config/constants';
 import { SpectateController } from '../systems/SpectateController';
 import type { DailyRun } from '../ui/Scoreboard';
 import { BestRunGhost, RunTrackRecorder } from '../systems/BestRunGhost';
-import { isTutorialDone, loadBestTrack } from '../utils/Storage';
+import { getRecordGhostEnabled, isTutorialDone, loadBestTrack } from '../utils/Storage';
 import { awardDuringRun, type RunSnapshot } from '../systems/Profile';
 import { showAchievement } from '../ui/shared';
 import { PLAIN, type Look } from '../config/skins';
@@ -71,8 +71,12 @@ interface GameSceneData {
 
 /** How often a run checks what it has earned. */
 const ACHIEVEMENT_CHECK_MS = 500;
-/** Killed by an obstacle, solo: the world holds this long (real ms) with the culprit blinking, before the death. */
-const HIT_STOP_MS = 400;
+/**
+ * Killed by an obstacle, solo: the world holds this long (real ms), the impact, before the death. Short: any longer
+ * reads as a lag before the roach falls. The culprit goes on blinking over the death for CULPRIT_BLINK_FOR_MS.
+ */
+const HIT_STOP_MS = 120;
+const CULPRIT_BLINK_FOR_MS = 500;
 const HIT_BLINK_MS = 80;
 /** After the tutorial the real course starts no nearer than this past the screen's right edge. */
 const COURSE_AHEAD_PX = 100;
@@ -463,6 +467,9 @@ export class GameScene extends Phaser.Scene {
       this.levels?.destroy();
       this.boss?.destroy();
       this.session?.destroy();
+      // The animation manager is the game's, not the scene's: left paused (Od nowa and Menu are pressed from the
+      // pause), every animation in the next scene, the next run's roach included, would stand still on its frame
+      this.anims.resumeAll();
     });
   }
 
@@ -538,9 +545,12 @@ export class GameScene extends Phaser.Scene {
     if (target) this.spectate.follow(target.sprite);
   }
 
-  /** Solo: the record run (or today's best daily run) races beside you, from where the run starts. */
+  /**
+   * Solo, if switched on in settings: the record run (or today's best daily run) races beside you, from where the
+   * run starts.
+   */
   private raceBestRun(): void {
-    const best = this.isMultiplayer ? null : loadBestTrack(this.daily?.date);
+    const best = this.isMultiplayer || !getRecordGhostEnabled() ? null : loadBestTrack(this.daily?.date);
     if (!best) return;
     const laneY = (floor: Floor): number =>
       (floor === 'top' ? this.floorManager.topColliderY : this.floorManager.bottomColliderY) - ROACH_FEET_OFFSET;
@@ -750,9 +760,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Killed by an obstacle. Solo, everything holds for a moment first with the culprit blinking, so you see what hit you
-   * (the boss fights do the same). A match reports the death at once, as everyone else's run goes on: there the
-   * culprit blinks over the death sequence instead.
+   * Killed by an obstacle. Solo, everything holds for an instant on the impact, then the roach dies at once while the
+   * culprit goes on blinking, so you see what hit you. A match reports the death at once, as everyone else's run goes on.
    */
   private killedBy(obstacleType: string | null | undefined, culprit?: Phaser.Physics.Arcade.Sprite): void {
     if (this.run.isDead) return;
@@ -768,7 +777,7 @@ export class GameScene extends Phaser.Scene {
       window.setTimeout(() => {
         window.clearInterval(blink);
         if (shown.active) shown.setAlpha(1);
-      }, HIT_STOP_MS);
+      }, CULPRIT_BLINK_FOR_MS);
     }
     if (this.isMultiplayer || !culprit) {
       this.gameOverHandler.die(obstacleType);

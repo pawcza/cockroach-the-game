@@ -24,7 +24,10 @@ export function spawnBird(kit: ObstacleKit, plan: EnemyPlan): void {
   shadow?.setDisplaySize(SHADOW_W, SHADOW_H);
   kit.playSoundOnVisible(bird, 'bird-sfx', 0.4);
 
+  // The stretch it will skim: warned from its screech on, deadly while it hurts (the kill-zone look)
+  const hazard = kit.hazard(bird);
   kit.drive(bird, plan, (now, before) => {
+    hazard(now.zones.length === 0 ? now.warn ?? null : null, now.zones.length > 0 && now.warn ? [now.warn] : []);
     // It hits the lane at the bottom of its dive: dust thrown up where it lands, along the way it glides
     if (now.pose === 'strike' && before?.pose === 'strike' && now.lane && now.y >= laneY(now.lane) - 1
         && before.y < laneY(now.lane) - 1 && kit.isOnScreen(bird)) {

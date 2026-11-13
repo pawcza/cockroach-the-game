@@ -1,9 +1,12 @@
+import Phaser from 'phaser';
 import { VOL } from '../../audio/AudioManager';
 import { DEPTH } from '../../config/constants';
+import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { EnemyPlan, laneY } from './behaviours';
-import { TIMINGS, bodyOf, ENEMIES } from './cast';
+import { TIMINGS, bodyOf, ENEMIES, feetY } from './cast';
 import { ObstacleKit } from './ObstacleKit';
+import { CLOUD_H } from './sprayWall';
 
 /** The wind-up: the can's baked shake played this much faster. */
 const SHAKE = 3;
@@ -16,15 +19,29 @@ const THIN_MS = 250;
 
 /**
  * The pest spray: a can in its lane that, on a rhythm, shakes and puffs a cloud that hangs in the lane just ahead of
- * it, closing that stretch for a moment (sweeper in behaviours.ts). The can itself always blocks.
+ * it, closing that stretch for a moment (sweeper in behaviours.ts). The can itself always blocks. The cloud kills over
+ * exactly the stretch it covers while it is out, and the shake before it warns over that stretch, in the run's
+ * kill-zone look (kit.hazard).
  */
 export function spawnPestSpray(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
-  const standY = laneY(plan.lane);
+  const standY = feetY(plan.id, plan.lane);
   const spray = kit.enemy(plan);
   kit.playSoundOnVisible(spray, 'spray-sfx', VOL.obstacle);
   const half = bodyOf(ENEMIES.spray).half;
+  const hazard = kit.hazard(spray);
+  // What hurts: the cloud's stretch, an invisible hitbox on the lane, harmless unless the cloud is out. A dash or a pill
+  // goes through it (the can is what gets punted), and it is the can that blinks when it kills
+  const { reach } = TIMINGS.spray;
+  const cloud = kit.createSprite(plan.x - half - reach / 2, laneY(plan.lane), 'spray', 'spray', null);
+  cloud.anims.stop();
+  cloud.setVisible(false).setData('floor', plan.lane).setData('harmless', true).setData('telegraphs', true)
+    .setData('unpuntable', true).setData('shows', spray);
+  const hurt = cloud.body as Phaser.Physics.Arcade.Body;
+  const w = reach / SPRITE_SCALE;
+  hurt.setSize(w, CLOUD_H, false);
+  hurt.setOffset((cloud.width - w) / 2, cloud.height * cloud.originY - CLOUD_H);
   const nozzle = (): { x: number; y: number } => ({ x: spray.x - half, y: spray.y - spray.displayHeight * NOZZLE });
 
   // The cloud fills exactly the stretch that hurts, from its first frame: its pivot is the can's front edge, and the
@@ -49,6 +66,9 @@ export function spawnPestSpray(kit: ObstacleKit, plan: EnemyPlan): void {
 
   kit.drive(spray, plan, (now, before) => {
     shaking = now.pose === 'windup';
+    cloud.setData('harmless', now.pose !== 'strike');
+    // Shaking, the stretch the cloud will fill warns; out, it kills
+    hazard(now.pose === 'windup' ? now.warn ?? null : null, now.pose === 'strike' && now.warn ? [now.warn] : []);
     if (now.pose === before?.pose) return;
     spray.anims.timeScale = now.pose === 'windup' ? SHAKE : 1;
     if (!before || !kit.isOnScreen(spray)) return;
@@ -64,5 +84,5 @@ export function spawnPestSpray(kit: ObstacleKit, plan: EnemyPlan): void {
     }
   });
 
-  kit.track(spray, { timers: [dribble] });
+  kit.track(spray, { timers: [dribble], objects: [cloud] });
 }
