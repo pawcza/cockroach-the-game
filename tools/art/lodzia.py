@@ -946,10 +946,10 @@ def _glow(img: np.ndarray, colour, radius: float = 2.5, alpha: float = .7) -> np
 def _curlers() -> list[np.ndarray]:
     """A hair curler, drawn by hand on the pixel grid at its own size (no blur): a hot pink roller with a lighter top
     edge, a darker belly, mesh bars across it and pale end caps, a dark line inside its outline and a pale pink one
-    round the outside so it reads on any floor. Three turns of it, 36 px cells."""
+    round the outside so it reads on any floor. Big, as it has to be read in flight: three turns of it, 46 px cells."""
     body, light, belly, bars, cap = (255, 110, 175), (255, 190, 225), (196, 58, 128), (140, 30, 96), (255, 226, 240)
     outline, halo = (88, 18, 64), (255, 154, 208)
-    w, h = 26, 16
+    w, h = 34, 20
     roller = np.zeros((h, w, 4), np.uint8)
     for y in range(h):
         for x in range(w):
@@ -971,7 +971,7 @@ def _curlers() -> list[np.ndarray]:
     big[:h * K, :w * K] = np.repeat(np.repeat(roller, K, 0), K, 1)
     frames = []
     for i in range(3):
-        img = _turned(big, (w / 2, h / 2), i * 60, 36)
+        img = _turned(big, (w / 2, h / 2), i * 60, 46)
         alpha = img[..., 3] > 128
         ring = ni.binary_dilation(alpha, structure=np.ones((3, 3))) & ~alpha
         out = img.copy()
