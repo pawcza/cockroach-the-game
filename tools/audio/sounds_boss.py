@@ -277,7 +277,6 @@ group("bigos-thump", BI, "Speaker thump (kick)", [("audio/flipper.ogg", "current
 group("bigos-charge", BI, "Charge-up before the blast (new)")
 group("bigos-blast", BI, "Bass blast", [("boss/bomb-shot.ogg", "current stand-in")])
 group("bigos-beam", BI, "Light beam hum (loops)", [("audio/disco.ogg", "current stand-in")])
-group("bigos-sizzle", BI, "Overload sizzle", [("audio/cockroach-hiss.ogg", "current stand-in")])
 group("bigos-wreck", BI, "Speaker wreck", [("boss/explosion.ogg", "current stand-in")])
 group("bigos-scratch", BI, "Record scratch (new)")
 
@@ -326,17 +325,6 @@ def _():
     x += s.circular_noise(1.0, 1500, 6000) * 0.1
     d.REC.log("integer-cycle loop (no crossfade)")
     return x
-
-
-@snd("bigos-sizzle", "", "boss", note="dense electric crackle + 60 Hz buzz + sparkly zaps")
-def _():
-    n = n_(0.9)
-    cr = s.crackle(0.9, 380, 2500, 1.0, decay=0.9)
-    bz = d.lp(d.saw(60, n) + d.saw(120.5, n) * 0.5, 900, 1) * d.adsr(n, 0.02, 0.1, 0.7, 0.3) * 0.5
-    zp = np.zeros(n)
-    for t in [0.05, 0.22, 0.4, 0.6]:
-        zp = d.mix(zp, (s.zap(3500, 600, 0.06) * 0.4, t, 1.0), length=n)
-    return d.sat(d.mix((cr, 0, 1.0), (bz, 0, 1.0), zp, length=n), 1.6)
 
 
 @snd("bigos-wreck", "", "big", note="metal crash + explosion + falling power-down sweep + rattle")

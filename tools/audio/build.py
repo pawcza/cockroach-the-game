@@ -15,7 +15,7 @@ sys.path.insert(0, HERE)
 import numpy as np
 from lib import dsp as d
 from lib.registry import SOUNDS, GROUPS, CATS
-import sounds_core, sounds_milestones, sounds_boss  # noqa: F401  (registering sounds)
+import sounds_core, sounds_milestones, sounds_boss, sounds_enemies, sounds_ambient  # noqa: F401  (registering sounds)
 
 OUT = os.path.join(HERE, "out")
 PACK_PAGES = {}

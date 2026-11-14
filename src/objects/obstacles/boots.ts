@@ -22,7 +22,7 @@ export function spawnBoots(kit: ObstacleKit, plan: EnemyPlan): void {
   bottom.setData('floor', 'bottom').setData('telegraphs', true);
   const stomped = (lane: 'top' | 'bottom', x: number): void => {
     fx.play('dust-land', x, laneY(lane), { depth: DEPTH.OBSTACLES + 1 });
-    if (kit.isAhead(top) && top.x - kit.scene.cockroach.x < 360) kit.audio.playSfx('hop-land', VOL.obstacle * 0.6);
+    if (kit.isAhead(top) && top.x - kit.scene.cockroach.x < 360) kit.audio.playSfx('boots-stomp', VOL.obstacle * 0.6);
   };
   kit.drive(top, plan, (now, before) => {
     const topDown = now.zones.some(z => z.lane === 'top');

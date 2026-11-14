@@ -106,7 +106,6 @@ const SFX = {
   curler: 'lodzia-curler',
   defeat: 'boss-victory',
 };
-const BGM = 'boss-bgm';
 
 /** For a scripted player (the dev driver): something coming at the roach, on a lane, at a scene time. */
 export interface Threat {
@@ -198,7 +197,7 @@ export class LodziaFight extends BossFight {
 
   private startFighting(): void {
     this.state = 'fighting';
-    this.ctx.audio.switchBGM(BGM);
+    this.ctx.audio.switchBGM(this.ctx.boss.music);
     this.ctx.showBar(this.stamina, STAMINA);
     this.nextAttack();
   }
@@ -277,6 +276,7 @@ export class LodziaFight extends BossFight {
 
   private defeat(): void {
     this.state = 'victory';
+    this.ctx.audio.fadeOutBGM();
     this.ctx.audio.playSfx(SFX.defeat, VOL.stinger);
     this.play('defeat', () => this.delay(DEFEAT_HOLD_MS, () => {
       this.ctx.scene.tweens.add({ targets: this.lodzia, alpha: 0, duration: FADE_MS, onComplete: () => this.win() });

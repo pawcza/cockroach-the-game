@@ -182,13 +182,21 @@ export class BossEncounter {
   }
 
   private playSplash(boss: BossDef, waitForPress: boolean, onWipe: () => void): void {
+    const { audio, run } = this.deps;
     this.splash?.destroy();
+    // The level's music gives way to the pre-battle loop for the whole splash
+    audio.beginPrelude('boss-prelude');
     this.splash = new VersusSplash({
       scene: this.scene,
       audio: this.deps.audio,
       boss,
       waitForPress,
-      onWipe,
+      onWipe: () => {
+        // The press (or, in a match, the hold's end): the boss's music comes in off the loop, quickly. Left to the
+        // fight itself this came only after its intro, a walk-in or a rise, and then a level-length crossfade
+        audio.endPrelude(boss.music, LEVELS[run.currentLevel - 1].bgmKey);
+        onWipe();
+      },
       onEnd: () => { this.splash = null; },
     });
   }
@@ -274,6 +282,8 @@ export class BossEncounter {
       return;
     }
     this.freezeWorld();
+    // The boss's music ended when he died: the ability screen has a calm loop of its own until it is dismissed
+    this.deps.audio.switchBGM('boss-aftermath');
     this.reward = new AbilityReward({
       scene: this.scene,
       audio: this.deps.audio,

@@ -100,8 +100,8 @@ test('nothing on levels 7-10 is out of a bullet\'s reach for good', () => {
     for (const { def } of castFor(level)) {
       if (def.id === 'wasp') continue;  // it hunts the roach: its span is its own (obstacles/wasp.ts), in its lane while it flies
       const plan: EnemyPlan = { id: def.id, x: 0, lane: def.lanes?.[0] ?? 'top', phase: 0 };
-      // The centipede runs at the runner on a clock of its own
-      if (def.id === 'centipede') plan.chase = { startAt: 0, meetAt: 3000, speed: 500 };
+      // The centipede runs at the roach from where it set off
+      if (def.id === 'centipede') plan.run = { at: 0, x: 1400, speed: 300 };
       let met = false;
       for (let t = 0; t < 8000 && !met; t += 20) met = shotSpan(plan, t, 'top') !== null || shotSpan(plan, t, 'bottom') !== null;
       assert.ok(met, `${def.id} can be shot`);

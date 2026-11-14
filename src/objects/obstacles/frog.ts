@@ -19,14 +19,14 @@ const LICK_H = 10;
 /**
  * The frog (tongue in behaviours.ts): sits in its lane; its throat swells and its mouth opens (the telegraph, and a
  * warning along the stretch it will lick), then its tongue shoots along its lane at the runner and snaps back. Be on
- * the other lane, or dash through. Sounds (placeholders): the jellyfish's wobble for the swell, the spray's for the lick.
+ * the other lane, or dash through. Sounds: a croak for the swell, a wet thwip for the lick.
  */
 export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
   const frog = kit.enemy(plan);
   frog.anims.stop();
-  kit.playSoundOnVisible(frog, 'jellyfish-sfx', 0.4);
+  kit.playSoundOnVisible(frog, 'frog-croak', 0.4);
   const y = laneY(plan.lane) - 14;
   const tongue = scene.add.rectangle(0, y, 10, TONGUE_H, TONGUE).setOrigin(0, .5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
   const under = scene.add.rectangle(0, y + TONGUE_H / 2, 10, 2, TONGUE_DARK).setOrigin(0, .5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
@@ -58,7 +58,7 @@ export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
     }
     if (!before || now.pose === before.pose || !kit.isOnScreen(frog)) return;
     if (now.pose === 'windup') fx.play('flare-big-pink', frog.x - 10 * placeOf(plan.id).size, frog.y - frog.displayHeight * .4, { depth: DEPTH.PICKUPS + 1 });
-    if (now.pose === 'strike' && kit.isAhead(frog)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
+    if (now.pose === 'strike' && kit.isAhead(frog)) kit.audio.playSfx('frog-tongue', VOL.obstacle * 0.4);
   });
   kit.track(frog, { objects: [tongue, under, tip, lick] });
 }

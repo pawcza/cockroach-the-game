@@ -139,16 +139,20 @@ export const TIMINGS = {
   cat: { hold: 1000, look: 500, leap: 200 },
   catChase: { run: 1250, windup: 450, jump: 220 },
   bleach: { fall: 320, splash: 130, spot: 56, jugDx: 30 },
-  // How far along its lane the light reaches either side of the bulb: most of the screen, but never a roach the bulb
-  // has only just come into view for (420 px in from the right edge is time to see it flicker at any speed)
-  lamp: { dark: 1600, flicker: 750, on: 550, ahead: 420, behind: 180 },
+  // How far along its lane the light reaches either side of the bulb. Ahead of it the light starts late enough that a
+  // roach the bulb has only just come into view for still has a 400 ms reaction before it (the bulb is seen 600 px
+  // ahead of the roach): at 680 px/s that leaves 240 px
+  lamp: { dark: 1600, flicker: 750, on: 550, ahead: 240, behind: 180 },
   mop: { wait: 900, windup: 700, press: 120, sweep: 700, lift: 280, back: 600, from: 130, to: -110, raise: 36 },
   bison: { stand: 1000, paw: 600, rush: 380, halt: 400, back: 620, distance: 120 },
   hedgehog: { stand: 1000, paw: 600, rush: 380, halt: 400, back: 620, distance: 110 },
   hen: { idle: 900, windup: 480, peck: 110, hold: 260, back: 250, ahead: 150, spot: 40 },
   frog: { idle: 1000, windup: 550, shoot: 130, hold: 220, back: 180, reach: 170, mouth: 20 },
-  // Its lane switches, ms before it meets the nominal runner at its slot (two, or the last one only)
-  centipede: { speed: 300, from: 900, switches: [1500, 800], warn: 420, jump: 200 },
+  // It sets off when the roach is `trigger` px from its slot, from `out` px past the screen's right edge, closing in on a
+  // cruising roach at `close` px/s (the roach's own speed is at most 680, so it always runs left). It rears (the tell)
+  // 220 ms later, fully on screen on every width, and lands `warn + jump` ms after that: 620 ms from the start of the tell
+  // to the first thing that can hurt
+  centipede: { trigger: 360, out: 80, close: 760, rear: 220, warn: 420, jump: 200 },
   boots: { beat: 500, down: 260, lift: 120, height: 30 },
   sprayWall: { idle: 900, windup: 600, puff: 700, reach: 90 },
   // The gun act. The gull screeches and rises (the wind-up, its landing shadow growing), dives into a lane and skims
@@ -186,9 +190,6 @@ export const WASP: WaspTimings = {
 export const VACUUM: VacuumTimings = {
   cue: 400, enter: 600, start: 60, creep: 40, breakFree: 50, follow: 300, switch: 220, hold: 2400, fallBack: 900,
 };
-
-/** The centipede sets off this long before it would meet the nominal runner at its slot. */
-export const CENTIPEDE_LEAD = 1500;
 
 /** A chaser runs this much faster than the course's nominal runner where it meets it, and sets off this far behind. */
 export const CHASE_SPEEDUP = 1.6;
@@ -518,11 +519,6 @@ export class EnemyPicker {
     const phase = Math.floor(this.rng.next() * PHASE_SPAN);
     const plan: EnemyPlan = { id: def.id, x, lane, phase };
     if (def.id === 'catChase') plan.chase = chaseFor(x, this.clock);
-    // The centipede is timed off the nominal runner at its slot
-    if (def.id === 'centipede') {
-      const meetAt = this.clock.timeAt(x);
-      plan.chase = { meetAt, speed: this.clock.speedAt(x), startAt: meetAt - CENTIPEDE_LEAD };
-    }
     return plan;
   }
 }

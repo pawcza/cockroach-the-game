@@ -12,7 +12,7 @@ export type EksAnim =
   'idle' | 'idle-hot' | 'walk' | 'pump' |
   'spray-top-windup' | 'spray-top' | 'spray-top-release' |
   'spray-bottom-windup' | 'spray-bottom' | 'spray-bottom-release' |
-  'lob' | 'stagger' | 'defeat' | 'charge';
+  'lob' | 'stagger' | 'defeat' | 'charge' | 'brace' | 'knocked' | 'shoved' | 'panic';
 
 /** As baked: the bake checks these against the rig. */
 export const EKS_ANIMS: Record<EksAnim, { frames: number; fps: number; loop: boolean }> = {
@@ -30,10 +30,14 @@ export const EKS_ANIMS: Record<EksAnim, { frames: number; fps: number; loop: boo
   'stagger': { frames: 5, fps: 14, loop: false },
   'defeat': { frames: 12, fps: 10, loop: false },
   'charge': { frames: 8, fps: 16, loop: true },
+  'brace': { frames: 4, fps: 8, loop: true },
+  'knocked': { frames: 6, fps: 12, loop: false },
+  'shoved': { frames: 5, fps: 12, loop: false },
+  'panic': { frames: 8, fps: 10, loop: true },
 };
 
 /** His sprites: frame counts and speeds. */
-export type EksSprite = 'jet' | 'jet-burst' | 'jet-dive' | 'jet-splash' | 'canister' | 'cloud' | 'mine';
+export type EksSprite = 'jet' | 'jet-burst' | 'jet-dive' | 'jet-splash' | 'canister' | 'cloud' | 'mine' | 'grenade' | 'chain';
 export const EKS_SPRITES: Record<EksSprite, { frames: number; fps: number }> = {
   'jet': { frames: 4, fps: 14 },
   'jet-burst': { frames: 3, fps: 14 },
@@ -42,6 +46,8 @@ export const EKS_SPRITES: Record<EksSprite, { frames: number; fps: number }> = {
   'canister': { frames: 3, fps: 14 },
   'cloud': { frames: 6, fps: 8 },
   'mine': { frames: 3, fps: 6 },
+  'grenade': { frames: 4, fps: 14 },
+  'chain': { frames: 4, fps: 12 },
 };
 
 /** Native px, as baked. */

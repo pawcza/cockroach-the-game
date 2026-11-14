@@ -120,7 +120,7 @@ for key, where in sorted(played.items()):
             problems.append(f"played but never loaded: {key}  ({where})")
 
 # 2. loaded but never played
-MUSIC = re.compile(r"^(bgm-lv\d+|menu-bgm|gameover-bgm|boss-bgm)$")
+MUSIC = re.compile(r"^(bgm-lv\d+|menu-bgm|gameover-bgm|(lodzia|bigos|zlewiatan|eksterminator)-bgm|boss-prelude|boss-aftermath)$")
 # Waiting on the fights that are being reworked: loaded, with no call site yet. A warning, not a failure.
 PENDING = {"bigos-charge": "DJ Bigos: charge-up before the blast"}
 played_keys = set(candidates)

@@ -2,7 +2,7 @@
  * The fairness tests' simulated player (tests/enemies.test.ts), against the same behaviour functions the game runs.
  */
 import { DASH_COOLDOWN, DASH_DURATION, DASH_SPEED_BOOST, GAME_WIDTH } from '../../src/config/constants';
-import { CHASER_CUE_MS, Lane, ROACH_BACK, ROACH_FRONT, Zone } from '../../src/objects/obstacles/behaviours';
+import { CHASER_CUE_MS, EnemyPlan, Lane, ROACH_BACK, ROACH_FRONT, Zone, setOffScuttle } from '../../src/objects/obstacles/behaviours';
 import { ENEMIES, EnemyId, TIMINGS, bodyOf, enemyState } from '../../src/objects/obstacles/cast';
 import type { SlotItem } from '../../src/systems/CourseLayout';
 
@@ -51,6 +51,17 @@ export interface Trace { xs: number[]; lanes: number[]; deadly: Uint8Array[]; kn
 /** Survived: the roach's x and lane (0 top, 1 bottom) at every step, for what it passed on the way (the ammo model). */
 export type Outcome = { died: false; xs: number[]; lanes: number[] } | { died: true; t: number; x: number; by: string; trace: Trace };
 
+/**
+ * A centipede sets off when this roach comes near its slot (the game does it from the roach's frame: behaviours.setOffScuttle):
+ * a copy of its plan with that run, from the roach's path. Anything else is as laid.
+ */
+export function withRun(plan: EnemyPlan, xs: number[], cruise: number): EnemyPlan {
+  if (ENEMIES[plan.id as EnemyId].role !== 'scuttler') return plan;
+  const run: EnemyPlan = { ...plan, run: undefined };
+  for (let i = 0; i < xs.length && !run.run; i++) setOffScuttle(run, TIMINGS.centipede, i * DT, { x: xs[i], cruise, edge: SCREEN_AHEAD });
+  return run;
+}
+
 export function simulate(course: Laid[], sim: Sim, startX: number): Outcome {
   const lastX = course[course.length - 1].x + 400;
   const steps = Math.ceil(((lastX - startX) / sim.speed) * 1000 / DT);
@@ -87,7 +98,7 @@ export function simulate(course: Laid[], sim: Sim, startX: number): Outcome {
           zones: () => (['top', 'bottom'] as const).map(lane => ({ lane, x0: slot.x - WALL_HALF, x1: slot.x + WALL_HALF, since: -Infinity })),
         });
       } else if (item.kind === 'enemy' || item.kind === 'cloud') {
-        const plan = item.plan;
+        const plan = withRun(item.plan, xs, sim.speed);
         const half = bodyOf(ENEMIES[plan.id as EnemyId]).half;
         let visibleFrom = Infinity;
         const anchor = plan.chase ? null : plan.x;

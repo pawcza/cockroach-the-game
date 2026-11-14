@@ -17,8 +17,8 @@ const CORE_H = 4;
 /**
  * The bug zapper (zap in behaviours.ts): a tube hung from a cord over the upper lane. Idle it glows violet; then it
  * crackles and flashes (the charge: the stretch of lane it will strike flickers) and a bolt runs from it down to the
- * lane and along it at the runner for a moment. Shot, it bursts in sparks. Sounds (placeholders): Bigos's sizzle for
- * the charge and his beam for the bolt.
+ * lane and along it at the runner for a moment. Shot, it bursts in sparks. Sounds: a rising crackle for
+ * the charge and a hard crack for the bolt.
  */
 export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -64,12 +64,12 @@ export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
     if (!before || now.pose === before.pose || !kit.isOnScreen(zapper)) return;
     if (now.pose === 'windup') {
       fx.play('crackle', zapper.x, zapper.y - zapper.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 1 });
-      if (kit.isAhead(zapper)) kit.audio.playSfx('bigos-sizzle', VOL.obstacle * 0.5);
+      if (kit.isAhead(zapper)) kit.audio.playSfx('zapper-charge', VOL.obstacle * 0.5);
     }
     if (striking) {
       fx.play('flare-big-violet', zapper.x, zapper.y - zapper.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 2 });
       for (let i = 0; i < 3; i++) fx.play('bolt', x0 + Math.random() * (x1 - x0), y, { depth: DEPTH.PICKUPS + 2 });
-      if (kit.isAhead(zapper)) kit.audio.playSfx('bigos-beam', VOL.obstacle * 0.5);
+      if (kit.isAhead(zapper)) kit.audio.playSfx('zapper-bolt', VOL.obstacle * 0.5);
     }
   });
   const shootable = zapper.getData('shootable');

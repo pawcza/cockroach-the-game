@@ -18,13 +18,15 @@ export interface BossDef {
   accent: number;
   /** The power beating this boss earns in a solo run, or null for none. See systems/abilities.ts. */
   reward: AbilityId | null;
+  /** His fight's music: an audio key (DeferredLoadScene BOSS_AUDIO, built by tools/audio/music). */
+  music: string;
 }
 
 export const BOSSES: readonly BossDef[] = [
-  { id: 'lodzia', name: 'Pani Lodzia spod Trójki', epithet: 'Raz, a dobrze', triggerDistance: 250, accent: 0xd9578f, reward: 'dash' },
-  { id: 'bigos', name: 'DJ Bigos', epithet: 'Król remizy', triggerDistance: 1200, accent: 0x9b5cff, reward: 'gun' },
-  { id: 'zlewiatan', name: 'Zlewiatan', epithet: 'Bestia spod Zlewu', triggerDistance: 1800, accent: 0x2fb9a0, reward: 'moult' },
-  { id: 'eksterminator', name: 'Eksterminator', epithet: 'Bez faktury taniej', triggerDistance: 2600, accent: 0xd8d03a, reward: null },
+  { id: 'lodzia', name: 'Pani Lodzia spod Trójki', epithet: 'Raz, a dobrze', triggerDistance: 250, accent: 0xd9578f, reward: 'dash', music: 'lodzia-bgm' },
+  { id: 'bigos', name: 'DJ Bigos', epithet: 'Król remizy', triggerDistance: 1200, accent: 0x9b5cff, reward: 'gun', music: 'bigos-bgm' },
+  { id: 'zlewiatan', name: 'Zlewiatan', epithet: 'Bestia spod Zlewu', triggerDistance: 1800, accent: 0x2fb9a0, reward: 'moult', music: 'zlewiatan-bgm' },
+  { id: 'eksterminator', name: 'Eksterminator', epithet: 'Bez faktury taniej', triggerDistance: 2600, accent: 0xd8d03a, reward: null, music: 'eksterminator-bgm' },
 ];
 
 export function bossById(id: BossId): BossDef {

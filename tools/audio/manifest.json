@@ -674,16 +674,6 @@
     }
    ]
   },
-  "bigos-sizzle": {
-   "section": "Boss: DJ Bigos",
-   "event": "Overload sizzle",
-   "current": [
-    {
-     "file": "audio/cockroach-hiss.ogg",
-     "note": "current stand-in"
-    }
-   ]
-  },
   "bigos-wreck": {
    "section": "Boss: DJ Bigos",
    "event": "Speaker wreck",
@@ -873,6 +863,456 @@
    "section": "Boss: Eksterminator",
    "event": "Mask breath (new)",
    "current": []
+  },
+  "boss-parry": {
+   "section": "Bosses: shared (own sounds)",
+   "event": "The roach parries: a shot or a thrown thing deflected back (Eksterminator, Bigos, Zlewiatan)",
+   "current": [
+    {
+     "file": "audio/przebicie.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-knock": {
+   "section": "Boss: Eksterminator",
+   "event": "His wand knocked out of his hand by the lunge",
+   "current": [
+    {
+     "file": "boss/vs-slam-2.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-shove": {
+   "section": "Boss: Eksterminator",
+   "event": "Shoved reeling back by the lunge or a crash",
+   "current": [
+    {
+     "file": "boss/vs-slam-1.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-struck": {
+   "section": "Boss: Eksterminator",
+   "event": "The roach is struck by his gas or jet",
+   "current": [
+    {
+     "file": "boss/vs-slam-2.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-mine-arm": {
+   "section": "Boss: Eksterminator",
+   "event": "A mine arms and starts to gas",
+   "current": [
+    {
+     "file": "boss/bigos-sizzle.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-leak": {
+   "section": "Boss: Eksterminator",
+   "event": "The tank leaks, whistling higher each rage step (played at rising rate)",
+   "current": [
+    {
+     "file": "boss/bigos-sizzle.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-charge": {
+   "section": "Boss: Eksterminator",
+   "event": "He braces for the charge",
+   "current": [
+    {
+     "file": "boss/ex-pump.ogg",
+     "note": "current stand-in (slowed)"
+    }
+   ]
+  },
+  "ex-rush": {
+   "section": "Boss: Eksterminator",
+   "event": "The charge passes along a lane",
+   "current": [
+    {
+     "file": "boss/vs-slam-2.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-grenade-bounce": {
+   "section": "Boss: Eksterminator",
+   "event": "The grenade can bounces",
+   "current": [
+    {
+     "file": "boss/ex-canister-pop.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "ex-whiff": {
+   "section": "Boss: Eksterminator",
+   "event": "A lunge into empty air",
+   "current": [
+    {
+     "file": "boss/bullet-ricochet.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-bonk": {
+   "section": "Boss: DJ Bigos",
+   "event": "Dash bonks a broken speaker",
+   "current": [
+    {
+     "file": "boss/bullet-ricochet.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-overload": {
+   "section": "Boss: DJ Bigos",
+   "event": "His system overloads (drop bounced back)",
+   "current": [
+    {
+     "file": "boss/bigos-sizzle.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-shriek": {
+   "section": "Boss: DJ Bigos",
+   "event": "A speaker shrieks with feedback (played at 1.6x rate)",
+   "current": [
+    {
+     "file": "boss/bigos-sizzle.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bigos-defeat": {
+   "section": "Boss: DJ Bigos",
+   "event": "DJ Bigos is defeated: the deck winds down",
+   "current": [
+    {
+     "file": "boss/victory.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zl-head-fall": {
+   "section": "Boss: Zlewiatan (own sounds)",
+   "event": "A head wrenches off its pipe and falls",
+   "current": [
+    {
+     "file": "boss/vs-slam-2.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zl-head-bounce": {
+   "section": "Boss: Zlewiatan (own sounds)",
+   "event": "The loose head lands, bounces and rolls",
+   "current": [
+    {
+     "file": "boss/zl-slab-impact.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zl-head-smash": {
+   "section": "Boss: Zlewiatan (own sounds)",
+   "event": "A head smashed (loose head dashed, or a head smacked by what was sent back)",
+   "current": [
+    {
+     "file": "boss/vs-slam-2.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "hedgehog": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Hedgehog curls and rushes",
+   "current": [
+    {
+     "file": "audio/bison.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "centipede-rear": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Centipede rears with a hiss, then scuttles",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zapper-charge": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Bug zapper charges",
+   "current": [
+    {
+     "file": "boss/bigos-sizzle.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "zapper-bolt": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Bug zapper bolt",
+   "current": [
+    {
+     "file": "boss/bigos-beam.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "aerosol-rattle": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Aerosol can shot: rattles before it blows",
+   "current": [
+    {
+     "file": "boss/ex-canister-pop.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "aerosol-blast": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Aerosol can blast",
+   "current": [
+    {
+     "file": "boss/ex-tank-burst.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bait-ooze": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Poison bait oozes out",
+   "current": [
+    {
+     "file": "boss/ex-gas.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "glue-squelch": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Glue trap on screen",
+   "current": [
+    {
+     "file": "audio/onion.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "bleach-drip": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Bleach drop falls and splashes",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "frog-croak": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Frog's throat swells: croak",
+   "current": [
+    {
+     "file": "audio/jellyfish.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "frog-tongue": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Frog's tongue lashes out",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "repeller-hum": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Ultrasonic repeller comes into view",
+   "current": [
+    {
+     "file": "boss/bigos-scratch.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "repeller-ring": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Repeller sends a ring down the lane",
+   "current": [
+    {
+     "file": "boss/shell-casing.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "spraywall-puff": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Spray can shakes and puffs its cloud wall",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "gull-screech": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Gull screeches",
+   "current": [
+    {
+     "file": "audio/bird.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "hen-cluck": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Hen clucks (the wind-up)",
+   "current": [
+    {
+     "file": "audio/bird.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "hen-peck": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Hen pecks",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "robovac-whir": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Robot vacuum comes into view",
+   "current": [
+    {
+     "file": "audio/blackhole.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "robovac-crack": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Robot vacuum cracks under the first shot",
+   "current": [
+    {
+     "file": "boss/bullet-ricochet.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "boots-stomp": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "A boot stomps",
+   "current": [
+    {
+     "file": "audio/hop-land.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "mop-slap": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Mop presses down and sweeps",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lamp-flicker": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Lamp flickers",
+   "current": [
+    {
+     "file": "audio/floor-switch.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "lamp-snap": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Lamp snaps on",
+   "current": [
+    {
+     "file": "audio/disco.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "wasp-buzz": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Wasp locks on, trembling",
+   "current": [
+    {
+     "file": "audio/bird.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "wasp-dive": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Wasp dives",
+   "current": [
+    {
+     "file": "(silent)",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "vacuum-roar": {
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Vacuum cleaner's roar from behind",
+   "current": [
+    {
+     "file": "audio/blackhole.ogg",
+     "note": "current stand-in"
+    }
+   ]
+  },
+  "boss-prelude": {
+   "section": "Ambient music",
+   "event": "Versus splash: tense pre-battle loop (every boss)",
+   "current": [
+    {
+     "file": "levels/soundtracks/lvN.ogg",
+     "note": "current: the level's music keeps playing"
+    }
+   ]
+  },
+  "boss-aftermath": {
+   "section": "Ambient music",
+   "event": "Ability screen after a boss: calm relieved loop",
+   "current": [
+    {
+     "file": "boss/lodzia-bgm.ogg",
+     "note": "current: the boss's own music keeps playing (Lodzia's here)"
+    }
+   ]
   }
  },
  "sounds": [
@@ -3608,31 +4048,6 @@
    "loop_seam_ratio": 2.8
   },
   {
-   "id": "bigos-sizzle",
-   "group": "bigos-sizzle",
-   "variant": "",
-   "section": "Boss: DJ Bigos",
-   "event": "Overload sizzle",
-   "source": "synth",
-   "pack_files": [],
-   "packs": [],
-   "licence": "original synthesis (no third-party material)",
-   "chain": "hp2500 > crackle 380/s > lp900 > hp1500 > sat2 > hp1500 > sat2 > hp1500 > sat2 > hp1500 > sat2 > sat1.6 > norm -15.5LUFS peak<=-1.5",
-   "note": "dense electric crackle + 60 Hz buzz + sparkly zaps",
-   "category": "boss",
-   "target_lufs": -15.5,
-   "loop": false,
-   "duration_s": 0.91,
-   "peak_dbfs": -4.18,
-   "lufs": -15.6,
-   "centroid_hz": 8840,
-   "attack_ms": 34.2,
-   "onset_ms": 1.2,
-   "active_s": 0.901,
-   "crest_db": 10.9,
-   "dc": 6e-05
-  },
-  {
    "id": "bigos-wreck",
    "group": "bigos-wreck",
    "variant": "",
@@ -4530,6 +4945,1292 @@
    "active_s": 0.361,
    "crest_db": 12.8,
    "dc": 0.0001
+  },
+  {
+   "id": "boss-parry",
+   "group": "boss-parry",
+   "variant": "",
+   "section": "Bosses: shared (own sounds)",
+   "event": "The roach parries: a shot or a thrown thing deflected back (Eksterminator, Bigos, Zlewiatan)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_light_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_light_002.ogg > hp1500 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "bright metal deflect: click + pack light metal hit + rising FM zing + high bell",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.459,
+   "peak_dbfs": -2.47,
+   "lufs": -15.5,
+   "centroid_hz": 3807,
+   "attack_ms": 10.8,
+   "onset_ms": 0.0,
+   "active_s": 0.45,
+   "crest_db": 15.1,
+   "dc": -1e-05
+  },
+  {
+   "id": "ex-knock",
+   "group": "ex-knock",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "His wand knocked out of his hand by the lunge",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_medium_001.ogg > bp2500-9000 > hp1200 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "pack metal clang, a spinning rod's falling FM wobble, two tink bounces, tank puff",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.481,
+   "peak_dbfs": -3.44,
+   "lufs": -15.6,
+   "centroid_hz": 5813,
+   "attack_ms": 6.0,
+   "onset_ms": 0.0,
+   "active_s": 0.471,
+   "crest_db": 14.5,
+   "dc": -5e-05
+  },
+  {
+   "id": "ex-shove",
+   "group": "ex-shove",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "Shoved reeling back by the lunge or a crash",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/cloth3.ogg",
+    "kenney-impact-sounds/Audio/impactPlate_heavy_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat2 > load cloth3.ogg > load impactPlate_heavy_001.ogg > lp1800 > sat1.4 > norm -14LUFS peak<=-1.5",
+   "note": "heavy body shove: low thump + cloth/suit rustle + pack plate hit (low-passed) + slosh rattle",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.511,
+   "peak_dbfs": -2.45,
+   "lufs": -14.1,
+   "centroid_hz": 957,
+   "attack_ms": 14.4,
+   "onset_ms": 0.2,
+   "active_s": 0.507,
+   "crest_db": 7.4,
+   "dc": 8e-05
+  },
+  {
+   "id": "ex-struck",
+   "group": "ex-struck",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "The roach is struck by his gas or jet",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactPunch_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactPunch_heavy_002.ogg > basweep 2400->350 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > hp2500 > crackle 260/s > hp1500 > sat2 > lp400 > thump > sat1.8 > sat1.5 > norm -14LUFS peak<=-1.5",
+   "note": "spray-gun whack on the roach: pack heavy punch + wet splat + gas crackle + falling zap",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.659,
+   "peak_dbfs": -1.74,
+   "lufs": -15.0,
+   "centroid_hz": 6244,
+   "attack_ms": 23.6,
+   "onset_ms": 0.0,
+   "active_s": 0.346,
+   "crest_db": 12.1,
+   "dc": -0.00023
+  },
+  {
+   "id": "ex-mine-arm",
+   "group": "ex-mine-arm",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "A mine arms and starts to gas",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/metalClick.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metalClick.ogg > bp2000-8000 > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "metal click, two rising square beeps, a puff of gas",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.609,
+   "peak_dbfs": -5.62,
+   "lufs": -15.6,
+   "centroid_hz": 6757,
+   "attack_ms": 108.3,
+   "onset_ms": 89.0,
+   "active_s": 0.609,
+   "crest_db": 12.7,
+   "dc": 0.0
+  },
+  {
+   "id": "ex-leak",
+   "group": "ex-leak",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "The tank leaks, whistling higher each rage step (played at rising rate)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp2500-9000 > hp800 > crackle 25/s > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "pressure leak: bandpassed hiss + wavering whistle + little pops (made to be played at rate 1 to 3.5)",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.009,
+   "peak_dbfs": -8.52,
+   "lufs": -15.7,
+   "centroid_hz": 6869,
+   "attack_ms": 31.5,
+   "onset_ms": 1.0,
+   "active_s": 1.004,
+   "crest_db": 10.2,
+   "dc": -1e-05
+  },
+  {
+   "id": "ex-charge",
+   "group": "ex-charge",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "He braces for the charge",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/metalLatch.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metalLatch.ogg > lp700 > bp2000-8000 > lp400 > thump > sat1.8 > sat1.6 > norm -15.5LUFS peak<=-1.5",
+   "note": "he braces: clank, a low saw engine winding up with a hissing exhale",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.859,
+   "peak_dbfs": -5.96,
+   "lufs": -15.6,
+   "centroid_hz": 5117,
+   "attack_ms": 9.9,
+   "onset_ms": 0.1,
+   "active_s": 0.859,
+   "crest_db": 9.2,
+   "dc": 0.00054
+  },
+  {
+   "id": "ex-rush",
+   "group": "ex-rush",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "The charge passes along a lane",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 200->2500 q0.9 > whoosh > lp500 > lp400 > thump > sat2 > lp400 > thump > sat2 > lp400 > thump > sat2 > lp400 > thump > sat2 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "the charge passing: doppler band-noise rise and fall over four stamping thumps",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.909,
+   "peak_dbfs": -3.35,
+   "lufs": -15.5,
+   "centroid_hz": 3373,
+   "attack_ms": 92.3,
+   "onset_ms": 65.5,
+   "active_s": 0.902,
+   "crest_db": 8.9,
+   "dc": -0.00021
+  },
+  {
+   "id": "ex-grenade-bounce",
+   "group": "ex-grenade-bounce",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "The grenade can bounces",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactTin_medium_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactTin_medium_002.ogg > lp400 > thump > sat1.8 > sat1.3 > norm -15.5LUFS peak<=-1.5",
+   "note": "hollow tin can bounce: pack tin hit + falling dong + two rattle tinks",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.311,
+   "peak_dbfs": -2.26,
+   "lufs": -15.5,
+   "centroid_hz": 3674,
+   "attack_ms": 7.3,
+   "onset_ms": 0.0,
+   "active_s": 0.304,
+   "crest_db": 12.6,
+   "dc": -0.00013
+  },
+  {
+   "id": "ex-whiff",
+   "group": "ex-whiff",
+   "variant": "",
+   "section": "Boss: Eksterminator",
+   "event": "A lunge into empty air",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 3500->800 q1.0 > whoosh > hp2500 > norm -15.5LUFS peak<=-1.5",
+   "note": "a miss: short falling swish and a tiny click",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.287,
+   "peak_dbfs": -2.89,
+   "lufs": -15.7,
+   "centroid_hz": 5479,
+   "attack_ms": 70.0,
+   "onset_ms": 0.0,
+   "active_s": 0.278,
+   "crest_db": 15.5,
+   "dc": -1e-05
+  },
+  {
+   "id": "bigos-bonk",
+   "group": "bigos-bonk",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "Dash bonks a broken speaker",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactWood_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp300-2000 > load impactWood_heavy_002.ogg > lp1500 > lp700 > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "dull speaker-cone bonk: falling sine + paper slap + low-passed wood hit + buzzy cone rattle",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.408,
+   "peak_dbfs": -2.62,
+   "lufs": -15.5,
+   "centroid_hz": 388,
+   "attack_ms": 8.0,
+   "onset_ms": 0.1,
+   "active_s": 0.385,
+   "crest_db": 11.6,
+   "dc": -0.00038
+  },
+  {
+   "id": "bigos-overload",
+   "group": "bigos-overload",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "His system overloads (drop bounced back)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp1800 > hp2500 > crackle 300/s > hp1500 > sat2 > hp1500 > sat2 > hp1500 > sat2 > hp1500 > sat2 > sat1.7 > norm -15.5LUFS peak<=-1.5",
+   "note": "power surge: 60 Hz buzz with climbing pitch and AM, arcing crackle, ends in a falling power-down groan",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 1.212,
+   "peak_dbfs": -5.16,
+   "lufs": -15.6,
+   "centroid_hz": 5597,
+   "attack_ms": 88.0,
+   "onset_ms": 4.2,
+   "active_s": 1.199,
+   "crest_db": 9.8,
+   "dc": -0.0001
+  },
+  {
+   "id": "bigos-shriek",
+   "group": "bigos-shriek",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "A speaker shrieks with feedback (played at 1.6x rate)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "sat2.5 > hp3000 > norm -17.5LUFS peak<=-1.5",
+   "note": "speaker feedback squeal: rising sine with vibrato + octave harmonics, driven; made for 1.6x rate",
+   "category": "boss",
+   "target_lufs": -17.5,
+   "loop": false,
+   "duration_s": 1.412,
+   "peak_dbfs": -14.27,
+   "lufs": -17.4,
+   "centroid_hz": 3559,
+   "attack_ms": 665.3,
+   "onset_ms": 2.8,
+   "active_s": 1.407,
+   "crest_db": 3.4,
+   "dc": -0.0
+  },
+  {
+   "id": "bigos-defeat",
+   "group": "bigos-defeat",
+   "variant": "",
+   "section": "Boss: DJ Bigos",
+   "event": "DJ Bigos is defeated: the deck winds down",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp2500 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp2500 > sat1.4 > hp1500 > crackle 70/s > lp400 > thump > sat1.8 > hp3500 > crackle 200/s > sat1.3 > verb rt0.3 mix0.12 > norm -15.5LUFS peak<=-1.5",
+   "note": "turntable winding down: a falling saw chord slows to a stop over vinyl crackle, a sad square slide, last thump and sparks",
+   "category": "stinger",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 2.112,
+   "peak_dbfs": -3.59,
+   "lufs": -15.5,
+   "centroid_hz": 3461,
+   "attack_ms": 1793.2,
+   "onset_ms": 8.9,
+   "active_s": 2.112,
+   "crest_db": 9.8,
+   "dc": 0.00024
+  },
+  {
+   "id": "zl-head-fall",
+   "group": "zl-head-fall",
+   "variant": "",
+   "section": "Boss: Zlewiatan (own sounds)",
+   "event": "A head wrenches off its pipe and falls",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/creak2.ogg",
+    "kenney-impact-sounds/Audio/impactMetal_heavy_000.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load creak2.ogg > pitch x0.800 > load impactMetal_heavy_000.ogg > lp400 > thump > sat2.2 > lp160 > rumble > verb rt0.3 mix0.15 > norm -14LUFS peak<=-1.5",
+   "note": "a head tears off its pipe: pack creak pitched down, metal snap, long falling heavy thud, clatter",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 1.079,
+   "peak_dbfs": -1.16,
+   "lufs": -14.3,
+   "centroid_hz": 1102,
+   "attack_ms": 381.6,
+   "onset_ms": 24.9,
+   "active_s": 1.008,
+   "crest_db": 7.1,
+   "dc": 0.00118
+  },
+  {
+   "id": "zl-head-bounce",
+   "group": "zl-head-bounce",
+   "variant": "",
+   "section": "Boss: Zlewiatan (own sounds)",
+   "event": "The loose head lands, bounces and rolls",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactPlate_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactPlate_medium_001.ogg > lp2200 > lp350 > hp40 > sat1.4 > norm -15.5LUFS peak<=-1.5",
+   "note": "stone-ceramic head landing: pack plate thud (low-passed), low sine knock, short wobbling rolling rumble",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.539,
+   "peak_dbfs": -2.04,
+   "lufs": -15.7,
+   "centroid_hz": 318,
+   "attack_ms": 8.7,
+   "onset_ms": 0.1,
+   "active_s": 0.517,
+   "crest_db": 11.5,
+   "dc": -0.00019
+  },
+  {
+   "id": "zl-head-smash",
+   "group": "zl-head-smash",
+   "variant": "",
+   "section": "Boss: Zlewiatan (own sounds)",
+   "event": "A head smashed (loose head dashed, or a head smacked by what was sent back)",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactGlass_heavy_001.ogg",
+    "kenney-impact-sounds/Audio/impactPlate_heavy_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactGlass_heavy_001.ogg > lp5000 > load impactPlate_heavy_003.ogg > hp1200 > crackle 240/s > lp400 > thump > sat2 > sat1.5 > verb rt0.25 mix0.12 > norm -14LUFS peak<=-1.5",
+   "note": "a head smashed: pack heavy glass shatter + plate hit + crumbling crackle + low thump",
+   "category": "big",
+   "target_lufs": -14.0,
+   "loop": false,
+   "duration_s": 0.565,
+   "peak_dbfs": -1.39,
+   "lufs": -14.1,
+   "centroid_hz": 9017,
+   "attack_ms": 12.8,
+   "onset_ms": 0.1,
+   "active_s": 0.486,
+   "crest_db": 9.3,
+   "dc": 0.00105
+  },
+  {
+   "id": "hedgehog",
+   "group": "hedgehog",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Hedgehog curls and rushes",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp1500-6000 > hp3000 > crackle 220/s > bp2500-7000 > norm -17LUFS peak<=-1.5",
+   "note": "snuffling chuffs (gated band noise), prickly rustle, a squeak, tiny scurry ticks",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.557,
+   "peak_dbfs": -1.69,
+   "lufs": -17.3,
+   "centroid_hz": 6677,
+   "attack_ms": 15.7,
+   "onset_ms": 1.0,
+   "active_s": 0.548,
+   "crest_db": 18.6,
+   "dc": -1e-05
+  },
+  {
+   "id": "centipede-rear",
+   "group": "centipede-rear",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Centipede rears with a hiss, then scuttles",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp2500-8000 > bp1800-6500 > hp3500 > crackle 280/s > norm -17LUFS peak<=-1.5",
+   "note": "rising dry hiss as it rears, then a fast run of leg ticks (gated high noise) with a rattle",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.81,
+   "peak_dbfs": -2.84,
+   "lufs": -17.2,
+   "centroid_hz": 7345,
+   "attack_ms": 232.9,
+   "onset_ms": 19.1,
+   "active_s": 0.8,
+   "crest_db": 17.6,
+   "dc": -0.0
+  },
+  {
+   "id": "zapper-charge",
+   "group": "zapper-charge",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Bug zapper charges",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > crackle 300/s > lp1500 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "rising crackle and a climbing 120 Hz electric buzz with a high whine",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.912,
+   "peak_dbfs": -4.78,
+   "lufs": -17.1,
+   "centroid_hz": 7582,
+   "attack_ms": 648.1,
+   "onset_ms": 5.2,
+   "active_s": 0.91,
+   "crest_db": 12.7,
+   "dc": 2e-05
+  },
+  {
+   "id": "zapper-bolt",
+   "group": "zapper-bolt",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Bug zapper bolt",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > sat2 > lp2500 > hp2500 > crackle 350/s > hp1500 > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "hard electric crack + falling FM zap + 100 Hz buzz that decays + crackle",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.709,
+   "peak_dbfs": -5.31,
+   "lufs": -17.3,
+   "centroid_hz": 6006,
+   "attack_ms": 13.4,
+   "onset_ms": 0.0,
+   "active_s": 0.707,
+   "crest_db": 14.1,
+   "dc": 3e-05
+  },
+  {
+   "id": "aerosol-rattle",
+   "group": "aerosol-rattle",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Aerosol can shot: rattles before it blows",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp3000-10000 > norm -17LUFS peak<=-1.5",
+   "note": "ball-bearing rattle that quickens and rises, then a hissing spurt",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.659,
+   "peak_dbfs": -3.63,
+   "lufs": -17.2,
+   "centroid_hz": 6984,
+   "attack_ms": 413.8,
+   "onset_ms": 0.2,
+   "active_s": 0.654,
+   "crest_db": 16.8,
+   "dc": 1e-05
+  },
+  {
+   "id": "aerosol-blast",
+   "group": "aerosol-blast",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Aerosol can blast",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "losweep 4500->160 q0.7 > hp800 > hp900 > crackle 140/s > sat2.2 > explosion > verb rt0.2 mix0.25 > losweep 3000->200 q0.8 > norm -15.5LUFS peak<=-1.5",
+   "note": "flash bang: short explosion + fire 'fwoomp' (falling low-passed noise) + shrapnel tings",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.772,
+   "peak_dbfs": -2.57,
+   "lufs": -15.5,
+   "centroid_hz": 3858,
+   "attack_ms": 37.2,
+   "onset_ms": 0.1,
+   "active_s": 0.743,
+   "crest_db": 11.2,
+   "dc": -1e-05
+  },
+  {
+   "id": "bait-ooze",
+   "group": "bait-ooze",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Poison bait oozes out",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bubbles 14->30/s > bp300-1800 > hp3500 > crackle 260/s > norm -19LUFS peak<=-1.5",
+   "note": "gloopy bubbles, a wet slither and a toxic fizz",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.905,
+   "peak_dbfs": -4.66,
+   "lufs": -19.0,
+   "centroid_hz": 3018,
+   "attack_ms": 352.6,
+   "onset_ms": 5.6,
+   "active_s": 0.863,
+   "crest_db": 13.8,
+   "dc": 0.0001
+  },
+  {
+   "id": "glue-squelch",
+   "group": "glue-squelch",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Glue trap on screen",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-sci-fi-sounds/Audio/slime_000.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-sci-fi-sounds",
+     "page": "https://kenney.nl/assets/sci-fi-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load slime_000.ogg > bp600-3500 > norm -19LUFS peak<=-1.5",
+   "note": "pack slime squish + a sticky smack and a stretching squeak",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.511,
+   "peak_dbfs": -2.06,
+   "lufs": -19.2,
+   "centroid_hz": 2743,
+   "attack_ms": 157.4,
+   "onset_ms": 0.0,
+   "active_s": 0.507,
+   "crest_db": 18.2,
+   "dc": -5e-05
+  },
+  {
+   "id": "bleach-drip",
+   "group": "bleach-drip",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Bleach drop falls and splashes",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 7000->1500 q1.2 > hp3500 > crackle 200/s > norm -19LUFS peak<=-1.5",
+   "note": "water-drop plink, then a sizzling splash (falling band noise + crackle)",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.629,
+   "peak_dbfs": -2.79,
+   "lufs": -19.2,
+   "centroid_hz": 8379,
+   "attack_ms": 173.2,
+   "onset_ms": 0.1,
+   "active_s": 0.571,
+   "crest_db": 19.3,
+   "dc": -0.0
+  },
+  {
+   "id": "frog-croak",
+   "group": "frog-croak",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Frog's throat swells: croak",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 320/900/2200 > formant 320/900/2200 > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "'rib-bit': two voiced pulses (formant-filtered saw, AM) that fall in pitch",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.71,
+   "peak_dbfs": -7.18,
+   "lufs": -17.0,
+   "centroid_hz": 1168,
+   "attack_ms": 37.0,
+   "onset_ms": 1.7,
+   "active_s": 0.705,
+   "crest_db": 9.1,
+   "dc": -0.0001
+  },
+  {
+   "id": "frog-tongue",
+   "group": "frog-tongue",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Frog's tongue lashes out",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 800->5500 q1.2 > whoosh > bp800-4000 > basweep 2500->800 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "wet 'thwip': rising band whoosh + sticky smack click",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.288,
+   "peak_dbfs": -1.85,
+   "lufs": -17.2,
+   "centroid_hz": 5459,
+   "attack_ms": 159.3,
+   "onset_ms": 13.3,
+   "active_s": 0.288,
+   "crest_db": 17.4,
+   "dc": 3e-05
+  },
+  {
+   "id": "repeller-hum",
+   "group": "repeller-hum",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Ultrasonic repeller comes into view",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "norm -19LUFS peak<=-1.5",
+   "note": "ultrasonic power-up: warbling 4-5 kHz pulse whine with rising chirps",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.809,
+   "peak_dbfs": -8.92,
+   "lufs": -19.2,
+   "centroid_hz": 7958,
+   "attack_ms": 451.8,
+   "onset_ms": 0.2,
+   "active_s": 0.809,
+   "crest_db": 12.7,
+   "dc": 2e-05
+  },
+  {
+   "id": "repeller-ring",
+   "group": "repeller-ring",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Repeller sends a ring down the lane",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "echo 0.09s > norm -19LUFS peak<=-1.5",
+   "note": "a sonar ping: short sine chirp falling 2.6 to 1.8 kHz with a soft echo",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.309,
+   "peak_dbfs": -7.41,
+   "lufs": -19.2,
+   "centroid_hz": 2370,
+   "attack_ms": 6.5,
+   "onset_ms": 0.2,
+   "active_s": 0.296,
+   "crest_db": 14.7,
+   "dc": -1e-05
+  },
+  {
+   "id": "spraywall-puff",
+   "group": "spraywall-puff",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Spray can shakes and puffs its cloud wall",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp400 > thump > sat1.8 > bp700-7000 > norm -17LUFS peak<=-1.5",
+   "note": "can shake rattle, then a big 'phwoomp' puff: low thump + broad dense hiss",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.906,
+   "peak_dbfs": -2.57,
+   "lufs": -17.1,
+   "centroid_hz": 6813,
+   "attack_ms": 315.5,
+   "onset_ms": 0.8,
+   "active_s": 0.896,
+   "crest_db": 16.7,
+   "dc": -3e-05
+  },
+  {
+   "id": "gull-screech",
+   "group": "gull-screech",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Gull screeches",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 1800/3600 > formant 1800/3600 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "gull call: two FM glides (rising then long falling) with vibrato and a formant",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.875,
+   "peak_dbfs": -7.37,
+   "lufs": -17.3,
+   "centroid_hz": 5387,
+   "attack_ms": 20.4,
+   "onset_ms": 0.9,
+   "active_s": 0.843,
+   "crest_db": 12.9,
+   "dc": 0.0
+  },
+  {
+   "id": "hen-cluck",
+   "group": "hen-cluck",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Hen clucks (the wind-up)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 700/1500/2600 > formant 700/1500/2600 > formant 700/1500/2600 > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "'bok-bok-bokaaak': three short formant squawks, the last longer and rising",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.571,
+   "peak_dbfs": -9.26,
+   "lufs": -16.9,
+   "centroid_hz": 1919,
+   "attack_ms": 464.3,
+   "onset_ms": 0.9,
+   "active_s": 0.571,
+   "crest_db": 7.4,
+   "dc": -3e-05
+  },
+  {
+   "id": "hen-peck",
+   "group": "hen-peck",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Hen pecks",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactWood_light_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactWood_light_001.ogg > hp400 > hp2000 > lp400 > thump > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "sharp beak peck: wood tock (pack, high-passed) + click + tiny thud",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.091,
+   "peak_dbfs": -1.54,
+   "lufs": -17.0,
+   "centroid_hz": 288,
+   "attack_ms": 7.2,
+   "onset_ms": 0.1,
+   "active_s": 0.088,
+   "crest_db": 14.3,
+   "dc": -0.0001
+  },
+  {
+   "id": "robovac-whir",
+   "group": "robovac-whir",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Robot vacuum comes into view",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp2500 > hp2000 > norm -19LUFS peak<=-1.5",
+   "note": "small motor whir rising, brush flutter, two cheerful beeps",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.909,
+   "peak_dbfs": -8.05,
+   "lufs": -19.0,
+   "centroid_hz": 5659,
+   "attack_ms": 135.8,
+   "onset_ms": 0.3,
+   "active_s": 0.909,
+   "crest_db": 11.5,
+   "dc": 1e-05
+  },
+  {
+   "id": "robovac-crack",
+   "group": "robovac-crack",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Robot vacuum cracks under the first shot",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactTin_medium_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactTin_medium_001.ogg > hp300 > hp3000 > crackle 300/s > hp1500 > sat1.3 > norm -17LUFS peak<=-1.5",
+   "note": "plastic crack (pack light tin, high-passed) + spark crackle + falling sad beep",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.379,
+   "peak_dbfs": -5.07,
+   "lufs": -17.0,
+   "centroid_hz": 6033,
+   "attack_ms": 129.9,
+   "onset_ms": 0.0,
+   "active_s": 0.376,
+   "crest_db": 12.4,
+   "dc": 3e-05
+  },
+  {
+   "id": "boots-stomp",
+   "group": "boots-stomp",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "A boot stomps",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/footstep_concrete_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load footstep_concrete_001.ogg > lp400 > thump > sat2 > lp1200 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "heavy boot: pack concrete footstep + low thump + a dust puff",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.335,
+   "peak_dbfs": -5.26,
+   "lufs": -17.2,
+   "centroid_hz": 2494,
+   "attack_ms": 9.1,
+   "onset_ms": 0.1,
+   "active_s": 0.307,
+   "crest_db": 8.5,
+   "dc": -8e-05
+  },
+  {
+   "id": "mop-slap",
+   "group": "mop-slap",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Mop presses down and sweeps",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactSoft_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactSoft_heavy_002.ogg > basweep 2200->400 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > basweep 500->2500 q0.8 > whoosh > norm -17LUFS peak<=-1.5",
+   "note": "wet slap (pack soft impact + splat), a sweeping swish and a squelch",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.582,
+   "peak_dbfs": -1.19,
+   "lufs": -17.1,
+   "centroid_hz": 2904,
+   "attack_ms": 5.5,
+   "onset_ms": 0.2,
+   "active_s": 0.558,
+   "crest_db": 14.2,
+   "dc": -0.00139
+  },
+  {
+   "id": "lamp-flicker",
+   "group": "lamp-flicker",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Lamp flickers",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1800 > hp1800 > lp2000 > hp3000 > crackle 220/s > norm -17LUFS peak<=-1.5",
+   "note": "electric ticks and a short buzz: two clicks, 100 Hz arc, crackle",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.307,
+   "peak_dbfs": -1.33,
+   "lufs": -17.6,
+   "centroid_hz": 7640,
+   "attack_ms": 11.3,
+   "onset_ms": 0.0,
+   "active_s": 0.29,
+   "crest_db": 15.5,
+   "dc": -1e-05
+  },
+  {
+   "id": "lamp-snap",
+   "group": "lamp-snap",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Lamp snaps on",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp1500 > sat2 > lp1200 > hp1200 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "bright snap on: loud click + rising electric zap + glassy ting + mains hum swell",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.527,
+   "peak_dbfs": -3.96,
+   "lufs": -17.5,
+   "centroid_hz": 4672,
+   "attack_ms": 8.8,
+   "onset_ms": 0.1,
+   "active_s": 0.494,
+   "crest_db": 15.3,
+   "dc": -2e-05
+  },
+  {
+   "id": "wasp-buzz",
+   "group": "wasp-buzz",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Wasp locks on, trembling",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp3000 > bp2500-7000 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "angry insect buzz: 230 Hz saw with fast FM jitter and AM, rising as it trembles",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.659,
+   "peak_dbfs": -8.28,
+   "lufs": -17.0,
+   "centroid_hz": 2974,
+   "attack_ms": 49.8,
+   "onset_ms": 0.4,
+   "active_s": 0.659,
+   "crest_db": 8.3,
+   "dc": 2e-05
+  },
+  {
+   "id": "wasp-dive",
+   "group": "wasp-dive",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Wasp dives",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp3000 > basweep 3500->700 q1.0 > whoosh > hp3000 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "dive: falling buzz (doppler-ish) over a swish and a sting tick at the end",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.509,
+   "peak_dbfs": -7.75,
+   "lufs": -17.0,
+   "centroid_hz": 3072,
+   "attack_ms": 97.0,
+   "onset_ms": 0.3,
+   "active_s": 0.506,
+   "crest_db": 9.2,
+   "dc": -4e-05
+  },
+  {
+   "id": "vacuum-roar",
+   "group": "vacuum-roar",
+   "variant": "",
+   "section": "Obstacles: own sounds (replacing borrowed ones)",
+   "event": "Vacuum cleaner's roar from behind",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp1800 > lp300 > bp500-3500 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "motor roar: brown-noise rumble + a rising 70-140 Hz saw whine + sucking mid-band whoosh",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 1.412,
+   "peak_dbfs": -7.49,
+   "lufs": -17.0,
+   "centroid_hz": 2929,
+   "attack_ms": 150.0,
+   "onset_ms": 4.5,
+   "active_s": 1.406,
+   "crest_db": 5.8,
+   "dc": 0.00019
+  },
+  {
+   "id": "boss-prelude",
+   "group": "boss-prelude",
+   "variant": "",
+   "section": "Ambient music",
+   "event": "Versus splash: tense pre-battle loop (every boss)",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "sat1.4 > norm -21LUFS peak<=-1.5",
+   "note": "12 s seamless: dark A1 drone (detuned saws, circular low-pass), a 16-step square ostinato, a heartbeat thump every 1.5 s, a minor-second dyad, a noise-and-whine riser that builds then drops away before the seam",
+   "category": "loop",
+   "target_lufs": -21.0,
+   "loop": true,
+   "duration_s": 12.0,
+   "peak_dbfs": -12.23,
+   "lufs": -21.0,
+   "centroid_hz": 622,
+   "attack_ms": 17.4,
+   "onset_ms": 0.0,
+   "active_s": 12.0,
+   "crest_db": 5.9,
+   "dc": 4e-05,
+   "loop_seam_ratio": 0.49
+  },
+  {
+   "id": "boss-aftermath",
+   "group": "boss-aftermath",
+   "variant": "",
+   "section": "Ambient music",
+   "event": "Ability screen after a boss: calm relieved loop",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "norm -21.5LUFS peak<=-1.5",
+   "note": "16 s seamless: warm pad on four major chords (Fmaj7 Cmaj Dm7 Bbmaj7), three detuned triangle/sine voices each, soft overlapping swells, a slow bell arpeggio and a low root, all wrapped",
+   "category": "loop",
+   "target_lufs": -21.5,
+   "loop": true,
+   "duration_s": 16.0,
+   "peak_dbfs": -7.73,
+   "lufs": -21.5,
+   "centroid_hz": 1013,
+   "attack_ms": 1525.0,
+   "onset_ms": 0.0,
+   "active_s": 16.0,
+   "crest_db": 12.8,
+   "dc": 0.0,
+   "loop_seam_ratio": 1.0
   }
  ]
 }

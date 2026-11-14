@@ -224,7 +224,7 @@ class HP:
     along the head's own axes, about where the neck goes in. jaw: the mouth, 0 shut (as painted) to 1 wide open.
     bend: the neck's curve pushed sideways (texels, at its middle). slack: how far the neck's ends carry their
     direction (more = a rounder, lazier curve). width: the pipe's thickness. sink: the head gone into the hole (no
-    joint check)."""
+    joint check). steam: the pierog's steam over it (off once it has gone down the drain)."""
     off: tuple = (0.0, 0.0)
     rot: float = 0.0
     sx: float = 1.0
@@ -234,6 +234,7 @@ class HP:
     slack: float = 1.0
     width: float = 1.0
     sink: bool = False
+    steam: bool = True
 
 
 @dataclass
@@ -551,7 +552,7 @@ def draw(p: Pose) -> Drawn:
         hl, cav, steam = _head_layer(head, hp, pos)
         cavs[name] = cav
         made[name] = hl
-        if steam is not None:
+        if steam is not None and hp.steam:
             steam_layers.append(steam)
         mouths[name] = _mouth_point(head, hp, pos)
         joints[name] = pos
@@ -1201,6 +1202,96 @@ def skwarka(frame):
     return out
 
 
+def _crackling(angle, sx, sy, cy=0.0, size=25):
+    """The skwarka's body (as in skwarka) squashed sx by sy and moved cy px down its cell: crust, glowing core."""
+    S = SKWARKA_S
+    def inside(u, v):
+        v = v - cy
+        th = np.arctan2(v / sy, u / sx)
+        r = 1 + .22 * _hash(np.floor((th + math.pi) * 1.6), 1)
+        return (u / (4.4 * S * sx)) ** 2 + (v / (3.2 * S * sy)) ** 2 < r * r
+    def colour(u, v):
+        v = v - cy
+        c = np.zeros(u.shape + (3,))
+        c[:] = (204, 128, 50)
+        c[_texture(u / sx, v / sy, 4) < .3] = (132, 68, 26)
+        core = (u / (2.6 * S * sx)) ** 2 + (v / (1.8 * S * sy)) ** 2
+        c[core < 1] = (255, 176, 70)
+        c[core < .45] = (255, 226, 140)
+        return c
+    return _shape((size, size), angle, inside, colour, (255, 214, 120), (96, 46, 18), rim=1)
+
+
+def skwarka_hop(frame):
+    """A bounced crackling between its landings: 0 squashed flat as it lands, 1 stretched as it leaps off again, 2-3
+    tumbling round in the air."""
+    sx, sy, angle = ((1.35, .62, 0), (.8, 1.28, 0), (1.0, 1.0, 45), (1.0, 1.0, 135))[frame]
+    out = _crackling(angle, sx, sy, 3.0 if frame == 0 else 0.0)
+    if frame == 0:                          # fat squirting out both sides as it hits
+        for x, y in ((2, 13), (1, 11), (22, 13), (23, 11), (4, 9), (20, 9)):
+            out[y, x] = (255, 236, 160, 255)
+    elif frame == 1:                        # a streak under it: it just left the floor
+        for x in (10, 12, 14):
+            out[23, x] = (226, 160, 80, 255)
+    return out
+
+
+def skwarka_sizzle(frame):
+    """A crackling come down on the roach's spot, sizzling there: slumped flat on a shine of grease, fat spitting off
+    it and smoke curling up, its core pulsing. Its bottom sits on the floor 10 px under its middle."""
+    out = _crackling(frame * 6 - 9, 1.25, .72, 6.0)
+    for x in range(5, 21):                  # the grease it sits in
+        if out[22, x, 3] == 0:
+            out[22, x] = (120, 70, 30, 255) if (x + frame) % 4 else (236, 196, 120, 255)
+    spits = [((3, 12), (22, 10)), ((5, 8), (20, 13)), ((2, 10), (21, 7)), ((6, 11), (23, 12))][frame]
+    for x, y in spits:
+        out[y, x] = (255, 240, 170, 255)
+        out[y - 1, x + (1 if x < 12 else -1)] = (255, 200, 90, 255)
+    for t in range(8):                      # the smoke, swaying
+        x = int(12 + 2.2 * math.sin(t * .9 + frame * 1.5))
+        y = 11 - t
+        if 0 <= y:
+            out[y, x] = (226, 222, 214, 255) if t < 5 else (170, 166, 160, 255)
+    if frame % 2:
+        out[15:17, 11:14] = (255, 244, 190, 255)
+    return out
+
+
+PIEROG_S = 1.6
+
+
+def pierog_spin(frame):
+    """The pierog's boomerang: a little fried pieróg, a half moon with its crimped edge, golden with browned spots,
+    spinning flat through the air an eighth of a turn a frame, a pale swish curving round behind it."""
+    S = PIEROG_S
+    angle = -frame * 45
+    def inside(u, v):
+        u, v = u / S, v / S
+        r = np.hypot(u, v + 3.0)
+        crimp = .7 * (np.cos(np.arctan2(v + 3.0, u) * 14) > .3)
+        return (r < 7.4 + crimp) & (v > -3.0 - .3) & (v < 4.6)
+    def colour(u, v):
+        n = _texture(u, v, 21)
+        u, v = u / S, v / S
+        c = np.zeros(u.shape + (3,))
+        c[:] = (236, 204, 140)
+        c[n < .18] = (198, 142, 70)
+        c[n > .93] = (252, 232, 186)
+        r = np.hypot(u, v + 3.0)
+        c[r > 6.4] = (214, 166, 92)                         # the crimped rim, fried darker
+        c[(r > 6.4) & (np.cos(np.arctan2(v + 3.0, u) * 14) > .6)] = (170, 112, 50)
+        c[(np.abs(v + 2.6) < .5) & (r < 6.6)] = (196, 146, 82)   # the fold along its straight edge
+        return c
+    out = _shape((29, 29), angle, inside, colour, (255, 238, 196), (128, 80, 36), rim=1)
+    # the swish: an arc of pale dots round the side it is spinning away from
+    for k in range(7):
+        a = math.radians(angle - 150 - k * 14)
+        x, y = int(14.5 + 13 * math.cos(a)), int(14.5 + 13 * math.sin(a))
+        if 0 <= x < 29 and 0 <= y < 29 and out[y, x, 3] == 0:
+            out[y, x] = (255, 240, 210, 255) if k < 3 else (214, 196, 164, 255)
+    return out
+
+
 def bone(frame):
     """A fishbone (osc): the skull ahead with its eye hole, a bright pale spine, ribs swept back, the tail; it flexes."""
     S = BONE_S
@@ -1349,6 +1440,8 @@ PROJECTILES = {
     "slab": ([slab(-k * 30) for k in range(12)], 8, True, (.5, .5)),
     "radiator": ([radiator(14 * math.sin(k / 8 * math.tau)) for k in range(8)], 8, True, (.5, .5)),
     "skwarka": ([skwarka(k) for k in range(4)], 12, True, (.5, .5)),
+    "skwarka-hop": ([skwarka_hop(k) for k in range(4)], 12, True, (.5, .5)),
+    "skwarka-sizzle": ([skwarka_sizzle(k) for k in range(4)], 12, True, (.5, .5)),
     "bone": ([bone(k) for k in range(4)], 12, True, (.5, .5)),
     "bubble": ([bubble(k) for k in range(4)], 6, True, (.5, .5)),
     "bubble-pop": ([bubble_pop(k) for k in range(3)], 16, False, (.5, .5)),
@@ -1424,6 +1517,38 @@ def _rise(keep, key=""):
     return frames
 
 
+def _solo_defeat(name: str, key: str) -> list:
+    """The last head knocked off its last health, alone on its neck where it sits: it shrieks (flashed pale), the neck
+    gives out under it and it sags, lolls and slumps down with its tongue out while the pipe's joints burst and spray
+    slime; then the drain sucks it down spinning and squeezed thin, bubbles and a pop. 12 frames, as the old defeat."""
+    sh = _shift(key, name)
+    others = {n: dict(HIDDEN) for n in ORDER if n != name}
+
+    def at(dx, dy, **kw):
+        return {name: dict(off=(float(sh[0] + dx), float(sh[1] + dy)), **kw), **others}
+
+    f = [
+        pose(flash=.55, **at(4, -7, rot=9, jaw=1.0, sy=1.06)),
+        pose(**at(2, -4, rot=-5, jaw=1.0, sx=1.03), fx=[("steam_head", name, .2)] if name == "pierog" else []),
+        pose(**at(-2, 7, rot=-17, jaw=.75, slack=1.25, bend=(-5, 0))),
+        pose(**at(-5, 18, rot=-29, jaw=.55, slack=1.4, bend=(-9, 4)), fx=[("burst", name, 0, .8)]),
+        pose(**at(-6, 29, rot=-38, jaw=.9, slack=1.5, bend=(-10, 8), width=.85), fx=[("burst", name, 1, 1.0)]),
+        pose(**at(-6, 36, rot=-43, jaw=.9, slack=1.6, bend=(-10, 10), width=.8), fx=[("burst", name, 0, .6)]),
+    ]
+    start = _rest_middle(name) + sh + np.array([-6.0, 36.0])
+    cx = HOLE[0]
+    for k, (t, spin, sq) in enumerate(((.4, -70, .8), (.75, -110, .6), (1.0, -150, .42))):
+        c = start + (np.array([cx, HOLE[1] + 52]) - start) * t
+        hs = {**others, name: _centred(name, tuple(c), spin, sq, .95 - .1 * k, jaw=.5, slack=.7, width=.7, sink=True,
+                                             steam=False)}
+        f.append(pose(**hs, fx=[("swirl", k / 3)]))
+    empty = {n: dict(HIDDEN) for n in ORDER}
+    f.append(pose(**empty, fx=[("swirl", .9), ("bubble", cx - 6, 228, 2), ("bubble", cx + 9, 222, 1.5), ("bubble", cx, 241, 5)]))
+    f.append(pose(**empty, fx=[("bubble", cx, 237, 8), ("bubble", cx - 7, 214, 1.5)]))
+    f.append(pose(**empty, fx=[("pop", cx, 237, 6)]))
+    return f
+
+
 def _flash(keep, key=""):
     return [replace(_only(idle(), keep, key)[0], flash=.6)]
 
@@ -1437,9 +1562,8 @@ for _set, _keep in SETS.items():
     SOLO[f"flash-{_set}"] = ((lambda k=_keep, s=_set: _flash(k, s)), 12, False)
     SOLO[f"rise-{_set}"] = ((lambda k=_keep, s=_set: _rise(k, s)), 14, False)
     if len(_keep) == 1:
-        # The last head goes down with the creature: the old defeat, its shriek and crash from where it sits, then
-        # sucked down the drain spinning, bubbles and a pop
-        SOLO[f"defeat-{_set}"] = ((lambda k=_keep, s=_set: _only(defeat(), k, s, upto=5)), 10, False)
+        # The last head goes down with the creature, its own death from where it sits
+        SOLO[f"defeat-{_set}"] = ((lambda k=_keep, s=_set: _solo_defeat(k[0], s)), 10, False)
 ANIMATIONS.update(SOLO)
 
 LOOSE_CELL = 80
@@ -1448,13 +1572,105 @@ LOOSE_CELL = 80
 LOOSE_SCALE = {"block": .46, "pierog": .6, "carp": .55}
 
 
-def _loose(name, rot, jaw=0.0, sx=1.0, sy=1.0) -> np.ndarray:
-    """One head off its neck, turned `rot` degrees clockwise about its middle, on a square cell centred on it."""
+# A loose head's damage, drawn into its own painting so it turns and shrinks with it: (cracks, a chunk knocked out)
+DAMAGE = {1: (3, False), 2: (6, True)}
+# What shows where it splits or a chunk comes off: the tower's raw concrete, the pierog's filling, the carp's flesh
+INNARDS = {"block": [(120, 118, 110), (160, 158, 148)], "pierog": [(224, 200, 130), (250, 236, 180)],
+           "carp": [(176, 92, 96), (226, 150, 150)]}
+_DAMAGED = {}
+
+
+def _damaged(name: str, stage: int) -> "Head":
+    """The head with its damage painted in at its own grid: cracks a little thicker than one loose texel, split open
+    along the middle of each to its innards; at stage 2 more of them, a chunk knocked out of its top corner (a
+    broken edge round the bite) and the whole of it a shade darker, bruised."""
+    if (name, stage) in _DAMAGED:
+        return _DAMAGED[(name, stage)]
+    import copy
     head = heads()[name]
+    native = head.native.copy()
+    solid = native[..., 3] > 128
+    h, w = solid.shape
+    thick = max(2, math.ceil(1.7 / (LOOSE_SCALE[name] * head.spec.scale)))
+    rng = np.random.default_rng(97 + ORDER.index(name) * 7)
+    count, chunk = DAMAGE[stage]
+    # on the carp's dark scales a crack would vanish: its scales are scraped off pale instead
+    dark = np.array([214, 206, 190]) if name == "carp" else np.array([22, 16, 20])
+    inner, lit = INNARDS[name]
+    ys, xs = np.nonzero(ni.binary_erosion(solid, iterations=thick * 2))
+    cyx = np.array([ys.mean(), xs.mean()])
+    crack = np.zeros_like(solid)
+    seam = np.zeros_like(solid)
+    for c in range(count):
+        # from a point near the rim, inward and wandering
+        i = int(rng.integers(len(ys)))
+        p0 = np.array([ys[i], xs[i]], float)
+        d = cyx - p0
+        d /= max(1e-6, np.linalg.norm(d))
+        pt = p0 - d * w * .25
+        steps = int(w * (.22 + .1 * rng.uniform()))
+        for t in range(steps):
+            ang = math.atan2(d[0], d[1]) + rng.uniform(-.7, .7)
+            pt = pt + np.array([math.sin(ang), math.cos(ang)])
+            y0, x0 = int(pt[0]), int(pt[1])
+            for dy in range(-(thick // 2), thick - thick // 2):
+                for dx in range(-(thick // 2), thick - thick // 2):
+                    if 0 <= y0 + dy < h and 0 <= x0 + dx < w:
+                        crack[y0 + dy, x0 + dx] = True
+            if t % 2 == 0 and 0 <= y0 < h and 0 <= x0 < w:
+                seam[y0, x0] = True
+    crack &= solid
+    native[crack, :3] = dark
+    native[seam & crack & (rng.uniform(size=solid.shape) < .5), :3] = inner
+    lip = np.zeros_like(crack)
+    lip[1:] |= crack[:-1]
+    lip &= solid & ~crack
+    native[lip, :3] = (native[lip, :3] * .45).astype(np.uint8) if name == "carp" else \
+        np.clip(native[lip, :3].astype(int) * 1.25 + 26, 0, 255)
+    if chunk:
+        top = np.nonzero(solid.any(1))[0][0]
+        right = np.nonzero(solid[top + h // 6])[0].max()
+        cy, cx, r = top + h * .1, right - w * .08, w * .17
+        yy, xx = np.mgrid[0:h, 0:w]
+        ang = np.arctan2(yy - cy, xx - cx)
+        jag = r * (1 + .25 * np.sin(ang * 5 + 1.3) + .12 * np.sin(ang * 11))
+        bite = np.hypot(yy - cy, xx - cx) < jag
+        bite &= solid
+        if name == "carp":                      # a fish doesn't chip: a raw wound torn in its side instead
+            native[bite, :3] = (110, 30, 40)
+            native[ni.binary_erosion(bite, iterations=thick), :3] = (70, 14, 24)
+        else:
+            native[bite, 3] = 0
+        rim = ni.binary_dilation(bite, iterations=thick) & solid & ~bite
+        native[rim, :3] = inner
+        edge = ni.binary_dilation(bite, iterations=max(1, thick // 2)) & solid & ~bite
+        native[edge, :3] = lit
+        native[solid & ~bite & ~rim, :3] = (native[solid & ~bite & ~rim, :3] * .86).astype(np.uint8)
+    out = copy.copy(head)
+    out.native = native
+    out.solid = native[..., 3] > 128
+    out.big = _big(native)
+    _DAMAGED[(name, stage)] = out
+    return out
+
+
+def _loose(name, rot, jaw=0.0, sx=1.0, sy=1.0, damage=0, slime=0.0) -> np.ndarray:
+    """One head off its neck, turned `rot` degrees clockwise about its middle, on a square cell centred on it. damage:
+    its cracks (1, 2); slime: slime trailing off where its neck tore away, falling behind it (0..1)."""
+    head = heads()[name] if not damage else _damaged(name, damage)
     centre = (X0 + CW / 2, Y0 + CH / 2)
     k = LOOSE_SCALE[name]
     hp = replace(HP(), **_centred(name, centre, rot, sx * k, sy * k, jaw=jaw))
-    layer, _, _ = _head_layer(head, hp, _head_place(head.spec, hp, (0.0, 0.0)))
+    pos = _head_place(head.spec, hp, (0.0, 0.0))
+    layer, _, _ = _head_layer(head, hp, pos)
+    if slime:
+        canvas = layer.copy()
+        owner = np.full((CH, CW), "", object)
+        stump = pos + _rot(rot) @ (np.array(head.spec.exit) * 3 * k)
+        _blob(canvas, owner, stump[0], stump[1], 2.2 * k + 1, DRIP[1], DRIP[2])
+        for t, (dx, dy, r) in enumerate(((1, -6, 1.2), (-2, -11, .9), (2, -15, .7))):
+            _blob(canvas, owner, stump[0] + dx * slime, stump[1] + dy * slime, r, DRIP[t % 2], DRIP[2])
+        layer = canvas
     x0, y0 = int(CW / 2 - LOOSE_CELL / 2), int(CH / 2 - LOOSE_CELL / 2)
     out = layer[y0:y0 + LOOSE_CELL, x0:x0 + LOOSE_CELL].copy()
     out[out[..., 3] < 128] = 0
@@ -1462,13 +1678,25 @@ def _loose(name, rot, jaw=0.0, sx=1.0, sy=1.0) -> np.ndarray:
 
 
 # Rolling left at the roach turns them anticlockwise; the carp flops instead, its mouth gasping
-# The pierog's boomerang: a little pieróg spinning (its own face, a third of its size on the body)
-PROJECTILES["pierogi"] = ([_loose("pierog", -k * 45, jaw=.4, sx=.55, sy=.55) for k in range(8)], 16, True, (.5, .5))
+# The pierog's boomerang: a little fried pieróg spinning (pierog_spin)
+PROJECTILES["pierogi"] = ([pierog_spin(k) for k in range(8)], 16, True, (.5, .5))
 PROJECTILES["roll-block"] = ([_loose("block", -k * 45) for k in range(8)], 12, True, (.5, .5))
 PROJECTILES["roll-pierog"] = ([_loose("pierog", -k * 45, jaw=.35) for k in range(8)], 14, True, (.5, .5))
-PROJECTILES["flop-carp"] = ([_loose("carp", 38 * math.sin(k / 8 * math.tau), jaw=.5 + .5 * math.sin(k / 8 * math.tau * 2),
-                                   sx=1 + .06 * math.cos(k / 8 * math.tau * 2), sy=1 - .06 * math.cos(k / 8 * math.tau * 2))
-                             for k in range(8)], 16, True, (.5, .5))
+def _flop(k, damage=0):
+    return _loose("carp", 38 * math.sin(k / 8 * math.tau), jaw=.5 + .5 * math.sin(k / 8 * math.tau * 2),
+                  sx=1 + .06 * math.cos(k / 8 * math.tau * 2), sy=1 - .06 * math.cos(k / 8 * math.tau * 2), damage=damage)
+
+
+PROJECTILES["flop-carp"] = ([_flop(k) for k in range(8)], 16, True, (.5, .5))
+# Knocked about: the same, cracked (two thirds of its health left) and broken open (one third)
+for _d in (1, 2):
+    PROJECTILES[f"roll-block-{_d}"] = ([_loose("block", -k * 45, damage=_d) for k in range(8)], 12, True, (.5, .5))
+    PROJECTILES[f"roll-pierog-{_d}"] = ([_loose("pierog", -k * 45, jaw=.35, damage=_d) for k in range(8)], 14, True, (.5, .5))
+    PROJECTILES[f"flop-carp-{_d}"] = ([_flop(k, _d) for k in range(8)], 16, True, (.5, .5))
+# Popped off its neck: tumbling over backwards, mouth wide in shock, slime trailing off the torn stump
+for _name in ORDER:
+    PROJECTILES[f"fall-{_name}"] = ([_loose(_name, 32 * k, jaw=.85 + .15 * (k % 2), sx=1 - .04 * (k % 2), sy=1 + .04 * (k % 2),
+                                            slime=.5 + .5 * (k % 2)) for k in range(6)], 12, True, (.5, .5))
 
 
 def projectiles_sheet(path: Path) -> None:

@@ -1,19 +1,19 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { DASH_COOLDOWN, DASH_DURATION, DASH_SPEED_BOOST } from '../src/config/constants';
+import { DASH_COOLDOWN, DASH_DURATION, DASH_SPEED_BOOST, GAME_WIDTH, PIXEL_BLOCK } from '../src/config/constants';
 import { LEVELS } from '../src/config/levels';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
 import {
-  CAT_FRAMES, EnemyPlan, Lane, ROACH_BACK, ROACH_FRONT, Vacuum, laneY, newVacuum, otherLane, stepVacuum,
+  CAT_FRAMES, EnemyPlan, Lane, ROACH_BACK, ROACH_FRONT, Vacuum, laneY, newVacuum, otherLane, setOffScuttle, stepVacuum,
 } from '../src/objects/obstacles/behaviours';
 import {
-  CAST, CourseClock, ENEMIES, EnemyId, OWN_PATTERN, TIMINGS, CENTIPEDE_LEAD, VACUUM, bodyOf, castFor, chaseFor, enemyState,
+  CAST, CourseClock, ENEMIES, EnemyId, OWN_PATTERN, TIMINGS, VACUUM, bodyOf, castFor, chaseFor, enemyState,
   nominalCourse,
 } from '../src/objects/obstacles/cast';
 import { BOSS_RESUME_PX, BOSS_RUNWAY_PX, CourseLayout, SlotItem, bossX, courseEnd } from '../src/systems/CourseLayout';
 import { beatSpacing } from '../src/systems/RunPatterns';
-import { Laid, simulate } from './support/enemySim';
+import { Laid, simulate, withRun } from './support/enemySim';
 
 // ── The course every client lays ─────────────────────────────────────────
 
@@ -180,26 +180,21 @@ test('the dash is needed only for walls: every cloud wall and wall is laid with 
  */
 const MIN_REACTION_MS: Partial<Record<EnemyId, number>> = {
   flipper: 750, spray: 525, newspaper: 750, bird: 675, cat: 400, catChase: 625, bison: 600,
-  bleach: 750, lamp: 350, mop: 500,
-  hen: 500, frog: 525, centipede: 1050, boots: 600, hedgehog: 575,
+  bleach: 750, lamp: 400, mop: 500,
+  hen: 500, frog: 525, centipede: 500, boots: 600, hedgehog: 575,
   gull: 550, zapper: 450, robotVacuum: 650, repeller: 500, bait: 625,
 };
 
 test('each telegraphing enemy, alone, can be read within its stated reaction time at any phase and speed', () => {
   const failures: string[] = [];
   for (const [id, reaction] of Object.entries(MIN_REACTION_MS) as [EnemyId, number][]) {
-    // The light is only on levels 2-6: up to 400 px/s
-    for (const speed of id === 'lamp' ? [200, 300, 400] : [200, 400, 680]) {
+    for (const speed of [200, 400, 680]) {
       for (let phase = 0; phase < 6000; phase += 263) {
         for (const lane of ['top', 'bottom'] as Lane[]) {
           const startX = SLOT_X0 - 900;
           const x = SLOT_X0 + 400;
           const plan: EnemyPlan = { id, x, lane, phase };
           if (id === 'catChase') plan.chase = chaseFor(x, steadyClock(startX, speed));
-          if (id === 'centipede') {
-            const meetAt = ((x - startX) / speed) * 1000;
-            plan.chase = { meetAt, speed, startAt: meetAt - CENTIPEDE_LEAD };
-          }
           const course: Laid[] = [{ x, items: [{ kind: 'enemy', plan }] }, { x: x + 900, items: [] }];
           const result = simulate(course, { level: 10, speed, reaction, dash: false }, startX);
           if (result.died) failures.push(`${id} ${lane} phase ${phase} at ${speed} px/s`);
@@ -409,7 +404,7 @@ const LANDERS: Partial<Record<EnemyId, { tell: number; exact: boolean }>> = {
 
 function landerPlan(id: EnemyId, lane: Lane, phase: number): EnemyPlan {
   const plan: EnemyPlan = { id, x: 2000, lane, phase };
-  if (id === 'centipede') plan.chase = { meetAt: 5000, speed: 300, startAt: 5000 - CENTIPEDE_LEAD };
+  if (id === 'centipede') plan.run = { at: 5000, x: 2600, speed: 300 };
   return plan;
 }
 
@@ -711,6 +706,133 @@ test('the vacuum lets go before its quiet stretch of the course runs out, whatev
         assert.ok(run.gone, `the ${who} at ${Math.round(speed)} px/s on level ${level}, ${behind} px behind: caught ${run.caught}`);
         const ran = (run.lasted * speed) / 1000;
         assert.ok(ran < stretch, `the ${who} at ${Math.round(speed)} px/s on level ${level}, ${behind} px behind: it lasted ${Math.round(ran)} px of ${stretch}`);
+      }
+    }
+  }
+});
+
+// ── The centipede: it hunts the roach from the right ─────────────────────
+
+/** Half the centipede's drawn width: it is out of sight once its centre is this far past the screen's edge. */
+const CENTIPEDE_HALF_DRAWN = (ENEMIES.centipede.frame.w * PIXEL_BLOCK) / 2;
+/** Where the screen's right edge is from the roach: the narrowest window (4:3), the default one, a 16:9 window. */
+const EDGES = [483, GAME_WIDTH - 200, 1080];
+/** The roach's cruising speeds on levels 6-10, from the slowest it can have on level 6 to the most the formula gives. */
+const CRUISES = [300, 374, 450, 510, 612, 680];
+const SCUTTLE = TIMINGS.centipede;
+
+const scuttlePlan = (lane: Lane, x = 3000): EnemyPlan => ({ id: 'centipede', x, lane, phase: 0 });
+
+test('the centipede sets off from beyond the right edge when the roach comes near, however late or early that is, and rears fully on screen', () => {
+  const half = bodyOf(ENEMIES.centipede).half;
+  for (const edge of EDGES) {
+    for (const cruise of CRUISES) {
+      // The frame the roach is first seen near its slot: on time, or a hitch later (up to 250 ms of a dash's speed)
+      for (const overshoot of [0, 10, 100, ((cruise + DASH_SPEED_BOOST) * 250) / 1000]) {
+        for (const lane of ['top', 'bottom'] as Lane[]) {
+          const plan = scuttlePlan(lane);
+          const t0 = 12_345;
+          const roachX = plan.x - SCUTTLE.trigger + overshoot;
+          assert.equal(enemyState(plan, t0).pose, 'parked');
+          setOffScuttle(plan, SCUTTLE, t0, { x: roachX, cruise, edge });
+          const label = `edge ${edge}, ${cruise} px/s, ${Math.round(overshoot)} px late, ${lane}`;
+          // Out of sight when it sets off, running at the roach
+          const first = enemyState(plan, t0);
+          assert.ok(first.x - CENTIPEDE_HALF_DRAWN > roachX + edge, `${label}: in sight at ${Math.round(first.x - roachX)} px`);
+          assert.ok(plan.run!.speed >= 60, `${label}: it runs at ${plan.run!.speed} px/s`);
+          // Fully on screen when it rears (the roach having run on at its cruise), the spot it lands on too
+          const rear = enemyState(plan, t0 + SCUTTLE.rear);
+          const roachThen = roachX + (cruise * SCUTTLE.rear) / 1000;
+          assert.equal(rear.pose, 'windup');
+          assert.ok(rear.x + CENTIPEDE_HALF_DRAWN <= roachThen + edge, `${label}: rears ${Math.round(rear.x + CENTIPEDE_HALF_DRAWN - roachThen - edge)} px off screen`);
+          const landing = rear.landings![0];
+          assert.equal(landing.lane, otherLane(lane));
+          const roachLands = roachX + (cruise * (SCUTTLE.rear + SCUTTLE.warn + SCUTTLE.jump)) / 1000;
+          assert.ok(landing.x1 > roachLands - 200 && landing.x0 < roachLands + edge, `${label}: its landing spot is off screen`);
+          // Landed where the marker was, in the other lane
+          const landed = enemyState(plan, t0 + SCUTTLE.rear + SCUTTLE.warn + SCUTTLE.jump);
+          assert.equal(landed.lane, otherLane(lane));
+          assert.ok(Math.abs(landed.x - (landing.x0 + landing.x1) / 2) < 1e-6 && landed.zones[0].x1 - landed.zones[0].x0 - 2 * half < 1e-6);
+        }
+      }
+    }
+  }
+});
+
+test('the centipede is the same for every roach: the same lane switch at the same ms since it set off', () => {
+  const states = (cruise: number): string[] => {
+    const plan = scuttlePlan('top');
+    setOffScuttle(plan, SCUTTLE, 777, { x: plan.x - SCUTTLE.trigger, cruise, edge: 600 });
+    return Array.from({ length: 200 }, (_, i) => { const s = enemyState(plan, 777 + i * 10); return `${s.lane}/${s.pose}/${s.danger}`; });
+  };
+  assert.deepEqual(states(300), states(680));
+  // It sets off once: the roach running on does not set it off again
+  const plan = scuttlePlan('top');
+  setOffScuttle(plan, SCUTTLE, 100, { x: plan.x - SCUTTLE.trigger, cruise: 400, edge: 600 });
+  const run = { ...plan.run! };
+  setOffScuttle(plan, SCUTTLE, 900, { x: plan.x, cruise: 500, edge: 600 });
+  assert.deepEqual(plan.run, run);
+  // And not before the roach is near
+  const far = scuttlePlan('top');
+  setOffScuttle(far, SCUTTLE, 0, { x: far.x - SCUTTLE.trigger - 1, cruise: 400, edge: 600 });
+  assert.equal(far.run, undefined);
+});
+
+/** Where the roach is `ms` after the centipede set off (it was at x0 then): cruising, with a dash from `dashAt`, or pulled back by `pull`. */
+function roachAt(x0: number, cruise: number, ms: number, opts: { dashAt?: number; pull?: number }): { x: number; dashing: boolean } {
+  const dashAt = opts.dashAt ?? Infinity;
+  const dashed = Math.min(DASH_DURATION, Math.max(0, ms - dashAt));
+  return {
+    x: x0 + (cruise * (1 - (opts.pull ?? 0)) * ms) / 1000 + (DASH_SPEED_BOOST * dashed) / 1000,
+    dashing: ms >= dashAt && ms < dashAt + DASH_DURATION,
+  };
+}
+
+test('the centipede cannot touch the roach until warn + jump after its telegraph starts (400 ms and more): at any speed, screen, dash or slowing', () => {
+  const STEP = 5;
+  const must = SCUTTLE.warn + SCUTTLE.jump;
+  assert.ok(must >= PLAYER_REACTION_MS);
+  for (const edge of EDGES) {
+    for (const cruise of CRUISES) {
+      // Cruising; dragged back to a tenth of its speed; dashing from any moment (a dash lands the roach 112 px
+      // ahead, which closes on the centipede that much faster)
+      const cases: { dashAt?: number; pull?: number }[] = [{}, { pull: 0.9 }, ...Array.from({ length: 40 }, (_, i) => ({ dashAt: i * 30 }))];
+      for (const lane of ['top', 'bottom'] as Lane[]) {
+        for (const opts of cases) {
+          const plan = scuttlePlan(lane);
+          setOffScuttle(plan, SCUTTLE, 0, { x: plan.x - SCUTTLE.trigger, cruise, edge });
+          let touchedAt: number | null = null;
+          for (let ms = 0; ms < 4000 && touchedAt === null; ms += STEP) {
+            const roach = roachAt(plan.x - SCUTTLE.trigger, cruise, ms, opts);
+            if (roach.dashing) continue;
+            const back = roach.x - ROACH_BACK;
+            const front = roach.x + ROACH_FRONT;
+            // The roach is in either lane: any zone in range of it
+            if (enemyState(plan, ms).zones.some(z => z.x1 >= back && z.x0 <= front)) touchedAt = ms;
+          }
+          const label = `edge ${edge}, ${cruise} px/s, ${lane}, ${JSON.stringify(opts)}`;
+          assert.ok(touchedAt === null || touchedAt - SCUTTLE.rear >= must - STEP, `${label}: touched ${touchedAt === null ? 0 : touchedAt - SCUTTLE.rear} ms after the telegraph started`);
+        }
+      }
+    }
+  }
+});
+
+test('a roach that reaches the centipede\'s slot 2 s late and one 1 s early both see it come in from off screen and live on a 400 ms reaction', () => {
+  const x = SLOT_X0 + 400;
+  for (const cruise of CRUISES) {
+    for (const late of [-1000, 0, 2000]) {
+      for (const lane of ['top', 'bottom'] as Lane[]) {
+        // The course never knew how long this roach would take: it simply starts that much further back, or nearer
+        const startX = x - 900 - (cruise * late) / 1000;
+        const plan = scuttlePlan(lane, x);
+        const course: Laid[] = [{ x, items: [{ kind: 'enemy', plan }] }, { x: x + 900, items: [] }];
+        const result = simulate(course, { level: 7, speed: cruise, reaction: PLAYER_REACTION_MS, dash: false }, startX);
+        assert.ok(!result.died, `${lane} at ${cruise} px/s, ${late} ms late: ${result.died ? result.by + ' at ' + Math.round(result.x) : ''}`);
+        // It came in from off screen: out of sight where the sim's roach was when it set off
+        const steady = Array.from({ length: 3000 }, (_, i) => startX + (cruise * i * 10) / 1000);
+        const run = withRun(plan, steady, cruise).run!;
+        assert.ok(run.x - CENTIPEDE_HALF_DRAWN > steady[Math.round(run.at / 10)] + GAME_WIDTH - 200, 'in sight when it set off');
       }
     }
   }

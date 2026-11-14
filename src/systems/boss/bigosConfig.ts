@@ -16,10 +16,11 @@ export type BigosAnim =
   'groove' | 'point-top' | 'point-bottom' | 'drop' | 'drop-windup' |
   'beam-top-windup' | 'beam-top-loop' | 'beam-top-release' |
   'beam-bottom-windup' | 'beam-bottom-loop' | 'beam-bottom-release' |
-  'hurt' | 'overheat' | 'defeat' |
+  'hurt' | 'stunned' | 'defeat' |
   'light-top' | 'light-bottom' |
   'speaker-thump' | 'speaker-charge' | 'speaker-blast' | 'speaker-overload' | 'speaker-broken' |
-  'ring' | 'strip' | 'record' | 'record-shatter';
+  'speaker-damaged' | 'speaker-shriek' |
+  'ring' | 'ring-back' | 'front' | 'strip' | 'record' | 'record-shatter';
 
 /** As baked: bake_bosses.py checks these against the rig. */
 export const BIGOS_ANIMS: Record<BigosAnim, { frames: number; fps: number; loop: boolean }> = {
@@ -35,7 +36,7 @@ export const BIGOS_ANIMS: Record<BigosAnim, { frames: number; fps: number; loop:
   'beam-bottom-loop': { frames: 4, fps: 8, loop: true },
   'beam-bottom-release': { frames: 2, fps: 8, loop: false },
   'hurt': { frames: 4, fps: 12, loop: false },
-  'overheat': { frames: 4, fps: 8, loop: true },
+  'stunned': { frames: 4, fps: 8, loop: true },
   'defeat': { frames: 12, fps: 10, loop: false },
   'light-top': { frames: 4, fps: 8, loop: true },
   'light-bottom': { frames: 4, fps: 8, loop: true },
@@ -44,7 +45,11 @@ export const BIGOS_ANIMS: Record<BigosAnim, { frames: number; fps: number; loop:
   'speaker-blast': { frames: 4, fps: 12, loop: false },
   'speaker-overload': { frames: 4, fps: 8, loop: true },
   'speaker-broken': { frames: 5, fps: 10, loop: false },
+  'speaker-damaged': { frames: 4, fps: 8, loop: true },
+  'speaker-shriek': { frames: 4, fps: 8, loop: true },
   'ring': { frames: 5, fps: 12, loop: true },
+  'ring-back': { frames: 5, fps: 12, loop: true },
+  'front': { frames: 4, fps: 8, loop: true },
   'strip': { frames: 4, fps: 8, loop: true },
   'record': { frames: 4, fps: 16, loop: true },
   'record-shatter': { frames: 4, fps: 16, loop: false },
@@ -60,7 +65,7 @@ export const BIGOS_HIT: Partial<Record<BigosAnim, number>> = {
 
 /**
  * Native px. His from his pivot: the beams' axes over the floor, his cell's left edge (the strip tiles on leftward from
- * there), the ball's middle and radius as it overheats, the booth's left edge. The speaker's from its pivot: its box
+ * there), the ball's middle and radius, the booth's left edge. The speaker's from its pivot: its box
  * and the big cone's middle (where a ring leaves). Then the ring's and the strip's sizes.
  */
 export const BIGOS_LAYOUT = {
@@ -93,6 +98,10 @@ export const BIGOS_HAND = {
 export const BIGOS_GLOVE = { x: -6, y: -2 } as const;
 
 export const bigosFrame = (anim: BigosAnim, index = 0): string => `bigos-${anim}_${index}`;
+
+/** The ball's damage as the last target, stage 1 (two thirds of its health left) or 2 (one third): an overlay on his
+ * cell for every frame of every animation but the defeat (which cracks it itself), laid over the frame he is drawn in. */
+export const bigosBallFrame = (stage: 1 | 2, anim: BigosAnim, index: number): string => `bigos-ball${stage}-${anim}_${index}`;
 
 /** What hit the roach, for its game-over line: the server only hears 'bigos'. */
 export type BigosCause = 'ring' | 'drop' | 'record' | 'light';

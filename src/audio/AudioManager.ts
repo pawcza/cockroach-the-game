@@ -6,6 +6,12 @@ import { MusicDeck } from './MusicDeck';
 const COMBO_TICKS = 8;
 /** How long one level's music takes to give way to the next. */
 const CROSSFADE_MS = 800;
+/** The boss music coming in off the pre-battle loop when the player presses start: quick, so it lands with the press. */
+export const BOSS_CROSSFADE_MS = 500;
+/** The level music going under the pre-battle loop as the versus splash opens. */
+const PRELUDE_IN_MS = 400;
+/** A boss's music giving way under his victory stinger. */
+const BOSS_OUT_MS = 350;
 
 /** A sound effect's base volume scaled by the player's Efekty setting. */
 export function sfxVolume(base: number): number {
@@ -32,6 +38,11 @@ export const VOL = {
   ambient: 1,
 } as const;
 
+/** A lane swap is heard at the press: the take-off is the loud cue, the landing (a hop later, and its file is the
+ * hotter one) a quiet thud under it. */
+const SWAP_PRESS = 1.3;
+const SWAP_LAND = 0.25;
+
 /** Plays a one-shot if its file is loaded and does nothing otherwise: a sound never takes a scene down with it. */
 export function playSound(scene: Phaser.Scene, key: string, volume: number, rate = 1): void {
   if (!scene.cache.audio.exists(key)) return;
@@ -51,6 +62,8 @@ export class AudioManager {
   private scene: Phaser.Scene;
   private music: MusicDeck<Phaser.Sound.BaseSound>;
   private loops = new Set<Phaser.Sound.BaseSound>();
+  /** While the versus splash holds the screen: the pre-battle loop is the music, and other changes wait. */
+  private preluding = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -65,11 +78,26 @@ export class AudioManager {
         sound.stop();
         sound.destroy();
       },
-      fade: (from, to, onUpdate, onDone) => scene.tweens.addCounter({
-        from, to, duration: CROSSFADE_MS,
+      fade: (from, to, onUpdate, onDone, ms = CROSSFADE_MS) => scene.tweens.addCounter({
+        from, to, duration: ms,
         onUpdate: (tween) => onUpdate(tween.getValue() ?? to),
         onComplete: onDone,
       }),
+      // The hold's fades: the pause stops the scene's tweens and timers, so these run on the browser's clock
+      ramp: (from, to, ms, onUpdate, onDone) => {
+        const t0 = performance.now();
+        const id = setInterval(() => {
+          const k = Math.min(1, (performance.now() - t0) / ms);
+          onUpdate(from + (to - from) * k);
+          if (k >= 1) {
+            clearInterval(id);
+            onDone();
+          }
+        }, 16);
+        return { stop: () => clearInterval(id) };
+      },
+      pause: (sound) => { (sound as Phaser.Sound.WebAudioSound).pause(); },
+      resume: (sound) => { (sound as Phaser.Sound.WebAudioSound).resume(); },
     });
     // The sound manager outlives the scene: whatever way the run is left, its music and loops go with it
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
@@ -82,14 +110,79 @@ export class AudioManager {
     this.music.start(key);
   }
 
-  switchBGM(newKey: string): void {
+  /** Crossfades to a track (the level crossfade unless `ms` is given). Waits while the pre-battle loop holds the music. */
+  switchBGM(newKey: string, ms?: number): void {
+    if (this.preluding) return;
     if (this.music.key === newKey) return;
     if (!this.scene.cache.audio.exists(newKey)) return;
-    this.music.switchTo(newKey);
+    this.music.switchTo(newKey, ms);
   }
 
   stopBGM(): void {
+    this.preluding = false;
     this.music.stop();
+  }
+
+  /** The versus splash opens: the pre-battle loop takes over from the level's music, and stays until endPrelude. */
+  beginPrelude(key: string): void {
+    if (!this.scene.cache.audio.exists(key)) return;
+    this.music.switchTo(key, PRELUDE_IN_MS);
+    this.preluding = true;
+  }
+
+  /** The player pressed start (the splash wipes): the boss's music comes in off the pre-battle loop, quickly. */
+  endPrelude(bossKey: string, levelKey: string): void {
+    if (!this.preluding) return;
+    this.preluding = false;
+    this.switchBGM(this.scene.cache.audio.exists(bossKey) ? bossKey : levelKey, BOSS_CROSSFADE_MS);
+  }
+
+  /** The boss is dead: his music fades quickly away under the victory stinger. */
+  fadeOutBGM(): void {
+    this.preluding = false;
+    this.music.fadeOut(BOSS_OUT_MS);
+  }
+
+  /** The pause: the music holds where it is, so only the pause menu's crickets sound. */
+  holdBGM(): void {
+    this.music.hold();
+  }
+
+  /** The unpause: the music goes on from where it stopped. */
+  releaseBGM(): void {
+    this.music.release();
+  }
+
+  /**
+   * Where the music is in `key` as it is heard now, ms into the file. Null unless `key` is the track playing (not held,
+   * not fading out) on Web Audio that is running: a fight on its track's beat reads it to stay on it (boss/beatLock.ts).
+   */
+  bgmPosition(key: string): number | null {
+    const sound = this.playingBGM(key);
+    if (!sound) return null;
+    return (sound.seek - this.outputLatency()) * 1000;
+  }
+
+  /** Moves the track `key` so that what is heard now is `ms` into it; false when it isn't the track playing. */
+  seekBGM(key: string, ms: number): boolean {
+    const sound = this.playingBGM(key);
+    if (!sound) return false;
+    const at = ms / 1000 + this.outputLatency();
+    sound.setSeek(((at % sound.duration) + sound.duration) % sound.duration);
+    return true;
+  }
+
+  private playingBGM(key: string): Phaser.Sound.WebAudioSound | null {
+    if (this.music.key !== key || this.music.isHeld) return null;
+    const sound = this.music.current;
+    if (!(sound instanceof Phaser.Sound.WebAudioSound) || !sound.isPlaying || sound.duration <= 0) return null;
+    return (this.scene.sound as Phaser.Sound.WebAudioSoundManager).context.state === 'running' ? sound : null;
+  }
+
+  /** How far what is heard lags the audio clock, s. */
+  private outputLatency(): number {
+    const context = (this.scene.sound as Phaser.Sound.WebAudioSoundManager).context;
+    return (context.baseLatency ?? 0) + (context.outputLatency ?? 0);
   }
 
   /** Plays a one-shot sound effect. A key that isn't loaded (yet) is skipped. */
@@ -143,11 +236,11 @@ export class AudioManager {
   }
 
   playJump(): void {
-    this.playSfx('jump', VOL.gameplay);
+    this.playSfx('jump', VOL.gameplay * SWAP_PRESS);
   }
 
   playHopLand(): void {
-    this.playSfx('hop-land', VOL.gameplay * 0.7);
+    this.playSfx('hop-land', VOL.gameplay * SWAP_LAND);
   }
 
   playApple(): void {
@@ -161,7 +254,7 @@ export class AudioManager {
   }
 
   playFloorSwitch(): void {
-    this.playSfx('floor-switch', VOL.gameplay);
+    this.playSfx('floor-switch', VOL.gameplay * SWAP_PRESS);
   }
 
   playDash(): void {

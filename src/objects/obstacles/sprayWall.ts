@@ -16,7 +16,7 @@ const SET_BACK = 8;
  * The spray's cloud wall (cloudWall in behaviours.ts): a big can at the back of the upper ledge shakes (both lanes
  * flicker green: the warning, this one shuts them both) and puffs a tall cloud that hangs across both lanes ahead of it
  * for a moment. Dash through it any time, or come by between puffs. Laid where walls go, with the "DASH!" hint the first
- * times. Sounds (placeholders): the spray's.
+ * times. Sounds: its own, a can-shake rattle and a big puff.
  */
 export function spawnSprayWall(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -26,7 +26,7 @@ export function spawnSprayWall(kit: ObstacleKit, plan: EnemyPlan): void {
   can.setDepth(DEPTH.OBSTACLES - 1);
   (can.body as Phaser.Physics.Arcade.Body).checkCollision.none = true;
   can.setData('flies', true);
-  kit.playSoundOnVisible(can, 'spray-sfx', VOL.obstacle);
+  kit.playSoundOnVisible(can, 'spraywall-puff', VOL.obstacle);
   // What hurts: the cloud in each lane, harmless between puffs
   const clouds = (['top', 'bottom'] as const).map((lane) => {
     const c = kit.createSprite(plan.x - t.reach / 2, laneY(lane), 'spray-big', 'spray', null);
@@ -58,7 +58,7 @@ export function spawnSprayWall(kit: ObstacleKit, plan: EnemyPlan): void {
           fx.play('spray-cloud', at.x, at.y, { depth: DEPTH.OBSTACLES + 1, life: t.puff, onComplete: () => fx.play('spray-cloud-out', at.x, at.y, { depth: DEPTH.OBSTACLES + 1 }) });
         }
       }
-      if (kit.isAhead(can)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.5);
+      if (kit.isAhead(can)) kit.audio.playSfx('spraywall-puff', VOL.obstacle * 0.5);
     }
   });
   kit.track(can, { objects: clouds });

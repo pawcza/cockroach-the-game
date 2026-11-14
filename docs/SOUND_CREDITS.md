@@ -5,9 +5,10 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - **Synthesised**: made entirely by `tools/audio`, no third-party samples in them.
 - **Made from CC0 packs**: a sample from one of the packs below, processed and layered with synthesis.
   Every pack is released under CC0 1.0 (public-domain dedication): attribution is not required, and the credit lines are courtesy. Each pack's page, author, licence evidence and zip SHA-256 are in `tools/audio/licenses/`.
-- Not listed here, and unchanged: the other sound effects (the obstacles' sounds that were kept, the pause crickets and so on), the music, and the boss growls adapted from Ogrebane's Monster Sound Pack (CC0, OpenGameArt.org); see [LICENSE](../LICENSE).
+- **Boss music**: each boss's fight track (`tools/audio/music/build_boss_music.py --mix`, music-*) and the two ambient loops under the versus screen and the ability screen (boss-prelude, boss-aftermath) are synthesised here too and listed with the rest below.
+- Not listed here, and unchanged: the other sound effects (the obstacles' sounds that were kept, the pause crickets and so on), the level music, and the boss growls adapted from Ogrebane's Monster Sound Pack (CC0, OpenGameArt.org); see [LICENSE](../LICENSE).
 
-100 sounds shipped: 63 synthesised, 37 made from CC0 packs.
+147 sounds shipped: 94 synthesised, 53 made from CC0 packs.
 
 ## Synthesised
 
@@ -17,7 +18,6 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - heartbeat (Death replay heartbeat (loops; the old death sound ran at half speed))
 - onion (Onion obstacle on screen)
 - spray (Pest spray on screen)
-- disco (Disco ball on screen)
 - apple-a (Pick up an apple (also the combo chime base))
 - pill (Pick up a pill)
 - pill-end (Pill wears off)
@@ -61,7 +61,6 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - bigos-thump (Speaker thump (kick))
 - bigos-charge (Charge-up before the blast)
 - bigos-beam (Light beam hum (loops))
-- bigos-sizzle (Overload sizzle)
 - bigos-scratch-a (Record scratch)
 - zl-gurgle (Drain gurgle rises (the boss appears))
 - zl-slab-launch (Concrete slab launched)
@@ -74,6 +73,39 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - ex-stream (Spray stream (loops, seamless ~1 s))
 - ex-gas (Gas cloud hiss (loops, seamless))
 - ex-mask (Mask breath)
+- ex-leak (The tank leaks, whistling higher each rage step (played at rising rate))
+- ex-rush (The charge passes along a lane)
+- ex-whiff (A lunge into empty air)
+- bigos-overload (His system overloads (drop bounced back))
+- bigos-shriek (A speaker shrieks with feedback (played at 1.6x rate))
+- bigos-defeat (DJ Bigos is defeated: the deck winds down)
+- hedgehog (Hedgehog curls and rushes)
+- centipede-rear (Centipede rears with a hiss, then scuttles)
+- zapper-charge (Bug zapper charges)
+- zapper-bolt (Bug zapper bolt)
+- aerosol-rattle (Aerosol can shot: rattles before it blows)
+- aerosol-blast (Aerosol can blast)
+- bait-ooze (Poison bait oozes out)
+- bleach-drip (Bleach drop falls and splashes)
+- frog-croak (Frog's throat swells: croak)
+- frog-tongue (Frog's tongue lashes out)
+- repeller-hum (Ultrasonic repeller comes into view)
+- repeller-ring (Repeller sends a ring down the lane)
+- spraywall-puff (Spray can shakes and puffs its cloud wall)
+- gull-screech (Gull screeches)
+- hen-cluck (Hen clucks (the wind-up))
+- robovac-whir (Robot vacuum comes into view)
+- lamp-flicker (Lamp flickers)
+- lamp-snap (Lamp snaps on)
+- wasp-buzz (Wasp locks on, trembling)
+- wasp-dive (Wasp dives)
+- vacuum-roar (Vacuum cleaner's roar from behind)
+- boss-prelude (Versus splash: tense pre-battle loop (every boss))
+- boss-aftermath (Ability screen after a boss: calm relieved loop)
+- music-lodzia-d (Pani Lodzia's fight music: Babcia na przesterze)
+- music-bigos-f (DJ Bigos's fight music: Pompa na weselu)
+- music-zlewiatan-c (Zlewiatan's fight music: Szlam z rury)
+- music-eksterminator-d (Eksterminator's fight music: Opryskiwacz)
 
 ## Made from CC0 packs
 
@@ -89,26 +121,36 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - Author: Kenney (kenney.nl)
 - Licence: CC0 1.0, http://creativecommons.org/publicdomain/zero/1.0/
 - Files used:
+  - `Audio/footstep_concrete_001.ogg` -> boots-stomp
+  - `Audio/impactGlass_heavy_001.ogg` -> zl-head-smash
   - `Audio/impactGlass_light_004.ogg` -> moult-pop
   - `Audio/impactGlass_medium_002.ogg` -> combo-break
+  - `Audio/impactMetal_heavy_000.ogg` -> zl-head-fall
   - `Audio/impactMetal_heavy_001.ogg` -> vs-slam-1
   - `Audio/impactMetal_heavy_002.ogg` -> bigos-wreck
   - `Audio/impactMetal_heavy_003.ogg` -> vs-name
   - `Audio/impactMetal_heavy_004.ogg` -> zl-radiator
   - `Audio/impactMetal_light_001.ogg` -> bullet-ricochet
+  - `Audio/impactMetal_light_002.ogg` -> boss-parry
   - `Audio/impactMetal_light_003.ogg` -> lodzia-boomerang
   - `Audio/impactMetal_light_004.ogg` -> shell-casing
-  - `Audio/impactMetal_medium_001.ogg` -> ex-tank-ping
+  - `Audio/impactMetal_medium_001.ogg` -> ex-knock, ex-tank-ping
+  - `Audio/impactPlate_heavy_001.ogg` -> ex-shove
   - `Audio/impactPlate_heavy_002.ogg` -> vs-slam-2
-  - `Audio/impactPlate_heavy_003.ogg` -> lodzia-stomp
+  - `Audio/impactPlate_heavy_003.ogg` -> lodzia-stomp, zl-head-smash
+  - `Audio/impactPlate_medium_001.ogg` -> zl-head-bounce
   - `Audio/impactPunch_heavy_000.ogg` -> przebicie
   - `Audio/impactPunch_heavy_001.ogg` -> lodzia-smack
-  - `Audio/impactPunch_heavy_002.ogg` -> death-b
+  - `Audio/impactPunch_heavy_002.ogg` -> death-b, ex-struck
   - `Audio/impactPunch_medium_001.ogg` -> bullet-hit
   - `Audio/impactSoft_heavy_001.ogg` -> lodzia-slap
+  - `Audio/impactSoft_heavy_002.ogg` -> mop-slap
   - `Audio/impactSoft_medium_001.ogg` -> hop-land
-  - `Audio/impactTin_medium_001.ogg` -> ex-lob
+  - `Audio/impactTin_medium_001.ogg` -> ex-lob, robovac-crack
+  - `Audio/impactTin_medium_002.ogg` -> ex-grenade-bounce
   - `Audio/impactTin_medium_003.ogg` -> ex-canister-pop
+  - `Audio/impactWood_heavy_002.ogg` -> bigos-bonk
+  - `Audio/impactWood_light_001.ogg` -> hen-peck
 
 ### kenney-rpg-audio
 - Page: https://kenney.nl/assets/rpg-audio
@@ -116,12 +158,12 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - Licence: CC0 1.0, http://creativecommons.org/publicdomain/zero/1.0/
 - Files used:
   - `Audio/cloth1.ogg` -> lodzia-pocket
-  - `Audio/cloth3.ogg` -> lodzia-whoosh
-  - `Audio/creak2.ogg` -> zl-creak
+  - `Audio/cloth3.ogg` -> ex-shove, lodzia-whoosh
+  - `Audio/creak2.ogg` -> zl-creak, zl-head-fall
   - `Audio/handleCoins2.ogg` -> ui-purchase
   - `Audio/handleSmallLeather.ogg` -> lodzia-pocket
-  - `Audio/metalClick.ogg` -> beer-3
-  - `Audio/metalLatch.ogg` -> ex-pump, ex-tank-vent
+  - `Audio/metalClick.ogg` -> beer-3, ex-mine-arm
+  - `Audio/metalLatch.ogg` -> ex-charge, ex-pump, ex-tank-vent
 
 ### kenney-sci-fi-sounds
 - Page: https://kenney.nl/assets/sci-fi-sounds
@@ -130,6 +172,7 @@ Most sound effects in the game were made for it by `tools/audio` (`python3 tools
 - Files used:
   - `Audio/explosionCrunch_000.ogg` -> shot-down-b
   - `Audio/lowFrequency_explosion_001.ogg` -> bigos-blast-b
+  - `Audio/slime_000.ogg` -> glue-squelch
 
 ### kenney-ui-audio
 - Page: https://kenney.nl/assets/ui-audio

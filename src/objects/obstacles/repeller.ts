@@ -14,15 +14,15 @@ const RING_H = 44;
 
 /**
  * The ultrasonic repeller (rings in behaviours.ts): plugged in at its spot in its lane, it lights up and lets a ring of
- * sound go down the lane at the runner, one a beat. Shot, it pops and the rings stop. Sounds (placeholders): the
- * shell casing's tick for each ring, Bigos's scratch as it comes into view.
+ * sound go down the lane at the runner, one a beat. Shot, it pops and the rings stop. Sounds: a sonar
+ * ping for each ring, an ultrasonic whine as it comes into view.
  */
 export function spawnRepeller(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
   const box = kit.enemy(plan);
   box.anims.stop();
-  kit.playSoundOnVisible(box, 'bigos-scratch', VOL.obstacle * 0.3);
+  kit.playSoundOnVisible(box, 'repeller-hum', VOL.obstacle * 0.3);
   const rings: Phaser.GameObjects.Graphics[] = [];
   kit.drive(box, plan, (now, before) => {
     box.setFrame(frameOf('repeller', now.frame ?? 0));
@@ -38,7 +38,7 @@ export function spawnRepeller(kit: ObstacleKit, plan: EnemyPlan): void {
       g.lineStyle(4, RING_DARK, 0.9).strokeEllipse(Math.round(p.x), cy, w, RING_H);
       g.lineStyle(2, RING, 1).strokeEllipse(Math.round(p.x), cy, w, RING_H);
     });
-    if (before && now.cycle !== before.cycle && kit.isAhead(box)) kit.audio.playSfx('shell-casing', VOL.obstacle * 0.25);
+    if (before && now.cycle !== before.cycle && kit.isAhead(box)) kit.audio.playSfx('repeller-ring', VOL.obstacle * 0.25);
     if (before && now.pose === 'windup' && before.pose !== 'windup' && kit.isOnScreen(box)) {
       fx.play('flare-cyan', box.x, box.y - box.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 1 });
     }

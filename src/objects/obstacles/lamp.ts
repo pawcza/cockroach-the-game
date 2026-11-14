@@ -1,16 +1,16 @@
 import Phaser from 'phaser';
 import { VOL } from '../../audio/AudioManager';
-import { DEPTH, FLOOR_TOP_Y } from '../../config/constants';
+import { DEPTH, FLOOR_TOP_Y, PIXEL_BLOCK } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { VFX_ATLAS, getFx, vfxFrame } from '../../effects/Fx';
 import { EnemyPlan, laneY } from './behaviours';
 import { TIMINGS } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
-/** The light's colour, and how bright its band is while it flickers (the warning) and when it is on. */
-const WARM = 0xffd27a;
-const FLICKER_ALPHA = 0.14;
-const ON_ALPHA = 0.5;
+/** The baked light's frames (vfx.py's LAMP_LEVELS): the faint stutter and the stronger one while it flickers (the warning), and on. */
+const FAINT = 0;
+const STUTTER = 1;
+const ON = 2;
 /** Where the bulb hangs: over the upper lane from a cord out of the top of the screen; over the lower one from under
  * the upper ledge, its socket hidden behind the ledge and the whole glass below it. Px from the frame's top (the cord's
  * end) to the upper lane; over the lower lane, px above the upper ledge's top. */
@@ -20,15 +20,16 @@ const HANG_BOTTOM = 4;
 const CORD_TILE = 6 * SPRITE_SCALE;
 /** The light's hitbox: as tall as the roach, along the stretch it lights. */
 const BODY_H = 26;
-/** The cone's three steps, widest at the floor (px), and how bright each is against the band. */
-const CONE = [36, 80, 130];
-const CONE_ALPHA = [.9, .6, .4];
+/** The pool's pieces in world px (vfx.py's LAMP_POOL_TILE and LAMP_POOL_END, in texels). */
+const POOL_TILE = 8 * SPRITE_SCALE;
+const POOL_END = 10 * SPRITE_SCALE;
+const snap = (v: number): number => Math.round(v / PIXEL_BLOCK) * PIXEL_BLOCK;
 
 /**
  * The light (light in behaviours.ts): a bare bulb over a lane. Dark; then it stutters on and off, and its lane flickers
  * faintly (the warning: this one closes a lane end to end); then it snaps on and floods the lane with light for a
- * moment. Caught in it, the roach is seen and done for: the hit-stop holds it there in the light, the bulb blinking.
- * Be on the dark lane. Sounds (placeholders): the floor switch's click as it flickers, the disco's for the snap on.
+ * moment: a baked dithered cone from the bulb and a pool of light laid over exactly the stretch that kills. Caught in it, the roach is seen and done for: the hit-stop holds it there in the light, the bulb blinking.
+ * Be on the dark lane. Sounds: its own flicker click and snap on.
  */
 export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -67,14 +68,31 @@ export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
   body.setSize(w, BODY_H, false);
   body.setOffset((hurt.width - w) / 2, hurt.height * hurt.originY - BODY_H);
 
-  // Its light: a stepped cone from the bulb down to the lane; under it the kill zone over exactly its reach, warning
-  // while it flickers, killing while it is on
-  const glowX = plan.x;
-  const bulbBottom = top + (bulb.displayHeight - 8 * SPRITE_SCALE) * 0.9;
+  // Its light: a baked cone from the bulb down to the lane and a pool of light over exactly the stretch that kills (its
+  // ends inside it), under the kill zone's own band: warning while it flickers, killing while it is on
   const floorY = laneY(lane) + 2;
-  const add = (): Phaser.GameObjects.Rectangle =>
-    scene.add.rectangle(0, 0, 10, 10, WARM, 1).setOrigin(0, 0).setDepth(DEPTH.PICKUPS + 1).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
-  const cone = CONE.map(add);
+  const glowX = snap(plan.x);
+  const lit: Phaser.GameObjects.Image[] = [];
+  const glowing = scene.textures.exists(VFX_ATLAS);
+  const add = (x: number, y: number, frame: string, originX: number, flip = false): Phaser.GameObjects.Image => {
+    const image = scene.add.image(x, y, VFX_ATLAS, frame).setOrigin(originX, 1).setScale(SPRITE_SCALE).setFlipX(flip)
+      .setDepth(DEPTH.PICKUPS + 1).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    lit.push(image);
+    return image;
+  };
+  const cone = glowing ? add(glowX, floorY, vfxFrame(`lamp-cone-${lane}`, ON), 0.5) : null;
+  const pool: Phaser.GameObjects.Image[] = [];
+  if (glowing) {
+    const a = snap(plan.x - ahead);
+    const b = snap(plan.x + behind);
+    pool.push(add(a, floorY, vfxFrame('lamp-pool-end', ON), 0));
+    for (let x = a + POOL_END; x < b - POOL_END; x += POOL_TILE) {
+      const tile = add(x, floorY, vfxFrame('lamp-pool', ON), 0);
+      if (b - POOL_END - x < POOL_TILE) tile.setCrop(0, 0, (b - POOL_END - x) / SPRITE_SCALE, tile.frame.height);
+      pool.push(tile);
+    }
+    pool.push(add(b - POOL_END, floorY, vfxFrame('lamp-pool-end', ON), 0, true));
+  }
   const reach = { lane, x0: plan.x - ahead, x1: plan.x + behind };
   const hazard = kit.hazard(bulb);
   // Over the lower lane it hangs from a steel fitting screwed under the upper ledge, so it plainly hangs from something
@@ -82,12 +100,15 @@ export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
     ? scene.add.image(plan.x, FLOOR_TOP_Y + 28, VFX_ATLAS, vfxFrame('lamp-mount')).setOrigin(0.5, 0).setScale(SPRITE_SCALE)
       .setDepth(DEPTH.OBSTACLES) : null;
   let halo: ReturnType<typeof fx.play> = null;
+  /** Which baked brightness the light shows (FAINT, STUTTER or ON), or none. */
+  let shown = -1;
   const light = (level: number): void => {
-    // The cone: three widening steps from the bulb down to the floor
-    const h = (floorY - bulbBottom) / CONE.length;
-    cone.forEach((r, i) => {
-      const w = CONE[i];
-      r.setPosition(glowX - w / 2, bulbBottom + h * i).setSize(w, h + 1).setAlpha(level * CONE_ALPHA[i]).setVisible(level > 0);
+    if (level === shown) return;
+    shown = level;
+    if (cone) cone.setFrame(vfxFrame(`lamp-cone-${lane}`, Math.max(level, 0))).setVisible(level >= 0);
+    pool.forEach((image, i) => {
+      const end = i === 0 || i === pool.length - 1;
+      image.setFrame(vfxFrame(end ? 'lamp-pool-end' : 'lamp-pool', Math.max(level, 0))).setVisible(level >= 0);
     });
   };
   kit.drive(bulb, plan, (now, before) => {
@@ -97,21 +118,21 @@ export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
     bulb.setData('harmless', true);
     const on = now.pose === 'strike';
     hurt.setData('harmless', !on);
-    light(on ? ON_ALPHA : now.pose === 'windup' ? (now.frame ? FLICKER_ALPHA : FLICKER_ALPHA * 0.4) : 0);
+    light(on ? ON : now.pose === 'windup' ? (now.frame ? STUTTER : FAINT) : -1);
     hazard(now.pose === 'windup' ? reach : null, on ? [reach] : []);
     if (!on && halo) { halo.stop(); halo = null; }
     if (now.frame === before?.frame || !before || !kit.isOnScreen(bulb)) return;
     const glow = { x: plan.x, y: top + bulb.displayHeight * 0.62 };
-    if (now.frame === 1 && !on && kit.isAhead(bulb)) kit.audio.playSfx('floor-switch', VOL.obstacle * 0.3);
+    if (now.frame === 1 && !on && kit.isAhead(bulb)) kit.audio.playSfx('lamp-flicker', VOL.obstacle * 0.3);
     if (on && before.pose !== 'strike') {
-      fx.play('rays-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 1, scale: 2 });
+      fx.play('rays-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 1, scale: 2, life: 500 });
       fx.play('flare-big-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 2 });
       // A big glow round the bulb while it is on
       halo = fx.play('glow-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 1, scale: 2, loop: true, life: TIMINGS.lamp.on });
-      if (kit.isAhead(bulb)) kit.audio.playSfx('disco-sfx', VOL.obstacle * 0.4);
+      if (kit.isAhead(bulb)) kit.audio.playSfx('lamp-snap', VOL.obstacle * 0.4);
     }
   });
-  const extra = [...cone, ...cord, ...(fitting ? [fitting] : [])];
+  const extra = [...lit, ...cord, ...(fitting ? [fitting] : [])];
   bulb.once('destroy', () => halo?.stop());
   kit.track(bulb, { objects: [hurt, ...extra] });
 }

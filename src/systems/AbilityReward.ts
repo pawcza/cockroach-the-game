@@ -32,6 +32,7 @@ const MAX_FRAME_MS = 50;
 
 /** The baked rays turn a step this often, the halo breathes at its own pace. */
 const RAY_FPS = 10;
+const RAY_FRAMES = 12;
 const HALO_FPS = 4;
 const SHELL_BLOCK = 8;
 /** The button art's scale, and the drawn shell's: both end up a plate about 180 px across. */
@@ -177,7 +178,7 @@ export class AbilityReward {
       Math.round(cx / PIXEL_BLOCK) * PIXEL_BLOCK, Math.round(iconY / PIXEL_BLOCK) * PIXEL_BLOCK);
     at(this.glow).setFrame(vfxFrame(`halo-${accent}`, Math.floor(t * HALO_FPS / 1000) % 2))
       .setAlpha(0.55 * out * clamp01(t / 200) * Math.min(1, scale / full + 0.2));
-    at(this.rays).setFrame(vfxFrame(`rays-${accent}`, Math.floor(t * RAY_FPS / 1000) % 6))
+    at(this.rays).setFrame(vfxFrame(`rays-${accent}`, Math.floor(t * RAY_FPS / 1000) % RAY_FRAMES))
       .setAlpha(0.45 * clamp01((t - 60) / 300) * out);
 
     // The title slams in once the icon has landed, and the line under it follows

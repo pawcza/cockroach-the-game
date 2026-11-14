@@ -15,7 +15,7 @@ const roachLane = (y: number, kit: ObstacleKit): Lane => (y > (kit.topY + kit.bo
  * lane; when the roach hops it follows after a moment. Then it draws back, trembling in its sting-first pose, a glint on
  * its sting and the stretch of lane its dive will sweep marked (its lane is locked from here on), and dives sting first
  * down that lane. Hop once it has locked on, dash through the dive, or shoot it while it hovers. It hunts this client's
- * roach only. Sounds (placeholders): the pigeon's screech, high, for the lock.
+ * roach only. Sounds: a trembling buzz for the lock, a falling whine for the dive.
  */
 export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -52,9 +52,12 @@ export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
         // A glint on its sting and a pink flare round it, riding with it as it draws back
         fx.play('glint-white', -18, -6, { follow: wasp, depth: DEPTH.PICKUPS + 2 });
         fx.play('flare-big-pink', 0, -14, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
-        kit.audio.playSfx('bird-sfx', VOL.obstacle * 0.4);
+        kit.audio.playSfx('wasp-buzz', VOL.obstacle * 0.4);
       }
-      if (w.phase === 'dive') fx.play('streak-pink', 30, -10, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
+      if (w.phase === 'dive') {
+        fx.play('streak-pink', 30, -10, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
+        if (kit.isAhead(wasp)) kit.audio.playSfx('wasp-dive', VOL.obstacle * 0.5);
+      }
       was = w.phase;
     }
   };

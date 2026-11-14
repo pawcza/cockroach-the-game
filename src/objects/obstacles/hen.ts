@@ -17,14 +17,14 @@ const BEAK_W = TIMINGS.hen.spot / SPRITE_SCALE;
 /**
  * The hen (peck in behaviours.ts): stands on the upper ledge, blocking that lane; rears back clucking (the telegraph,
  * a shadow growing on the lower lane where she will strike), then her head darts down to peck that spot, well in front
- * of her, and back. Sounds (placeholders): the bird's for the cluck, the slipper's for the peck.
+ * of her, and back. Sounds: her own cluck and peck.
  */
 export function spawnHen(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
   const hen = kit.enemy(plan);
   hen.anims.stop();
-  kit.playSoundOnVisible(hen, 'bird-sfx', 0.4);
+  kit.playSoundOnVisible(hen, 'hen-cluck', 0.4);
   const head = kit.createSprite(plan.x, laneY('bottom'), 'hen-head', 'hen', null);
   head.anims.stop();
   head.setVisible(false).setData('floor', 'bottom').setData('harmless', true).setData('telegraphs', true).setData('flies', true);
@@ -48,11 +48,11 @@ export function spawnHen(kit: ObstacleKit, plan: EnemyPlan): void {
     if (!before || now.pose === before.pose || !kit.isOnScreen(hen)) return;
     if (now.pose === 'windup') {
       fx.play('flare-big-orange', hen.x - hen.displayWidth * .3, hen.y - hen.displayHeight * .8, { depth: DEPTH.PICKUPS + 1 });
-      if (kit.isAhead(hen)) kit.audio.playSfx('bird-sfx', VOL.obstacle * 0.4);
+      if (kit.isAhead(hen)) kit.audio.playSfx('hen-cluck', VOL.obstacle * 0.4);
     }
     if (now.pose === 'strike') {
       fx.play('dust-land', plan.x - TIMINGS.hen.ahead, laneY('bottom'), { depth: DEPTH.OBSTACLES + 1 });
-      if (kit.isAhead(hen)) kit.audio.playSfx('flipper-sfx', VOL.obstacle * 0.4);
+      if (kit.isAhead(hen)) kit.audio.playSfx('hen-peck', VOL.obstacle * 0.4);
     }
   });
   hen.once('destroy', () => neck.forEach(r => r.destroy()));

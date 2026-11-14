@@ -791,6 +791,28 @@ def _fx(canvas, owner, item, f, bc, extra):
                 put(q[0] + t * math.cos(a), q[1] + t * math.sin(a), (255, 250, 200, 255) if t == 0 else (255, 170, 50, 255))
     elif kind == "droop":          # the sad note: a little music note sinking
         _fx(canvas, owner, ("notes", bc[0] - 22, bc[1] + 4), f, bc, extra)
+    elif kind == "dizzy":          # ("dizzy", phase): stars and broken notes circling over the knocked-out ball
+        for k in range(3):
+            a = (item[1] + k / 3) * math.tau
+            x, y = bc[0] + 17 * math.cos(a), bc[1] - BALL_R - 4 + 4 * math.sin(a)
+            front = math.sin(a) > 0
+            if k == 1:
+                _fx(canvas, owner, ("notes", x - 1, y + 2), f, bc, extra)
+                continue
+            c = (255, 236, 120, 255) if front else (200, 160, 70, 255)
+            put(x, y, (255, 255, 230, 255))
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                put(x + dx, y + dy, c)
+            if front:
+                for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
+                    put(x + dx, y + dy, (255, 200, 80, 255))
+    elif kind == "fizz":           # ("fizz", seed): a few sparks shorting out of the ball's grout, close to it
+        rng = np.random.default_rng(item[1])
+        for _ in range(3):
+            a = rng.uniform(math.pi * .9, math.pi * 2.1)
+            q = bc + (BALL_R - rng.uniform(1, 4)) * np.array([math.cos(a), math.sin(a)])
+            for t in range(int(rng.integers(2, 4))):
+                put(q[0] + t * math.cos(a), q[1] + t * math.sin(a), (255, 255, 230, 255) if t == 0 else (130, 230, 255, 255))
 
 
 BEAM_COLOURS = [(255, 90, 200), (120, 230, 255), (255, 240, 140)]
@@ -992,6 +1014,24 @@ def overheat():
     return frames
 
 
+def stunned():
+    """The overload: a drop sent back through his own system knocks him silly. Knees gone soft, slumped over the deck,
+    arms hanging, the ball lolling from side to side on his neck with its lights flickering out and shorting, stars and
+    a broken note going round over it. He is wide open: lunges count double. 8 fps, one beat a loop, the beat on 0."""
+    frames = []
+    for i in range(4):
+        side = 1 if i < 2 else -1
+        frames.append(pose(
+            dip=[6.0, 4.5, 6.0, 4.5][i], knee=[5.0, 3.5, 5.0, 3.5][i], sy=[.95, .97, .95, .97][i],
+            lean=[9.0, 7.0, 9.0, 7.0][i], roll=4.0 * side, sway=-1.5 * side,
+            head=[16.0, 10.0, -16.0, -10.0][i],
+            hand_n=(41.0 - (i % 2), 61.0 + (i % 2)), glove_n=118.0, elbow_n=-1,
+            hand_f=(78.0 + (i % 2), 66.0), glove_f=96.0, elbow_f=-1,
+            ball=Ball(spin=.02 * i, pitch=-8, glint=0, dark=[.55, .3, .6, .35][i]),
+            fx=[("dizzy", i / 4), ("fizz", 40 + i)]))
+    return frames
+
+
 def defeat():
     """The ball cracks and sheds tiles, its lights die; he tries one last sad disco point, his knees go, he folds over
     the deck and the ball rolls off his neck, over the deck and onto the floor, where one last tile drops off."""
@@ -1044,9 +1084,29 @@ ANIMATIONS = {
     "beam-bottom-loop": (lambda: beam_bottom_parts()[1], 8, True, 0),
     "beam-bottom-release": (lambda: beam_bottom_parts()[2], 8, False, None),
     "hurt": (hurt, 12, False, None),
-    "overheat": (overheat, 8, True, 0),
+    "stunned": (stunned, 8, True, 0),
     "defeat": (defeat, 10, False, None),
 }
+
+# The ball's damage as the last target: (cracks, tiles gone, lights dying) at two thirds and one third of its health left. Baked as
+# overlays on his cell, one per frame of every animation it is fought through, to lay over his frame.
+BALL_DAMAGE = {1: (.55, 6, 0.0), 2: (1.0, 16, .2)}
+BALL_DAMAGE_ANIMS = [n for n in ANIMATIONS if n != "defeat"]
+
+
+def ball_damage(name: str, stage: int, plain: list) -> list[Image.Image]:
+    """What the ball's damage changes on each frame of `name`: only the pixels that differ from the frame as drawn."""
+    cracks, missing, dark = BALL_DAMAGE[stage]
+    out = []
+    for p, d in zip(ANIMATIONS[name][0](), plain):
+        hurt = draw(replace(p, ball=replace(p.ball, cracks=max(p.ball.cracks, cracks), missing=max(p.ball.missing, missing),
+                                            dark=max(p.ball.dark, dark))))
+        a, b = np.asarray(d.image), np.asarray(hurt.image)
+        diff = (a != b).any(2)
+        layer = np.zeros_like(b)
+        layer[diff] = b[diff]
+        out.append(Image.fromarray(layer))
+    return out
 
 
 # ---------------------------------------------------------------- the speaker: its own sprite, one per lane
@@ -1088,6 +1148,7 @@ class Spk:
     heat: float = 0.0
     blown: float = 0.0
     flash: float = 0.0
+    torn: float = 0.0
     fx: list = field(default_factory=list)
 
 
@@ -1172,6 +1233,15 @@ def draw_speaker(p: Spk) -> Image.Image:
         rgb[(dc < .35) & solid] = rgb[(dc < .35) & solid] * (1 + .6 * p.cone) + 30 * p.cone
         lip = (np.abs(dc - .8) < .14) & solid
         rgb[lip] = rgb[lip] * (1 + .5 * p.cone) + 45 * p.cone
+    if p.torn:                                        # the cone split: a dark tear across it, its paper lip curled
+        ang = np.degrees(np.arctan2(py - cy, px - cx))
+        tear = (np.abs(((ang - 215 + 180) % 360) - 180) < 20 + 16 * p.torn * (1 - dc)) & (dc > .2) & (dc < .9) & solid
+        rgb[tear] = (14, 12, 18)
+        lip = np.zeros_like(tear)
+        lip[:-1] |= tear[1:] & ~tear[:-1]
+        lip[:, 1:] |= tear[:, :-1] & ~tear[:, 1:]
+        rgb[lip & solid & ~tear] = (196, 186, 170)
+        rgb[(dc > .2) & (dc < .95) & solid & ~tear & ~lip] *= 1 - .18 * p.torn
     if p.blown:
         hole = (dc < .95) & solid
         rgb[hole] = (12, 10, 16)
@@ -1193,8 +1263,10 @@ def draw_speaker(p: Spk) -> Image.Image:
         rgb[edge] = rgb[edge] * (1 - .8 * p.heat) + np.array(HOT[1]) * .8 * p.heat
     elif p.glow:
         rgb[edge] = rgb[edge] * (1 - .6 * p.glow[1]) + np.array(p.glow[0][0]) * .6 * p.glow[1]
-    if p.flash:
+    if p.flash > 0:
         rgb[solid] = rgb[solid] * (1 - p.flash) + 255 * p.flash
+    elif p.flash < 0:                                 # cut out: its light dies
+        rgb[solid] = rgb[solid] * (1 + p.flash)
     out[solid, :3] = np.clip(rgb[solid], 0, 255)
     out[solid, 3] = 255
     owner[solid] = "spk"
@@ -1258,6 +1330,19 @@ def _spk_fx(out, owner, item):
     elif kind == "crack":          # a crack down the cabinet's side panel
         for t in range(18):
             put(w - 7 - (t % 3 == 1), 5 + t, (12, 12, 18, 255))
+    elif kind == "split":          # ("split", length): a crack running in from the cabinet's top front corner
+        for t in range(item[1]):
+            x = 3 + t * .55 + (t % 4 == 1) - (t % 5 == 3)
+            put(x, 1 + t, (10, 10, 16, 255))
+            put(x + 1, 1 + t, (150, 140, 128, 255))
+    elif kind == "wail":           # ("wail", k): feedback squealing off the cones, jagged pink and white lines
+        for cy, reach, k0 in ((TWEETER[1], 10, 0), (WOOFER[1], 14, 1)):
+            for j in range(2):
+                x0 = -3 - 5 * j - ((item[1] + k0 + j) % 2) * 2
+                for t in range(-reach // 2 - j * 2, reach // 2 + j * 2 + 1):
+                    zig = 1 if (t + item[1] + j) % 4 < 2 else -1
+                    c = (255, 255, 255, 255) if j == 0 else (255, 106, 213, 255)
+                    put(x0 + zig - abs(t) * .25, cy + t, c)
 
 
 def thump():
@@ -1299,6 +1384,27 @@ def broken():
             Spk(blown=1.0, sy=.93, tilt=7, fx=[("smoke", .9, True), ("crack",)])]
 
 
+def damaged():
+    """Nearly gone: still thumping on the beat, but its cone split and its cabinet cracked, sparks spitting off it and
+    smoke curling from its top; on the beat's last quarter it cuts out, dark, and fizzes. 8 fps, the beat on 0."""
+    return [Spk(cone=.8, sx=1.03, sy=.95, torn=1.0, fx=[("air", 1), ("split", 14), ("crack",), ("sparks", 21, 2), ("smoke", 0.0, True)]),
+            Spk(cone=-.3, sx=.99, sy=1.02, torn=1.0, fx=[("split", 14), ("crack",), ("smoke", .25, True)]),
+            Spk(cone=0.0, torn=1.0, fx=[("split", 14), ("crack",), ("sparks", 23, 1), ("smoke", .5, True)]),
+            Spk(cone=-.2, sy=.98, tilt=1, torn=1.0, flash=-.45, fx=[("split", 14), ("crack",), ("sparks", 24, 4), ("smoke", .75, True)])]
+
+
+SHRIEK = [(255, 90, 200), (255, 180, 236), (255, 255, 255)]
+
+
+def shriek():
+    """Hit too often, it feeds back: the cone strains right out, the cabinet bulges and judders side to side, its cones
+    glare hot pink and white and squeal jagged lines off its face. Three rings follow down its lane. 8 fps loop."""
+    return [Spk(cone=1.2, sx=1.05, sy=.95, shake=-1, glow=(SHRIEK, 1.0), fx=[("wail", 0)]),
+            Spk(cone=.9, sx=1.03, sy=.97, shake=1, glow=(SHRIEK, .8), fx=[("wail", 1)]),
+            Spk(cone=1.3, sx=1.06, sy=.94, shake=-1, glow=(SHRIEK, 1.0), fx=[("wail", 2)]),
+            Spk(cone=1.0, sx=1.04, sy=.96, shake=1, glow=(SHRIEK, .85), fx=[("wail", 3)])]
+
+
 SPEAKER_ANIMS = {
     # name: (make, fps, loop). The loops run 4 frames a beat at 120 BPM, the beat on frame 0
     "speaker-thump": (thump, 8, True),
@@ -1306,6 +1412,8 @@ SPEAKER_ANIMS = {
     "speaker-blast": (blast, 12, False),
     "speaker-overload": (overload, 8, True),
     "speaker-broken": (broken, 10, False),
+    "speaker-damaged": (damaged, 8, True),
+    "speaker-shriek": (shriek, 8, True),
 }
 SPEAKER_HIT = {"speaker-blast": 1}   # the frame the ring leaves on
 
@@ -1358,6 +1466,32 @@ def shockwave(k: int) -> Image.Image:
     for dx, h in ((8, 2), (11, 3), (14, 2), (17, 1)):
         for dy in range(h):
             br.put(out, owner, dx + (k % 2), WAVE_H - 2 - dy, (160, 156, 170, 255) if dy else (120, 116, 132, 255))
+    return Image.fromarray(out)
+
+
+def ring_back(k: int) -> Image.Image:
+    """A ring sent back by the dash, flying home into his system: the ring turned round (bowed right, the way it now
+    goes), off the floor, its front white-hot and doubled, the parry's cyan streaking off behind it. Same cell and
+    pivot as the ring."""
+    src = np.asarray(shockwave(k))[:, ::-1].copy()
+    src[WAVE_H - 4:] = 0                                      # no dust: it's in the air
+    out = np.zeros_like(src)
+    solid = src[..., 3] > 0
+    lum = src[..., :3].astype(int).sum(2)
+    out[solid & (lum >= 700)] = (255, 255, 255, 255)
+    out[solid & (lum < 700) & (lum >= 500)] = (127, 224, 255, 255)
+    out[solid & (lum < 500)] = (60, 150, 220, 255)
+    # the front doubled: one px more of white ahead of the brightest column on every row
+    for y in range(WAVE_H):
+        xs = np.nonzero((out[y, :, :3].astype(int).sum(1) >= 760) & (out[y, :, 3] > 0))[0]
+        if len(xs) and xs.max() + 1 < WAVE_W:
+            out[y, xs.max() + 1] = (200, 246, 255, 255)
+    # speed streaks trailing behind it (to its left)
+    for y, x0, length in ((8, 0, 7), (14, 2, 9), (20, 0, 10), (26, 2, 8), (32, 1, 6)):
+        x0 = (x0 + k * 2) % 4
+        for t in range(length):
+            if out[y, x0 + t, 3] == 0:
+                out[y, x0 + t] = (127, 224, 255, 255) if t > length // 2 else (60, 150, 220, 255)
     return Image.fromarray(out)
 
 
@@ -1491,6 +1625,38 @@ def beam_strip(k: int) -> Image.Image:
                 _blend(a, x, y, c)
     for sx, sy in ((5, 4), (27, 18), (44, 6), (58, 16)):
         _sparkle_on(a, (sx - k * 16) % STRIP_W, sy, 1 if (sx // 5 + k) % 2 else 2)
+    return Image.fromarray(a)
+
+
+FRONT_W, FRONT_AHEAD = 16, 4
+
+
+def front_cap(k: int) -> Image.Image:
+    """The drop's front: where its band of light ends at the leading edge. The strip's own light (same phase, so it
+    joins the band tiled on behind it) gathers into a rounded white-hot crest, a thin glow running a few px ahead of it
+    and sparks thrown off the crest. FRONT_AHEAD px of glow lie left of its pivot (x = FRONT_AHEAD, the middle row)."""
+    w = FRONT_AHEAD + FRONT_W
+    a = np.zeros((BEAM_H, w, 4), np.uint8)
+    for y in range(BEAM_H):
+        d = abs(y - BEAM_HALF) / (BEAM_HALF + .5)
+        nose = FRONT_AHEAD + 5.0 * (1 - math.sqrt(max(0.0, 1 - d * d)))     # the crest bows forward in the middle
+        for x in range(w):
+            if x < nose - .5:
+                if x >= nose - 3.5 and _BAYER[y % 4, x % 4] < .5 - .12 * (nose - x):
+                    _blend(a, x, y, (200, 240, 255, 150))
+                continue
+            u = x - FRONT_AHEAD
+            c = _beam_px(y - BEAM_HALF, u + k * 16, u % STRIP_W, y)
+            if c:
+                _blend(a, x, y, c)
+            if x < nose + 1.5 and d < .92:
+                _blend(a, x, y, (255, 255, 255, 255))
+            elif x < nose + 3 and d < .8:
+                _blend(a, x, y, (210, 246, 255, 230))
+    for i, (sx, sy) in enumerate(((1, 3), (2, 19), (0, 9), (3, 14))):
+        x, y = sx + (k + i) % 3 - 1, sy + ((k + i) % 2)
+        if (i + k) % 3:
+            _sparkle_on(a, x + 1, y, 1)
     return Image.fromarray(a)
 
 

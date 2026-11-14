@@ -17,7 +17,7 @@ const NOZZLE_H = 18;
 const NOZZLE_INSET = 8;
 
 /** The roach's cruising speed as Player.updateSpeed has it, without a dash, a pill or the pull. */
-const cruiseAt = (runTime: number, roachX: number): number => {
+export const cruiseAt = (runTime: number, roachX: number): number => {
   const level = getLevelForDistance(Math.floor((roachX - COCKROACH_START_X) / 50)).level;
   return COCKROACH_BASE_SPEED + COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-runTime / 1000 / COCKROACH_SPEED_TAU))
     + (level - 1) * SPEED_BOOST_PER_LEVEL;
@@ -29,7 +29,7 @@ const cruiseAt = (runTime: number, roachX: number): number => {
  * the roach's lane and closes in on its tail, dragging at it (dust streaming off the roach into the nozzle, the stretch
  * it is about to swallow marked as a warning on the lane); if the nozzle gets the roach, it is done. A dash breaks its
  * grip and it drops back out of sight; a hop only buys time (it shivers, then swings its nozzle over). It hunts this
- * client's roach only. Sounds (placeholders): the black hole's for the roar.
+ * client's roach only. Sounds: its own motor roar.
  */
 export function spawnVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -69,7 +69,7 @@ export function spawnVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
     // Nothing to touch until its nozzle is in, nor once it has let go (not even for a pill to punt)
     body.checkCollision.none = v.phase === 'waiting' || v.phase === 'cue' || v.phase === 'leave';
     if (v.phase === 'waiting') return;
-    if (was === 'waiting') kit.audio.playSfx('blackhole-sfx', VOL.obstacle * 0.7);
+    if (was === 'waiting') kit.audio.playSfx('vacuum-roar', VOL.obstacle * 0.7);
     if (v.phase === 'cue' || v.phase === 'enter') {
       // Heard and felt before it shows: dust and crumbs on screen swept off to the left
       if (++dust % 4 === 0) {

@@ -16,8 +16,8 @@ const PUDDLE_H = 14;
 /**
  * The poison bait (lure in behaviours.ts): a bowl of glowing gel in its lane, deadly to touch, with apples laid either
  * side of it. On a rhythm the gel oozes out (its lane flickers green over the stretch it will cover) and floods that
- * stretch for a while, then dries. Shot, the bowl bursts and the stretch is safe for good. Sounds (placeholders): the
- * toxic splash's, the Eksterminator's gas as it floods.
+ * stretch for a while, then dries. Shot, the bowl bursts and the stretch is safe for good. Sounds: a gloopy ooze as it
+ * floods.
  */
 export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -59,7 +59,7 @@ export function spawnBait(kit: ObstacleKit, plan: EnemyPlan): void {
     if (now.pose === 'windup') fx.play('flare-big-green', bowl.x, bowl.y - bowl.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 1 });
     if (now.pose === 'strike') {
       fx.play('splash-toxic', bowl.x, feetY(plan.id, plan.lane), { depth: DEPTH.OBSTACLES + 1 });
-      if (kit.isAhead(bowl)) kit.audio.playSfx('ex-gas', VOL.obstacle * 0.4);
+      if (kit.isAhead(bowl)) kit.audio.playSfx('bait-ooze', VOL.obstacle * 0.4);
     }
   });
   const shootable = bowl.getData('shootable');

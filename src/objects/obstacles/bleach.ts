@@ -19,7 +19,7 @@ const SPLASH_BODY_H = 16;
  * Dripping bleach (drip in behaviours.ts): a jug tipped in the background half way up the upper lane, dim, in neither
  * lane. A bead swells at its cap and falls behind the upper ledge, unlit: it never hurts. Under the ledge lit drops
  * fall one after another onto one spot of the lower lane, which stays wet and always hurts (the kill-zone look over
- * exactly it). Sounds (placeholders): the spray's hiss on some of the splashes.
+ * exactly it). Sounds: a drip and sizzling splash on some of the splashes.
  */
 export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -60,7 +60,7 @@ export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
     splash.setFrame(frameOf('bleach-splash', s.frame));
     if (now.pose !== 'strike' || before?.pose === 'strike' || !before || !kit.isOnScreen(jug)) return;
     fx.burst('bit-green', plan.x, laneY('bottom') - 6, 3, 6, { depth: DEPTH.OBSTACLES + 1, speed: [60, 130], angle: [200, 340], gravity: 400, life: 400 });
-    if (now.cycle % HEARD_EVERY === 0 && kit.isAhead(jug)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
+    if (now.cycle % HEARD_EVERY === 0 && kit.isAhead(jug)) kit.audio.playSfx('bleach-drip', VOL.obstacle * 0.4);
   });
   kit.track(jug, { objects: [bead, drop, splash] });
 }

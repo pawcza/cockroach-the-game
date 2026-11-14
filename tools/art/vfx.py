@@ -750,6 +750,67 @@ def lamp_mount() -> Effect:
     return Effect([img], (.5, 0.), 1)
 
 
+# The light's own light (src/objects/obstacles/lamp.ts): a cone from the bulb down to its lane and a pool of light along
+# the stretch it floods, drawn additively. Intensity is quantised into the warm ramp with an ordered dither between
+# steps, so the light is stepped and stippled, never a flat fill. Three frames of each, by how bright the light is: the
+# faint stutter, the stronger one and the light fully on. The cone is 76 texels wide (even like the bulb, so its axis is the
+# bulb's) and as tall as the gap from the bulb to the lane: 76 over the upper lane, 30 over the lower one. The pool is a
+# left end, a tiled middle and a right end (the end mirrored), the game lays them over exactly the stretch that kills.
+LAMP_LIGHT = [(56, 38, 16), (104, 72, 28), (160, 116, 46), (214, 168, 78), (255, 222, 132), (255, 246, 196)]
+LAMP_LEVELS = [.3, .55, 1.]
+LAMP_CONE_W = 76
+LAMP_CONE_H = {"top": 76, "bottom": 30}
+LAMP_POOL_TILE = 8    # texels along the lane per tile (a multiple of the dither's 4, so tiles join)
+LAMP_POOL_END = 10
+LAMP_POOL_H = 10
+BAYER = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + .5) / 16
+
+
+def _lamp_light(field: np.ndarray, k: float) -> np.ndarray:
+    """An intensity field (0 to 1) as dithered texels of the warm ramp: nothing where it is dark."""
+    h, w = field.shape
+    bayer = np.tile(BAYER, (h // 4 + 1, w // 4 + 1))[:h, :w]
+    steps = len(LAMP_LIGHT)
+    level = np.clip(np.floor(field * k * steps + bayer * .9), 0, steps).astype(int)
+    img = new(w, h)
+    lit = level > 0
+    table = np.array(LAMP_LIGHT, np.uint8)
+    img[lit, :3] = table[level[lit] - 1]
+    img[lit, 3] = 255
+    return img
+
+
+def lamp_cone(lane: str) -> Effect:
+    h, w = LAMP_CONE_H[lane], LAMP_CONE_W
+    ys, xs = np.mgrid[0:h, 0:w] + .5
+    t = ys / h
+    # From the glass's width at the top to the pool's at the floor
+    half = 9 + (w / 2 - 9) * t ** .85
+    u = np.abs(xs - w / 2) / half
+    inside = np.clip(1 - u, 0, 1) ** .9
+    # Brightest at the bulb and again where it lands; thinner in between
+    along = .62 + .38 * (1 - t) ** 1.5
+    # The last rows are the hot spot on the lane: an ellipse across the floor
+    spot = np.clip(1 - np.hypot((xs - w / 2) / (w / 2), (ys - h) / 7), 0, 1)
+    field = np.clip(inside * along * .95 + spot * .6, 0, 1)
+    field[u > 1] = 0
+    return Effect([_lamp_light(field, k) for k in LAMP_LEVELS], (.5, 1.), 1, light=True)
+
+
+def lamp_pool(part: str) -> Effect:
+    """The pool along the lane: brightest on the lane's line along the bottom, fading up. Its end steps down to the lane
+    in stairs, its outermost column a lit foot, so the stretch's edge is plain."""
+    h = LAMP_POOL_H
+    w = LAMP_POOL_TILE if part == "tile" else LAMP_POOL_END
+    ys, xs = np.mgrid[0:h, 0:w] + .5
+    up = (h - ys) / h
+    field = np.clip(1 - up ** .8, 0, 1) * .85 + .15 * (up < .35)
+    if part == "end":
+        field = field * np.clip(.35 + .65 * (xs / w) ** .8, 0, 1)
+        field = np.where(up <= .22 + .78 * (xs / w), field, 0)
+    return Effect([_lamp_light(field, k) for k in LAMP_LEVELS], (0., 1.), 1, light=True)
+
+
 # ------------------------------------------------------------------------------------------------------------ combo
 
 def aura(ramps, w, h, tongues, seed) -> Effect:
@@ -988,11 +1049,12 @@ def shield() -> Effect:
 
 
 def rays(ramp) -> Effect:
-    """Sixteen rays turning behind the new power's icon: one sixteenth of a turn over the loop, each step drawn."""
+    """Sixteen rays, long and short in turn, turning behind the new power's icon: an eighth of a turn over the loop
+    (a long ray to the next long one, so it closes on itself), each step drawn."""
     R = 96
     size = R * 2
     frames = []
-    for f in range(6):
+    for f in range(12):
         img = new(size, size)
         xs, ys = _grid(img)
         dx, dy = xs - R, ys - R
@@ -1445,6 +1507,10 @@ EFFECTS = {
     "collect-pill": lambda: _grown(collect_pill(), COLLECT_SIZE),
     "cord": cord,
     "lamp-mount": lamp_mount,
+    "lamp-cone-top": lambda: lamp_cone("top"),
+    "lamp-cone-bottom": lambda: lamp_cone("bottom"),
+    "lamp-pool": lambda: lamp_pool("tile"),
+    "lamp-pool-end": lambda: lamp_pool("end"),
     "zone-warn": lambda: zone("warn", "tile"),
     "zone-warn-end": lambda: zone("warn", "cap"),
     "zone-kill": lambda: zone("kill", "tile"),

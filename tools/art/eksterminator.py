@@ -24,6 +24,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from PIL import Image
+from scipy import ndimage as ni
 
 sys.path.insert(0, str(Path(__file__).parent))
 import bossrig as br  # noqa: E402
@@ -268,7 +269,9 @@ class Pose:
     painting point. flip: his width scaled through his middle (a spin). far: where the far hand goes (painting px), the
     far arm drawn only then; far_elbow: its elbow's side. held: the spare canister in the far hand. clipped: the spare
     canister on the tank. free: the wand out of his hand, its grip point and turn. fog: the mask's glass misted.
-    flash: the whole figure flashed pale. fx: effects drawn over him."""
+    flash: the whole figure flashed pale. gauge: the pressure gauge on the tank's side, 0 empty to 1 (from .8 its
+    needle is in the red). heat: the tank straining hot, its steel glowing at the edges, 0..1. fx: effects drawn
+    over him."""
     lean: float = 0
     sy: float = 1
     lift: float = 0
@@ -291,6 +294,8 @@ class Pose:
     free: tuple | None = None
     fog: float = 0
     flash: float = 0
+    gauge: float = .4
+    heat: float = 0
     fx: list = field(default_factory=list)
 
 
@@ -556,6 +561,14 @@ def draw(pose: Pose) -> Drawn:
         lens_c = CANVAS.warp(br.big(lens), g @ head_m)[..., 3] > 128
         lens_c &= owner == "head"
         canvas[lens_c, :3] = (canvas[lens_c, :3] * (1 - pose.fog) + np.array([190, 214, 176]) * pose.fog).astype(np.uint8)
+    if pose.heat:
+        tank = owner == "tank"
+        rim = tank & ~ni.binary_erosion(tank, iterations=2)
+        c = canvas[..., :3].astype(float)
+        c[tank] = c[tank] * (1 - .22 * pose.heat) + np.array(HEAT[0]) * .22 * pose.heat
+        c[rim] = c[rim] * (1 - .7 * pose.heat) + np.array(HEAT[1]) * .7 * pose.heat
+        canvas[..., :3] = np.clip(c, 0, 255).astype(np.uint8)
+    _gauge(canvas, owner, g, f.tank_m, pose.gauge)
     if pose.flash:
         him = np.isin(owner, [n for n in order if n not in FX_IDS]) & (canvas[..., 3] > 128)
         canvas[him, :3] = (canvas[him, :3] * (1 - pose.flash) + 255 * pose.flash).astype(np.uint8)
@@ -586,6 +599,39 @@ def draw(pose: Pose) -> Drawn:
     return Drawn(Image.fromarray(canvas), {k: tuple(round(float(c), 1) for c in v) for k, v in joints.items()},
                  failures, masks, tuple(pt(_apply(f.wand_m, TIP))), math.degrees(math.atan2(tip_dir[1], tip_dir[0])),
                  None if hand is None else tuple(pt(hand)))
+
+
+GAUGE = (113.0, 44.0)         # the pressure gauge's middle, on the tank's side facing us (tank px)
+HEAT = [(200, 60, 30), (255, 150, 60)]
+
+
+def _gauge(canvas, owner, g, tank_m, level) -> None:
+    """The pressure gauge riding the tank: a round dial, cream face and navy rim, its last quarter red; the needle
+    from up-left (empty) round to the right (full), in the red from .8. Only over the tank, never over his arm."""
+    cx, cy = CANVAS.point(g, _apply(tank_m, GAUGE))
+    red_zone = level >= .8
+    for dy in range(-3, 4):
+        for dx in range(-3, 4):
+            d = math.hypot(dx, dy)
+            x, y = int(math.floor(cx)) + dx, int(math.floor(cy)) + dy
+            if d > 3.2 or not (0 <= x < CANVAS.w and 0 <= y < CANVAS.h) or owner[y, x] != "tank":
+                continue
+            if d > 2.3:
+                c = (16, 18, 30)
+            else:
+                a = math.degrees(math.atan2(dy, dx))
+                c = (226, 220, 200)
+                if -60 < a < 20 and d > 1.2:
+                    c = (210, 50, 40) if not red_zone else (255, 90, 60)
+            canvas[y, x, :3] = c
+    a = math.radians(-150 + 170 * min(1.0, level))
+    for t in (1, 2):
+        x, y = int(math.floor(cx + .5 + t * math.cos(a))), int(math.floor(cy + .5 + t * math.sin(a)))
+        if 0 <= x < CANVAS.w and 0 <= y < CANVAS.h and owner[y, x] == "tank":
+            canvas[y, x, :3] = (20, 20, 26) if not red_zone else (255, 255, 255)
+    x, y = int(math.floor(cx)), int(math.floor(cy))
+    if owner[y, x] == "tank":
+        canvas[y, x, :3] = (20, 20, 26)
 
 
 # ---------------------------------------------------------------- effects
@@ -624,6 +670,12 @@ def _fx(canvas, owner, f: Frame, item) -> None:
             a = math.radians(ang)
             for t in range(2, 2 + length):
                 put(x + t * math.cos(a), y + t * math.sin(a), (236, 246, 230, 255))
+    elif kind == "steam":          # ("steam", phase): steam boiling off round the tank's cap, rising
+        _, phase = item
+        x, y = pt(_apply(f.tank_m, (95.0, 2.0)))
+        for k in range(3):
+            t = (phase + k / 3) % 1
+            _blob(canvas, owner, x - 3 + 4 * k + 2 * math.sin(t * 5 + k), y - 3 - 9 * t, .8 + 1.6 * t, SMOKE)
     elif kind == "vent":           # ("vent", length, phase[, spread]): a jet of gas out of the tank, up and back
         _, length, phase = item[:3]
         spread = item[3] if len(item) > 3 else 1.0
@@ -805,19 +857,107 @@ def canister_spin(k: int) -> np.ndarray:
     return cv2.warpAffine(_can_big(), aff, (13, 13), flags=cv2.INTER_NEAREST)
 
 
+MINE_ROWS = [
+    "       DD         ",
+    "      DLLD        ",
+    "  DDDDDMMDDDDDDD  ",
+    " RDLLLLLLLLLLLMDD ",
+    "RrDLMMMMMMMMMMMDDD",
+    "RrDYYKKYYKKYYKKDDD",
+    "RrDKYYKKYYKKYYKDDD",
+    "RRDMMMMMMMMMMMDDDD",
+    " RDDMMMMMMMMMDDDD ",
+    "  DDDDDDDDDDDDDD  ",
+]
+
+
+def _palette() -> dict:
+    """The canister's steel (dark, mid, light) and cap red, read off its drawing; hazard tape's yellow and black."""
+    can = _canister()
+    pick = lambda y, x: tuple(int(v) for v in can[y, x, :3])  # noqa: E731
+    return {"D": pick(10, 3), "M": pick(3, 2), "L": pick(3, 1), "R": pick(1, 3), "Y": (236, 196, 52), "K": (28, 28, 34)}
+
+
 def mine(k: int) -> np.ndarray:
-    """A gas mine: the spare canister dropped on its side, its red cap ahead (to the left), 13 x 9 with its bottom on
-    the lane. Frame 1 the cap flashes hot, frame 2 it whistles: armed."""
-    lying = np.rot90(_canister(), 1)              # the cap, the top two rows, comes round to the left
-    out = np.zeros((9, 13, 4), np.uint8)
-    out[2:9, 1:12] = lying
-    cap = out[:, 1:3]
-    red = (cap[..., 0] > cap[..., 1] + 30) & (cap[..., 3] > 0)
-    if k == 1:
-        cap[red] = (255, 96, 70, 255)
-    if k == 2:
-        for t in range(3):                        # a wisp whistling up off the cap
-            out[3 - t, 1 + t // 2] = (236, 246, 230, 255)
+    """A gas mine: the spare canister laid down on its side and armed, 18 x 13 with its bottom on the lane. A fat
+    steel drum with a valve on top, a yellow-and-black hazard band round it, the red cap ahead (to the left) with its
+    lamp. Frame 0 the lamp is dark, 1 it flashes hot with a glint, 2 it is lit and gas whistles out of the valve."""
+    pal = _palette()
+    out = np.zeros((13, 18, 4), np.uint8)
+    lamp = {0: (120, 26, 22), 1: (255, 110, 80), 2: (255, 70, 50)}[k]
+    for y, row in enumerate(MINE_ROWS):
+        for x, ch in enumerate(row):
+            if ch == " ":
+                continue
+            out[y + 3, x] = (*(lamp if ch == "r" else pal[ch]), 255)
+    if k == 1:                                     # the lamp's glint
+        for x, y in ((0, 6), (1, 5), (0, 9)):
+            out[y, x] = (255, 236, 200, 255)
+    if k == 2:                                     # a wisp whistling up off the valve
+        for t, (x, y) in enumerate(((8, 2), (9, 1), (9, 0))):
+            out[y, x] = GAS[1] if t else (236, 246, 230, 255)
+        out[2, 6] = GAS[2]
+    return out
+
+
+def _can_turned(deg: float, size: int, centre) -> np.ndarray:
+    """The canister turned deg degrees about its middle, onto a size x size canvas with its middle at centre."""
+    m = _shift(centre[0] - CAN_BASE[0], centre[1] - 5.5) @ _about((CAN_BASE[0], 5.5), deg)
+    lin, t = m[:2, :2], m[:2, 2]
+    aff = np.zeros((2, 3))
+    aff[:, :2] = lin / K
+    aff[:, 2] = lin @ np.array([.5 / K, .5 / K]) + t - .5
+    return cv2.warpAffine(_can_big(), aff, (size, size), flags=cv2.INTER_NEAREST)
+
+
+def grenade(k: int) -> np.ndarray:
+    """The bouncing grenade: the canister with its cap knocked loose, tumbling a quarter turn a frame, its fuse spitting
+    sparks out of the cap and its lamp blinking red on every other frame. 17 x 17, centred."""
+    deg = 90 * k
+    out = _can_turned(deg, 17, (8.5, 8.5))
+    a = math.radians(deg)
+    cap = np.array([8.5, 8.5]) + np.array([5.0 * math.sin(a), -5.0 * math.cos(a)])
+    rng = np.random.default_rng(60 + k)
+    for _ in range(4):
+        ang = a - math.pi / 2 + rng.uniform(-1.0, 1.0)
+        for t in range(1, int(rng.integers(2, 4))):
+            x, y = int(cap[0] + t * math.cos(ang)), int(cap[1] + t * math.sin(ang))
+            if 0 <= x < 17 and 0 <= y < 17:
+                out[y, x] = (255, 250, 200, 255) if t == 1 else (255, 170, 60, 255)
+    if k % 2 == 0:
+        x, y = int(cap[0]), int(cap[1])
+        out[max(0, y - 1):y + 1, max(0, x - 1):x + 1] = (255, 70, 50, 255)
+    return out
+
+
+CHAIN_W, CHAIN_H = 27, 15
+CHAIN_C = (7.5, 7.5)
+
+
+def chained(k: int) -> np.ndarray:
+    """The chained canister, swung along a lane: the canister swinging on the end of its chain (it rocks, it doesn't
+    spin), the chain's links trailing back behind it (to the right: it flies left; flipped on the way back). 27 x 15,
+    the canister's middle at (7.5, 7.5)."""
+    deg = (-18, -6, 10, -2)[k]
+    out = np.zeros((CHAIN_H, CHAIN_W, 4), np.uint8)
+    can = _can_turned(90 + deg, 15, CHAIN_C)
+    pal = _palette()
+    # the links: from the canister's base out to the right, a slack curve that ripples frame to frame
+    base = np.array(CHAIN_C) + 5.5 * np.array([math.cos(math.radians(deg)), math.sin(math.radians(deg))])
+    for i in range(6):
+        x = base[0] + 1 + i * 3
+        y = base[1] + .9 * math.sin(i * 1.1 + k * 1.6) + .12 * i * i * .5
+        xi, yi = int(round(x)), int(round(y))
+        if i % 2 == 0:                             # a link side on: a ring
+            for dx, dy in ((0, -1), (1, -1), (-1, 0), (2, 0), (0, 1), (1, 1)):
+                if 0 <= xi + dx < CHAIN_W and 0 <= yi + dy < CHAIN_H:
+                    out[yi + dy, xi + dx] = (*(pal["L"] if dy < 0 else pal["D"]), 255)
+        else:                                      # a link edge on: a bar
+            for dx in range(0, 3):
+                if 0 <= xi + dx < CHAIN_W and 0 <= yi < CHAIN_H:
+                    out[yi, xi + dx] = (*pal["M"], 255)
+    solid = can[..., 3] > 0
+    out[:, :15][solid] = can[solid]
     return out
 
 
@@ -904,17 +1044,6 @@ def idle():
             heave=1.4 * b, breathe=.03 * b, nod=-3 * b + 1, lean=.8 * math.sin(t - .4),
             arm=1.8 * math.sin(t + .3), wand=-1.2 * math.sin(t - .5),
             tank=(0, -1.0 * math.sin(t - .9), .8 * math.sin(t - 1.2), 0), fx=puffs.get(i, [])))
-    return frames
-
-
-def idle_hot():
-    """Breathing as in idle, the tank under pressure: swollen, straining on its straps, and whistling round its cap.
-    The tell that bullets count triple now."""
-    frames = []
-    for i, p in enumerate(idle()):
-        t = i / 8 * math.tau
-        dx, dy, deg, _ = p.tank
-        frames.append(replace(p, tank=(dx, dy - .4, deg, .085 + .02 * math.sin(2 * t)), fx=[("hiss", 2 + (i % 3))] + p.fx))
     return frames
 
 
@@ -1044,6 +1173,80 @@ def stagger():
     ]
 
 
+def idle_hot():
+    """Breathing as in idle, the tank under pressure: swollen and straining on its straps, its steel glowing hot at
+    the edges and pulsing, the gauge's needle shivering in the red, steam boiling off round the cap and whistling.
+    The tell that bullets count triple now."""
+    frames = []
+    for i, p in enumerate(idle()):
+        t = i / 8 * math.tau
+        dx, dy, deg, _ = p.tank
+        frames.append(replace(p, tank=(dx + .4 * (i % 2) - .2, dy - .4, deg, .085 + .02 * math.sin(2 * t)),
+                              heat=.55 + .35 * (.5 + .5 * math.sin(2 * t)), gauge=.9 + .06 * (i % 2),
+                              fx=[("hiss", 2 + (i % 3)), ("steam", i / 8)] + p.fx))
+    return frames
+
+
+def brace():
+    """Before his charge: crouched low on the lane he will run, head down behind the mask, the wand couched, the back
+    boot pawing the floor twice. Held while he braces."""
+    out = []
+    for i in range(4):
+        paw = (0, 4, 0, 4)[i]
+        out.append(pose(lean=20, sy=.92, lift=-2, nod=9, arm=-12, wand=8, heave=-1, tank=(0, 1, -3, 0),
+                        legs={"leg_near": (-2, 0, 8), "leg_far": (3 + paw, -paw * .5, -10 - paw * 2)},
+                        fx=[("dust", 96, FLOOR, 1)] if paw else []))
+    return out
+
+
+def knocked():
+    """A dash into him as he winds up: the wand is knocked up out of his glove and tumbles on its hose while he reels
+    back, his arm flung up; it comes down and he fumbles it back. The first frame is flashed pale."""
+    return [
+        pose(lean=-12, sy=.96, move=(3, 0), nod=-12, arm=20, wand=30, flash=.5, tank=(2, -1, 8, 0),
+             fx=[("lines", 4, 52, 4, (-160, -120, -80))]),
+        pose(lean=-14, move=(4, 0), nod=-14, arm=32, free=((50, 46), 28), tank=(2, -1, 9, 0)),
+        pose(lean=-11, move=(4, 0), nod=-10, arm=30, free=((50, 34), 52), tank=(1, -1, 6, 0)),
+        pose(lean=-6, move=(3, 0), nod=-4, arm=18, free=((50, 32), 64), tank=(0, 0, 3, 0)),
+        pose(lean=-1, move=(2, 0), nod=2, arm=6, free=((50, 48), 34), tank=(0, 0, 0, 0)),
+        pose(lean=4, move=(1, 0), nod=5, arm=-6, wand=-8, heave=1, fx=[("puff", 1.6, -3, 2)]),
+    ]
+
+
+def shoved():
+    """Dashed into: shoved back on his heels, boots skidding with dust kicked up, the wand flung up; he catches his
+    balance leaning forward again. The first frame is flashed pale."""
+    return [
+        pose(lean=-16, sy=.96, move=(3, 0), nod=-14, arm=18, wand=14, flash=.4, tank=(3, -1, 9, 0),
+             legs={"leg_near": (5, 0, -14), "leg_far": (2, 0, -4)}, fx=[("dust", 60, FLOOR, 1)]),
+        pose(lean=-18, move=(5, 0), nod=-12, arm=24, wand=20, tank=(3, -1, 10, 0),
+             legs={"leg_near": (8, -1, -20), "leg_far": (4, 0, -6)}, fx=[("dust", 64, FLOOR, 2)]),
+        pose(lean=-12, move=(4, 0), nod=-8, arm=16, wand=12, tank=(2, 0, 6, 0),
+             legs={"leg_near": (6, 0, -12), "leg_far": (3, 0, -4)}, fx=[("dust", 66, FLOOR, 1)]),
+        pose(lean=-4, move=(2, 0), nod=-2, arm=6, wand=4, tank=(1, 0, 2, 0),
+             legs={"leg_near": (3, 0, -5)}),
+        pose(lean=3, move=(1, 0), nod=3, arm=-2, wand=-2, heave=1, tank=(0, 1, -1, 0)),
+    ]
+
+
+def panic():
+    """Nearly empty and leaking: he can't keep still. Hunched, the mask jerking round to look at the tank, his far
+    hand slapping at its cap to stop it, the wand dangling forgotten, a jet of gas spurting out past his hand and his
+    breath coming fast and fogging the glass, his boots jittering. 10 fps, looping."""
+    frames = []
+    for i in range(8):
+        t = i / 8 * math.tau
+        slap = i % 2
+        frames.append(pose(
+            lean=6 + 2 * math.sin(2 * t), sy=.97, nod=(-10 if slap else 4) + 2 * math.sin(t), heave=1.2 * slap,
+            move=((-1, 1)[slap], 0), arm=-16 + 2 * math.sin(t), wand=22 + 3 * math.sin(t + 1),
+            far=(103, 2) if slap else (96, 12), far_elbow=1, fog=.35 + .15 * math.sin(t),
+            tank=(.5 * (1 - 2 * slap), .5, 2 * math.sin(2 * t), -.04), gauge=.05 + .05 * slap,
+            legs={"leg_near": (0, -1.5 * slap, 3 * math.sin(2 * t)), "leg_far": (0, -1.5 * (1 - slap), -3 * math.sin(2 * t))},
+            fx=[("vent", 4 + 2 * slap, i * .8, 1.1)] + ([("puff", 1.4, -3, 2)] if i % 4 == 3 else [])))
+    return frames
+
+
 def defeat():
     """The tank ruptures: he's thrown upright in his own gas and whirls round flailing, the mask fogging up; he wobbles,
     tips over backwards and sits down hard. The wand flies out of his hands, spins and clatters onto the floor, still
@@ -1092,6 +1295,10 @@ ANIMATIONS = {
     "stagger": (stagger, 14, False),
     "defeat": (defeat, 10, False),
     "charge": (charge, 16, True),
+    "brace": (brace, 8, True),
+    "knocked": (knocked, 12, False),
+    "shoved": (shoved, 12, False),
+    "panic": (panic, 10, True),
 }
 # The stream, the canister and the cloud: (make, frames, fps)
 SPRITES = {
@@ -1102,6 +1309,8 @@ SPRITES = {
     "canister": (canister_spin, 3, 14),
     "cloud": (cloud, 6, 8),
     "mine": (mine, 3, 6),
+    "grenade": (grenade, 4, 14),
+    "chain": (chained, 4, 12),
 }
 
 

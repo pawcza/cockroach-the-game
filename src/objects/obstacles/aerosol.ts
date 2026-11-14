@@ -16,8 +16,8 @@ const CHAIN_FUSE = 100;
 /**
  * The aerosol can: it stands in its lane like any blocker (run into it and that's that). Shot, it rattles for a moment
  * with its blast's reach drawn round it, then goes off: every enemy that close, in either lane, goes with it (another
- * can sets off its own), and so does the roach if it is that close: don't shoot it point-blank. Sounds (placeholders):
- * the Eksterminator's canister pop for the shot, his tank burst for the blast.
+ * can sets off its own), and so does the roach if it is that close: don't shoot it point-blank. Sounds: a rattle for
+ * the shot, a flash bang for the blast.
  */
 export function spawnAerosol(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -40,7 +40,7 @@ export function spawnAerosol(kit: ObstacleKit, plan: EnemyPlan): void {
     const fuse = by === 'blast' ? CHAIN_FUSE : TIMINGS.aerosol.fuse;
     lit = true;
     can.setFrame(frameOf('aerosol', 1));
-    kit.audio.playSfx('ex-canister-pop', VOL.obstacle);
+    kit.audio.playSfx('aerosol-rattle', VOL.obstacle);
     const cy = can.y - 20;
     const started = scene.runTime;
     // The fuse: it rattles, its blast's reach drawn round it and closing in, then it goes
@@ -61,7 +61,7 @@ export function spawnAerosol(kit: ObstacleKit, plan: EnemyPlan): void {
       fx.burst('smoke', can.x, cy, 8, radius * 0.5, { depth: DEPTH.POPUP - 0.5, speed: [30, 90], life: 700 });
       fx.burst('chunk-shell', can.x, cy, 8, 10, { depth: DEPTH.POPUP, speed: [160, 320], gravity: 600 });
       scene.cameras.main.shake(180, 0.008);
-      kit.audio.playSfx('ex-tank-burst', VOL.obstacle * 1.2);
+      kit.audio.playSfx('aerosol-blast', VOL.obstacle * 1.2);
       scene.blast(can, radius, 'aerosol');
       scene.time.delayedCall(90, () => can.destroy());
     };

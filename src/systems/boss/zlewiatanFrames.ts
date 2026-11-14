@@ -3,7 +3,7 @@
  * Native px; positions are from the frames' pivot, the boss's point in the fight.
  */
 
-export type ZlewiatanAnim = 'emerge' | 'idle' | 'spit-block' | 'spit-pierog' | 'spit-carp' | 'hurt' | 'rage-enter' | 'rage' | 'rage-spit' | 'charge' | 'defeat' | 'flash-bpc' | 'drain' | 'idle-bp' | 'spit-block-bp' | 'spit-pierog-bp' | 'flash-bp' | 'rise-bp' | 'idle-bc' | 'spit-block-bc' | 'spit-carp-bc' | 'flash-bc' | 'rise-bc' | 'idle-pc' | 'spit-pierog-pc' | 'spit-carp-pc' | 'flash-pc' | 'rise-pc' | 'idle-b' | 'spit-block-b' | 'flash-b' | 'rise-b' | 'defeat-b' | 'idle-p' | 'spit-pierog-p' | 'flash-p' | 'rise-p' | 'defeat-p' | 'idle-c' | 'spit-carp-c' | 'flash-c' | 'rise-c' | 'defeat-c' | 'slab' | 'radiator' | 'skwarka' | 'bone' | 'bubble' | 'bubble-pop' | 'smietana' | 'puddle' | 'mark' | 'spark' | 'pierogi' | 'roll-block' | 'roll-pierog' | 'flop-carp';
+export type ZlewiatanAnim = 'emerge' | 'idle' | 'spit-block' | 'spit-pierog' | 'spit-carp' | 'hurt' | 'rage-enter' | 'rage' | 'rage-spit' | 'charge' | 'defeat' | 'flash-bpc' | 'drain' | 'idle-bp' | 'spit-block-bp' | 'spit-pierog-bp' | 'flash-bp' | 'rise-bp' | 'idle-bc' | 'spit-block-bc' | 'spit-carp-bc' | 'flash-bc' | 'rise-bc' | 'idle-pc' | 'spit-pierog-pc' | 'spit-carp-pc' | 'flash-pc' | 'rise-pc' | 'idle-b' | 'spit-block-b' | 'flash-b' | 'rise-b' | 'defeat-b' | 'idle-p' | 'spit-pierog-p' | 'flash-p' | 'rise-p' | 'defeat-p' | 'idle-c' | 'spit-carp-c' | 'flash-c' | 'rise-c' | 'defeat-c' | 'slab' | 'radiator' | 'skwarka' | 'skwarka-hop' | 'skwarka-sizzle' | 'bone' | 'bubble' | 'bubble-pop' | 'smietana' | 'puddle' | 'mark' | 'spark' | 'pierogi' | 'roll-block' | 'roll-pierog' | 'flop-carp' | 'roll-block-1' | 'roll-pierog-1' | 'flop-carp-1' | 'roll-block-2' | 'roll-pierog-2' | 'flop-carp-2' | 'fall-block' | 'fall-pierog' | 'fall-carp';
 
 /** Frame counts and speeds, as baked. */
 export const ZLEWIATAN_ANIMS: Record<ZlewiatanAnim, { frames: number; fps: number; loop: boolean }> = {
@@ -53,6 +53,8 @@ export const ZLEWIATAN_ANIMS: Record<ZlewiatanAnim, { frames: number; fps: numbe
   'slab': { frames: 12, fps: 8, loop: true },
   'radiator': { frames: 8, fps: 8, loop: true },
   'skwarka': { frames: 4, fps: 12, loop: true },
+  'skwarka-hop': { frames: 4, fps: 12, loop: true },
+  'skwarka-sizzle': { frames: 4, fps: 12, loop: true },
   'bone': { frames: 4, fps: 12, loop: true },
   'bubble': { frames: 4, fps: 6, loop: true },
   'bubble-pop': { frames: 3, fps: 16, loop: false },
@@ -64,6 +66,15 @@ export const ZLEWIATAN_ANIMS: Record<ZlewiatanAnim, { frames: number; fps: numbe
   'roll-block': { frames: 8, fps: 12, loop: true },
   'roll-pierog': { frames: 8, fps: 14, loop: true },
   'flop-carp': { frames: 8, fps: 16, loop: true },
+  'roll-block-1': { frames: 8, fps: 12, loop: true },
+  'roll-pierog-1': { frames: 8, fps: 14, loop: true },
+  'flop-carp-1': { frames: 8, fps: 16, loop: true },
+  'roll-block-2': { frames: 8, fps: 12, loop: true },
+  'roll-pierog-2': { frames: 8, fps: 14, loop: true },
+  'flop-carp-2': { frames: 8, fps: 16, loop: true },
+  'fall-block': { frames: 6, fps: 12, loop: true },
+  'fall-pierog': { frames: 6, fps: 12, loop: true },
+  'fall-carp': { frames: 6, fps: 12, loop: true },
 };
 
 /** The frame each spit lets its shot go on, and where that head's mouth is then. */

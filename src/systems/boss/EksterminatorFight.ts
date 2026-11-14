@@ -100,12 +100,12 @@ const CLOUD_FOOT_PX = 60;
 const BULLET_SCALE = 0.4;
 
 const SFX = {
-  spray: 'ex-pressure', throw: 'ex-lob', land: 'ex-canister-pop', shotDown: 'shot-down', parry: 'przebicie',
+  spray: 'ex-pressure', throw: 'ex-lob', land: 'ex-canister-pop', shotDown: 'shot-down', parry: 'boss-parry',
   tank: 'ex-tank-ping', tankHot: 'bullet-hit', vent: 'ex-tank-vent', pump: 'ex-pump', closeCall: 'na-styk',
-  burst: 'ex-tank-burst', mask: 'ex-mask', victory: 'boss-victory', shot: 'boss-pistol', knock: 'vs-slam-2',
-  shove: 'vs-slam-1', whiff: 'bullet-ricochet', struck: 'vs-slam-2', hiss: 'bigos-sizzle',
+  burst: 'ex-tank-burst', mask: 'ex-mask', victory: 'boss-victory', shot: 'boss-pistol', knock: 'ex-knock',
+  shove: 'ex-shove', whiff: 'ex-whiff', struck: 'ex-struck', mineArm: 'ex-mine-arm', leak: 'ex-leak', charge: 'ex-charge',
+  rush: 'ex-rush', bounce: 'ex-grenade-bounce',
 };
-const BGM = 'boss-bgm';
 
 interface Can {
   release: number; flight: number; lane: Lane; land: Throw['land']; from: { x: number; y: number };
@@ -154,6 +154,8 @@ export class EksterminatorFight extends BossFight {
   private anim: Anim = { anim: 'walk', start: 0, then: null };
   private reelUntil = -1;
   private reelStart = -1;
+  /** What he reels in: the stagger, his knocked or shoved frames. */
+  private reelAnim: EksAnim = 'stagger';
 
   private current: Step | null = null;
   private lobsSeen = 0;
@@ -249,7 +251,7 @@ export class EksterminatorFight extends BossFight {
     this.play('idle', null);
     this.state = 'fighting';
     try {
-      if (this.ctx.scene.cache.audio.exists(BGM)) this.ctx.audio.switchBGM(BGM);
+      if (this.ctx.scene.cache.audio.exists(this.ctx.boss.music)) this.ctx.audio.switchBGM(this.ctx.boss.music);
     } catch {
       // the fight goes on without its music
     }
@@ -544,7 +546,7 @@ export class EksterminatorFight extends BossFight {
       can.sprite = null;
       this.stepAt(t.at, () => {
         if (t.gone) return;
-        this.sfx(SFX.hiss, 0.5);
+        this.sfx(SFX.mineArm, 0.5);
         t.gas = scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame('cloud')).setScale(S).setDepth(DEPTH.PICKUPS + 1);
       });
       return;
@@ -734,7 +736,7 @@ export class EksterminatorFight extends BossFight {
       this.pressure = [{ from: this.clock, to: this.clock + KNOCK_OPEN_MS }];
       this.stageFree = this.clock + STAGGER_MS + KNOCK_OPEN_MS;
       this.play('idle', null);
-      this.reel(STAGGER_MS + 300);
+      this.reel(STAGGER_MS + 300, 'knocked');
       glint(scene, this.boss.x + EKS_POINTS.nozzleTop.x * S, this.ctx.floorBottomY + EKS_POINTS.nozzleTop.y * S, 0xffffff, 34, 320);
       this.popupAt(this.boss.x, this.ctx.floorBottomY - 170, 'WYTRĄCONY!', '#7fe0ff', 16);
       this.sfx(SFX.knock, 0.8);
@@ -745,7 +747,7 @@ export class EksterminatorFight extends BossFight {
     // A shove: he is sent reeling back home
     this.move = { from: this.bx, to: DIST[FAR], t0: this.clock, ms: SHOVE_MS, pos: null };
     this.director.moved(FAR);
-    this.reel(SHOVE_MS);
+    this.reel(SHOVE_MS, 'shoved');
     this.popupAt(this.boss.x, this.ctx.floorBottomY - 170, 'ODEPCHNIĘTY!', '#ffb070', 12);
     this.sfx(SFX.shove, 0.7);
     this.hit('shove', false, this.boss.x - 60, this.ctx.floorBottomY - 60);
@@ -784,12 +786,15 @@ export class EksterminatorFight extends BossFight {
     const out = made[0].lane;
     this.stepAt(at, () => {
       this.charge = { t0: this.clock, c, out, back: out === 'top' ? 'bottom' : 'top' };
-      this.play('charge', null);
-      this.sfx(SFX.pump, 0.6, 0.7);
+      this.play('brace', null);
+      this.sfx(SFX.charge, 0.6);
       glint(this.ctx.scene, this.boss.x, this.laneY(out) - 120, 0xff5a3c, 26, 320);
     });
-    this.stepAt(at + c.go, () => this.sfx(SFX.knock, 0.6));
-    this.stepAt(at + c.back, () => this.sfx(SFX.knock, 0.6));
+    this.stepAt(at + c.go, () => {
+      this.play('charge', null);
+      this.sfx(SFX.rush, 0.6);
+    });
+    this.stepAt(at + c.back, () => this.sfx(SFX.rush, 0.6));
   }
 
   private drawCharge(): void {
@@ -830,10 +835,10 @@ export class EksterminatorFight extends BossFight {
     this.pressure = [{ from: this.clock, to: this.clock + KNOCK_OPEN_MS }];
     this.stageFree = this.clock + STAGGER_MS + KNOCK_OPEN_MS;
     this.play('idle', null);
-    this.reel(STAGGER_MS + 300);
+    this.reel(STAGGER_MS + 300, 'shoved');
     glint(this.ctx.scene, this.ctx.player.x + 40, this.ctx.player.y - 30, 0xffffff, 34, 320);
     this.popupAt(this.holdX + 120, this.ctx.floorBottomY - 170, 'ZDERZENIE!', '#7fe0ff', 16);
-    this.sfx(SFX.knock, 0.9);
+    this.sfx(SFX.shove, 0.9);
     this.hit('crash', false, this.ctx.player.x + 40, this.ctx.player.y - 30);
   }
 
@@ -847,7 +852,7 @@ export class EksterminatorFight extends BossFight {
     this.stepAt(at, () => this.play('lob', 'rest'));
     this.stepAt(at + LOB_RELEASE_MS, () => {
       const p = this.world(releasePoint(this.director.pos));
-      const sprite = this.ctx.scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame('canister')).setScale(S).setDepth(DEPTH.PICKUPS + 2);
+      const sprite = this.ctx.scene.add.sprite(p.x, p.y, EKS_TEXTURE, eksFrame('grenade')).setScale(S).setDepth(DEPTH.PICKUPS + 2);
       this.grenade = { sprite, t0: at, bounces, lanes: bounces.map(b => resolve(b.lane, roachLane)), threat };
       this.sfx(SFX.throw, 0.5);
     });
@@ -855,7 +860,7 @@ export class EksterminatorFight extends BossFight {
       const g = this.grenade;
       if (!g) return;
       const last = k === bounces.length - 1;
-      this.sfx(SFX.land, last ? 0.8 : 0.5);
+      this.sfx(SFX.bounce, last ? 0.8 : 0.5);
       const w = this.world({ x: b.x, y: LANE_Y[g.lanes[k]] });
       this.puff(w.x, w.y - 6, last ? 8 : 4, last ? 26 : 14);
       if (last) glint(this.ctx.scene, w.x, w.y - 12, GAS_GLOW, 22, 260);
@@ -891,7 +896,7 @@ export class EksterminatorFight extends BossFight {
       pos = { x: b[last].x * (1 - f), y: LANE_Y[g.lanes[last]] - 6 };
     }
     const w = this.world(pos);
-    g.sprite.setPosition(w.x, w.y).setFrame(eksFrame('canister', frameAt('canister', this.clock)));
+    g.sprite.setPosition(w.x, w.y).setFrame(eksFrame('grenade', frameAt('grenade', this.clock)));
     if (pos.x < -400) {
       g.sprite.destroy();
       this.grenade = null;
@@ -917,7 +922,7 @@ export class EksterminatorFight extends BossFight {
     const c = timed.chain!;
     this.stepAt(at, () => this.play('lob', 'rest'));
     this.stepAt(at + c.go, () => {
-      const sprite = this.ctx.scene.add.sprite(0, 0, EKS_TEXTURE, eksFrame('canister')).setScale(S).setDepth(DEPTH.PICKUPS + 2);
+      const sprite = this.ctx.scene.add.sprite(0, 0, EKS_TEXTURE, eksFrame('chain')).setScale(S).setDepth(DEPTH.PICKUPS + 2);
       this.chain = {
         sprite, trail: new Trail(this.ctx.scene, GAS_GLOW, 260, 8, DEPTH.PICKUPS + 1), t0: at, c, out: roachLane,
         back: roachLane === 'top' ? 'bottom' : 'top',
@@ -937,7 +942,8 @@ export class EksterminatorFight extends BossFight {
       return;
     }
     const w = this.world({ x: at.x, y: LANE_Y[at.out ? ch.out : ch.back] - 10 });
-    ch.sprite.setPosition(w.x, w.y).setFrame(eksFrame('canister', frameAt('canister', this.clock)));
+    // Its chain trails behind it: to the right on the way out, to the left on the way back
+    ch.sprite.setPosition(w.x, w.y).setFrame(eksFrame('chain', frameAt('chain', this.clock))).setFlipX(!at.out);
     ch.trail.push(w.x, w.y);
   }
 
@@ -947,9 +953,13 @@ export class EksterminatorFight extends BossFight {
     return { x: this.boss.x + EKS_POINTS.tank.x * S, y: this.ctx.floorBottomY + EKS_POINTS.tank.y * S };
   }
 
-  /** He reels: his stagger over whatever he is doing, which goes on underneath. */
-  private reel(ms = STAGGER_MS): void {
-    if (this.clock >= this.reelUntil) this.reelStart = this.clock;
+  /** He reels: his stagger (or the knock's or the shove's own frames) over whatever he is doing, which goes on
+   * underneath. A knock or a shove takes over a stagger already playing. */
+  private reel(ms = STAGGER_MS, anim: EksAnim = 'stagger'): void {
+    if (this.clock >= this.reelUntil || (anim !== 'stagger' && anim !== this.reelAnim)) {
+      this.reelStart = this.clock;
+      this.reelAnim = anim;
+    }
     this.reelUntil = Math.max(this.reelUntil, this.clock + ms);
   }
 
@@ -981,7 +991,7 @@ export class EksterminatorFight extends BossFight {
     if (r.rage !== null && !r.won) {
       // Rage: a step faster, the tank whistling higher each time
       this.popupAt(this.boss.x, this.ctx.floorBottomY - 200, 'SZYBCIEJ!', '#ff5a3c', 16);
-      this.sfx(SFX.hiss, 0.8, 1 + (1 - r.rage) * 2.5);
+      this.sfx(SFX.leak, 0.8, 1 + (1 - r.rage) * 2.5);
       this.puff(this.tank.x, this.tank.y - 20, 10, 40);
     }
     if (r.won) this.defeat();
@@ -1061,6 +1071,7 @@ export class EksterminatorFight extends BossFight {
   private defeat(): void {
     const { scene } = this.ctx;
     this.state = 'victory';
+    this.ctx.audio.fadeOutBGM();
     this.clearStage();
     for (const b of this.bullets) b.sprite.destroy();
     this.bullets = [];
@@ -1280,8 +1291,8 @@ export class EksterminatorFight extends BossFight {
   private drawBoss(): void {
     let { anim, start } = this.anim;
     if (this.clock < this.reelUntil && this.state !== 'victory') {
-      // Reeling: the stagger's frames, played through once and held on its last
-      anim = 'stagger';
+      // Reeling: its frames, played through once and held on the last
+      anim = this.reelAnim;
       start = this.reelStart;
     }
     const spec = EKS_ANIMS[anim];
@@ -1297,8 +1308,11 @@ export class EksterminatorFight extends BossFight {
       }
       index = Phaser.Math.Clamp(index, 0, spec.frames - 1);
     }
-    // At rest under pressure he breathes with the tank swollen and whistling
-    if (anim === 'idle' && (this.pressured() || this.director.tempo < 1) && this.fighting) {
+    // At rest leaking, in the finale, he panics; under pressure he breathes with the tank swollen and whistling
+    if (anim === 'idle' && this.fighting && this.director.finale) {
+      anim = 'panic';
+      index = Math.floor((this.clock * EKS_ANIMS.panic.fps) / 1000) % EKS_ANIMS.panic.frames;
+    } else if (anim === 'idle' && (this.pressured() || this.director.tempo < 1) && this.fighting) {
       anim = 'idle-hot';
       index = Math.floor((this.clock * EKS_ANIMS['idle-hot'].fps) / 1000) % EKS_ANIMS['idle-hot'].frames;
     }

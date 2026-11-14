@@ -7,7 +7,7 @@ import { ObstacleKit } from './ObstacleKit';
 /**
  * The mop (mopSweep in behaviours.ts): soapy water kills roaches. It waits raised over its lane ahead of its spot,
  * dripping suds; then a warning lies along the stretch it will sweep, it presses down and sweeps towards the runner,
- * strings splayed, leaving suds behind, and lifts. Sounds (placeholders): the spray's hiss as it presses down.
+ * strings splayed, leaving suds behind, and lifts. Sounds: a wet slap and swish as it presses down.
  */
 export function spawnMop(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
@@ -36,7 +36,7 @@ export function spawnMop(kit: ObstacleKit, plan: EnemyPlan): void {
     if (now.pose === 'windup' && before.pose === 'idle') fx.play('flare-big-cyan', mop.x, now.y - mop.displayHeight * 0.3, { depth: DEPTH.PICKUPS + 1 });
     if (now.pose === 'strike') {
       fx.play('splash', mop.x, floor, { depth: DEPTH.OBSTACLES + 1 });
-      if (kit.isAhead(mop)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
+      if (kit.isAhead(mop)) kit.audio.playSfx('mop-slap', VOL.obstacle * 0.4);
     }
   });
 }

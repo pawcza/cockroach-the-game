@@ -125,14 +125,15 @@ const SFX = {
   hit: 'bullet-hit',
   glance: 'bullet-ricochet',
   shotDown: 'shot-down',
-  parry: 'przebicie',
-  smash: 'vs-slam-2',
+  parry: 'boss-parry',
+  smash: 'zl-head-smash',
+  headFall: 'zl-head-fall',
+  headBounce: 'zl-head-bounce',
   struck: 'vs-slam-1',
   closeCall: 'na-styk',
   defeat: 'boss-defeat',
   victory: 'boss-victory',
 };
-const BGM = 'boss-bgm';
 
 type Mover = {
   kind: 'mover';
@@ -284,7 +285,7 @@ export class ZlewiatanSoloFight extends BossFight {
     const carpFront = this.headFrontX('carp', this.flyY('bottom'));
     this.scale = Math.max(0.5, (carpFront - this.holdX) / REF.front.carp);
     this.state = 'fighting';
-    this.ctx.audio.switchBGM(BGM);
+    this.ctx.audio.switchBGM(this.ctx.boss.music);
     this.showBars();
     this.advance();
   }
@@ -513,12 +514,12 @@ export class ZlewiatanSoloFight extends BossFight {
   private stepStartOf(m: Mover): number { return m.t - m.h.t; }
 
   /** A bounced crackling before it settles: leaping from the mouth to each landing on a steady beat, each leap lower. */
-  private bouncePos(m: Mover): { x: number; y: number; rolling: boolean } {
+  private bouncePos(m: Mover): { x: number; y: number; rolling: boolean; u: number } {
     const t0 = this.stepStartOf(m);
     const lands = m.h.landings!;
     const at = (i: number) => t0 + lands[i].at;
     const fy = (i: number) => this.flyY(lands[i].lane) + 8;
-    if (this.clock >= at(lands.length - 1)) return { x: this.moverX(m), y: this.flyY(m.h.lane) + 8, rolling: true };
+    if (this.clock >= at(lands.length - 1)) return { x: this.moverX(m), y: this.flyY(m.h.lane) + 8, rolling: true, u: 1 };
     let i = 0;
     while (i < lands.length && this.clock >= at(i)) i++;
     const a = i === 0 ? m.mouth : { x: this.worldX(lands[i - 1].x), y: fy(i - 1) };
@@ -528,6 +529,7 @@ export class ZlewiatanSoloFight extends BossFight {
       x: Phaser.Math.Linear(a.x, this.worldX(lands[i].x), u),
       y: Phaser.Math.Linear(a.y, fy(i), u) - Math.sin(u * Math.PI) * CRACKLING_ARCS[Math.min(i, CRACKLING_ARCS.length - 1)],
       rolling: false,
+      u: i === 0 ? 0.5 : u,
     };
   }
 
@@ -545,8 +547,11 @@ export class ZlewiatanSoloFight extends BossFight {
     const age = this.clock - m.fire;
     const k = Math.min(1, age / SETTLE_MS);
     let x = this.moverX(m);
+    let hop: number | null = null;
     if (m.h.bounce) {
       const pos = this.bouncePos(m);
+      // Between landings: squashed as it lands, stretched as it leaps off, tumbling in the air
+      if (!pos.rolling) hop = pos.u < 0.12 || pos.u > 0.94 ? 0 : pos.u < 0.28 ? 1 : 2 + (Math.floor((this.clock * 12) / 1000) % 2);
       m.sprite.setPosition(Math.round(pos.x), Math.round(pos.y));
       // Each landing clicks and sparks; the settle lands harder
       const lands = m.h.landings!;
@@ -565,7 +570,7 @@ export class ZlewiatanSoloFight extends BossFight {
     }
     const kind = flyKind(m.h) as ZlewiatanAnim;
     const spec = ZLEWIATAN_ANIMS[kind];
-    m.sprite.setFrame(zlewiatanFrame(kind, Math.floor((age * spec.fps) / 1000) % spec.frames));
+    m.sprite.setFrame(hop !== null ? zlewiatanFrame('skwarka-hop', hop) : zlewiatanFrame(kind, Math.floor((age * spec.fps) / 1000) % spec.frames));
     m.trail?.push(m.sprite.x, m.sprite.y);
     if (m.h.kind === 'slab' && !m.landed && k >= 1) {
       m.landed = true;
@@ -699,6 +704,8 @@ export class ZlewiatanSoloFight extends BossFight {
       this.puddleZone.show(this.floorY(lane), this.holdX - PUDDLE_HALF, this.holdX + PUDDLE_HALF, 'kill');
       if (this.onLane(lane) && !this.ctx.player.isDashing && !this.ctx.player.isHopping) this.struck([lob.puddle]);
     } else if (lob.h.kind === 'crackling' && !lob.resolved && this.clock >= lob.t) {
+      const sizzle = ZLEWIATAN_ANIMS['skwarka-sizzle'];
+      lob.puddle?.setFrame(zlewiatanFrame('skwarka-sizzle', Math.floor((this.clock * sizzle.fps) / 1000) % sizzle.frames));
       if (this.onLane(lane) && !this.ctx.player.isDashing) {
         this.struck(lob.puddle ? [lob.puddle] : []);
         return;
@@ -729,8 +736,8 @@ export class ZlewiatanSoloFight extends BossFight {
     getFx(scene).play('dust-land', g.x, floor, { depth: DEPTH.PICKUPS + 1 });
     sparkBurst(scene, g.x, floor - 6, HEAD_COLOR.pierog, atRoach ? 12 : 6, -1, atRoach ? 44 : 28);
     if (atRoach) {
-      // It bursts on the spot for its moment
-      lob.puddle = scene.add.sprite(g.x, floor - 10, ZLEWIATAN_TEXTURE, zlewiatanFrame('skwarka')).setScale(SPRITE_SCALE).setDepth(DEPTH.PICKUPS + 1);
+      // It sizzles on the spot for its moment
+      lob.puddle = scene.add.sprite(g.x, floor - 10, ZLEWIATAN_TEXTURE, zlewiatanFrame('skwarka-sizzle')).setScale(SPRITE_SCALE).setDepth(DEPTH.PICKUPS + 1);
       lob.until = lob.t + lob.h.lasts;
     }
     audio.playSfx(SFX.splat, atRoach ? VOL.boss * 0.8 : VOL.boss * 0.4);
@@ -738,8 +745,12 @@ export class ZlewiatanSoloFight extends BossFight {
 
   // ── The loose head ────────────────────────────────────────────────
 
+  /** Its roll (the carp's flop), cracked at two thirds of its health left and broken open at one third. */
   private looseAnim(head: Head): ZlewiatanAnim {
-    return head === 'block' ? 'roll-block' : head === 'pierog' ? 'roll-pierog' : 'flop-carp';
+    const base = head === 'block' ? 'roll-block' : head === 'pierog' ? 'roll-pierog' : 'flop-carp';
+    const loose = this.director.loose;
+    const left = loose && loose.head === head ? loose.hp / LOOSE_HP[head] : 1;
+    return (left <= 1 / 3 ? `${base}-2` : left <= 2 / 3 ? `${base}-1` : base) as ZlewiatanAnim;
   }
 
   private showLoose(on: boolean): void {
@@ -791,7 +802,7 @@ export class ZlewiatanSoloFight extends BossFight {
     while (l.landed < lands.length && this.clock >= l.start + lands[l.landed].at) {
       const land = lands[l.landed++];
       getFx(this.ctx.scene).play('dust-land', this.worldX(land.x), this.floorY(land.lane), { depth: DEPTH.PICKUPS + 1 });
-      this.ctx.audio.playSfx(SFX.slabLand, 0.35);
+      this.ctx.audio.playSfx(SFX.headBounce, 0.35);
     }
     if (l.resolved) return;
     if (pos.rolling !== null) {
@@ -856,7 +867,7 @@ export class ZlewiatanSoloFight extends BossFight {
     const restY = this.floorY('bottom') - LOOSE_HALF;
     this.showLoose(true);
     const sprite = this.looseSprite!;
-    sprite.setFrame(zlewiatanFrame(this.looseAnim(head))).setPosition(from.x, from.y).setVisible(true);
+    sprite.setFrame(zlewiatanFrame(`fall-${head}`)).setPosition(from.x, from.y).setVisible(true);
     this.looseRest = null;
     getFx(scene).burst('smoke', from.x, from.y, 6, 26, { depth: DEPTH.PICKUPS + 2, speed: [30, 90], life: 700 });
     this.explosion(from.x, from.y);
@@ -869,11 +880,14 @@ export class ZlewiatanSoloFight extends BossFight {
     const tick = () => {
       const k = Math.min(1, (this.clock - t0) / fall);
       sprite.setPosition(Math.round(Phaser.Math.Linear(from.x, restX, k)), Math.round(Phaser.Math.Linear(from.y, restY, k) - Math.sin(k * Math.PI) * 90));
+      const tumble = ZLEWIATAN_ANIMS[`fall-${head}`];
+      sprite.setFrame(zlewiatanFrame(`fall-${head}`, Math.floor(((this.clock - t0) * tumble.fps) / 1000) % tumble.frames));
       if (k < 1) this.stepAt(this.clock + 16, tick);
       else {
+        sprite.setFrame(zlewiatanFrame(this.looseAnim(head)));
         this.looseRest = { x: restX, y: restY };
         getFx(scene).play('dust-land', restX, this.floorY('bottom'), { depth: DEPTH.PICKUPS + 1 });
-        audio.playSfx(SFX.slabLand, 0.6);
+        audio.playSfx(SFX.headBounce, 0.6);
         scene.cameras.main.shake(SHAKE_MS, SHAKE);
       }
     };
@@ -931,7 +945,7 @@ export class ZlewiatanSoloFight extends BossFight {
     const at = this.headPoint(head);
     this.freeze(FREEZE_FALL_MS);
     scene.cameras.main.shake(SHAKE_MS * 3, SHAKE * 2.5);
-    audio.playSfx(SFX.smash, 0.9);
+    audio.playSfx(SFX.headFall, 0.9);
     sparkBurst(scene, at.x, at.y, HEAD_COLOR[head], 16, -1, 80);
     this.popupAt(at.x, at.y - 60, `${LABEL[head]} ODPADA!`, '#ff9a3c', 16);
     this.score(FALL_SCORE);
@@ -977,6 +991,7 @@ export class ZlewiatanSoloFight extends BossFight {
   private defeat(head: Head): void {
     const { scene, audio, player } = this.ctx;
     this.state = 'victory';
+    audio.fadeOutBGM();
     const anim = `defeat-${head[0]}` as ZlewiatanAnim;
     this.playBody(anim, this.clock, false, null);
     audio.playSfx(SFX.defeat, VOL.big);

@@ -13,8 +13,8 @@ const SHADOW_H = 12;
 /**
  * The gull (swoop in behaviours.ts, the pigeon's rhythm, longer and lower): it glides high over the shore, screeches and
  * rises with its beak open (the wind-up; its shadow grows on the lane it picked), dives into that lane and skims along
- * it at the runner, then climbs away. Shot in its dive, it drops; up high a bullet goes under it. Sounds (placeholders):
- * the pigeon's.
+ * it at the runner, then climbs away. Shot in its dive, it drops; up high a bullet goes under it. Sounds: its
+ * own screech.
  */
 export function spawnGull(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
@@ -24,7 +24,7 @@ export function spawnGull(kit: ObstacleKit, plan: EnemyPlan): void {
   gull.setData('flies', true);
   const shadow = gull.getData('shadow') as Phaser.GameObjects.Image | undefined;
   shadow?.setDisplaySize(SHADOW_W, SHADOW_H);
-  kit.playSoundOnVisible(gull, 'bird-sfx', 0.5);
+  kit.playSoundOnVisible(gull, 'gull-screech', 0.5);
 
   // The stretch it will skim: warned from its screech on, deadly while it hurts (the kill-zone look)
   const hazard = kit.hazard(gull);
@@ -42,7 +42,7 @@ export function spawnGull(kit: ObstacleKit, plan: EnemyPlan): void {
     if (now.pose === 'windup' && before && kit.isOnScreen(gull)) {
       fx.play('flare-big-white', gull.x - gull.displayWidth * 0.3, gull.y - gull.displayHeight * 0.5, { depth: DEPTH.PICKUPS + 1 });
       fx.play('shield', gull.x, gull.getCenter().y, { depth: DEPTH.PICKUPS + 1 });
-      if (kit.isAhead(gull)) kit.audio.playSfx('bird-sfx', VOL.obstacle * 0.6);
+      if (kit.isAhead(gull)) kit.audio.playSfx('gull-screech', VOL.obstacle * 0.6);
     }
   });
 }

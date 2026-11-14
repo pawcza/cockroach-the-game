@@ -1,7 +1,7 @@
 /**
  * DJ Bigos, Król remizy. He stands at the right behind his booth with a speaker on each lane in front of him, and
- * everything happens on his beat: one clock at 120 BPM drives his groove, the speakers' thump, the beat pips under the
- * bar and every attack, which lands on a beat the player can count to.
+ * everything happens on his beat: one clock at 120 BPM, kept on his own track's beat (beatLock.ts), drives his groove,
+ * the speakers' thump, the beat pips under the bar and every attack, which lands on a beat the player can count to.
  *
  * He is the fight the dash was earned for. The dash is a lunge down the lane into whatever stands at its end: a speaker
  * takes a hit every time, cracks, sparks and drops his bar; a ring or a record met on the way is sent straight back
@@ -33,8 +33,9 @@ import { NEAR_MISS_SCORE } from '../RiskBonus';
 import { BossFight, BossFightContext } from './BossFight';
 import {
   BIGOS_ANIMS, BIGOS_CAUSE_KEY, BIGOS_GLOVE, BIGOS_HAND, BIGOS_HIT, BIGOS_LAYOUT as L, BIGOS_TEXTURE, BigosAnim,
-  BigosCause, bigosFrame,
+  bigosBallFrame, BigosCause, bigosFrame,
 } from './bigosConfig';
+import { lockStep, startSeek } from './beatLock';
 import { glint, Halo, sparkBurst, Trail } from './bossTelegraph';
 import {
   Attack, BEAT_MS, BigosDirector, buildPhases, DASH_MS, DROP_GRACE_MS, DROP_TIGHT_BONUS, DROP_TIGHT_MS, DROP_WAVE_BREAK_MS,
@@ -70,10 +71,9 @@ const BRAKE_MS = 800;
 const RECORD_HEIGHT = 26;
 /** The lunge stops this far short of what it hits, px: its head on the cabinet. */
 const LUNGE_SHORT = 6;
-/** A hit thing wobbles this long, this much; a shrieking speaker shakes this much. */
+/** A hit thing wobbles this long, this much. */
 const WOBBLE_MS = 220;
 const WOBBLE_PX = 6;
-const SHRIEK_PX = 3;
 /** A hit flashes the speaker white this long (the first frame of its breaking). */
 const FLASH_MS = 80;
 /** The fight stops for a moment on every hit: a lunge, a thing sent back, a wreck. */
@@ -131,23 +131,20 @@ const SFX = {
   point: 'bigos-scratch',
   blast: 'bigos-blast',
   beam: 'bigos-beam',
-  bonk: 'bullet-ricochet',
-  overload: 'bigos-sizzle',
-  shriek: 'bigos-sizzle',
+  bonk: 'bigos-bonk',
+  overload: 'bigos-overload',
+  shriek: 'bigos-shriek',
   wreck: 'bigos-wreck',
   closeCall: 'na-styk',
   land: 'bigos-thump',
-  defeat: 'boss-victory',
-  beat: 'bigos-thump',
+  defeat: 'bigos-defeat',
   charge: 'bigos-charge',
   throw: 'bigos-scratch',
-  parry: 'przebicie',
+  parry: 'boss-parry',
   lunge: 'vs-slam-2',
   hurt: 'vs-slam-2',
   hit: 'vs-slam-1',
 };
-/** A stand-in: boss-bgm isn't on his 120 BPM, so the thump on every beat is what keeps it audible for now. */
-const BGM = 'boss-bgm';
 
 interface Speaker {
   sprite: Phaser.GameObjects.Sprite;
@@ -161,7 +158,6 @@ interface Speaker {
   chargeUntil: number;
   shriekUntil: number;
   glow: Halo;
-  smokeAt: number;
 }
 
 /** A ring, a record or a drop's front on its way down a lane: it is decided when it reaches the roach. */
@@ -169,8 +165,9 @@ interface Mover {
   kind: 'ring' | 'record' | 'front';
   /** The ring, the record, or the front's leading ring. */
   sprite: Phaser.GameObjects.Sprite | null;
-  /** A front's band of light behind its leading ring. */
+  /** A front's band of light behind its leading ring, and the crest that ends the band at its leading edge. */
   band?: Phaser.GameObjects.TileSprite;
+  cap?: Phaser.GameObjects.Sprite;
   lane: Lane;
   x0: number;
   t0: number;
@@ -224,6 +221,8 @@ export class BigosFight extends BossFight {
 
   private readonly dj: Phaser.GameObjects.Sprite;
   private readonly light: Phaser.GameObjects.Sprite;
+  /** The ball's cracks and missing tiles as the last target, laid over his frame. */
+  private readonly ballDamage: Phaser.GameObjects.Sprite;
   private readonly strips: Record<Lane, Phaser.GameObjects.TileSprite>;
   private readonly zones: Record<Lane, KillZone>;
   /** The lane marked for each light coming: warned from `from`, killing from `kill` until `until`. */
@@ -277,11 +276,13 @@ export class BigosFight extends BossFight {
       .setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES);
     this.light = scene.add.sprite(0, ctx.floorBottomY, BIGOS_TEXTURE, bigosFrame('light-top'))
       .setScale(SPRITE_SCALE).setDepth(DEPTH.PICKUPS + 1).setVisible(false);
+    this.ballDamage = scene.add.sprite(0, ctx.floorBottomY, BIGOS_TEXTURE, bigosBallFrame(1, 'groove', 0))
+      .setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES + 0.1).setVisible(false);
     const speaker = (lane: Lane): Speaker => ({
       sprite: scene.add.sprite(0, this.laneY(lane) - DROP_FROM, BIGOS_TEXTURE, bigosFrame('speaker-thump'))
         .setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES),
       lane, anim: 'speaker-thump', start: 0, wrecked: false, wobbleAt: -1e9, flashUntil: -1, chargeUntil: -1,
-      shriekUntil: -1, glow: new Halo(scene, CHARGE_GLOW, DEPTH.OBSTACLES + 0.6), smokeAt: 0,
+      shriekUntil: -1, glow: new Halo(scene, CHARGE_GLOW, DEPTH.OBSTACLES + 0.6),
     });
     this.speakers = { top: speaker('top'), bottom: speaker('bottom') };
     this.lamps = scene.add.graphics().setDepth(DEPTH.OBSTACLES + 0.5);
@@ -328,8 +329,6 @@ export class BigosFight extends BossFight {
   }
 
   private onBeat(beat: number): void {
-    // The beat you hear while his own track isn't on it: a thump, louder on the bar's first
-    if (this.state === 'fighting' && !this.hitStop) this.ctx.audio.playSfx(SFX.beat, beat % 4 === 0 ? 0.35 : 0.18);
     this.dueBeats.forEach(b => { if (b < beat) this.dueBeats.delete(b); });
   }
 
@@ -337,7 +336,11 @@ export class BigosFight extends BossFight {
 
   private startFighting(beat: number): void {
     this.state = 'fighting';
-    this.ctx.audio.switchBGM(BGM);
+    const { audio, boss } = this.ctx;
+    audio.switchBGM(boss.music);
+    // His track carries the beat: one that only starts now (the pre-battle loop never ran) starts on the fight's bar
+    const seekTo = startSeek(this.clock, audio.bgmPosition(boss.music));
+    if (seekTo !== null) audio.seekBGM(boss.music, seekTo);
     this.ctx.showBar(TOTAL_HP, TOTAL_HP);
     this.advance(beat);
   }
@@ -433,7 +436,8 @@ export class BigosFight extends BossFight {
     this.ctx.audio.playSfx(SFX.blast, 0.7);
   }
 
-  /** A speaker hit too often shrieks: shaking, glowing, squealing, a word over it, then three rings down its lane. */
+  /** A speaker hit too often shrieks (its own frames: juddering, glaring, squealing), a word over it, then three rings
+   * down its lane. */
   private shriek(lane: Lane, cueBeat: number, fireBeat: number): void {
     const spk = this.speakers[lane];
     this.stepAt(cueBeat, () => {
@@ -619,10 +623,12 @@ export class BigosFight extends BossFight {
     const x0 = this.speakerLine;
     const band = scene.add.tileSprite(x0, this.beamY(lane), 1, L.stripH, BIGOS_TEXTURE, bigosFrame('strip'))
       .setOrigin(0, 0.5).setScale(SPRITE_SCALE).setDepth(DEPTH.PICKUPS + 1);
+    const cap = scene.add.sprite(x0, this.beamY(lane), BIGOS_TEXTURE, bigosFrame('front'))
+      .setScale(SPRITE_SCALE).setDepth(DEPTH.PICKUPS + 1.25);
     const sprite = scene.add.sprite(x0, this.laneY(lane), BIGOS_TEXTURE, bigosFrame('ring'))
       .setScale(SPRITE_SCALE).setDepth(DEPTH.PICKUPS + 1.5);
     const m: Mover = {
-      kind: 'front', sprite, band, lane, x0, t0, speed: Math.max(1, x0 - this.holdX) / travel, resolved: false, done: false, twins,
+      kind: 'front', sprite, band, cap, lane, x0, t0, speed: Math.max(1, x0 - this.holdX) / travel, resolved: false, done: false, twins,
       arriveAt: t0 + travel,
     };
     this.movers.push(m);
@@ -630,12 +636,15 @@ export class BigosFight extends BossFight {
     return m;
   }
 
-  /** A front, drawn where it is: the band from its leading edge back FRONT_PX, never behind the speakers' line. */
+  /** A front, drawn where it is: the band from its leading edge back FRONT_PX, never behind the speakers' line, its crest
+   * on the leading edge. */
   private drawFront(m: Mover, lead: number): void {
     if (!m.band || !m.sprite) return;
     const tail = Math.min(lead + FRONT_PX, m.x0);
+    const stripFrame = Math.floor(this.clock * BIGOS_ANIMS.strip.fps / 1000) % BIGOS_ANIMS.strip.frames;
     m.band.setPosition(lead, this.beamY(m.lane)).setSize(Math.max(1, Math.ceil((tail - lead) / SPRITE_SCALE)), L.stripH)
-      .setFrame(bigosFrame('strip', Math.floor(this.clock * BIGOS_ANIMS.strip.fps / 1000) % BIGOS_ANIMS.strip.frames));
+      .setFrame(bigosFrame('strip', stripFrame));
+    m.cap?.setPosition(lead, this.beamY(m.lane)).setFrame(bigosFrame('front', stripFrame));
     m.sprite.setPosition(lead, this.laneY(m.lane))
       .setFrame(bigosFrame('ring', Math.floor(this.clock * BIGOS_ANIMS.ring.fps / 1000) % BIGOS_ANIMS.ring.frames));
   }
@@ -672,10 +681,11 @@ export class BigosFight extends BossFight {
 
   // ── The overload ──────────────────────────────────────────────────
 
-  /** A drop bounced back: his system overloads, red hot, for a few beats, and nothing comes. Lunges count double. */
+  /** A drop bounced back: his system overloads, red hot, and knocks him silly for a few beats; nothing comes. Lunges
+   * count double. */
   private overload(b: number, beats: number): void {
     this.stepAt(b, () => {
-      this.playDj('overheat', this.beatTime(b), null);
+      this.playDj('stunned', this.beatTime(b), null);
       for (const lane of ['top', 'bottom'] as Lane[]) this.setSpeaker(lane, 'speaker-overload');
       this.ctx.audio.playSfx(SFX.overload, 0.7);
       this.popupAt(this.stripLeft, this.ctx.floorBottomY + (L.ballY - L.ballR) * SPRITE_SCALE - 30, 'PRZECIĄŻENIE! x2', '#ff9a3c', 12);
@@ -723,7 +733,7 @@ export class BigosFight extends BossFight {
           if (x <= roachX - DROP_GRACE_MS * m.speed) {
             m.resolved = true;
             if (here && !player.isDashing) {
-              this.struck('drop', [m.band!, m.sprite!]);
+              this.struck('drop', m.cap ? [m.band!, m.cap, m.sprite!] : [m.band!, m.sprite!]);
               if (this.over || this.hitStop) return;
             }
           }
@@ -753,6 +763,8 @@ export class BigosFight extends BossFight {
     m.sprite?.destroy();
     m.band?.destroy();
     m.band = undefined;
+    m.cap?.destroy();
+    m.cap = undefined;
     m.trail?.destroy();
     m.sprite = null;
     m.trail = undefined;
@@ -798,8 +810,10 @@ export class BigosFight extends BossFight {
     const x = m.sprite?.x ?? this.ctx.player.sprite.x;
     const y = m.sprite?.y ?? this.laneY(m.lane);
     m.back = { x, y, t0: this.clock, target, to: into ?? this.targetPoint(target) };
-    // A front's band now trails behind its ring as it flies back
+    // A front's band now trails behind its ring as it flies back; its crest is spent
     m.band?.setOrigin(1, 0.5);
+    m.cap?.destroy();
+    m.cap = undefined;
     glint(scene, x, y - 20, 0x7fe0ff, 26, 260);
     audio.playSfx(SFX.parry, 0.7);
   }
@@ -813,7 +827,8 @@ export class BigosFight extends BossFight {
       // A front's band rides back with its ring, shrinking into it
       m.band?.setPosition(m.sprite.x, m.sprite.y - (this.laneY(m.lane) - this.beamY(m.lane)))
         .setSize(Math.max(1, Math.ceil(FRONT_PX * (1 - k) / SPRITE_SCALE)), L.stripH);
-      const anim: BigosAnim = m.kind === 'record' ? 'record' : 'ring';
+      // A ring or a front sent back is the ring turned round, flying home white-hot
+      const anim: BigosAnim = m.kind === 'record' ? 'record' : 'ring-back';
       m.sprite.setFrame(bigosFrame(anim, Math.floor(this.clock * BIGOS_ANIMS[anim].fps / 1000) % BIGOS_ANIMS[anim].frames));
       m.trail?.push(m.sprite.x, m.sprite.y);
     }
@@ -899,7 +914,7 @@ export class BigosFight extends BossFight {
     for (const obj of objects) this.orphans.add(obj);
     // A mover that hit it leaves the fight's hands, so taking the fight down does not take it away
     this.movers = this.movers.filter(m => {
-      const owned = (m.sprite && this.orphans.has(m.sprite)) || (m.band && this.orphans.has(m.band));
+      const owned = (m.sprite && this.orphans.has(m.sprite)) || (m.band && this.orphans.has(m.band)) || (m.cap && this.orphans.has(m.cap));
       if (owned) m.trail?.destroy();
       return !owned;
     });
@@ -1044,6 +1059,7 @@ export class BigosFight extends BossFight {
   private defeat(): void {
     const { scene, audio } = this.ctx;
     this.state = 'victory';
+    audio.fadeOutBGM();
     this.gen++;
     this.clearHazards();
     this.freeze(FREEZE_WRECK_MS);
@@ -1056,7 +1072,7 @@ export class BigosFight extends BossFight {
     this.playDj('defeat', this.clock, null);
     const ms = BIGOS_ANIMS.defeat.frames * 1000 / BIGOS_ANIMS.defeat.fps + DEFEAT_HOLD_MS;
     this.atMs(this.clock + ms, () => {
-      const targets = [this.dj, this.speakers.top.sprite, this.speakers.bottom.sprite];
+      const targets = [this.dj, this.ballDamage, this.speakers.top.sprite, this.speakers.bottom.sprite];
       this.ctx.scene.tweens.add({ targets, alpha: 0, duration: FADE_MS, onComplete: () => this.win() });
     });
   }
@@ -1098,7 +1114,7 @@ export class BigosFight extends BossFight {
       this.ctx.player.adjustTimersForPause(step);
       return;
     }
-    this.clock += step;
+    this.clock += this.lockedStep(step);
     const beat = Math.floor(this.beatNow);
     if (beat !== this.lastBeat) {
       this.lastBeat = beat;
@@ -1122,6 +1138,15 @@ export class BigosFight extends BossFight {
     this.drawBeat();
   }
 
+  /** The frame's step kept on his track's beat (beatLock.ts): what a hit-stop, the pause or a hitch put between them
+   * is made up a little at a time. Without his track playing, the step as it is. */
+  private lockedStep(step: number): number {
+    const { audio, boss } = this.ctx;
+    const lock = lockStep(this.clock, step, audio.bgmPosition(boss.music), MAX_STEP_MS);
+    if (lock.seekTo !== null) audio.seekBGM(boss.music, lock.seekTo);
+    return lock.step;
+  }
+
   /** Where the beam strips start: his cell's left edge. */
   private get stripLeft(): number { return this.dj.x + L.cellLeft * SPRITE_SCALE; }
 
@@ -1131,15 +1156,15 @@ export class BigosFight extends BossFight {
     const djX = cam.scrollX + cam.width - RIGHT_MARGIN;
     this.dj.x = djX;
     this.light.x = djX;
+    this.ballDamage.x = djX;
     const spkX = djX + L.boothLeft * SPRITE_SCALE - SPEAKER_GAP - (L.speakerW / 2) * SPRITE_SCALE;
     const drop = Math.min(1, this.clock / DROP_IN_MS);
     for (const spk of Object.values(this.speakers)) {
       const since = this.clock - spk.wobbleAt;
       const wobble = since < WOBBLE_MS ? Math.round(Math.sin(since / WOBBLE_MS * Math.PI * 3) * WOBBLE_PX * (1 - since / WOBBLE_MS)) : 0;
-      // The drop's build shakes them harder every beat; a shrieking one shakes on its own
+      // The drop's build shakes them harder every beat (a shrieking one judders in its own frames)
       const k = this.buildK;
-      let shake = k > 0 ? Math.round((Math.sin(this.clock / 23 + (spk.lane === 'top' ? 0 : 2)) * DROP_SHAKE_PX * k * k) / 2) * 2 : 0;
-      if (this.clock < spk.shriekUntil) shake += Math.round(Math.sin(this.clock / 17) * SHRIEK_PX / 2) * 2;
+      const shake = k > 0 ? Math.round((Math.sin(this.clock / 23 + (spk.lane === 'top' ? 0 : 2)) * DROP_SHAKE_PX * k * k) / 2) * 2 : 0;
       spk.sprite.x = spkX + wobble + shake;
       const fall = drop < 1 ? Phaser.Math.Easing.Bounce.Out(drop) : 1;
       const wasUp = spk.sprite.y < this.laneY(spk.lane);
@@ -1177,6 +1202,7 @@ export class BigosFight extends BossFight {
     }
     this.dj.setFrame(bigosFrame(anim, index));
     this.frameIndex = index;
+    this.drawBallDamage(anim, index);
     this.drawHeld();
     this.drawLights(index);
     for (const spk of Object.values(this.speakers)) this.drawSpeaker(spk);
@@ -1227,26 +1253,18 @@ export class BigosFight extends BossFight {
     } else if (anim === 'speaker-blast' && (this.clock - spk.start) * BIGOS_ANIMS[anim].fps / 1000 >= BIGOS_ANIMS[anim].frames) {
       anim = spk.anim = this.director.open ? 'speaker-overload' : 'speaker-thump';
     } else if (anim !== 'speaker-blast' && anim !== 'speaker-overload') {
-      anim = this.clock < spk.chargeUntil || this.clock < spk.shriekUntil ? 'speaker-charge' : 'speaker-thump';
+      anim = this.clock < spk.shriekUntil ? 'speaker-shriek' : this.clock < spk.chargeUntil ? 'speaker-charge' : 'speaker-thump';
     }
+    // About to go: it thumps on split and cracked, sparking and smoking, cutting out on the beat's last quarter
+    const low = !spk.wrecked && hp <= SEGMENT_HP / 3;
+    if (low && anim === 'speaker-thump') anim = 'speaker-damaged';
     const spec = BIGOS_ANIMS[anim];
     if (index === null) {
       index = spec.loop
         ? Math.floor(this.clock * spec.fps / 1000) % spec.frames
         : Math.max(0, Math.min(Math.floor((this.clock - spk.start) * spec.fps / 1000), spec.frames - 1));
     }
-    // About to go: on the beat's last quarter it cuts out to its cracked, smoking frame, and it smokes
-    const low = !spk.wrecked && hp <= SEGMENT_HP / 3;
-    if (low && anim === 'speaker-thump' && this.beatNow % 1 > 0.75) {
-      anim = 'speaker-broken';
-      index = 1;
-    }
     spk.sprite.setFrame(bigosFrame(anim, index));
-    if (low && this.state === 'fighting' && this.clock > spk.smokeAt) {
-      spk.smokeAt = this.clock + 260;
-      getFx(this.ctx.scene).play('smoke', spk.sprite.x + Phaser.Math.Between(-16, 16),
-        this.laneY(lane) - L.speakerH * SPRITE_SCALE, { depth: DEPTH.OBSTACLES + 0.7, vy: -40, life: 700, fadeOut: 300 });
-    }
     // The drop's build: it swells on every beat, a little more each time, its cone glowing brighter
     const k = this.buildK;
     const pulse = (1 - (this.beatNow % 1)) ** 2;
@@ -1264,6 +1282,15 @@ export class BigosFight extends BossFight {
       cone(16 + 18 * (1 - left), 0.5 + 0.5 * (1 - left), CHARGE_GLOW);
     } else if (this.director.open) cone(26 + 4 * pulse, 0.6, HOT_GLOW);
     else spk.glow.hide();
+  }
+
+  /** The ball as the last target, laid over his frame: cracked at two thirds of its health, shedding tiles and its lights
+   * dying at one third. His defeat cracks it in its own frames. */
+  private drawBallDamage(anim: BigosAnim, index: number): void {
+    const hp = this.director.hp.ball;
+    const stage = this.director.phase !== 2 || anim === 'defeat' ? 0 : hp <= SEGMENT_HP / 3 ? 2 : hp <= (2 * SEGMENT_HP) / 3 ? 1 : 0;
+    this.ballDamage.setVisible(stage > 0);
+    if (stage > 0) this.ballDamage.setFrame(bigosBallFrame(stage as 1 | 2, anim, index));
   }
 
   /** The ball as the last target: it smokes when it is about to go. */
@@ -1461,7 +1488,7 @@ export class BigosFight extends BossFight {
     }
     this.events = [];
     // Lost, he and his speakers stay a moment where they were
-    const left = [this.dj, this.speakers.top.sprite, this.speakers.bottom.sprite].filter(s => s.active);
+    const left = [this.dj, this.ballDamage, this.speakers.top.sprite, this.speakers.bottom.sprite].filter(s => s.active);
     if (!left.length) return;
     this.ctx.scene.tweens.add({
       targets: left, alpha: 0, duration: FADE_MS, delay: 300, onComplete: () => left.forEach(s => s.destroy()),

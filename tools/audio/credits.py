@@ -11,8 +11,9 @@ OUT = os.path.join(HERE, "..", "..", "docs", "SOUND_CREDITS.md")
 
 def main():
     m = json.load(open(os.path.join(HERE, "manifest.json")))
+    music = json.load(open(os.path.join(HERE, "music", "manifest.json")))
     shipped = {sid for sid, _ in INSTALL.values()}
-    sounds = [s for s in m["sounds"] if s["id"] in shipped]
+    sounds = [s for s in m["sounds"] + music["sounds"] if s["id"] in shipped]
     assert len(sounds) == len(shipped), shipped - {s["id"] for s in sounds}
     synth = [s for s in sounds if not s["packs"]]
     derived = [s for s in sounds if s["packs"]]
@@ -31,8 +32,11 @@ def main():
          "- **Made from CC0 packs**: a sample from one of the packs below, processed and layered with synthesis.",
          "  Every pack is released under CC0 1.0 (public-domain dedication): attribution is not required, and the credit lines "
          "are courtesy. Each pack's page, author, licence evidence and zip SHA-256 are in `tools/audio/licenses/`.",
+         "- **Boss music**: each boss's fight track (`tools/audio/music/build_boss_music.py --mix`, music-*) and the two "
+         "ambient loops under the versus screen and the ability screen (boss-prelude, boss-aftermath) are synthesised "
+         "here too and listed with the rest below.",
          "- Not listed here, and unchanged: the other sound effects (the obstacles' sounds that were kept, the pause "
-         "crickets and so on), the music, and the boss growls adapted from Ogrebane's Monster Sound Pack (CC0, "
+         "crickets and so on), the level music, and the boss growls adapted from Ogrebane's Monster Sound Pack (CC0, "
          "OpenGameArt.org); see [LICENSE](../LICENSE).", "",
          f"{len(sounds)} sounds shipped: {len(synth)} synthesised, {len(derived)} made from CC0 packs.", "",
          "## Synthesised", ""]

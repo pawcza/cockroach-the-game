@@ -13,14 +13,14 @@ const STAGGER_PX = 4;
 /**
  * The robot vacuum (patrol in behaviours.ts): low and wide, it drives along its lane at the runner, waits, drives back.
  * The one tough enemy: the first shot staggers and cracks it (its broken frames, a smoke trail), the second finishes
- * it. Sounds (placeholders): the vacuum's roar, quiet, as it comes into view; a ricochet for the first shot.
+ * it. Sounds: a small motor whir, quiet, as it comes into view; a plastic crack for the first shot.
  */
 export function spawnRobotVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
   const robot = kit.enemy(plan);
   robot.anims.stop();
-  kit.playSoundOnVisible(robot, 'blackhole-sfx', VOL.obstacle * 0.25);
+  kit.playSoundOnVisible(robot, 'robovac-whir', VOL.obstacle * 0.25);
   let cracked = false;
   let staggerUntil = 0;
   let smoke = 0;
@@ -41,6 +41,6 @@ export function spawnRobotVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
     staggerUntil = scene.runTime + STAGGER_MS;
     fx.burst('spark', robot.x, robot.y - robot.displayHeight * 0.3, 6, 14, { depth: DEPTH.POPUP, speed: [60, 140] });
     fx.play('crack', robot.x, robot.y - robot.displayHeight * 0.3, { depth: DEPTH.POPUP });
-    kit.audio.playSfx('bullet-ricochet', VOL.obstacle);
+    kit.audio.playSfx('robovac-crack', VOL.obstacle);
   };
 }

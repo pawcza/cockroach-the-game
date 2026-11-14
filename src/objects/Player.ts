@@ -383,6 +383,9 @@ export class Player {
       },
       onComplete: () => { this.audio.playHopLand(); this.endHop(true); this.kickDust('dust-land', 0); },
     });
+    // A new tween spends its first frame taking its start values, which left the roach standing in the lane it had
+    // just left for a frame after the press. Taking them now, the very next frame already carries it off
+    this.hopTween.update(0);
   }
 
   private endHop(landed: boolean): void {

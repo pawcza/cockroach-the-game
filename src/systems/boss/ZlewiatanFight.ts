@@ -96,7 +96,7 @@ export class ZlewiatanFight extends BossFight {
     this.nextFireInterval = FIRE_RATE_START;
 
     this.bossStartHP = this.bossHP;
-    this.ctx.audio.switchBGM('boss-bgm');
+    this.ctx.audio.switchBGM(this.ctx.boss.music);
     this.ctx.showBar(this.bossHP, this.bossStartHP);
   }
 
@@ -418,6 +418,7 @@ export class ZlewiatanFight extends BossFight {
 
   private startVictory(): void {
     this.state = 'victory';
+    this.ctx.audio.fadeOutBGM();
     this.pending = null;
     this.gunnery.clear();
 

@@ -8,7 +8,7 @@ import { VFX_ATLAS } from '../effects/Fx';
 
 /** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
  * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
-const ASSET_REV = '?v=21';
+export const ASSET_REV = '?v=22';
 
 /** What index.html's loading screen offers the game. */
 interface LoadingScreen {
@@ -73,7 +73,6 @@ export class BootScene extends Phaser.Scene {
       ['cockroach-noise', 'audio/cockroach-noise.ogg'],
       ['burp', 'audio/burp.ogg'],
       ['pill-sfx', 'audio/pill.ogg'],
-      ['disco-sfx', 'audio/disco.ogg'],
       ['jellyfish-sfx', 'audio/jellyfish.ogg'],
       ['pope-sfx', 'audio/pope.ogg'],
       ['bison-sfx', 'audio/bison.ogg'],
@@ -92,6 +91,20 @@ export class BootScene extends Phaser.Scene {
       ['moult-pop', 'audio/moult-pop.ogg'],
       ['ability-reward', 'audio/ability-reward.ogg'],
       ...Array.from({ length: 8 }, (_, i): [string, string] => [`combo-tick-${i + 1}`, `audio/combo-tick-${i + 1}.ogg`]),
+      // Enemy sounds of their own (tools/audio/install.py)
+      ['hedgehog', 'audio/hedgehog.ogg'], ['centipede-rear', 'audio/centipede-rear.ogg'],
+      ['zapper-charge', 'audio/zapper-charge.ogg'], ['zapper-bolt', 'audio/zapper-bolt.ogg'],
+      ['aerosol-rattle', 'audio/aerosol-rattle.ogg'], ['aerosol-blast', 'audio/aerosol-blast.ogg'],
+      ['bait-ooze', 'audio/bait-ooze.ogg'], ['glue-squelch', 'audio/glue-squelch.ogg'],
+      ['bleach-drip', 'audio/bleach-drip.ogg'], ['frog-croak', 'audio/frog-croak.ogg'],
+      ['frog-tongue', 'audio/frog-tongue.ogg'], ['repeller-hum', 'audio/repeller-hum.ogg'],
+      ['repeller-ring', 'audio/repeller-ring.ogg'], ['spraywall-puff', 'audio/spraywall-puff.ogg'],
+      ['gull-screech', 'audio/gull-screech.ogg'], ['hen-cluck', 'audio/hen-cluck.ogg'],
+      ['hen-peck', 'audio/hen-peck.ogg'], ['robovac-whir', 'audio/robovac-whir.ogg'],
+      ['robovac-crack', 'audio/robovac-crack.ogg'], ['boots-stomp', 'audio/boots-stomp.ogg'],
+      ['mop-slap', 'audio/mop-slap.ogg'], ['lamp-flicker', 'audio/lamp-flicker.ogg'],
+      ['lamp-snap', 'audio/lamp-snap.ogg'], ['wasp-buzz', 'audio/wasp-buzz.ogg'],
+      ['wasp-dive', 'audio/wasp-dive.ogg'], ['vacuum-roar', 'audio/vacuum-roar.ogg'],
       ['ui-press', 'audio/ui/press.ogg'],
       ['ui-hover', 'audio/ui/hover.ogg'],
       ['ui-back', 'audio/ui/back.ogg'],

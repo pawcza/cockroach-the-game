@@ -380,11 +380,13 @@ export class GameScene extends Phaser.Scene {
         this.clock.pause();
         this.levels.setPaused(true);
         this.audio.pauseLoops();
+        this.audio.holdBGM();
       },
       (pausedMs) => {
         this.clock.resume();
         this.levels.setPaused(false);
         this.audio.resumeLoops();
+        this.audio.releaseBGM();
         this.player.adjustTimersForPause(pausedMs);
       },
     );

@@ -106,10 +106,14 @@ def bake_bigos() -> None:
     counts.update({f"light-{lane}": (len(frames), bigos.ANIMATIONS[f"beam-{lane}-loop"][1], True)
                    for lane, frames in lights.items()})
     rings = [bigos.shockwave(k) for k in range(5)]
+    rings_back = [bigos.ring_back(k) for k in range(5)]
+    fronts = [bigos.front_cap(k) for k in range(4)]
     strips = [bigos.beam_strip(k) for k in range(4)]
     records = [bigos.record(k) for k in range(4)]
     shards = [bigos.record(0, k) for k in range(1, 5)]
     counts["ring"] = (len(rings), 12, True)
+    counts["ring-back"] = (len(rings_back), 12, True)
+    counts["front"] = (len(fronts), 8, True)
     counts["strip"] = (len(strips), 8, True)
     counts["record"] = (len(records), 16, True)
     counts["record-shatter"] = (len(shards), 16, False)
@@ -127,6 +131,14 @@ def bake_bigos() -> None:
     for name, frames in speakers.items():
         entries += [(f"bigos-{name}_{i}", img, spk_pivot, True) for i, img in enumerate(frames)]
     entries += [(f"bigos-ring_{i}", img, (0, 1), True) for i, img in enumerate(rings)]
+    entries += [(f"bigos-ring-back_{i}", img, (0, 1), True) for i, img in enumerate(rings_back)]
+    front_pivot = ((bigos.FRONT_AHEAD) / (bigos.FRONT_AHEAD + bigos.FRONT_W), .5)
+    entries += [(f"bigos-front_{i}", img, front_pivot, False) for i, img in enumerate(fronts)]
+    # The ball's damage, two stages, over every frame it is fought through: bigos-ball<stage>-<anim>_<n> on his cell
+    for stage in bigos.BALL_DAMAGE:
+        for name in bigos.BALL_DAMAGE_ANIMS:
+            for i, img in enumerate(bigos.ball_damage(name, stage, rendered[name])):
+                entries.append((f"bigos-ball{stage}-{name}_{i}", img.crop(box), dj_pivot, True))
     entries += [(f"bigos-strip_{i}", img, (0, .5), False) for i, img in enumerate(strips)]
     entries += [(f"bigos-record_{i}", img, (.5, .5), True) for i, img in enumerate(records)]
     # the shards' canvas is the record's, 8 px wider each side and 4 over / 8 under: pivot on the record's middle

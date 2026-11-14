@@ -83,6 +83,8 @@ def sprites() -> dict[str, tuple[list, tuple[float, float]]]:
             "canister": (.5, .5),
             "cloud": (.5, 1.0),
             "mine": (.5, 1.0),
+            "grenade": (.5, .5),
+            "chain": (ek.CHAIN_C[0] / ek.CHAIN_W, ek.CHAIN_C[1] / ek.CHAIN_H),
         }[name]
         out[name] = (frames, pivot)
     return out

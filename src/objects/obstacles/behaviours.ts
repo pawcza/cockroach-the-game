@@ -107,6 +107,8 @@ export interface EnemyPlan {
   phase: number;
   /** A chaser's run: from when it runs, the moment it meets the course's nominal runner at x, and its speed. */
   chase?: { startAt: number; meetAt: number; speed: number };
+  /** A centipede's run, set on this client when the roach comes near (setOffScuttle): when it set off, from where, how fast. */
+  run?: { at: number; x: number; speed: number };
 }
 
 export interface Body {
@@ -776,40 +778,64 @@ export function tongue(t: { idle: number; windup: number; shoot: number; hold: n
 }
 
 /**
- * The house centipede runs at the runner along a lane from far ahead, fast, and switches lanes once or twice on the
- * way, rearing up first (the telegraph). Timed off the course's nominal runner (it meets it at its slot), so its lane
- * at every moment is the same for everyone.
+ * The house centipede hunts the roach from the right, so like the vacuum it is timed off this client's roach and not
+ * off the course's nominal runner (a model roach that never dashes, never fights a boss and never drops a frame: the
+ * real one is late or early by the time this comes up, and the centipede popped into view with its switch already
+ * spent). It waits parked until the roach comes within `trigger` px of its slot (setOffScuttle), then sets off from
+ * `out` px past the screen's right edge and runs at the roach so that it closes in on a cruising roach at `close` px/s
+ * whatever that cruise is: from then on it is a pure function of the ms since it set off, the same for a roach at any
+ * speed. `rear` ms in, fully on screen, it rears up (the telegraph: it lifts clear of the lane, harmless) with the spot
+ * it will land on marked in the other lane; `warn` ms after that it jumps (`jump` ms in the air, harmless) and lands
+ * there, to run on in its new lane. The lane it ends in is the one seeded in its plan, so it is the same on every
+ * screen; only when it sets off is local. Nothing can hurt before the first lane's run or after the landing, so the
+ * earliest touch after the telegraph starts is `warn + jump` ms, whatever the roach does meanwhile. Shared by the game
+ * and the tests.
  */
-export function scuttle(t: { speed: number; from: number; switches: readonly number[]; warn: number; jump: number }): Behaviour {
+export interface ScuttleTimings {
+  trigger: number; out: number; close: number; rear: number; warn: number; jump: number;
+}
+
+/** The roach as the centipede sees it when it sets off: its x, its cruising speed (no dash, pill or pull), and how far its screen's right edge is. */
+export interface ScuttlePrey { x: number; cruise: number; edge: number }
+
+/** Sets the centipede off, once, the first time the roach is within `trigger` px of its slot: from where, and how fast it runs. */
+export function setOffScuttle(plan: EnemyPlan, t: ScuttleTimings, time: number, roach: ScuttlePrey): void {
+  if (plan.run || roach.x < plan.x - t.trigger) return;
+  plan.run = { at: time, x: roach.x + roach.edge + t.out, speed: t.close - roach.cruise };
+}
+
+export function scuttle(t: ScuttleTimings): Behaviour {
+  const jumpAt = t.rear + t.warn;
+  const landAt = jumpAt + t.jump;
   return (plan, time, body) => {
-    const chase = plan.chase!;
-    const x = plan.x - t.speed * (time - chase.meetAt) / 1000;
-    if (x - plan.x > t.from) return state(x, laneY(plan.lane), null, 'parked', 0, []);
-    // Two switches, or one, from the phase drawn at spawn
-    const switches = plan.phase % 2 === 0 ? t.switches : t.switches.slice(1);
-    let lane: Lane = plan.lane;
-    let pose: Pose = 'idle';
-    let since = -Infinity;
-    let landing: Landing | undefined;
-    for (const before of switches) {
-      const at = chase.meetAt - before;
-      if (time >= at + t.jump) { lane = otherLane(lane); since = at - t.warn; continue; }
-      // From the rearing on, the spot in the other lane where it will come down: it runs on all the while
-      if (time >= at - t.warn) {
-        const spot = plan.x - t.speed * (at + t.jump - chase.meetAt) / 1000;
-        landing = { lane: otherLane(lane), x0: spot - body.half, x1: spot + body.half, progress: (time - (at - t.warn)) / (t.warn + t.jump) };
-      }
-      if (time >= at) {
-        const air = state(x, lerp(laneY(lane), laneY(otherLane(lane)), easeInOut((time - at) / t.jump)), null, 'air', 0, []);
-        air.landings = [landing!];
-        return air;
-      }
-      if (time >= at - t.warn) pose = 'windup';
-      break;
+    const run = plan.run;
+    if (!run || time < run.at) return state(plan.x, laneY(plan.lane), null, 'parked', 0, []);
+    const age = time - run.at;
+    const xAt = (ms: number): number => run.x - (run.speed * ms) / 1000;
+    const x = xAt(age);
+    const to = otherLane(plan.lane);
+    // From the rearing on, the spot in the other lane where it will come down: it runs on all the while
+    const spot = xAt(landAt);
+    const landing: Landing = { lane: to, x0: spot - body.half, x1: spot + body.half, progress: (age - t.rear) / (t.warn + t.jump) };
+    const frame = Math.floor(time / 70) % 2;
+    if (age >= landAt) {
+      const st = state(x, laneY(to), to, 'idle', 0, [zone(to, x, body, run.at + t.rear)]);
+      st.frame = frame;
+      return st;
     }
-    const st = state(x, laneY(lane) - (pose === 'windup' ? 6 : 0), lane, pose, 0, [zone(lane, x, body, since)]);
-    st.frame = Math.floor(time / 70) % 2;
-    if (landing) st.landings = [landing];
+    if (age >= jumpAt) {
+      const air = state(x, lerp(laneY(plan.lane), laneY(to), easeInOut((age - jumpAt) / t.jump)), null, 'air', 0, []);
+      air.landings = [landing];
+      return air;
+    }
+    if (age >= t.rear) {
+      const rear = state(x, laneY(plan.lane) - 6, plan.lane, 'windup', 0, []);
+      rear.frame = frame;
+      rear.landings = [landing];
+      return rear;
+    }
+    const st = state(x, laneY(plan.lane), plan.lane, 'idle', 0, [zone(plan.lane, x, body, -Infinity)]);
+    st.frame = frame;
     return st;
   };
 }

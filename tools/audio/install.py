@@ -25,7 +25,6 @@ CORE = {
     "cockroach-noise": ("roach-noise", "audio/cockroach-noise.ogg"),
     "onion-sfx": ("onion", "audio/onion.ogg"),
     "spray-sfx": ("spray", "audio/spray.ogg"),
-    "disco-sfx": ("disco", "audio/disco.ogg"),
     "apple": ("apple-a", "audio/apple.ogg"),
     "beer-sfx": ("beer-3", "audio/beer.ogg"),
     "burp": ("burp-a", "audio/burp.ogg"),
@@ -45,6 +44,12 @@ CORE = {
     "ui-slider": ("ui-slider", "audio/ui/slider.ogg"),
     "ui-purchase": ("ui-purchase", "audio/ui/purchase.ogg"),
     "ui-error": ("ui-error", "audio/ui/error.ogg"),
+    # Enemy sounds that used to borrow another key (BootScene loads them)
+    **{k: (k, f"audio/{k}.ogg") for k in (
+        "hedgehog", "centipede-rear", "zapper-charge", "zapper-bolt", "aerosol-rattle", "aerosol-blast", "bait-ooze",
+        "glue-squelch", "bleach-drip", "frog-croak", "frog-tongue", "repeller-hum", "repeller-ring", "spraywall-puff",
+        "gull-screech", "hen-cluck", "hen-peck", "robovac-whir", "robovac-crack", "boots-stomp", "mop-slap",
+        "lamp-flicker", "lamp-snap", "wasp-buzz", "wasp-dive", "vacuum-roar")},
     # The milestone ladder by tier (GameOverHandler.SCORE_MILESTONES maps scores to tiers); 2137 stays the clip it was
     **{f"milestone-{k:02d}": (f"stinger-{k:02d}", f"audio/milestones/{k:02d}.ogg") for k in range(1, 15)},
 }
@@ -66,11 +71,20 @@ BOSS = {
     **{k: (k, f"boss/sfx/{k}.ogg") for k in (
         "lodzia-whoosh", "lodzia-slap", "lodzia-shockwave", "lodzia-pocket", "lodzia-spin", "lodzia-boomerang",
         "lodzia-smack", "lodzia-stomp", "lodzia-curler",
-        "bigos-thump", "bigos-charge", "bigos-beam", "bigos-sizzle", "bigos-wreck",
+        "bigos-thump", "bigos-charge", "bigos-beam", "bigos-wreck",
         "zl-gurgle", "zl-creak", "zl-slab-launch", "zl-slab-impact", "zl-radiator", "zl-spit", "zl-splat", "zl-fishbone",
         "zl-bubble-blow", "zl-bubble-pop", "zl-roar", "zl-drain-away",
         "ex-pump", "ex-pressure", "ex-stream", "ex-lob", "ex-canister-pop", "ex-gas", "ex-tank-ping", "ex-tank-vent",
-        "ex-tank-burst", "ex-mask")},
+        "ex-tank-burst", "ex-mask",
+        # own sounds for what used to borrow another key
+        "boss-parry", "ex-knock", "ex-shove", "ex-struck", "ex-mine-arm", "ex-leak", "ex-charge", "ex-rush", "ex-grenade-bounce",
+        "ex-whiff", "bigos-bonk", "bigos-overload", "bigos-shriek", "bigos-defeat", "zl-head-fall", "zl-head-bounce", "zl-head-smash")},
+    # The two ambient loops around the fights (not in boss/sfx: DeferredLoadScene BOSS_AUDIO)
+    "boss-prelude": ("boss-prelude", "boss/boss-prelude.ogg"),
+    "boss-aftermath": ("boss-aftermath", "boss/boss-aftermath.ogg"),
+    # Each boss's fight music, one mixed loop each (music/build_boss_music.py --mix)
+    **{f"{boss}-bgm": (f"music-{tid}", f"boss/{boss}-bgm.ogg") for boss, tid in (
+        ("lodzia", "lodzia-d"), ("bigos", "bigos-f"), ("zlewiatan", "zlewiatan-c"), ("eksterminator", "eksterminator-d"))},
     "bigos-blast": ("bigos-blast-b", "boss/sfx/bigos-blast.ogg"),
     "bigos-scratch": ("bigos-scratch-a", "boss/sfx/bigos-scratch.ogg"),
 }
