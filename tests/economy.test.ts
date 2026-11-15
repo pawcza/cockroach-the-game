@@ -37,12 +37,14 @@ test('okruszki: missions pay, the shop takes, you wear only what you own, and it
 
   assert.equal((await call(cookie, '/api/me/buy', { item: 'korona' })).status, 400, 'not enough okruszki');
 
-  // A run that reaches everything finishes all three, and pays exactly their rewards
+  // A run that reaches everything finishes every mission one run can finish, and pays exactly their rewards. Which
+  // three are drawn is random, and "Zagraj 5 biegów" takes five runs whatever the run did
   const report = await (await call(cookie, '/api/me/run', MAXED)).json() as { completed: { reward: number }[]; state: State };
-  assert.equal(report.completed.length, 3);
+  const oneRun = (id: string): boolean => id !== 'biegi';
+  assert.equal(report.completed.length, state.missions.filter(m => oneRun(m.id)).length);
   const paid = report.completed.reduce((sum, m) => sum + m.reward, 0);
   assert.equal(report.state.crumbs, paid);
-  assert.ok(report.state.missions.every(m => m.done));
+  assert.ok(report.state.missions.every(m => m.done === oneRun(m.id)));
 
   // Finished missions wait for tomorrow: the same day pays nothing more
   await new Promise((resolve) => setTimeout(resolve, 2100));
