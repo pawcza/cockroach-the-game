@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { ATLAS, SPRITE_SCALE, frameOf } from '../config/sprites';
+import { ATLAS, SPRITE_SCALE, frameOf, hasFrame, textureOf } from '../config/sprites';
+import { ENEMIES, iconOf, skinArt, skinOfCause } from '../objects/obstacles/cast';
 import { keepCrisp } from '../pixel/PixelCameras';
 import { capCentreShift, FONT_GRID, smallStyle } from '../utils/TextStyles';
 import { playUi } from '../audio/AudioManager';
@@ -9,7 +10,7 @@ import { bossById } from '../systems/boss/bosses';
 import { BIGOS_TEXTURE, bigosFrame } from '../systems/boss/bigosConfig';
 import { LODZIA_TEXTURE, lodziaFrame } from '../systems/boss/lodziaConfig';
 import { EKS_TEXTURE, eksFrame } from '../systems/boss/eksterminatorConfig';
-import type { Achievement } from '../systems/Profile';
+import { achievementTitle, type Achievement } from '../systems/Profile';
 import { account } from './Account';
 
 export interface UIButton {
@@ -33,6 +34,8 @@ export interface UIButton {
   adjust?: (direction: number) => void;
   /** On a button made with a second line: changes that line. */
   setSub?: (text: string) => void;
+  /** On a tile made with `badge`: shows or hides the gold mark in its corner (something new inside). */
+  setBadge?: (shown: boolean) => void;
 }
 
 // One look for every button: a dark slab painted like the ledges, its colour only in a side bar and the focus rim
@@ -48,6 +51,13 @@ const SUB_LIFT = 9;
 const SUB_DROP = 11;
 const SUB_IDLE = '#a89a80';
 const SUB_FOCUS = '#e8c15a';
+/** Beside a label an icon sits this far in from the colour bar; under a caption it sits this far above it. */
+const ICON_PAD = 12;
+const ICON_GAP = 8;
+/** An icon button's caption hangs this far under its face. */
+const CAPTION_DROP = 12;
+/** The badge's centre, in from the face's top right corner. */
+const BADGE_INSET = 8;
 
 // Sign in with Google keeps Google's dark-theme colours (branding guidelines): the fill must stay the one the G's
 // tile was drawn on, so focus shows only in the rim and the label
@@ -71,6 +81,10 @@ function accentOf(color: number): number {
 /**
  * A menu button on the pixel grid: square corners, a hard drop shadow, the colour as a side bar. Focus (keyboard or
  * hover) lights the rim and the label; see MenuNav for moving it with the arrows.
+ *
+ * `icon` is an atlas picture (tools/art/icons.py, frame 0 idle and 1 lit). Beside a label it sits at the left; with a
+ * `caption` instead of a label the button is a tile: the icon in the middle of the face and the caption under it, and
+ * with `badge` a gold mark in its corner that setBadge turns on.
  */
 export function createButton(
   scene: Phaser.Scene,
@@ -82,7 +96,7 @@ export function createButton(
   color: number,
   style: Phaser.Types.GameObjects.Text.TextStyle,
   action: () => void,
-  opts: { google?: boolean; sub?: string; onFocus?: () => void; sound?: 'press' | 'back' | 'none' } = {},
+  opts: { google?: boolean; sub?: string; icon?: string; caption?: string; badge?: boolean; onFocus?: () => void; sound?: 'press' | 'back' | 'none' } = {},
 ): UIButton {
   x = Math.round(x);
   y = Math.round(y);
@@ -99,11 +113,17 @@ export function createButton(
   // Google's own 1x G, drawn unscaled on the crisp camera, never through the pixel grid
   const gLeft = x - w / 2 + GOOGLE_PAD;
   const g = google ? keepCrisp(scene.add.image(gLeft + GOOGLE_G_SIZE / 2, y, GOOGLE_G)) : null;
-  const txtX = google ? Math.round((gLeft + GOOGLE_G_SIZE + x + w / 2) / 2) : x;
+  const icon = opts.icon ? scene.add.image(x, y, ATLAS, frameOf(opts.icon, 0)).setScale(SPRITE_SCALE) : null;
+  const tile = icon !== null && opts.caption !== undefined;
+  const iconW = icon ? icon.width * SPRITE_SCALE : 0;
+  // Beside a label the icon keeps the left, and the label the room that is left
+  const iconX = icon ? (tile ? x + BAR_W / 2 : x - w / 2 + BAR_W + ICON_PAD + iconW / 2) : 0;
+  const textLeft = iconX + iconW / 2 + ICON_GAP;
+  const txtX = google ? Math.round((gLeft + GOOGLE_G_SIZE + x + w / 2) / 2) : icon && !tile ? Math.round((textLeft + x + w / 2 - 8) / 2) : x;
   const txt = scene.add.text(txtX, y, label, { ...style, color: google ? GOOGLE_TEXT : TEXT_IDLE, stroke: '#000000' }).setOrigin(0.5);
   const labelSize = txt.style.fontSize;
   // A label that doesn't fit steps down the font's grid instead of spilling over the frame
-  const room = google ? x + w / 2 - (gLeft + GOOGLE_G_SIZE) - 8 : w - BAR_W - 12;
+  const room = google ? x + w / 2 - (gLeft + GOOGLE_G_SIZE) - 8 : icon && !tile ? x + w / 2 - 8 - textLeft : w - BAR_W - 12;
   // Centred on its letters, not on the font's line box, which sits them low
   let shift = 0;
   const fit = (): void => {
@@ -129,6 +149,12 @@ export function createButton(
   fitSub();
   fit();
 
+  // A tile's caption, under its face, and, if it asked for one, the gold mark for news in its top right corner
+  const caption = tile ? scene.add.text(x, y, opts.caption!, smallStyle({ fontSize: '7px', strokeThickness: 2 })).setOrigin(0.5) : null;
+  const captionShift = caption ? capCentreShift(caption) + h / 2 + CAPTION_DROP : 0;
+  const badge = tile && opts.badge ? scene.add.image(x, y, ATLAS, frameOf('btn-badge')).setScale(SPRITE_SCALE).setVisible(false) : null;
+  if (tile) txt.setVisible(false);
+
   const draw = (): void => {
     // A button its own action destroyed still gets unfocused by the MenuNav; a destroyed text can't redraw
     if (!txt.active) return;
@@ -151,6 +177,9 @@ export function createButton(
     bg.fillStyle(0xffffff, lit ? 0.1 : 0.05).fillRect(left, top, w, 2);
     bg.fillStyle(0x000000, 0.35).fillRect(left, top + h - 2, w, 2);
     bg.fillStyle(accent, enabled ? (lit ? 1 : 0.7) : 0.25).fillRect(left, top, BAR_W, h);
+    icon?.setPosition(iconX, y + dy).setFrame(frameOf(opts.icon!, lit ? 1 : 0)).setAlpha(enabled ? 1 : 0.35);
+    badge?.setPosition(x + w / 2 - BADGE_INSET, top + BADGE_INSET);
+    caption?.setY(y + captionShift).setColor(!enabled ? TEXT_DISABLED : lit ? TEXT_FOCUS : SUB_IDLE);
     txt.setY(y + dy + shift);
     txt.setColor(!enabled ? TEXT_DISABLED : lit ? TEXT_FOCUS : TEXT_IDLE);
     sub?.setY(y + dy + subShift).setColor(!enabled ? TEXT_DISABLED : lit ? SUB_FOCUS : SUB_IDLE);
@@ -158,6 +187,8 @@ export function createButton(
 
   // Fingers get the whole gap around a button (menus space them 8 apart), a mouse a little margin
   const reach = scene.sys.game.device.os.desktop ? 4 : 8;
+  // The face and its reach, a tile's caption not included: the face alone is a comfortable target, and a zone reaching
+  // under it or past it would take taps from the button beside or below
   const hitZone = scene.add.rectangle(x, y, w + reach, h + reach, 0x000000, 0).setInteractive({ useHandCursor: true });
   hitZone.on('pointerover', () => { hovered = true; draw(); });
   hitZone.on('pointerout', () => { hovered = false; pressed = false; draw(); });
@@ -185,8 +216,10 @@ export function createButton(
   draw();
 
   return {
-    bg, txt, hitZone, all: [bg, hitZone, ...(g ? [g] : []), txt, ...(sub ? [sub] : [])], x, y, w, h,
+    bg, txt, hitZone, x, y, w, h,
+    all: [bg, hitZone, ...(g ? [g] : []), ...(icon ? [icon] : []), txt, ...(sub ? [sub] : []), ...(caption ? [caption] : []), ...(badge ? [badge] : [])],
     setSub: sub ? (text) => { sub.setText(text); fitSub(); draw(); } : undefined,
+    setBadge: badge ? (shown) => { badge.setVisible(shown); } : undefined,
     setColor: (c) => { accent = accentOf(c); draw(); },
     setLabel: (text) => { txt.setFontSize(labelSize); txt.setText(text); fit(); },
     setEnabled: (value) => { enabled = value; hitZone.input!.cursor = value ? 'pointer' : 'default'; draw(); },
@@ -241,10 +274,24 @@ export function addObstacleArt(
     if (!scene.textures.exists(EKS_TEXTURE)) return null;
     return scene.add.image(x, y, EKS_TEXTURE, eksFrame('spray-bottom', 1)).setOrigin(0.5, 0.96);
   }
+  // A level skin shows its own picture once its art is in; until then, its base's (what it looked like in the run)
+  const skin = skinOfCause(type);
+  if (skin) {
+    const icon = iconOf(skin.base);
+    const own = frameOf(skinArt(skin.id, icon.anim), icon.frame);
+    if (hasFrame(own)) return scene.add.image(x, y, textureOf(own), own).setScale(SPRITE_SCALE);
+    type = ENEMIES[skin.base].type;
+  }
   // The dancing boots die as 'boots'; their art is one boot, stomped
-  if (type === 'boots') return scene.add.image(x, y, ATLAS, frameOf('boot', 1)).setScale(SPRITE_SCALE);
-  if (!OBSTACLE_ART.has(type)) return null;
-  return scene.add.image(x, y, ATLAS, frameOf(ART_OF[type] ?? type)).setScale(SPRITE_SCALE);
+  const frame = type === 'boots' ? frameOf('boot', 1) : OBSTACLE_ART.has(type) ? frameOf(ART_OF[type] ?? type) : null;
+  // Art that is no longer loaded up front (an old enemy's) is left out rather than shown as a missing texture
+  if (!frame || !hasFrame(frame)) return null;
+  return scene.add.image(x, y, textureOf(frame), frame).setScale(SPRITE_SCALE);
+}
+
+/** A death cause's Polish name: an enemy's, a level skin's, a boss's; the cause itself for one this client doesn't know. */
+export function deathLabel(type: string): string {
+  return OBSTACLE_LABEL[type] ?? skinOfCause(type)?.name ?? type;
 }
 
 /** Polish death cause labels. */
@@ -299,7 +346,8 @@ const SHINE_MS = 380;
  * downwards instead of covering each other.
  */
 export function showAchievement(scene: Phaser.Scene, achievement: Achievement): void {
-  showToast(scene, account() ? `${achievement.name}! +${achievement.reward} okruszków` : `Osiągnięcie: ${achievement.name}`, achievement.description);
+  const title = achievementTitle(achievement);
+  showToast(scene, account() ? `${title}! +${achievement.reward} okruszków` : `Osiągnięcie: ${title}`, achievement.description);
 }
 
 /** A finished mission, with what it paid. */

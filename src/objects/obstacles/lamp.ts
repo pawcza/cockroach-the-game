@@ -35,6 +35,7 @@ export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
   const lane = plan.lane;
+  const look = kit.look(plan);
   const bulb = kit.enemy(plan, { shadow: false });
   bulb.anims.stop();
   bulb.setOrigin(0.5, 0);
@@ -54,7 +55,7 @@ export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
 
   // What hurts: the lit stretch of the lane, an invisible hitbox along it, harmless unless the light is on
   const { ahead, behind } = TIMINGS.lamp;
-  const hurt = kit.createSprite(plan.x + (behind - ahead) / 2, laneY(lane), 'lamp', 'lamp', null);
+  const hurt = kit.createSprite(plan.x + (behind - ahead) / 2, laneY(lane), 'lamp', look.cause, null);
   hurt.anims.stop();
   hurt.setVisible(false);
   hurt.setData('floor', lane);
@@ -123,13 +124,13 @@ export function spawnLamp(kit: ObstacleKit, plan: EnemyPlan): void {
     if (!on && halo) { halo.stop(); halo = null; }
     if (now.frame === before?.frame || !before || !kit.isOnScreen(bulb)) return;
     const glow = { x: plan.x, y: top + bulb.displayHeight * 0.62 };
-    if (now.frame === 1 && !on && kit.isAhead(bulb)) kit.audio.playSfx('lamp-flicker', VOL.obstacle * 0.3);
+    if (now.frame === 1 && !on && kit.isAhead(bulb)) kit.audio.playSfx(look.sound('lamp-flicker'), VOL.obstacle * 0.3);
     if (on && before.pose !== 'strike') {
       fx.play('rays-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 1, scale: 2, life: 500 });
       fx.play('flare-big-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 2 });
       // A big glow round the bulb while it is on
       halo = fx.play('glow-cream', glow.x, glow.y, { depth: DEPTH.PICKUPS + 1, scale: 2, loop: true, life: TIMINGS.lamp.on });
-      if (kit.isAhead(bulb)) kit.audio.playSfx('lamp-snap', VOL.obstacle * 0.4);
+      if (kit.isAhead(bulb)) kit.audio.playSfx(look.sound('lamp-snap'), VOL.obstacle * 0.4);
     }
   });
   const extra = [...lit, ...cord, ...(fitting ? [fitting] : [])];

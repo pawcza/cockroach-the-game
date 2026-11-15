@@ -20,8 +20,9 @@ export function spawnBison(kit: ObstacleKit, plan: EnemyPlan): void {
   // Its dust is thrown from fixed distances off its hooves: they grow with it
   const k = placeOf(plan.id).size;
   const depth = DEPTH.OBSTACLES + 0.5;
+  const look = kit.look(plan);
   const bison = kit.enemy(plan);
-  kit.playSoundOnVisible(bison, 'bison-sfx', 0.5);
+  kit.playSoundOnVisible(bison, look.sound('bison-sfx'), 0.5);
 
   let pose = 'idle';
   kit.drive(bison, plan, (now, before) => {
@@ -45,7 +46,7 @@ export function spawnBison(kit: ObstacleKit, plan: EnemyPlan): void {
       fx.play('flare-big-orange', bison.x - bison.displayWidth * 0.3, bison.y - bison.displayHeight * 0.62, { depth: DEPTH.PICKUPS + 1 });
       fx.play('shield', bison.x, bison.getCenter().y, { depth: DEPTH.PICKUPS + 1 });
       fx.play('dust', bison.x - 12 * k, standY, { depth });
-      if (kit.isAhead(bison)) kit.audio.playSfx('bison-sfx', VOL.obstacle * 0.5);
+      if (kit.isAhead(bison)) kit.audio.playSfx(look.sound('bison-sfx'), VOL.obstacle * 0.5);
     }
   });
 

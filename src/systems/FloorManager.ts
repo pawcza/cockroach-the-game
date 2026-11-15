@@ -9,7 +9,7 @@ import {
   DEPTH,
   PIXEL_BLOCK,
 } from '../config/constants';
-import { getLevelForDistance, LEVELS } from '../config/levels';
+import { getLevelForDistance, LEVELS, levelConfig, lookLevel } from '../config/levels';
 import { getFx } from '../effects/Fx';
 
 const COLLIDER_DROP = 8;
@@ -62,8 +62,16 @@ export class FloorManager {
   get topColliderY(): number { return this.floorTopY + COLLIDER_DROP; }
   get bottomColliderY(): number { return this.floorBottomY + COLLIDER_DROP; }
 
-  constructor(scene: Phaser.Scene, floorTopY: number, floorBottomY: number) {
+  /** Whether a story level's look is in whole (its pack): until then its stretch of floor keeps the look it had. */
+  private shows: (level: number) => boolean;
+  /** Decides which story level's floor each endless level wears (levels.ts endlessLook). */
+  private lookSeed: number;
+
+  constructor(scene: Phaser.Scene, floorTopY: number, floorBottomY: number, shows: (level: number) => boolean = () => true,
+    lookSeed = 0) {
     this.scene = scene;
+    this.shows = shows;
+    this.lookSeed = lookSeed;
     this.floorTopY = floorTopY;
     this.floorBottomY = floorBottomY;
   }
@@ -195,15 +203,18 @@ export class FloorManager {
 
   /** How the tile at this world x looks, or null while its level's art is still loading (it keeps the look it had). */
   private tileLook(tx: number): TileLook | null {
-    const byX = getLevelForDistance((tx - COCKROACH_START_X) / 50);
-    const config = byX.level > this.levelCap ? LEVELS[this.levelCap - 1] : byX;
+    const byX = getLevelForDistance((tx - COCKROACH_START_X) / 50, this.lookSeed);
+    const config = byX.level > this.levelCap ? levelConfig(this.levelCap, this.lookSeed) : byX;
+    if (!this.shows(lookLevel(config))) return null;
     if (config.painted) {
       if (!this.scene.textures.exists(config.floorKey)) return null;
+      // Arrived but not cut into its segments yet (that happens once its whole pack is in): cut it now
+      this.cutLedgeSegments(config.floorKey);
       const index = Math.round((tx + this.phase) / FLOOR_TILE_STEP);
       const segment = ((index % LEDGE_SEGMENTS) + LEDGE_SEGMENTS) % LEDGE_SEGMENTS;
       return { key: config.floorKey, frame: `segment-${segment}`, scale: PIXEL_BLOCK, lift: LEDGE_LIFT };
     }
-    const key = `floor-rounded-lv${config.level}`;
+    const key = `floor-rounded-lv${lookLevel(config)}`;
     return this.scene.textures.exists(key) ? { key, scale: 1, lift: 0 } : null;
   }
 

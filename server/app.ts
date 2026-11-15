@@ -3,17 +3,24 @@ import http from 'http';
 import path from 'path';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { Server } from 'socket.io';
-import db, { getDailyScores, getProfile, getTopScores, getPlayerBest, insertScore, saveProfile } from './db';
+import db, { getDailyScores, getEndlessScores, getProfile, getTopScores, getPlayerBest, insertScore, saveProfile } from './db';
 import { acceptsDaily, dailyDate, dailySeed } from './daily';
-import { buy, lookOf, parseLook, parseRunReport, payAchievements, reportRun, shopState, wear } from './economy';
+import { CHECKPOINT_STARTS } from './bossDistances';
+import { buy, lookOf, parseLook, parseRunReport, payAchievements, payStored, reportRun, shopState, wear } from './economy';
 import { createAuth, type AuthOptions } from './auth';
 import { setupMultiplayer, type MultiplayerOptions } from './multiplayer';
 import { clientIp, originAllowed } from './net';
-import { parseDay, parseProfile, parseScoreSubmission } from './validate';
+import { mergeIntoStored, parseDay, parseProfile, parseScoreSubmission } from './validate';
 
 export interface GameServerOptions extends MultiplayerOptions {
   /** Google sign-in. Without it nobody can sign in, so nobody can save a score. */
   auth?: AuthOptions | null;
+}
+
+/** Whether a stored profile has the Eksterminator's start unlocked (stats.checkpoints counts the boss starts: 4 of them). */
+function endlessUnlocked(profile: unknown): boolean {
+  const checkpoints = (profile as { stats?: { checkpoints?: unknown } } | null)?.stats?.checkpoints;
+  return typeof checkpoints === 'number' && checkpoints >= CHECKPOINT_STARTS.length;
 }
 
 /** Builds the HTTP and socket server without starting it, so tests can run it on a spare port. */
@@ -69,11 +76,11 @@ export function createGameServer(options: GameServerOptions = {}) {
     validate: { xForwardedForHeader: false },
   });
 
-  // GET /api/scores?limit=100, or ?daily=YYYY-MM-DD for that day's Karaluch Dnia board
+  // GET /api/scores?limit=100, ?daily=YYYY-MM-DD for that day's Karaluch Dnia board, or ?board=endless for Bez końca
   app.get('/api/scores', (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 100);
     const day = parseDay(req.query.daily);
-    res.json(day ? getDailyScores(day, limit) : getTopScores(limit));
+    res.json(day ? getDailyScores(day, limit) : req.query.board === 'endless' ? getEndlessScores(limit) : getTopScores(limit));
   });
 
   // GET/PUT /api/me/profile: a signed-in player's stats and achievements, so they follow them between devices
@@ -87,8 +94,11 @@ export function createGameServer(options: GameServerOptions = {}) {
     if (!user) { res.status(401).json({ error: 'Sign in first' }); return; }
     const profile = parseProfile(req.body);
     if (!profile) { res.status(400).json({ error: 'Invalid profile' }); return; }
-    saveProfile(user.id, profile);
-    res.json({ ok: true, paid: payAchievements(user.id, profile.stats) });
+    // Folded into what is stored, so a client that doesn't know the newer stats can't wipe them
+    const merged = mergeIntoStored(profile, getProfile(user.id));
+    if (!merged) { res.status(400).json({ error: 'Invalid profile' }); return; }
+    saveProfile(user.id, merged);
+    res.json({ ok: true, paid: payAchievements(user.id, merged.stats) });
   });
 
   // The shop: okruszki, owned items, what you wear and your three missions. Signed-in players only
@@ -118,6 +128,8 @@ export function createGameServer(options: GameServerOptions = {}) {
     const run = parseRunReport(req.body);
     if (!run) { res.status(400).json({ error: 'Invalid run' }); return; }
     const completed = reportRun(id, run);
+    // A mission finished moves the record the missions achievements are paid from
+    if (completed.length > 0) payStored(id);
     res.json({ completed, state: shopState(id) });
   });
   app.post('/api/me/buy', profileLimiter, (req, res) => {
@@ -126,6 +138,8 @@ export function createGameServer(options: GameServerOptions = {}) {
     const item = (req.body as { item?: unknown } | undefined)?.item;
     const error = typeof item === 'string' ? buy(id, item) : 'Unknown item';
     if (error) { res.status(400).json({ error }); return; }
+    // An item bought moves the record the shop achievement is paid from
+    payStored(id);
     res.json(shopState(id));
   });
   app.post('/api/me/look', profileLimiter, (req, res) => {
@@ -165,6 +179,11 @@ export function createGameServer(options: GameServerOptions = {}) {
       res.status(400).json({ error: 'That day\'s run is over' });
       return;
     }
+    // Bez końca starts at the Eksterminator: only an account whose profile has that start unlocked may be on its board
+    if (submission.board === 'endless' && !(endlessUnlocked(getProfile(user.id)))) {
+      res.status(403).json({ error: 'Beat the Eksterminator first: the endless start is not unlocked on this account' });
+      return;
+    }
 
     res.status(201).json(insertScore(
       user.id,
@@ -179,6 +198,7 @@ export function createGameServer(options: GameServerOptions = {}) {
       submission.maxLevel,
       submission.maxCombo,
       submission.daily,
+      submission.board,
     ));
   });
 

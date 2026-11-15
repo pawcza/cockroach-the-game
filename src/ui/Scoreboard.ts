@@ -28,14 +28,14 @@ export async function fetchDaily(): Promise<DailyRun | null> {
   }
 }
 
-/** The all-time board, or one day's Karaluch Dnia board. */
-export async function fetchScores(daily?: string): Promise<ScoreEntry[]> {
-  return fetchScoreboard(daily);
+/** The all-time board, one day's Karaluch Dnia board, or the endless one (Bez końca). */
+export async function fetchScores(daily?: string, board?: 'endless'): Promise<ScoreEntry[]> {
+  return fetchScoreboard(daily, board);
 }
 
-async function fetchScoreboard(daily?: string): Promise<ScoreEntry[]> {
+async function fetchScoreboard(daily?: string, board?: 'endless'): Promise<ScoreEntry[]> {
   try {
-    const res = await fetch(`/api/scores?limit=100${daily ? `&daily=${daily}` : ''}`);
+    const res = await fetch(`/api/scores?limit=100${daily ? `&daily=${daily}` : board ? `&board=${board}` : ''}`);
     if (!res.ok) return [];
     return await res.json();
   } catch {

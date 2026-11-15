@@ -64,6 +64,14 @@ try {
 }
 db.exec('CREATE INDEX IF NOT EXISTS idx_scores_daily ON scores(daily, score DESC)');
 
+// Bez końca: a run from the Eksterminator's start is ranked on its own board ('endless'); null is the main (or a day's)
+try {
+  db.exec('ALTER TABLE scores ADD COLUMN board TEXT');
+} catch {
+  // Column already exists
+}
+db.exec('CREATE INDEX IF NOT EXISTS idx_scores_board ON scores(board, score DESC)');
+
 export interface ScoreEntry {
   id: number;
   name: string;
@@ -77,6 +85,7 @@ export interface ScoreEntry {
   max_level: number | null;
   max_combo: number | null;
   daily: string | null;
+  board: string | null;
   created_at: string;
 }
 
@@ -123,7 +132,13 @@ export function saveProfile(userId: number, data: unknown): void {
 }
 
 export function getTopScores(limit: number = 100): ScoreEntry[] {
-  const stmt = db.prepare('SELECT * FROM scores WHERE daily IS NULL ORDER BY score DESC LIMIT ?');
+  const stmt = db.prepare('SELECT * FROM scores WHERE daily IS NULL AND board IS NULL ORDER BY score DESC LIMIT ?');
+  return stmt.all(limit) as ScoreEntry[];
+}
+
+/** The endless board (Bez końca): every saved run from the Eksterminator's start, as the all-time board keeps its own. */
+export function getEndlessScores(limit: number = 100): ScoreEntry[] {
+  const stmt = db.prepare("SELECT * FROM scores WHERE board = 'endless' ORDER BY score DESC LIMIT ?");
   return stmt.all(limit) as ScoreEntry[];
 }
 
@@ -131,7 +146,7 @@ export function getTopScores(limit: number = 100): ScoreEntry[] {
 export function getDailyScores(date: string, limit: number = 100): ScoreEntry[] {
   const stmt = db.prepare(`
     SELECT id, user_id, name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected,
-           pills_collected, max_level, max_combo, daily, created_at
+           pills_collected, max_level, max_combo, daily, board, created_at
     FROM (
       SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY score DESC, id) AS place
       FROM scores WHERE daily = ?
@@ -142,11 +157,11 @@ export function getDailyScores(date: string, limit: number = 100): ScoreEntry[] 
 }
 
 export function getPlayerBest(name: string): { entry: ScoreEntry | null; rank: number | null } {
-  const entryStmt = db.prepare('SELECT * FROM scores WHERE name = ? ORDER BY score DESC LIMIT 1');
+  const entryStmt = db.prepare('SELECT * FROM scores WHERE name = ? AND board IS NULL ORDER BY score DESC LIMIT 1');
   const entry = entryStmt.get(name) as ScoreEntry | undefined;
   if (!entry) return { entry: null, rank: null };
 
-  const rankStmt = db.prepare('SELECT COUNT(*) as rank FROM scores WHERE score > ?');
+  const rankStmt = db.prepare('SELECT COUNT(*) as rank FROM scores WHERE score > ? AND board IS NULL');
   const result = rankStmt.get(entry.score) as { rank: number };
   return { entry, rank: result.rank + 1 };
 }
@@ -164,11 +179,12 @@ export function insertScore(
   maxLevel: number | null = null,
   maxCombo: number | null = null,
   daily: string | null = null,
+  board: string | null = null,
 ): ScoreEntry {
   const stmt = db.prepare(
-    'INSERT INTO scores (user_id, name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo, daily) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO scores (user_id, name, score, death_cause, distance, time_survived, apples_collected, tyskies_collected, pills_collected, max_level, max_combo, daily, board) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
-  const info = stmt.run(userId, name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected, maxLevel, maxCombo, daily);
+  const info = stmt.run(userId, name, score, deathCause, distance, timeSurvived, applesCollected, tyskiesCollected, pillsCollected, maxLevel, maxCombo, daily, board);
   const inserted = db.prepare('SELECT * FROM scores WHERE id = ?').get(info.lastInsertRowid) as ScoreEntry;
   return inserted;
 }

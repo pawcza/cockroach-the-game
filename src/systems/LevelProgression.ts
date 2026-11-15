@@ -1,5 +1,6 @@
 /**
- * Moves the run between levels: weather, background crossfade, music and announcement. A level that starts where a boss
+ * Moves the run between levels: weather, background crossfade, music and announcement. Past the Eksterminator each
+ * endless level wears the look and music of a story level (levels.ts endlessLook, by the run's look seed). A level that starts where a boss
  * waits (Hala Targowa with Pani Lodzia, the Baltic with DJ Bigos, Żubrówka with Zlewiatan) arrives only once that boss
  * is beaten: the fight is fought in the old level, and the new one comes after the reward beat, as the reward. The
  * floor ahead follows the same cap (levelCap), so nothing of the next level shows before the boss falls.
@@ -7,7 +8,7 @@
 import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
 import { COCKROACH_START_X } from '../config/constants';
-import { getLevelForDistance, LevelConfig, LEVELS, levelBefore } from '../config/levels';
+import { getLevelForDistance, LevelConfig, levelBefore, levelConfig, lookLevel } from '../config/levels';
 import { playLevelGlitch } from '../effects/LevelTransitionFX';
 import { GameHUD } from '../ui/GameHUD';
 import { ParallaxBackground } from './ParallaxBackground';
@@ -26,10 +27,17 @@ export class LevelProgression {
   private audio: AudioManager;
   private hud: GameHUD;
   private seed: number | null;
+  /** What decides the endless levels' looks (levels.ts endlessLook): the run's seed, or a solo run's own. */
+  private lookSeed: number;
   private weather: WeatherSystem;
   /** Where the next boss still to be beaten waits, in metres, as of the last update (Infinity: none). */
   private gate = Infinity;
   private nextBossAt: () => number;
+  private levelReady: (level: number) => boolean;
+  /** The level whose look is showing: behind the run's level while that level's images are still loading. */
+  private shownLevel = 1;
+  /** A track to switch to once it is loaded. */
+  private musicDue: string | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -40,7 +48,12 @@ export class LevelProgression {
     seed: number | null,
     /** Where the next boss still to be beaten waits, in metres; Infinity when none is left. */
     nextBossAt: () => number,
+    /** Whether a story level's images are in whole (src/config/packs.ts level-N): its look switches on them. */
+    levelReady: (level: number) => boolean,
+    lookSeed = 0,
   ) {
+    this.lookSeed = lookSeed;
+    this.levelReady = levelReady;
     this.nextBossAt = nextBossAt;
     this.scene = scene;
     this.run = run;
@@ -58,14 +71,42 @@ export class LevelProgression {
    * on a running frame, so after a fight it moves on together with the level itself, after the reward beat.
    */
   get levelCap(): number {
-    return this.gate === Infinity ? LEVELS[LEVELS.length - 1].level : levelBefore(Infinity, this.gate).level;
+    return this.gate === Infinity ? Infinity : levelBefore(Infinity, this.gate).level;
   }
 
+  /**
+   * The run's level is game state (speed, score, records, what the HUD says): it follows distance and the boss gates at
+   * once, whatever has loaded. Only its look and sound follow when they are in (present).
+   */
   update(distance: number): void {
     this.gate = this.nextBossAt();
-    const config = levelBefore(distance, this.gate);
-    if (config.level !== this.run.currentLevel && this.switchLevel(config)) {
+    const config = levelBefore(distance, this.gate, this.lookSeed);
+    if (config.level !== this.run.currentLevel) {
       this.run.currentLevel = config.level;
+      this.musicDue = config.bgmKey;
+    }
+    this.present();
+    this.run.feats.observe(this.run.currentLevel, this.run.abilities.canShootInRun);
+  }
+
+  /**
+   * A run that starts in this level (from a checkpoint): its look and weather from the first frame. Its assets are in:
+   * GameScene waits for them before building such a run.
+   */
+  startIn(config: LevelConfig): void {
+    this.background.showLevel(config);
+    this.weather.setWeather(rollLevelWeather(config.weatherChances, this.seed, config.level));
+    this.run.currentLevel = config.level;
+    this.shownLevel = config.level;
+  }
+
+  /** The run's music: now if it is in, otherwise as soon as it arrives (until then the last track plays on). */
+  playMusic(key: string): void {
+    if (this.scene.cache.audio.exists(key)) {
+      this.audio.startBGM(key);
+      this.musicDue = null;
+    } else {
+      this.musicDue = key;
     }
   }
 
@@ -81,25 +122,25 @@ export class LevelProgression {
     this.weather.destroy();
   }
 
-  /** False while the level's assets are still downloading; update() tries again next frame. */
-  private switchLevel(config: LevelConfig): boolean {
-    if (!this.scene.textures.exists(`lv${config.level}-sky`)) {
-      if (this.scene.cache.audio.exists(config.bgmKey)) {
-        this.audio.switchBGM(config.bgmKey);
-      }
-      return false;
+  /**
+   * The level's look catches up with its state: the background crossfades, the weather and the announcement come, once
+   * its images are in (a level's textures arrive a frame apart, its ledge segments once all are in); until then the
+   * last level's look stays. Its music joins whenever it arrives, on its own: it never holds the look.
+   */
+  private present(): void {
+    if (this.musicDue && this.scene.cache.audio.exists(this.musicDue)) {
+      this.audio.switchBGM(this.musicDue);
+      this.musicDue = null;
     }
-
+    const level = this.run.currentLevel;
+    if (level === this.shownLevel) return;
+    const config = levelConfig(level, this.lookSeed);
+    if (!this.levelReady(lookLevel(config))) return;
+    this.shownLevel = level;
     playLevelGlitch(this.scene);
     this.audio.glitchBGM();
-
     this.weather.setWeather(rollLevelWeather(config.weatherChances, this.seed, config.level));
     this.background.crossfadeTo(config);
-
-    this.audio.switchBGM(config.bgmKey);
-    if (!this.run.isDead) {
-      this.hud.showLevelAnnouncement(config);
-    }
-    return true;
+    if (!this.run.isDead) this.hud.showLevelAnnouncement(config);
   }
 }

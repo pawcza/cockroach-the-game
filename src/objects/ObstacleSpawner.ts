@@ -84,8 +84,9 @@ export class ObstacleSpawner {
     spawnWall(this.kit, x, level);
   }
 
+  /** Built by its look's view: its own, or the one of the enemy whose look it has in this level (the gull's, for the pigeon at the Baltic). */
   spawn(plan: EnemyPlan): void {
-    SPAWN[plan.id as EnemyId](this.kit, plan);
+    SPAWN[this.kit.look(plan).view](this.kit, plan);
   }
 
   /** An onion standing in this lane: the one enemy that does nothing, for the tutorial's first dodge. */

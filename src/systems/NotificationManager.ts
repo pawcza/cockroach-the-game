@@ -15,6 +15,8 @@ const SLOT_Y_START = 55;
 const SLOT_HEIGHT = 30;
 const MAX_SLOTS = 3;
 const MILESTONE_GAP = 18;
+/** A notice stays up this long, long enough to read a sentence. */
+const NOTICE_HOLD_MS = 3200;
 
 export class NotificationManager {
   private scene: Phaser.Scene;
@@ -63,6 +65,22 @@ export class NotificationManager {
     };
     const parts = popup(this.scene, w / 2, this.slotY(slot), `x${threshold} ${label}`,
       popupStyle({ fontSize: '12px', color: colorStr }), { scrollFactor: 0, hold: 800, shine: true, yOffset: () => notif.shift });
+    notif.objects = parts;
+    this.active.push(notif);
+    parts[parts.length - 1].once(Phaser.GameObjects.Events.DESTROY, () => this.removeNotification(notif));
+  }
+
+  /** A one-off notice on the same slab, held longer: something the player should read once (a checkpoint unlocked). */
+  showNotice(text: string, color: number): void {
+    const w = this.scene.cameras.main.width;
+    const slot = this.getNextSlot();
+    const notif: ActiveNotification = {
+      objects: [], startTime: this.scene.time.now, duration: NOTICE_HOLD_MS + 400, slot,
+      shift: this.scene.time.now < this.milestoneUntil ? this.milestoneShift : 0,
+    };
+    const parts = popup(this.scene, w / 2, this.slotY(slot), text,
+      popupStyle({ fontSize: '12px', color: '#' + color.toString(16).padStart(6, '0') }),
+      { scrollFactor: 0, hold: NOTICE_HOLD_MS, shine: true, yOffset: () => notif.shift });
     notif.objects = parts;
     this.active.push(notif);
     parts[parts.length - 1].once(Phaser.GameObjects.Events.DESTROY, () => this.removeNotification(notif));

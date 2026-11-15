@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ReplayData } from './DeathReplay';
-import { ATLAS, SPRITE_SCALE } from '../config/sprites';
+import { SPRITE_SCALE, textureOf } from '../config/sprites';
 import { addObstacleArt } from '../ui/shared';
 import { sfxVolume } from '../audio/AudioManager';
 import { popupStyle } from '../utils/TextStyles';
@@ -61,14 +61,14 @@ export class DeathReplayPlayer {
     for (let i = 0; i < data.obstacles.length; i++) {
       if (i === killerObsIndex) continue;
       const obs = data.obstacles[i];
-      const img = scene.add.image(0, obs.y, ATLAS, obs.frameName)
+      const img = scene.add.image(0, obs.y, textureOf(obs.frameName), obs.frameName)
         .setScale(SPRITE_SCALE).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.7).setTint(0x4488ff);
       cleanup.push(img);
       worldSprites.push({ img, worldX: obs.worldX, baseY: obs.y });
     }
 
     for (const pk of data.pickups) {
-      const img = scene.add.image(0, pk.y, ATLAS, pk.frameName)
+      const img = scene.add.image(0, pk.y, textureOf(pk.frameName), pk.frameName)
         .setScale(SPRITE_SCALE).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_SPRITE).setAlpha(0.7).setTint(0x44ff44);
       cleanup.push(img);
       worldSprites.push({ img, worldX: pk.worldX, baseY: pk.y });
@@ -82,7 +82,7 @@ export class DeathReplayPlayer {
     }
 
     // Ghost cockroach
-    const ghost = scene.add.sprite(COCKROACH_SCREEN_X, data.frames[0].y, ATLAS, data.frames[0].frameName)
+    const ghost = scene.add.sprite(COCKROACH_SCREEN_X, data.frames[0].y, textureOf(data.frames[0].frameName), data.frames[0].frameName)
       .setScale(SPRITE_SCALE).setAlpha(0.7).setTint(0x8888ff).setScrollFactor(0).setDepth(DEPTH.DEATH_REPLAY_TEXT);
     cleanup.push(ghost);
 

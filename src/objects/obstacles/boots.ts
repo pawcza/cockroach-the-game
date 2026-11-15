@@ -15,14 +15,18 @@ import { ObstacleKit } from './ObstacleKit';
  */
 export function spawnBoots(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
+  const look = kit.look(plan);
+  const art = look.anim('boot');
   const top = kit.enemy(plan, { shadow: false });
   top.anims.stop();
-  const bottom = kit.createSprite(plan.x, laneY('bottom'), 'boot', 'boots', null, { hitbox: ENEMIES.boots.hitbox });
+  const bottom = kit.createSprite(plan.x, laneY('bottom'), art, look.cause, null, {
+    hitbox: ENEMIES.boots.hitbox, bodyAs: art === 'boot' ? undefined : ENEMIES.boots.frame,
+  });
   bottom.anims.stop();
   bottom.setData('floor', 'bottom').setData('telegraphs', true);
   const stomped = (lane: 'top' | 'bottom', x: number): void => {
     fx.play('dust-land', x, laneY(lane), { depth: DEPTH.OBSTACLES + 1 });
-    if (kit.isAhead(top) && top.x - kit.scene.cockroach.x < 360) kit.audio.playSfx('boots-stomp', VOL.obstacle * 0.6);
+    if (kit.isAhead(top) && top.x - kit.scene.cockroach.x < 360) kit.audio.playSfx(look.sound('boots-stomp'), VOL.obstacle * 0.6);
   };
   kit.drive(top, plan, (now, before) => {
     const topDown = now.zones.some(z => z.lane === 'top');
@@ -30,7 +34,7 @@ export function spawnBoots(kit: ObstacleKit, plan: EnemyPlan): void {
     // behind the ledges; down, it is in front, in full colour
     top.setData('floor', 'top').setData('harmless', !topDown).setDepth(topDown ? DEPTH.OBSTACLES : DEPTH.BEHIND_LEDGE);
     const b = now.parts!.bottom;
-    bottom.setPosition(b.x, b.y).setFrame(frameOf('boot', b.frame)).setData('harmless', !b.danger)
+    bottom.setPosition(b.x, b.y).setFrame(frameOf(art, b.frame)).setData('harmless', !b.danger)
       .setDepth(b.danger ? DEPTH.OBSTACLES : DEPTH.BEHIND_LEDGE);
     if (!before || !kit.isOnScreen(top)) return;
     const wasTop = before.zones.some(z => z.lane === 'top');

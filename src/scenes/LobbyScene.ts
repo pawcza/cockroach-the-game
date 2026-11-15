@@ -6,6 +6,9 @@ import { createSceneBackground } from '../ui/SceneBackground';
 import { createButton, createPanel, UIButton } from '../ui/shared';
 import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
+import { packs } from './DeferredLoadScene';
+import { matchRequires } from '../config/packs';
+import { PACK_LOADED_EVENT } from '../systems/PackLoader';
 
 /** Where a player is, shown beside their name; nothing for the lobby itself. */
 const PLACE_LABEL: Record<string, string> = { game: 'w grze', watching: 'widz', results: 'na wynikach' };
@@ -78,6 +81,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // "Gotowy" ready toggle button (non-host only)
     this.readyBtn = createButton(this, width / 2, actionBtnY, 300, 38, 'Gotowy?', 0x886600, btnS, () => {
+      if (!this.packsReady()) return;
       const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
       const newReady = !(me?.ready);
       mpClient.setReady(newReady).then((updatedLobby) => {
@@ -152,6 +156,19 @@ export class LobbyScene extends Phaser.Scene {
       }).catch(() => {});
     }
 
+    // A match never waits once it starts: you can be ready (or, hosting, start it) only with what it requires loaded
+    const onPack = (): void => { this.updateStartButton(); this.updateReadyButton(); };
+    this.game.events.on(PACK_LOADED_EVENT, onPack);
+    // Failing (a dead connection), it asks again every few seconds while the lobby is open; the button says so meanwhile
+    const load = (): void => {
+      void packs(this.game).ensure(matchRequires()).then((failed) => {
+        if (!this.scene.isActive()) return;
+        onPack();
+        if (failed.length > 0) this.time.delayedCall(3000, load);
+      });
+    };
+    load();
+
     const stopWatchingDrop = mpClient.onDrop(() => {
       sceneManager.goto(this, 'MultiplayerMenuScene', { notice: 'Utracono połączenie z serwerem' });
     });
@@ -160,6 +177,7 @@ export class LobbyScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       mpClient.off('lobby:updated', this.lobbyUpdatedHandler);
       mpClient.off('game:start', this.gameStartHandler);
+      this.game.events.off(PACK_LOADED_EVENT, onPack);
       stopWatchingDrop();
       maskGraphics.destroy();
     });
@@ -207,8 +225,14 @@ export class LobbyScene extends Phaser.Scene {
     return this.lobbyData.players.some(p => p.id === mpClient.myId && p.isHost);
   }
 
+  /** What a match requires is loaded on this client (src/config/packs.ts matchRequires). */
+  private packsReady(): boolean {
+    return packs(this.game).allReady(matchRequires());
+  }
+
   private isStartEnabled(): boolean {
     return this.isHost()
+      && this.packsReady()
       && this.lobbyData.players.length >= 2
       && this.lobbyData.players.every(p => p.isHost || p.ready);
   }
@@ -218,7 +242,7 @@ export class LobbyScene extends Phaser.Scene {
     for (const obj of this.startBtn.all) (obj as unknown as Phaser.GameObjects.Components.Visible).setVisible(isHostPlayer);
     const wasEnabled = this.startBtn.enabled;
     this.startBtn.setEnabled(isHostPlayer && this.isStartEnabled());
-    this.startBtn.setLabel(this.startBtn.enabled ? 'Rozpocznij Grę' : 'Czekam na gotowych');
+    this.startBtn.setLabel(this.startBtn.enabled ? 'Rozpocznij Grę' : this.packsReady() ? 'Czekam na gotowych' : 'Wczytywanie...');
     if (wasEnabled !== this.startBtn.enabled) this.refreshNav();
   }
 
@@ -229,8 +253,10 @@ export class LobbyScene extends Phaser.Scene {
 
     const me = this.lobbyData.players.find(p => p.id === mpClient.myId);
     const isReady = me?.ready ?? false;
+    const loaded = this.packsReady();
+    this.readyBtn.setEnabled(loaded);
     this.readyBtn.setColor(isReady ? 0x008800 : 0x886600);
-    this.readyBtn.setLabel(isReady ? 'Gotowy!  (odznacz)' : 'Gotowy?');
+    this.readyBtn.setLabel(!loaded ? 'Wczytywanie...' : isReady ? 'Gotowy!  (odznacz)' : 'Gotowy?');
   }
 
   private renderPlayerList(): void {

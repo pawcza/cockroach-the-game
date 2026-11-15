@@ -1,4 +1,5 @@
 import { io as ioClient } from 'socket.io-client';
+import { COURSE_VERSION } from './daily';
 
 // Mirror the game's speed constants
 const COCKROACH_BASE_SPEED = 200;
@@ -25,6 +26,8 @@ export function spawnBotForLobby(lobbyId: string): void {
   const bot = ioClient(`http://localhost:${port}`, {
     path: '/socket.io',
     transports: ['websocket'],
+    // The server takes only clients of its own course version (daily.ts)
+    auth: { course: COURSE_VERSION },
   });
 
   let lane: 'top' | 'bottom' = 'bottom';

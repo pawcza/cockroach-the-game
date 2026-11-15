@@ -107,3 +107,77 @@ test('achievements pay their okruszki once, and only for what the stats reach', 
   assert.deepEqual(res.paid, []);
   assert.equal(await shop(), 180);
 });
+
+test('every level pays once, and the set cannot buy out the shop', async () => {
+  const economy = await import('../server/economy');
+  const { ACHIEVEMENTS } = await import('../server/achievements');
+  const total = ACHIEVEMENTS.reduce((sum, a) => sum + a.reward, 0);
+  const shop = Object.values(economy.SHOP).reduce((sum, item) => sum + item.price, 0);
+  assert.ok(total < shop * 0.75, `the set pays ${total}, the shop sells for ${shop}`);
+
+  const cookie = await harness.signIn('google-leveller', 'Leveller');
+  const me = await (await call(cookie, '/api/me')).json() as { user: { id: number } };
+  const put = async (stats: Record<string, number>) => (await (await fetch(`${harness.url}/api/me/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Forwarded-For': '203.0.113.92' },
+    body: JSON.stringify({ stats, achievements: {} }),
+  })).json() as { paid: { id: string; reward: number }[] }).paid;
+  const crumbs = async () => (await (await call(cookie, '/api/me/shop', undefined, '203.0.113.92')).json() as State).crumbs;
+
+  // 3500 apples reach the first two levels of the card together; the same stats again pay nothing more
+  assert.deepEqual((await put({ apples: 3500 })).map(p => p.id).sort(), ['jablka-1', 'sadownik']);
+  assert.equal(await crumbs(), 50 + 150);
+  assert.deepEqual(await put({ apples: 3500 }), []);
+  // The next level pays on its own, and only it
+  assert.deepEqual((await put({ apples: 10000 })).map(p => p.id), ['jablka-3']);
+  assert.equal(await crumbs(), 50 + 150 + 350);
+  assert.deepEqual(await put({ apples: 10000 }), []);
+
+  // A one-off that needs a stat the client never sent reaches nothing; one it did send pays
+  assert.deepEqual(await put({ apples: 10000, lodziaWins: 1 }).then(paid => paid.map(p => p.id)), ['boss-lodzia']);
+
+  // Missions done and items owned are the server's own record: what a client claims for them pays nothing
+  assert.deepEqual(await put({ missionsDone: 500, itemsOwned: 20 }), []);
+
+  // Finishing missions moves the record, and the level pays at that moment
+  const db = (await import('../server/db')).default;
+  db.prepare('INSERT INTO missions_done (user_id, done) VALUES (?, 9) ON CONFLICT(user_id) DO UPDATE SET done = 9').run(me.user.id);
+  const before = await crumbs();
+  economy.reportRun(me.user.id, MAXED);
+  const finished = (db.prepare('SELECT done FROM missions_done WHERE user_id = ?').get(me.user.id) as { done: number }).done;
+  assert.ok(finished >= 10, `missions counted (${finished})`);
+  const paid = economy.payStored(me.user.id);
+  assert.deepEqual(paid.map(p => p.id), ['misje-1']);
+  assert.ok((await crumbs()) > before);
+  assert.deepEqual(economy.payStored(me.user.id), [], 'once');
+
+  // Ten items owned pay the shop level
+  for (const item of ['zombie', 'lodowy', 'robot', 'lawa', 'metal', 'kosmiczny', 'czapka', 'imprezowa', 'kowbojski']) {
+    db.prepare('INSERT INTO owned (user_id, item) VALUES (?, ?)').run(me.user.id, item);
+  }
+  assert.deepEqual(economy.payStored(me.user.id), [], 'nine are not ten');
+  db.prepare('INSERT INTO owned (user_id, item) VALUES (?, ?)').run(me.user.id, 'sluchawki');
+  assert.deepEqual(economy.payStored(me.user.id).map(p => p.id), ['szafa-gra']);
+  assert.deepEqual(economy.payStored(me.user.id), []);
+});
+
+test('missions that need the dash are only handed to a player who has beaten Lodzia (the checkpoints stat)', async () => {
+  const NEEDS_DASH = ['przebicia', 'sciana'];
+  const missionsOf = async (cookie: string): Promise<string[]> =>
+    ((await (await call(cookie, '/api/me/shop')).json()) as State).missions.map(m => m.id);
+
+  const without: string[] = [];
+  const withDash: string[] = [];
+  for (let i = 0; i < 40; i++) {
+    without.push(...await missionsOf(await harness.signIn(`google-nodash-${i}`, `NoDash${i}`)));
+    const cookie = await harness.signIn(`google-dash-${i}`, `Dash${i}`);
+    const saved = await fetch(`${harness.url}/api/me/profile`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ stats: { checkpoints: 1 }, achievements: {} }),
+    });
+    assert.equal(saved.status, 200);
+    withDash.push(...await missionsOf(cookie));
+  }
+  assert.ok(!without.some(id => NEEDS_DASH.includes(id)), 'nobody without the dash is asked to use it');
+  assert.ok(withDash.some(id => NEEDS_DASH.includes(id)), 'with it, the pool is the whole set again');
+});

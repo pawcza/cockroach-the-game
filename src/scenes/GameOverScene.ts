@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { fetchScores, type DailyRun } from '../ui/Scoreboard';
-import type { Achievement } from '../systems/Profile';
+import { syncProfile, takeNotices, type Achievement } from '../systems/Profile';
 import { getFx } from '../effects/Fx';
 import { titleStyle, bodyStyle, smallStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
 import { addObstacleArt, createButton, createPanel, showAchievement, showMission, UIButton } from '../ui/shared';
@@ -12,9 +12,18 @@ import { getHighScore } from '../utils/Storage';
 import { account, signIn, signInAvailable, submitScore, type ScoreSubmission } from '../ui/Account';
 import { ReplayData } from '../systems/DeathReplay';
 import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
-import { LEVELS, getLevelForDistance } from '../config/levels';
+import { LEVELS, getLevelForDistance, levelEnd } from '../config/levels';
+import { ENDLESS_NAME, runStart, type Board } from '../systems/checkpoints';
+import { COURSE_VERSION } from '../../server/daily';
 import { BIGOS_CAUSE_KEY, bigosDeathLines } from '../systems/boss/bigosConfig';
 import { showDeathTaunt } from '../systems/boss/deathTaunt';
+import { skinOfCause } from '../objects/obstacles/cast';
+
+/** A level skin's own headline (cast.ts): killed by the moon rock, the game over says so. */
+const skinHeadline = (cause: string): string[] | null => {
+  const skin = skinOfCause(cause);
+  return skin ? [skin.headline] : null;
+};
 
 /** The confetti's colours, each its own frames in the effects atlas. */
 const CONFETTI = ['pink', 'cyan', 'gold', 'leaf'];
@@ -34,8 +43,16 @@ interface GameOverData {
   previousBestDistance?: number;
   /** Karaluch Dnia: saved to that day's board, measured against the day's best. */
   daily?: DailyRun | null;
+  /** The checkpoint the run started from (0: the start): "Jeszcze raz" starts there again. */
+  from?: number;
   /** Earned as the run ended. */
   achievements?: Achievement[];
+  /** Whether the run may make a board (false under a dev shortcut, and from a practice checkpoint); absent: it may. */
+  ranked?: boolean;
+  /** Which board: the main one (from 0 m), Bez końca (from the Eksterminator's start), or none; absent: the main one. */
+  board?: Board | null;
+  /** The story level whose look the run died in (an endless level wears one): the background shows it. */
+  look?: number;
   /** The missions the run finished, once the server has counted it. */
   missions?: Promise<{ text: string; reward: number }[]>;
 }
@@ -45,6 +62,9 @@ export class GameOverScene extends Phaser.Scene {
   private replayData: ReplayData | null = null;
   private replay: DeathReplayPlayer | null = null;
   private daily: DailyRun | null = null;
+  private from = 0;
+  /** A Bez końca run: its own board and its own record. */
+  private endless = false;
   private nav!: MenuNav;
 
   private static readonly DEATH_TEXT: Record<string, string[]> = {
@@ -94,16 +114,18 @@ export class GameOverScene extends Phaser.Scene {
     this.replayData = data?.replayData ?? null;
     this.replay = null;
     this.daily = data?.daily ?? null;
+    this.from = data?.from ?? 0;
+    this.endless = data?.board === 'endless';
 
     this.cameras.main.setBackgroundColor('#0a0a0a');
     // You see the level you died in, darker
-    createSceneBackground(this, { level: data?.level ?? 1, dim: 0.62, scrollSpeed: 0.15 });
+    createSceneBackground(this, { level: data?.look ?? data?.level ?? 1, dim: 0.62, scrollSpeed: 0.15 });
     this.nav = new MenuNav(this);
 
     // DJ Bigos's line names what got you (the server only hears 'bigos')
     const texts = data?.obstacleType === 'bigos'
       ? bigosDeathLines(this.registry.get(BIGOS_CAUSE_KEY))
-      : data?.obstacleType ? GameOverScene.DEATH_TEXT[data.obstacleType] : null;
+      : data?.obstacleType ? GameOverScene.DEATH_TEXT[data.obstacleType] ?? skinHeadline(data.obstacleType) : null;
     const deathMessage = texts
       ? texts[Math.floor(Math.random() * texts.length)]
       : GameOverScene.DEFAULT_DEATH;
@@ -115,8 +137,12 @@ export class GameOverScene extends Phaser.Scene {
     }
     this.setupObstacleImage(width, titleY, data);
 
-    const { isNewRecord, highScore } = this.getHighScoreInfo(data?.score ?? 0, data?.previousBest);
-    this.setupScoreDisplay(width, height, data?.score ?? 0, highScore, isNewRecord);
+    // From a practice checkpoint the run is practice: no record, no confetti, no board, and the line says so. A dev run is
+    // no record either. From the Eksterminator's start it is up against its own record and board (Bez końca)
+    const practice = this.from > 0 && !this.endless;
+    const info = this.getHighScoreInfo(data?.score ?? 0, data?.previousBest);
+    const isNewRecord = info.isNewRecord && !practice && data?.ranked !== false;
+    this.setupScoreDisplay(width, height, data?.score ?? 0, info.highScore, isNewRecord, practice);
     this.setupStats(width, height, data);
     showDeathTaunt(this, data?.distance, data?.obstacleType);
 
@@ -125,15 +151,18 @@ export class GameOverScene extends Phaser.Scene {
     }
     for (const achievement of data?.achievements ?? []) showAchievement(this, achievement);
     void data?.missions?.then((done) => {
-      if (this.scene.isActive()) for (const mission of done) showMission(this, mission);
+      if (!this.scene.isActive()) return;
+      for (const mission of done) showMission(this, mission);
+      // Missions done move a record only the server keeps: what that earned arrives with the answer
+      for (const achievement of takeNotices()) showAchievement(this, achievement);
     });
 
     // Check if score qualifies for top 100 leaderboard
     const finalScore = data?.score ?? 0;
-    // A daily run is up against that day's board, not the all-time one
-    fetchScores(this.daily?.date).then((scores) => {
+    // A daily run is up against that day's board, a Bez końca run against its own, not the all-time one
+    fetchScores(this.daily?.date, this.endless ? 'endless' : undefined).then((scores) => {
       const inTop100 = scores.length < 100 || (finalScore > 0 && finalScore > scores[scores.length - 1].score);
-      const canSave = isNewRecord && inTop100;
+      const canSave = data?.ranked !== false && isNewRecord && inTop100;
       this.showDeathButtons(width, height, canSave, data);
     }).catch(() => {
       this.showDeathButtons(width, height, false, data);
@@ -207,7 +236,7 @@ export class GameOverScene extends Phaser.Scene {
 
   private setupScoreDisplay(
     width: number, height: number,
-    finalScore: number, highScore: number, isNewRecord: boolean,
+    finalScore: number, highScore: number, isNewRecord: boolean, practice: boolean,
   ): void {
     const scoreY = Math.round(height * 0.42);
 
@@ -241,11 +270,15 @@ export class GameOverScene extends Phaser.Scene {
       }))
       .setOrigin(0.5);
 
-    if (isNewRecord) {
-      hsText.setText(this.daily ? `Najlepiej dziś!  Było ${highScore}` : `Nowy rekord!  Było ${highScore}`);
+    if (practice) {
+      hsText.setText('Trening — bez rankingu');
+    } else if (isNewRecord) {
+      hsText.setText(this.daily ? `Najlepiej dziś!  Było ${highScore}` : this.endless ? `Rekord ${ENDLESS_NAME}!  Było ${highScore}` : `Nowy rekord!  Było ${highScore}`);
     } else if (highScore > 0 && finalScore > 0) {
       // How close it came: the number that makes you go again
-      hsText.setText(`${this.daily ? 'Dziś' : 'Rekord'}: ${highScore}  ·  brakło ${highScore - finalScore}`);
+      hsText.setText(`${this.daily ? 'Dziś' : this.endless ? ENDLESS_NAME : 'Rekord'}: ${highScore}  ·  brakło ${highScore - finalScore}`);
+    } else if (this.endless) {
+      hsText.setText(`${ENDLESS_NAME}: ${highScore}`);
     }
   }
 
@@ -282,11 +315,10 @@ export class GameOverScene extends Phaser.Scene {
       const value = this.add.text(width / 2 + 8, y, stat.value, smallStyle({ fontSize, color: stat.color, strokeThickness: 0 })).setOrigin(0, 0.5);
       if (i !== levelRow) return;
       const pipsEnd = this.drawLevelPips(value.x + value.width + 12, y, data.level!, getLevelForDistance(bestDistance).level);
-      // How far the next level was: close enough, and you go again
-      const next = LEVELS.find(l => l.level === data.level! + 1);
-      if (next && data.distance !== undefined) {
-        const short = Math.max(1, Math.ceil(next.distanceThreshold - data.distance));
-        this.add.text(pipsEnd + 10, y, `${next.level}. za ${short}m`, smallStyle({ fontSize, color: '#ffe066', strokeThickness: 0 })).setOrigin(0, 0.5);
+      // How far the next level was: close enough, and you go again (past level 10 they keep coming, every 500 m)
+      if (data.distance !== undefined) {
+        const short = Math.max(1, Math.ceil(levelEnd(data.level!) - data.distance));
+        this.add.text(pipsEnd + 10, y, `${data.level! + 1}. za ${short}m`, smallStyle({ fontSize, color: '#ffe066', strokeThickness: 0 })).setOrigin(0, 0.5);
       }
     });
   }
@@ -356,7 +388,10 @@ export class GameOverScene extends Phaser.Scene {
         ? createButton(this, width / 2, saveY, 200, 30, 'Zapisz wynik', 0x008800, buttonStyle({ fontSize: '10px', strokeThickness: 2 }), () => {
           for (const obj of saveBtn.all) obj.destroy();
           this.nav.set(buttons, { initial: again, onBack: () => this.goToMenu() });
-          void submitScore(submission).then((saved) => {
+          // Bez końca's board asks the account for the unlocked start: the profile that carries it goes first (the run
+          // that unlocked it may have ended moments ago, its save still on the way or lost)
+          const ready = this.endless ? syncProfile() : Promise.resolve();
+          void ready.then(() => submitScore(submission)).then((saved) => {
             if (!this.scene.isActive()) return;
             this.add.text(width / 2, saveY, saved ? `Zapisano jako ${user.name}` : 'Nie udało się zapisać', smallStyle({
               color: saved ? UI_TEXT.named : '#e07a6a',
@@ -373,7 +408,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private restartGame(): void {
-    sceneManager.goto(this, 'GameScene', { multiplayer: false, retry: true, daily: this.daily ?? undefined });
+    sceneManager.goto(this, 'GameScene', { multiplayer: false, retry: true, daily: this.daily ?? undefined, from: this.from });
   }
 
   private goToMenu(): void {
@@ -400,6 +435,10 @@ export class GameOverScene extends Phaser.Scene {
       maxLevel: data.level ?? null,
       maxCombo: data.maxCombo ?? null,
       daily: this.daily?.date ?? null,
+      // Where it started, so the server can tell a ranked run from a practice one (and file a Bez końca run on its board)
+      start: runStart(this.from).distance,
+      // The course it ran: a Karaluch Dnia board takes only runs of today's (server/daily.ts)
+      course: COURSE_VERSION,
     };
   }
 }

@@ -2,6 +2,7 @@
  * The bosses a solo run meets, by distance. Plain data with no Phaser, so the versus splash can read it and the
  * schedule can be tested. A boss is only scheduled once it has a fight in fights.ts.
  */
+import { BOSS_TRIGGER_DISTANCE } from '../../../server/bossDistances';
 import type { AbilityId } from '../abilities';
 
 export type BossId = 'lodzia' | 'bigos' | 'zlewiatan' | 'eksterminator';
@@ -23,10 +24,10 @@ export interface BossDef {
 }
 
 export const BOSSES: readonly BossDef[] = [
-  { id: 'lodzia', name: 'Pani Lodzia spod Trójki', epithet: 'Raz, a dobrze', triggerDistance: 250, accent: 0xd9578f, reward: 'dash', music: 'lodzia-bgm' },
-  { id: 'bigos', name: 'DJ Bigos', epithet: 'Król remizy', triggerDistance: 1200, accent: 0x9b5cff, reward: 'gun', music: 'bigos-bgm' },
-  { id: 'zlewiatan', name: 'Zlewiatan', epithet: 'Bestia spod Zlewu', triggerDistance: 1800, accent: 0x2fb9a0, reward: 'moult', music: 'zlewiatan-bgm' },
-  { id: 'eksterminator', name: 'Eksterminator', epithet: 'Bez faktury taniej', triggerDistance: 2600, accent: 0xd8d03a, reward: null, music: 'eksterminator-bgm' },
+  { id: 'lodzia', name: 'Pani Lodzia spod Trójki', epithet: 'Raz, a dobrze', triggerDistance: BOSS_TRIGGER_DISTANCE.lodzia, accent: 0xd9578f, reward: 'dash', music: 'lodzia-bgm' },
+  { id: 'bigos', name: 'DJ Bigos', epithet: 'Król remizy', triggerDistance: BOSS_TRIGGER_DISTANCE.bigos, accent: 0x9b5cff, reward: 'gun', music: 'bigos-bgm' },
+  { id: 'zlewiatan', name: 'Zlewiatan', epithet: 'Bestia spod Zlewu', triggerDistance: BOSS_TRIGGER_DISTANCE.zlewiatan, accent: 0x2fb9a0, reward: 'moult', music: 'zlewiatan-bgm' },
+  { id: 'eksterminator', name: 'Eksterminator', epithet: 'Bez faktury taniej', triggerDistance: BOSS_TRIGGER_DISTANCE.eksterminator, accent: 0xd8d03a, reward: null, music: 'eksterminator-bgm' },
 ];
 
 export function bossById(id: BossId): BossDef {

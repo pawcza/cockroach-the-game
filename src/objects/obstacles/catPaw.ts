@@ -11,8 +11,9 @@ import { ObstacleKit } from './ObstacleKit';
  */
 export function spawnCatPaw(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
+  const look = kit.look(plan);
   const cat = kit.enemy(plan);
-  kit.playSoundOnVisible(cat, 'cat-sfx', 0.5);
+  kit.playSoundOnVisible(cat, look.sound('cat-sfx'), 0.5);
 
   kit.drive(cat, plan, (now, before) => {
     if (now.pose === before?.pose) return;
@@ -32,6 +33,6 @@ export function spawnCatPaw(kit: ObstacleKit, plan: EnemyPlan): void {
         fx.play('ring', cat.x, laneY(now.lane), { depth });
       }
     }
-    if (now.pose === 'air' && before?.pose === 'windup' && kit.isAhead(cat)) kit.audio.playSfx('cat-sfx', VOL.obstacle * 0.5);
+    if (now.pose === 'air' && before?.pose === 'windup' && kit.isAhead(cat)) kit.audio.playSfx(look.sound('cat-sfx'), VOL.obstacle * 0.5);
   });
 }

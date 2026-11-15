@@ -3,38 +3,12 @@
  * devices. Two copies merge by keeping the larger of every number and every achievement either one has.
  */
 import { account } from '../ui/Account';
-import { ACHIEVEMENTS, type Achievement, type Stats } from '../../server/achievements';
+import { getAchievementsSeen, setAchievementsSeen } from '../utils/Storage';
+import { ACHIEVEMENTS, achievementTitle, CARDS, ONE_OFFS, type Achievement, type Stats } from '../../server/achievements';
+import { devRunFrom } from './devRun';
+import { EMPTY, merge, reached, withRun, type ProfileData, type RunSnapshot } from './profileStats';
 
-export { ACHIEVEMENTS, type Achievement, type Stats };
-
-/** One run as it stands, during it or at its end. */
-export interface RunSnapshot {
-  score: number;
-  distance: number;
-  level: number;
-  combo: number;
-  apples: number;
-  beers: number;
-  pills: number;
-  nearMisses: number;
-  dashThroughs: number;
-  wallsBroken: number;
-  kills: number;
-  seconds: number;
-  daily: boolean;
-}
-
-interface ProfileData {
-  stats: Stats;
-  /** Achievement id → when it was earned (ms). */
-  achievements: Record<string, number>;
-}
-
-const EMPTY: Stats = {
-  runs: 0, distance: 0, apples: 0, beers: 0, pills: 0, nearMisses: 0, dashThroughs: 0, wallsBroken: 0, kills: 0, dailyRuns: 0,
-  matches: 0, matchWins: 0, seconds: 0, bestScore: 0, bestDistance: 0, bestLevel: 0, bestCombo: 0,
-};
-const BESTS: (keyof Stats)[] = ['bestScore', 'bestDistance', 'bestLevel', 'bestCombo'];
+export { ACHIEVEMENTS, achievementTitle, CARDS, ONE_OFFS, type Achievement, type RunSnapshot, type Stats };
 
 const KEY = 'cockroach-profile';
 
@@ -44,18 +18,13 @@ function load(): ProfileData {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<ProfileData> | null;
     const stats = { ...EMPTY, ...saved?.stats };
-    return { stats, achievements: reached(stats, { ...saved?.achievements }) };
+    const achievements = reached(stats, { ...saved?.achievements });
+    // Levels and achievements added since this was saved: what the stats already reach is earned, without a fanfare
+    for (const a of ACHIEVEMENTS) if (!achievements[a.id] && a.test(stats)) achievements[a.id] = Date.now();
+    return { stats, achievements };
   } catch {
     return { stats: { ...EMPTY }, achievements: {} };
   }
-}
-
-/**
- * Only achievements that exist and these stats reach: ones since retired or made harder drop out. Stats only grow,
- * so anything earned under today's rules always stays.
- */
-function reached(stats: Stats, achievements: Record<string, number>): Record<string, number> {
-  return Object.fromEntries(ACHIEVEMENTS.filter(a => achievements[a.id] && a.test(stats)).map(a => [a.id, achievements[a.id]]));
 }
 
 function store(): void {
@@ -70,28 +39,6 @@ export function profile(): Readonly<ProfileData> {
   return current;
 }
 
-/** The totals with a run counted in: sums for the totals, the larger for the bests. */
-function withRun(stats: Stats, run: RunSnapshot, finished: boolean): Stats {
-  return {
-    ...stats,
-    runs: stats.runs + (finished ? 1 : 0),
-    distance: stats.distance + run.distance,
-    apples: stats.apples + run.apples,
-    beers: stats.beers + run.beers,
-    pills: stats.pills + run.pills,
-    nearMisses: stats.nearMisses + run.nearMisses,
-    dashThroughs: stats.dashThroughs + run.dashThroughs,
-    wallsBroken: stats.wallsBroken + run.wallsBroken,
-    kills: stats.kills + run.kills,
-    dailyRuns: stats.dailyRuns + (finished && run.daily ? 1 : 0),
-    seconds: stats.seconds + run.seconds,
-    bestScore: Math.max(stats.bestScore, run.score),
-    bestDistance: Math.max(stats.bestDistance, run.distance),
-    bestLevel: Math.max(stats.bestLevel, run.level),
-    bestCombo: Math.max(stats.bestCombo, run.combo),
-  };
-}
-
 /** Earns whatever these stats reach that isn't earned yet, and returns those. */
 function award(stats: Stats): Achievement[] {
   const earned = ACHIEVEMENTS.filter(a => !current.achievements[a.id] && a.test(stats));
@@ -100,13 +47,19 @@ function award(stats: Stats): Achievement[] {
   return earned;
 }
 
+/** A run under a dev switch (devRun.ts) records nothing here: no stats, no achievements, no missions. */
+const DEV_RUN = devRunFrom(window.location.search, import.meta.env.DEV);
+export const devRun = (): boolean => DEV_RUN;
+
 /** During a run: what the run so far has earned, at once, without counting the run yet. */
 export function awardDuringRun(run: RunSnapshot): Achievement[] {
+  if (DEV_RUN) return [];
   return award(withRun(current.stats, run, false));
 }
 
 /** A run is over: count it, earn what it reached, save, and send it to the account. */
 export function recordRun(run: RunSnapshot): Achievement[] {
+  if (DEV_RUN) return [];
   current.stats = withRun(current.stats, run, true);
   const earned = award(current.stats);
   store();
@@ -116,6 +69,7 @@ export function recordRun(run: RunSnapshot): Achievement[] {
 
 /** A multiplayer match is over. */
 export function recordMatch(won: boolean): Achievement[] {
+  if (DEV_RUN) return [];
   current.stats = { ...current.stats, matches: current.stats.matches + 1, matchWins: current.stats.matchWins + (won ? 1 : 0) };
   const earned = award(current.stats);
   store();
@@ -123,17 +77,48 @@ export function recordMatch(won: boolean): Achievement[] {
   return earned;
 }
 
-function merge(a: ProfileData, b: Partial<ProfileData> | null): ProfileData {
-  const stats = { ...a.stats };
-  for (const key of Object.keys(EMPTY) as (keyof Stats)[]) {
-    const other = b?.stats?.[key];
-    if (typeof other === 'number') stats[key] = Math.max(stats[key], other);
-  }
-  const achievements = { ...a.achievements };
-  for (const [id, at] of Object.entries(b?.achievements ?? {})) {
-    if (typeof at === 'number') achievements[id] = achievements[id] ? Math.min(achievements[id], at) : at;
-  }
-  return { stats, achievements: reached(stats, achievements) };
+/** Dev only, `?checkpoints=<n>`: that many checkpoints count as unlocked, without saving it, to try them. */
+const DEV_CHECKPOINTS = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('checkpoints') : null;
+
+/** How many boss checkpoints are unlocked (checkpoints.ts). */
+export function checkpointsUnlocked(): number {
+  return DEV_CHECKPOINTS !== null ? Number(DEV_CHECKPOINTS) || 0 : current.stats.checkpoints;
+}
+
+/** Unlocks the checkpoints up to this many, saved at once and sent to the account; true when it is news. */
+export function unlockCheckpoints(count: number): boolean {
+  // A run under a dev shortcut was never earned: it saves nothing
+  if (DEV_RUN || count <= current.stats.checkpoints) return false;
+  current.stats = { ...current.stats, checkpoints: count };
+  store();
+  void pushProfile();
+  return true;
+}
+
+/** Earned when the server's record moved (missions done, items owned), not in a run: said where the player is next. */
+let notices: Achievement[] = [];
+
+/**
+ * What the server counted that the client can't: missions done and items owned. The achievements on them are paid from
+ * the server's record, and earned here from the same numbers, to be announced by whoever is on screen (takeNotices).
+ */
+export function noteFacts(facts: Pick<Stats, 'missionsDone' | 'itemsOwned'>): void {
+  const { stats } = current;
+  if (facts.missionsDone <= stats.missionsDone && facts.itemsOwned <= stats.itemsOwned) return;
+  current.stats = {
+    ...stats,
+    missionsDone: Math.max(stats.missionsDone, facts.missionsDone),
+    itemsOwned: Math.max(stats.itemsOwned, facts.itemsOwned),
+  };
+  notices.push(...award(current.stats));
+  store();
+}
+
+/** The achievements earned off a run since this was last asked, for the screen to announce. */
+export function takeNotices(): Achievement[] {
+  const taken = notices;
+  notices = [];
+  return taken;
 }
 
 let pushing: Promise<void> = Promise.resolve();
@@ -174,6 +159,17 @@ export async function syncProfile(): Promise<void> {
   } catch {
     // Offline: try again next time
   }
+}
+
+/** Whether anything was earned since the achievements page was last opened (the trophy on the home screen shows it). */
+export function achievementsUnseen(): boolean {
+  const seen = new Set(getAchievementsSeen());
+  return Object.keys(current.achievements).some(id => !seen.has(id));
+}
+
+/** The achievements page was opened: everything earned so far is seen. */
+export function markAchievementsSeen(): void {
+  setAchievementsSeen(Object.keys(current.achievements));
 }
 
 /** How many of the achievements are earned. */

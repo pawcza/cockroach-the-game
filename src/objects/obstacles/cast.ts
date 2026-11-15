@@ -5,15 +5,23 @@
  * THE SEEDED-COURSE RULE: a match and the daily run lay one course for everyone from one seed. `EnemyPicker.pick` draws
  * from the shared random source in a fixed order (the pick, the lane unless the pattern gave one, the phase) and from
  * nothing else; it may depend on the slot's x and level, never on a player.
+ *
+ * LEVEL SKINS (the end of this file): an enemy may look and sound like something that fits the level of the slot it
+ * stands in (an onion in the kitchen is a toadstool in the forest). Only its look, sounds and death cause change: its
+ * behaviour, hitbox, footprint, role, lanes, timings and placement on the course are its base's. Which skin a slot
+ * shows is a pure function of the enemy and the slot's level (in an endless level also of the run's look seed and the
+ * slot's x: `skinFor`), drawn from no random source, so the seeded course never moves; the picks above never see skins.
  */
 import {
   COCKROACH_BASE_SPEED,
   COCKROACH_SPEED_MAX_BOOST,
   COCKROACH_SPEED_TAU,
   COCKROACH_START_X,
+  ENDLESS_SPEED_PER_LEVEL,
+  ENDLESS_TOP_LEVEL,
   SPEED_BOOST_PER_LEVEL,
 } from '../../config/constants';
-import { getLevelForDistance } from '../../config/levels';
+import { levelNumberAt, mix32 } from '../../config/levels';
 import {
   Art,
   Behaviour,
@@ -47,7 +55,9 @@ import {
   VacuumTimings,
   WaspTimings,
   Zone,
+  SWAT_FRAMES,
 } from './behaviours';
+import { ENEMY_SKINS, type SkinId } from '../../../server/enemySkins';
 
 export type EnemyId =
   | 'onion' | 'flipper' | 'spray' | 'newspaper' | 'bird' | 'cat' | 'catChase'
@@ -364,12 +374,32 @@ export const CAST: Record<number, Partial<Record<EnemyId, number>>> = {
 
 export const MAX_CAST_LEVEL = 10;
 
+/**
+ * The endless levels' one cast (11 on, past the Eksterminator): any enemy from any level that is fair at 612-725 px/s,
+ * where an enemy shows about 650 px ahead of the roach, 0.9-1.06 s. The gun act leads; the plain blockers (onion, glue,
+ * aerosol: about a fifth of the plain weight) keep the waves' rhythm; those laid by their own patterns come by their
+ * patterns (RunPatterns: every chunk whose roles this cast fields). Out, and why:
+ *   lamp       its flicker cannot be read at speed (pulled after level 6 for that)
+ *   vacuum     the dash act's: built round the dash's cooldown and its own quiet stretch, at dash-act speeds
+ *   centipede  closes at 760 px/s, built for a roach of at most 680: at endless speed it would not run at the roach
+ *   boots      the dance line is read one pair at a time; left after level 7 as the speed made it a wall of noise
+ *   catChase, pope, blackhole   retired (no art of its own; frames kept for old records)
+ *   sprayWall  never picked: the course lays it where walls go (the cloud chunk), in endless too
+ * tests/enemies.test.ts runs a reading player through endless courses at these speeds.
+ */
+export const ENDLESS_CAST: Partial<Record<EnemyId, number>> = {
+  onion: 1, glue: .5, aerosol: 2,
+  flipper: 1.5, newspaper: 1.5, spray: 1, bleach: 1, bird: .5, gull: 1.5, cat: 1.5, jellyfish: 1.5,
+  bison: 1.5, hedgehog: 1.5, robotVacuum: 1.5,
+  mop: 1, hen: 1, frog: 1, wasp: 1.5, zapper: 1.5, repeller: 1.5, bait: 1.5,
+};
+
 export function castFor(level: number): { def: EnemyDef; weight: number }[] {
-  const row = CAST[Math.min(Math.max(1, level), MAX_CAST_LEVEL)];
+  const row = level > MAX_CAST_LEVEL ? ENDLESS_CAST : CAST[Math.max(1, level)];
   return (Object.entries(row) as [EnemyId, number][]).map(([id, weight]) => ({ def: ENEMIES[id], weight }));
 }
 
-/** An enemy's hand-tuned placement with its defaults filled in. */
+/** An enemy's hand-tuned placement with its defaults filled in. A skin sits exactly where its base does. */
 export function placeOf(id: string): { dx: number; dy: number; size: number } {
   const place = ENEMIES[id as EnemyId].place;
   return { dx: place?.dx ?? 0, dy: place?.dy ?? 0, size: place?.size ?? 1 };
@@ -414,6 +444,17 @@ export function shotSpan(plan: EnemyPlan, t: number, lane: Lane): { x0: number; 
 
 // ── The course's nominal runner ─────────────────────────────────────────
 
+/**
+ * The roach's cruising speed (px/s) at this time on the run's course clock (ms, RunState.courseTime) on this level,
+ * without a dash, a pill, a pull or a checkpoint's ramp. The one speed formula: Player, the nominal runner and the
+ * vacuum all run on it, so keep its arithmetic as it is (the seeded course is laid from the nominal runner's numbers).
+ */
+export function cruiseSpeed(courseMs: number, level: number): number {
+  return COCKROACH_BASE_SPEED + COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-courseMs / 1000 / COCKROACH_SPEED_TAU))
+    + (Math.min(level, MAX_CAST_LEVEL) - 1) * SPEED_BOOST_PER_LEVEL
+    + Math.min(Math.max(level - MAX_CAST_LEVEL, 0), ENDLESS_TOP_LEVEL - MAX_CAST_LEVEL) * ENDLESS_SPEED_PER_LEVEL;
+}
+
 /** When and how fast a runner reaches a point of the course: the chaser times its run from it. */
 export interface CourseClock {
   timeAt(x: number): number;
@@ -434,9 +475,8 @@ class NominalCourse implements CourseClock {
     while (this.xs[this.xs.length - 1] < x) {
       const i = this.xs.length - 1;
       const t = this.ts[i];
-      const level = getLevelForDistance(Math.floor((this.xs[i] - COCKROACH_START_X) / 50)).level;
-      const v = COCKROACH_BASE_SPEED + COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-t / 1000 / COCKROACH_SPEED_TAU))
-        + (level - 1) * SPEED_BOOST_PER_LEVEL;
+      const level = levelNumberAt(Math.floor((this.xs[i] - COCKROACH_START_X) / 50));
+      const v = cruiseSpeed(t, level);
       this.xs.push(this.xs[i] + (v * NominalCourse.STEP_MS) / 1000);
       this.ts.push(t + NominalCourse.STEP_MS);
       this.vs.push(v);
@@ -523,10 +563,272 @@ export class EnemyPicker {
   }
 }
 
-/** A chaser meets the nominal runner at x, running CHASE_SPEEDUP times its speed there, from CHASE_START_GAP behind. */
+/**
+ * A chaser meets the nominal runner at x, running CHASE_SPEEDUP times its speed there, from CHASE_START_GAP behind.
+ * NOTE before bringing catChase back: a run from a checkpoint trails the nominal runner by up to ~4 s after its speed
+ * ramp (checkpoints.ts), so the chase would arrive early there; plan it against the real runner, or remove the lag.
+ */
 export function chaseFor(x: number, clock: CourseClock): NonNullable<EnemyPlan['chase']> {
   const v = clock.speedAt(x);
   const speed = v * CHASE_SPEEDUP;
   const meetAt = clock.timeAt(x);
   return { meetAt, speed, startAt: meetAt - (CHASE_START_GAP / (speed - v)) * 1000 };
 }
+
+// ── Level skins ─────────────────────────────────────────────────────────
+
+export type { SkinId };
+
+/**
+ * A skin: its base enemy drawn as something of one level. Its art is its own animations in place of the base's, named
+ * `skinArt(id, baseAnim)` (`lv5-goose/hen`, `lv5-goose/hen-head`: frames `lv5-goose/hen_0` ...), with the base
+ * animation's frame count and order, baked into that level's skin atlas by tools/art/bake.py from
+ * tools/art/skinrigs.py. Its sounds are listed per base sound in public/audio/skins/manifest.json. Its death cause is
+ * its id (the server reads the ids from server/enemySkins.ts).
+ */
+export interface SkinDef {
+  id: SkinId;
+  base: EnemyId;
+  level: number;
+  /** Its Polish name (the match results) and its game-over headline. */
+  name: string;
+  headline: string;
+  /**
+   * Colours of what its base draws in code rather than in its sprite (the hen's neck, the frog's tongue...): each one
+   * given replaces the base's. There is no placement of its own: a skin's picture stands where its base's does, and its
+   * hitbox is its base's (a sprite's body moves with the sprite, so a picture offset would move the hurt zone).
+   */
+  colors?: SkinColors;
+}
+
+/** The skin's animation standing in for the base animation `anim`. */
+export const skinArt = (skin: string, anim: string): string => `${skin}/${anim}`;
+
+/**
+ * The base animations that depict each enemy itself: every one of them must be baked for a skin of it to show, and a
+ * skin replaces exactly these (shared effects such as the lamp's light, the zapper's bolt, smoke and rings stay). An
+ * enemy's invisible hurt sprites keep its base art: they only size a hitbox.
+ */
+export const SKIN_PARTS: Partial<Record<EnemyId, readonly string[]>> = {
+  onion: ['onion'], glue: ['glue'], flipper: [ENEMIES.flipper.art], newspaper: [ENEMIES.newspaper.art],
+  bleach: ['bleach', 'bleach-drop', 'bleach-splash'], spray: ['spray'], lamp: ['lamp'], mop: ['mop'], vacuum: ['vacuum'],
+  bird: ['bird'], hen: ['hen', 'hen-head'], cat: ['cat'], frog: ['frog'], centipede: ['centipede'], boots: ['boot'],
+  jellyfish: ['jellyfish'], gull: ['gull'], wasp: ['wasp'], zapper: ['bug-zapper'], robotVacuum: ['robot-vacuum'],
+  aerosol: ['aerosol'], repeller: ['repeller'], bison: ['bison'], hedgehog: ['hedgehog'],
+};
+
+/** The frame of its own art that stands for an enemy on the game-over screen and in the death replay. */
+export function iconOf(id: EnemyId): { anim: string; frame: number } {
+  if (id === 'boots') return { anim: 'boot', frame: 1 };
+  if (ENEMIES[id].role === 'swatter') return { anim: ENEMIES[id].art, frame: SWAT_FRAMES.landed };
+  return { anim: ENEMIES[id].art, frame: 0 };
+}
+
+/**
+ * The sounds each enemy plays, by the game's audio keys. A key's file is public/audio/<stem>.ogg, its stem the key
+ * without the older ones' `-sfx` (soundStem); a skin's own sound for it is listed under that stem in the skins' manifest.
+ * They load with the enemy's art (src/config/packs.ts).
+ */
+export const ENEMY_SOUNDS: Partial<Record<EnemyId, readonly string[]>> = {
+  onion: ['onion-sfx'], glue: ['glue-squelch'], flipper: ['flipper-sfx'], newspaper: ['newspaper-sfx'], spray: ['spray-sfx'],
+  bleach: ['bleach-drip'], lamp: ['lamp-flicker', 'lamp-snap'], mop: ['mop-slap'], vacuum: ['vacuum-roar'],
+  bird: ['bird-sfx'], hen: ['hen-cluck', 'hen-peck'], cat: ['cat-sfx'], catChase: ['cat-sfx'], frog: ['frog-croak', 'frog-tongue'],
+  centipede: ['centipede-rear'], boots: ['boots-stomp'], jellyfish: ['jellyfish-sfx'], gull: ['gull-screech'],
+  wasp: ['wasp-buzz', 'wasp-dive'], zapper: ['zapper-charge', 'zapper-bolt'], robotVacuum: ['robovac-whir', 'robovac-crack'],
+  aerosol: ['aerosol-rattle', 'aerosol-blast'], repeller: ['repeller-hum', 'repeller-ring'], bait: ['bait-ooze'],
+  hedgehog: ['hedgehog'], bison: ['bison-sfx'], sprayWall: ['spraywall-puff'], pope: ['pope-sfx'], blackhole: ['blackhole-sfx'],
+};
+
+/** A sound key's file name in public/audio (and its name in the skins' sound manifest): 'bird-sfx' is bird.ogg. */
+export const soundStem = (key: string): string => key.endsWith('-sfx') ? key.slice(0, -4) : key;
+
+/** The first level whose cast fields this enemy (the chaser goes with the cat, the cloud wall with the spray); null: none. */
+export function firstLevelOf(id: EnemyId): number | null {
+  const own = id === 'catChase' ? 'cat' : id === 'sprayWall' ? 'spray' : id;
+  for (let level = 1; level <= MAX_CAST_LEVEL; level++) if (CAST[level][own] !== undefined) return level;
+  return null;
+}
+
+/** Each skin's Polish name and game-over headline. */
+const SKIN_TEXT: Record<SkinId, [name: string, headline: string]> = {
+  'lv2-fern': ['Paproć', 'Zapuściłeś korzenie!'],
+  'lv2-pipe': ['Cieknąca rura', 'Kapie, kapie... i po tobie!'],
+  'lv3-tomato': ['Pomidor', 'Rozgnieciony jak pomidor!'],
+  'lv3-flyswatter': ['Packa na muchy', 'Packa nie pyta!'],
+  'lv3-barrel': ['Beczka ogórków', 'Zakiszony na amen!'],
+  'lv4-toadstool': ['Muchomor', 'Muchomor nie wybacza!'],
+  'lv4-resin': ['Żywica', 'Zastygłeś w bursztynie!'],
+  'lv4-branch': ['Gałąź sosny', 'Dostałeś gałęzią!'],
+  'lv4-resin-stub': ['Sęk z żywicą', 'Kropla żywicy, wieczny spoczynek!'],
+  'lv4-puffball': ['Purchawka', 'Purchawka puściła bąka!'],
+  'lv4-frond': ['Liść paproci', 'Paprocią przez łeb!'],
+  'lv4-flashlight': ['Latarka', 'Wypatrzony w lesie!'],
+  'lv4-rake': ['Grabie', 'Zgrabiony z liśćmi!'],
+  'lv4-molehole': ['Kretowisko', 'Kret cię wciągnął!'],
+  'lv5-bauble': ['Bombka', 'Bombowe święta!'],
+  'lv5-candle': ['Świeca', 'Zalany woskiem!'],
+  'lv5-snowcan': ['Sztuczny śnieg', 'Zasypany na biało!'],
+  'lv5-angel': ['Aniołek', 'Aniołek przyleciał po ciebie!'],
+  'lv5-goose': ['Gęś', 'Gęsia skórka i koniec!'],
+  'lv5-treelight': ['Lampka choinkowa', 'Choinka cię wypatrzyła!'],
+  'lv5-carp': ['Karp', 'Karp się zemścił!'],
+  'lv6-mug': ['Kufel', 'Kuflem w łeb!'],
+  'lv6-extinguisher': ['Gaśnica', 'Ugaszony na amen!'],
+  'lv6-vinyl': ['Płyta winylowa', 'Zagrali ci na pożegnanie!'],
+  'lv6-coaster': ['Podstawka pod piwo', 'Podstawka prosto w ryj!'],
+  'lv6-dog': ['Dalmatyńczyk', 'Strażacki pies cię dopadł!'],
+  'lv6-blower': ['Piszczałka', 'Wypiszczany z imprezy!'],
+  'lv6-spotlight': ['Reflektor', 'W świetle reflektorów!'],
+  'lv6-speaker': ['Głośnik', 'Wciągnięty przez bas!'],
+  'lv7-slide': ['Klapek basenowy', 'Klap i po wakacjach!'],
+  'lv7-sunscreen': ['Krem z filtrem', 'Filtr pięćdziesiąt, szans zero!'],
+  'lv7-windbreak': ['Parawan', 'Parawaning totalny!'],
+  'lv7-cormorant': ['Kormoran', 'Kormoran cię złowił!'],
+  'lv7-crab': ['Krab', 'Szczypce losu!'],
+  'lv7-octopus': ['Ośmiornica', 'Osiem ramion, zero litości!'],
+  'lv7-shrimp': ['Krewetka', 'Krewetka szybsza!'],
+  'lv7-sandals': ['Sandały ze skarpetami', 'Rozdeptany przez Janusza!'],
+  'lv7-seaweed': ['Wodorosty', 'Zmyty przez fale!'],
+  'lv8-moonrock': ['Kamień księżycowy', 'Księżycowy nokaut!'],
+  'lv8-slipper': ['Papieski pantofel', 'Pantoflem z wysokości!'],
+  'lv8-thurible': ['Kadzielnica', 'Okadzony na amen!'],
+  'lv8-scroll': ['Zwój pergaminu', 'Wyklęty zwojem!'],
+  'lv8-spacehen': ['Kosmiczna kura', 'Ko-ko-kosmos!'],
+  'lv8-alien': ['Kosmita', 'Porwany przez kosmitę!'],
+  'lv8-blob': ['Kosmiczny glut', 'Glut z kosmosu cię zjadł!'],
+  'lv8-satellite': ['Satelita', 'Namierzony z orbity!'],
+  'lv8-meteor': ['Meteor', 'Meteoryt prosto w pancerz!'],
+  'lv8-ufo': ['UFO', 'Uprowadzony przez UFO!'],
+  'lv8-antenna': ['Cewka Tesli', 'Teslą po czułkach!'],
+  'lv8-rover': ['Łazik księżycowy', 'Przejechany po kraterze!'],
+  'lv9-vodka': ['Butelka wódki', 'Za blisko flaszki!'],
+  'lv9-bottle': ['Butelka', 'Butelką przez łeb!'],
+  'lv9-label': ['Etykieta', 'Oklejony na amen!'],
+  'lv9-lynx': ['Ryś', 'Ryś cię wypatrzył!'],
+  'lv9-shotglass': ['Kieliszek', 'Kielon na pożegnanie!'],
+  'lv9-eagle': ['Orzeł biały', 'Orzeł wylądował!'],
+  'lv9-mosquito': ['Komar', 'Komar cię wyssał!'],
+  'lv9-tree': ['Drzewo rażone piorunem', 'Piorun prosto z drzewa!'],
+  'lv9-boar': ['Dzik', 'Dzik jest dziki, dzik jest zły!'],
+  'lv9-mushrooms': ['Krąg grzybów', 'Wpadłeś w grzybowy krąg!'],
+  'lv10-sign': ['Znak drogowy', 'Ustąp pierwszeństwa!'],
+  'lv10-pipe': ['Zardzewiała rura', 'Rurą po czułkach!'],
+  'lv10-mutant': ['Kot mutant', 'Trzy oczy, zero litości!'],
+  'lv10-fridge': ['Latająca lodówka', 'Zamrożony na wieki!'],
+  'lv10-vulture': ['Sęp', 'Sęp już czekał!'],
+  'lv10-drone': ['Dron', 'Bzyk, cel zlikwidowany!'],
+  'lv10-trolley': ['Wózek sklepowy', 'Rozjechany w promocji!'],
+  'lv10-wire': ['Kłąb drutu kolczastego', 'Kolczasty uścisk!'],
+};
+
+/**
+ * What enemies draw in code instead of in their sprite, and the base's colour of each (0xRRGGBB). A skin of that enemy
+ * may give its own (SKIN_COLORS); a spawn file asks its look (look.ts color) for each, never names the hex.
+ */
+export const CODE_COLORS = {
+  /** The hen's neck as it stretches down to peck (obstacles/hen.ts). */
+  neck: 0x9c3a1e,
+  /** The frog's tongue: its top, its darker underside, its tip (obstacles/frog.ts). */
+  tongue: 0xd9607a,
+  tongueDark: 0x9a3550,
+  tongueTip: 0xf2a0b0,
+  /** The zapper's cord, its bolt's glow and the bolt's white core (obstacles/zapper.ts). */
+  cord: 0x1a1a22,
+  bolt: 0xc9a8ff,
+  boltCore: 0xffffff,
+  /** The repeller's rings and their dark edge (obstacles/repeller.ts). */
+  ring: 0x8ff0ff,
+  ringDark: 0x2f8aa0,
+  /** The aerosol can's blast radius as its fuse burns (obstacles/aerosol.ts). */
+  blastRing: 0xff4433,
+} as const;
+
+export type CodeColor = keyof typeof CODE_COLORS;
+/** A skin's colour for each code-drawn part it changes; null: the skin doesn't draw that part at all. */
+export type SkinColors = Partial<Record<CodeColor, number | null>>;
+
+/** Each skin's own colours for what its base draws in code; one not given stays the base's (the art worker's values). */
+const SKIN_COLORS: Partial<Record<SkinId, SkinColors>> = {
+  'lv5-goose': { neck: 0xfbf7e5 },
+  'lv7-cormorant': { neck: 0x26383f },
+  'lv8-spacehen': { neck: 0xde7139 },
+  'lv5-carp': { tongue: 0xe27c7d, tongueDark: 0x792726, tongueTip: 0xef8585 },
+  'lv6-blower': { tongue: 0xca5771, tongueDark: 0x861f4f, tongueTip: 0xed7b9c },
+  'lv7-octopus': { tongue: 0xaa5b79, tongueDark: 0x512341, tongueTip: 0xe1979d },
+  'lv8-blob': { tongue: 0xd74b85, tongueDark: 0x560c1a, tongueTip: 0xef98ab },
+  // Measured 0xf0fac6 on the art; the green reads better against the floor
+  'lv9-mushrooms': { ring: 0x8fd26a, ringDark: 0x4a7a32 },
+  'lv8-moonrock': { blastRing: 0xf67e21 },
+  // A free-standing coil and a tree: nothing to hang from a cord, so they float without one
+  'lv8-antenna': { cord: null },
+  'lv9-tree': { cord: null },
+  'lv9-vodka': { blastRing: 0xf7c43d },
+};
+
+export const SKINS: Record<SkinId, SkinDef> = Object.fromEntries(
+  (Object.entries(ENEMY_SKINS) as [SkinId, { base: string; level: number }][]).map(([id, { base, level }]) => {
+    const [name, headline] = SKIN_TEXT[id];
+    return [id, { id, base: base as EnemyId, level, name, headline, colors: SKIN_COLORS[id] }];
+  }),
+) as Record<SkinId, SkinDef>;
+
+/**
+ * An enemy that, in one level, takes another enemy's whole look (art, sounds and death cause) and its view, with its own
+ * behaviour: at the Baltic the pigeon is drawn as the gull that lives there, the same swoop.
+ */
+export const BORROWED: readonly { base: EnemyId; level: number; as: EnemyId }[] = [{ base: 'bird', level: 7, as: 'gull' }];
+
+const SKIN_BY_SLOT = new Map<string, SkinDef>(Object.values(SKINS).map(skin => [`${skin.base}@${skin.level}`, skin]));
+const SKINS_OF = new Map<EnemyId, SkinDef[]>();
+for (const skin of Object.values(SKINS)) SKINS_OF.set(skin.base, [...(SKINS_OF.get(skin.base) ?? []), skin]);
+
+/** Every skin an enemy has, from any level, in level order. */
+export const skinsOf = (id: EnemyId): readonly SkinDef[] => SKINS_OF.get(id) ?? [];
+
+/** Where an endless slot's look is drawn from: the run's look seed and the slot's x (world px). */
+export interface SlotSeed {
+  seed: number;
+  x: number;
+}
+
+/**
+ * The look an enemy has in a slot of this level: a skin, another enemy's look, or its own (null for both). A pure
+ * function of its arguments, from no random source. In the story a skin applies in exactly its level; level 1 has none.
+ * In an endless level (11 on) any enemy may show in any of its own skins from any level, or as itself: chosen from a
+ * hash of the run's look seed, the slot's x and the enemy, never from the course's random source, so the seeded course
+ * is the same with or without looks and every client of a match sees the same. Without `slot` it shows as itself there.
+ */
+export function skinFor(id: EnemyId, level: number, slot?: SlotSeed): { skin: SkinDef | null; as: EnemyId | null } {
+  if (level > MAX_CAST_LEVEL) {
+    const own = skinsOf(id);
+    if (!slot || own.length === 0) return { skin: null, as: null };
+    const pick = mix32(slot.seed, Math.round(slot.x), ENEMY_ORDINAL.get(id)!) % (own.length + 1);
+    return { skin: pick < own.length ? own[pick] : null, as: null };
+  }
+  return {
+    skin: SKIN_BY_SLOT.get(`${id}@${level}`) ?? null,
+    as: BORROWED.find(b => b.base === id && b.level === level)?.as ?? null,
+  };
+}
+
+/** A fixed number per enemy, for hashing (its place in ENEMIES). */
+const ENEMY_ORDINAL = new Map<EnemyId, number>((Object.keys(ENEMIES) as EnemyId[]).map((id, i) => [id, i]));
+
+/**
+ * Whether a skin's art is in: every frame of every part it replaces. `frames(anim)` says how many frames the base
+ * animation has, `has(frame)` whether a frame is loaded. Not baked yet (the normal state until its art arrives) or its
+ * level's atlas not loaded: the enemy shows as its base, with its base's sounds and death cause.
+ */
+export function skinBaked(skin: SkinDef, frames: (anim: string) => number, has: (frame: string) => boolean): boolean {
+  const parts = SKIN_PARTS[skin.base];
+  if (!parts) return false;
+  return parts.every(anim => {
+    const n = frames(anim);
+    for (let i = 0; i < n; i++) if (!has(`${skinArt(skin.id, anim)}_${i}`)) return false;
+    return n > 0;
+  });
+}
+
+/** A death cause that is a skin's: its skin. */
+export const skinOfCause = (cause: string | null | undefined): SkinDef | null =>
+  cause && Object.prototype.hasOwnProperty.call(SKINS, cause) ? SKINS[cause as SkinId] : null;

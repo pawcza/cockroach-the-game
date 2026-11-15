@@ -3,7 +3,7 @@
  * on the account. Prices and rewards are decided here, never by the client. Item ids match src/config/skins.ts and
  * tools/art/skins.py.
  */
-import db from './db';
+import db, { getProfile } from './db';
 import { dailyDate } from './daily';
 import { ACHIEVEMENTS, type Stats } from './achievements';
 import { isRecord } from './validate';
@@ -86,6 +86,15 @@ export const MISSIONS: Record<string, Mission> = {
 
 const SLOTS = 3;
 
+/** Missions only a roach with the dash can do. */
+const NEEDS_DASH = new Set(['przebicia', 'sciana']);
+
+/** The dash is theirs from the start of every run once Pani Lodzia is beaten: the `checkpoints` stat, saved with the profile. */
+function ownsDash(userId: number): boolean {
+  const stats = (getProfile(userId) as { stats?: { checkpoints?: unknown } } | null)?.stats;
+  return typeof stats?.checkpoints === 'number' && stats.checkpoints >= 1;
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS wallets (
     user_id INTEGER PRIMARY KEY,
@@ -103,6 +112,10 @@ db.exec(`
     user_id INTEGER NOT NULL,
     achievement TEXT NOT NULL,
     PRIMARY KEY (user_id, achievement)
+  );
+  CREATE TABLE IF NOT EXISTS missions_done (
+    user_id INTEGER PRIMARY KEY,
+    done INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS missions (
     user_id INTEGER NOT NULL,
@@ -129,6 +142,8 @@ export interface ShopState {
   owned: string[];
   look: Look;
   missions: { id: string; text: string; goal: number; progress: number; reward: number; done: boolean }[];
+  /** Missions finished since the account began: the record the achievements on missions are paid from. */
+  missionsDone: number;
 }
 
 interface MissionRow { slot: number; mission: string; progress: number; done_on: string | null }
@@ -141,7 +156,7 @@ function rotate(userId: number, today: string): MissionRow[] {
   for (let slot = 0; slot < SLOTS; slot++) {
     const row = bySlot.get(slot);
     if (row && !(row.done_on && row.done_on < today)) continue;
-    const pool = Object.keys(MISSIONS).filter(id => !active.has(id) && id !== row?.mission);
+    const pool = Object.keys(MISSIONS).filter(id => !active.has(id) && id !== row?.mission && (!NEEDS_DASH.has(id) || ownsDash(userId)));
     const mission = pool[Math.floor(Math.random() * pool.length)];
     active.add(mission);
     db.prepare(`
@@ -158,6 +173,12 @@ function wallet(userId: number): { crumbs: number } & Look {
   return db.prepare('SELECT crumbs, skin, head, back FROM wallets WHERE user_id = ?').get(userId) as { crumbs: number } & Look;
 }
 
+/** How many missions this account has finished. Counted here from the first one finished after this was added. */
+function missionsDone(userId: number): number {
+  const row = db.prepare('SELECT done FROM missions_done WHERE user_id = ?').get(userId) as { done: number } | undefined;
+  return row?.done ?? 0;
+}
+
 export function shopState(userId: number, now = Date.now()): ShopState {
   const missions = rotate(userId, dailyDate(now));
   const { crumbs, skin, head, back } = wallet(userId);
@@ -171,6 +192,7 @@ export function shopState(userId: number, now = Date.now()): ShopState {
       const mission = MISSIONS[row.mission];
       return { id: row.mission, text: mission.text, goal: mission.goal, progress: Math.min(row.progress, mission.goal), reward: mission.reward, done: row.done_on !== null };
     }),
+    missionsDone: missionsDone(userId),
   };
 }
 
@@ -195,6 +217,7 @@ export const reportRun = db.transaction((userId: number, run: RunReport, now: nu
       .run(Math.min(progress, mission.goal), done ? today : null, userId, row.slot);
     if (done) {
       db.prepare('UPDATE wallets SET crumbs = crumbs + ? WHERE user_id = ?').run(mission.reward, userId);
+      db.prepare('INSERT INTO missions_done (user_id, done) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET done = done + 1').run(userId);
       completed.push({ text: mission.text, reward: mission.reward });
     }
   }
@@ -203,11 +226,16 @@ export const reportRun = db.transaction((userId: number, run: RunReport, now: nu
 
 /**
  * Pays every achievement these stats reach that this account hasn't been paid for. The stats are the client's, like
- * run reports, but each achievement pays once, so the most anyone can take this way is the list's total.
+ * run reports, but each achievement pays once, so the most anyone can take this way is the list's total. Except for
+ * the stats the server knows itself (missionsDone and itemsOwned), which are counted from its own record.
  */
 export const payAchievements = db.transaction((userId: number, stats: Record<string, number>) => {
   // A stat the client didn't send is undefined, and undefined >= n is false: it reaches nothing
-  const full = stats as unknown as Stats;
+  const full = {
+    ...stats,
+    missionsDone: missionsDone(userId),
+    itemsOwned: (db.prepare('SELECT COUNT(*) AS n FROM owned WHERE user_id = ?').get(userId) as { n: number }).n,
+  } as unknown as Stats;
   wallet(userId);
   const paid: { id: string; reward: number }[] = [];
   for (const achievement of ACHIEVEMENTS) {
@@ -219,6 +247,15 @@ export const payAchievements = db.transaction((userId: number, stats: Record<str
   }
   return paid;
 });
+
+/**
+ * Pays what the stats last saved for this player reach, after something moved the server's own record: a mission
+ * finished or an item bought. The profile's PUT pays everything else.
+ */
+export function payStored(userId: number): { id: string; reward: number }[] {
+  const saved = getProfile(userId) as { stats?: Record<string, number> } | null;
+  return payAchievements(userId, saved?.stats ?? {});
+}
 
 export const buy = db.transaction((userId: number, item: string): string | null => {
   const entry = SHOP[item];
@@ -245,7 +282,7 @@ export function wear(userId: number, look: Look): string | null {
 
 /** Forgets a player's okruszki, items, missions and paid achievements, with their account. */
 export function forgetPlayer(userId: number): void {
-  for (const table of ['wallets', 'owned', 'missions', 'achievements_paid']) db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
+  for (const table of ['wallets', 'owned', 'missions', 'missions_done', 'achievements_paid']) db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
 }
 
 const COUNT = 1_000_000;

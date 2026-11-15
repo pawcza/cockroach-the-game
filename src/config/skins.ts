@@ -6,7 +6,7 @@
  * frames, where the pistol's grip and muzzle are. Ids match skins.py and server/economy.ts, which owns the prices.
  */
 import Phaser from 'phaser';
-import { ATLAS } from './sprites';
+import { ATLAS, hasFrame } from './sprites';
 
 export interface Look {
   skin: string | null;
@@ -59,9 +59,12 @@ export function parseRoach(name: string): { anim: RoachAnim; frame: number } | n
   return match ? { anim: match[1] as RoachAnim, frame: Number(match[2] ?? 0) } : null;
 }
 
-/** The animation key for this roach animation in this look's skin. */
+/**
+ * The animation key for this roach animation in this look's skin. A skin's atlas loads on its own (src/config/packs.ts):
+ * until it is in, the plain roach's.
+ */
 export function roachAnim(anim: RoachAnim, look: Look | null | undefined): string {
-  return look?.skin ? `roach-${look.skin}-${anim}` : `roach-${anim}`;
+  return look?.skin && hasFrame(`roach-${look.skin}-${anim}_0`) ? `roach-${look.skin}-${anim}` : `roach-${anim}`;
 }
 
 export const ANCHORS_KEY = 'anchors';

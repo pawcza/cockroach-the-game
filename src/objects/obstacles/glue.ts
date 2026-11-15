@@ -9,5 +9,5 @@ import { ObstacleKit } from './ObstacleKit';
 export function spawnGlue(kit: ObstacleKit, plan: EnemyPlan): void {
   const glue = kit.enemy(plan);
   kit.drive(glue, plan);
-  kit.playSoundOnVisible(glue, 'glue-squelch', VOL.obstacle * 0.5);
+  kit.playSoundOnVisible(glue, kit.look(plan).sound('glue-squelch'), VOL.obstacle * 0.5);
 }

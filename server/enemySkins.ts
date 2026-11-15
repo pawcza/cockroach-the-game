@@ -1,0 +1,83 @@
+/**
+ * The enemies' level skins: the same enemy (behaviour, hitbox, timing) drawn and heard as something that fits one level.
+ * Each skin id is its own death cause, so the server's list of causes (validate.ts) is read from here; the client builds
+ * the rest of the skin (art, sounds, names) in src/objects/obstacles/cast.ts. No Node imports: the client imports this
+ * file too (like lobby.ts and achievements.ts). `base` is the client's EnemyId; tests/skins.test.ts checks every skin's
+ * base is in its level's cast.
+ */
+export const ENEMY_SKINS = {
+  'lv2-fern': { base: 'onion', level: 2 },
+  'lv2-pipe': { base: 'bleach', level: 2 },
+  'lv3-tomato': { base: 'glue', level: 3 },
+  'lv3-flyswatter': { base: 'flipper', level: 3 },
+  'lv3-barrel': { base: 'bleach', level: 3 },
+  'lv4-toadstool': { base: 'onion', level: 4 },
+  'lv4-resin': { base: 'glue', level: 4 },
+  'lv4-branch': { base: 'flipper', level: 4 },
+  'lv4-resin-stub': { base: 'bleach', level: 4 },
+  'lv4-puffball': { base: 'spray', level: 4 },
+  'lv4-frond': { base: 'newspaper', level: 4 },
+  'lv4-flashlight': { base: 'lamp', level: 4 },
+  'lv4-rake': { base: 'mop', level: 4 },
+  'lv4-molehole': { base: 'vacuum', level: 4 },
+  'lv5-bauble': { base: 'onion', level: 5 },
+  'lv5-candle': { base: 'bleach', level: 5 },
+  'lv5-snowcan': { base: 'spray', level: 5 },
+  'lv5-angel': { base: 'bird', level: 5 },
+  'lv5-goose': { base: 'hen', level: 5 },
+  'lv5-treelight': { base: 'lamp', level: 5 },
+  'lv5-carp': { base: 'frog', level: 5 },
+  'lv6-mug': { base: 'flipper', level: 6 },
+  'lv6-extinguisher': { base: 'spray', level: 6 },
+  'lv6-vinyl': { base: 'newspaper', level: 6 },
+  'lv6-coaster': { base: 'bird', level: 6 },
+  'lv6-dog': { base: 'cat', level: 6 },
+  'lv6-blower': { base: 'frog', level: 6 },
+  'lv6-spotlight': { base: 'lamp', level: 6 },
+  'lv6-speaker': { base: 'vacuum', level: 6 },
+  'lv7-slide': { base: 'flipper', level: 7 },
+  'lv7-sunscreen': { base: 'spray', level: 7 },
+  'lv7-windbreak': { base: 'newspaper', level: 7 },
+  'lv7-cormorant': { base: 'hen', level: 7 },
+  'lv7-crab': { base: 'cat', level: 7 },
+  'lv7-octopus': { base: 'frog', level: 7 },
+  'lv7-shrimp': { base: 'centipede', level: 7 },
+  'lv7-sandals': { base: 'boots', level: 7 },
+  'lv7-seaweed': { base: 'mop', level: 7 },
+  'lv8-moonrock': { base: 'aerosol', level: 8 },
+  'lv8-slipper': { base: 'flipper', level: 8 },
+  'lv8-thurible': { base: 'spray', level: 8 },
+  'lv8-scroll': { base: 'newspaper', level: 8 },
+  'lv8-spacehen': { base: 'hen', level: 8 },
+  'lv8-alien': { base: 'cat', level: 8 },
+  'lv8-blob': { base: 'frog', level: 8 },
+  'lv8-satellite': { base: 'jellyfish', level: 8 },
+  'lv8-meteor': { base: 'gull', level: 8 },
+  'lv8-ufo': { base: 'wasp', level: 8 },
+  'lv8-antenna': { base: 'zapper', level: 8 },
+  'lv8-rover': { base: 'robotVacuum', level: 8 },
+  'lv9-vodka': { base: 'aerosol', level: 9 },
+  'lv9-bottle': { base: 'flipper', level: 9 },
+  'lv9-label': { base: 'newspaper', level: 9 },
+  'lv9-lynx': { base: 'cat', level: 9 },
+  'lv9-shotglass': { base: 'jellyfish', level: 9 },
+  'lv9-eagle': { base: 'gull', level: 9 },
+  'lv9-mosquito': { base: 'wasp', level: 9 },
+  'lv9-tree': { base: 'zapper', level: 9 },
+  'lv9-boar': { base: 'robotVacuum', level: 9 },
+  'lv9-mushrooms': { base: 'repeller', level: 9 },
+  // Level 10, and the endless run past the Eksterminator (it stays level 10). Its pest-control gear keeps its own look
+  'lv10-sign': { base: 'flipper', level: 10 },
+  'lv10-pipe': { base: 'newspaper', level: 10 },
+  'lv10-mutant': { base: 'cat', level: 10 },
+  'lv10-fridge': { base: 'jellyfish', level: 10 },
+  'lv10-vulture': { base: 'gull', level: 10 },
+  'lv10-drone': { base: 'wasp', level: 10 },
+  'lv10-trolley': { base: 'bison', level: 10 },
+  'lv10-wire': { base: 'hedgehog', level: 10 },
+} as const satisfies Record<string, { base: string; level: number }>;
+
+export type SkinId = keyof typeof ENEMY_SKINS;
+
+/** Every skin is a death cause of its own: killed by the moon rock, the game over says so. */
+export const SKIN_CAUSES: readonly string[] = Object.keys(ENEMY_SKINS);

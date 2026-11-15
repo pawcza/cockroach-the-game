@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { COURSE_VERSION, OUTDATED_CLIENT } from './daily';
 import { LobbyManager, MP_START_LEAD_MS, type Lobby } from './lobby';
 import { clientIp, TokenBucket } from './net';
 import {
@@ -154,6 +155,11 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
   sweep.unref();
 
   io.use((socket, next) => {
+    // A client of another course version would lay another course from the match's seed: it plays no match here
+    if ((socket.handshake.auth as { course?: unknown } | undefined)?.course !== COURSE_VERSION) {
+      next(new Error(OUTDATED_CLIENT));
+      return;
+    }
     const ip = clientIp(socket.handshake.address, socket.handshake.headers);
     const fromIp = connectionsByIp.get(ip) ?? 0;
     if (connections >= MAX_CONNECTIONS || fromIp >= MAX_CONNECTIONS_PER_IP) {

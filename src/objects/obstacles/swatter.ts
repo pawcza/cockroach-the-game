@@ -9,8 +9,9 @@ import { ObstacleKit } from './ObstacleKit';
  * What the slipper and the newspaper share: posed frame by frame by their behaviour (ObstacleKit.drive sets frame,
  * depth and the landing shadow), a sound at the wind-back and at the slap, and dust out from under it when it lands.
  */
-export function swatter(kit: ObstacleKit, plan: EnemyPlan, sound: string): void {
+export function swatter(kit: ObstacleKit, plan: EnemyPlan, baseSound: string): void {
   const { scene } = kit;
+  const sound = kit.look(plan).sound(baseSound);
   const def = ENEMIES[plan.id as EnemyId];
   const sprite = kit.enemy(plan, { shadow: false });
   sprite.anims.stop();

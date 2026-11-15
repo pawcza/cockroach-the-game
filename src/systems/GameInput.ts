@@ -82,6 +82,12 @@ export class GameInput {
     JustDown(this.escKey);
   }
 
+  /** What the run owns already has its touch buttons up: through the countdown, before the first running frame. */
+  showOwned(): void {
+    this.showDashButton(this.run.abilities.canDash);
+    this.showGunButton(this.run.abilities.canShootInRun);
+  }
+
   /** `ammo`: the run's magazine, for the pips over the gun button (when the run carries the gun). */
   handleRunKeys(ammo: { count: number; max: number; dry: boolean } | null = null): void {
     this.showDashButton(this.run.abilities.canDash);

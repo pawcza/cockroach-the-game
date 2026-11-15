@@ -10,10 +10,11 @@ import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from './SceneManager';
 import { ReplayData } from './DeathReplay';
 import { GameHUD } from '../ui/GameHUD';
-import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed, getHighScore, getBestDistance, updateBestDistanceIfBetter, getDailyBest, updateDailyBestIfBetter, saveBestTrack } from '../utils/Storage';
+import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed, getHighScore, getBestDistance, updateBestDistanceIfBetter, getDailyBest, updateDailyBestIfBetter, saveBestTrack, getStartBest, updateStartBestIfBetter } from '../utils/Storage';
 import type { DailyRun } from '../ui/Scoreboard';
 import type { RunTrack } from './BestRunGhost';
-import { recordRun, type RunSnapshot } from './Profile';
+import { devRun, recordRun, takeNotices, type RunSnapshot } from './Profile';
+import { boardOf, isRanked, type RunStart } from './checkpoints';
 import { showAchievement, showMission } from '../ui/shared';
 import { reportRun } from '../ui/Shop';
 
@@ -72,6 +73,8 @@ export class GameOverHandler {
   private getRunTrack: () => RunTrack | null;
   private getRunSnapshot: () => RunSnapshot;
   private isPractice: () => boolean;
+  private getStart: () => Pick<RunStart, 'index' | 'distance'>;
+  private getLookLevel: () => number | undefined;
 
   constructor(
     scene: Phaser.Scene,
@@ -100,6 +103,10 @@ export class GameOverHandler {
       getRunSnapshot: () => RunSnapshot;
       /** The tutorial is still on: nothing of this run counts, so a death in it (which it should not allow) saves nothing. */
       isPractice?: () => boolean;
+      /** Where the run started: "Jeszcze raz" starts there again, and its record ghost is that start's. */
+      getStart?: () => Pick<RunStart, 'index' | 'distance'>;
+      /** The story level whose look the run is in (an endless level wears one): the game over's background. */
+      getLookLevel?: () => number;
     },
   ) {
     this.scene = scene;
@@ -125,6 +132,8 @@ export class GameOverHandler {
     this.getRunTrack = callbacks.getRunTrack;
     this.getRunSnapshot = callbacks.getRunSnapshot;
     this.isPractice = callbacks.isPractice ?? (() => false);
+    this.getStart = callbacks.getStart ?? (() => ({ index: 0, distance: 0 }));
+    this.getLookLevel = callbacks.getLookLevel ?? (() => undefined);
     this.mpMyName = getPlayerNameOrDefault();
   }
 
@@ -144,7 +153,9 @@ export class GameOverHandler {
     if (this.isMultiplayer) {
       void missions.then((done) => {
         const scene = this.scene.game.scene.getScenes(true)[0];
-        if (scene) for (const mission of done) showMission(scene, mission);
+        if (!scene) return;
+        for (const mission of done) showMission(scene, mission);
+        for (const achievement of takeNotices()) showAchievement(scene, achievement);
       });
     }
 
@@ -193,20 +204,35 @@ export class GameOverHandler {
       return;
     }
 
-    // Solo mode. The game over compares against the bests from before this run, so they are read before saving
+    // Solo mode. The game over compares against the bests from before this run, so they are read before saving: the
+    // day's, the endless start's own (Bez końca keeps its record apart from the record from 0), or the record
     const daily = this.daily;
-    const previousBest = daily ? getDailyBest(daily.date) : getHighScore();
+    const start = this.getStart();
+    const endless = boardOf(start) === 'endless';
+    const previousBest = daily ? getDailyBest(daily.date) : endless ? getStartBest(start.distance) : getHighScore();
     const previousBestDistance = getBestDistance();
     if (!practice) {
       incrementGamesPlayed();
-      if (daily) updateDailyBestIfBetter(daily.date, score);
-      else updateHighScoreIfBetter(score);
-      // A new best becomes the ghost the next run races
-      const track = score > previousBest ? this.getRunTrack() : null;
-      if (track) saveBestTrack(track, daily?.date);
-      updateBestDistanceIfBetter(this.getDistance());
+      // Each start has its own record ghost, raced by the runs from there
+      const previousStartBest = daily ? previousBest : getStartBest(start.distance);
+      // A dev run (?boss=, ?checkpoints=) leaves every local record and ghost as it was
+      const dev = devRun();
+      if (!dev) {
+        if (daily) updateDailyBestIfBetter(daily.date, score);
+        else {
+          updateStartBestIfBetter(start.distance, score);
+          // The record is the best ranked run: from a checkpoint a run only moves its own start's best (and ghost)
+          if (isRanked(start)) updateHighScoreIfBetter(score);
+        }
+        // A new best from this start becomes the ghost the next run from it races
+        const track = score > previousStartBest ? this.getRunTrack() : null;
+        if (track) saveBestTrack(track, daily?.date, start.distance);
+        updateBestDistanceIfBetter(this.getDistance());
+      }
     }
     const replayData = this.getReplayData(obstacleType || null);
+    // The board it may go on: the main one from 0 m, Bez końca from the Eksterminator's start, none from the others
+    const board = devRun() ? null : boardOf(start);
 
     // Use real-time timeout — Phaser's delayedCall is slowed by deathEffect's timeScale (0.3)
     window.setTimeout(() => {
@@ -217,13 +243,18 @@ export class GameOverHandler {
         distance: this.getDistance(),
         obstacleType: obstacleType || null,
         level: this.getCurrentLevel(),
+        look: this.getLookLevel(),
         maxCombo: this.getMaxCombo(),
         pickupCounts: this.getPickupCounts(),
         replayData,
         previousBest,
         previousBestDistance,
         daily,
+        from: start.index,
         achievements: earned,
+        // The one gate to the boards: a dev run (?boss=, ?checkpoints=) and a practice checkpoint's run are never offered
+        board,
+        ranked: board !== null,
         missions,
       }, () => {
         this.vfx.destroy();

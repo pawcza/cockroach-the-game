@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { sfxVolume } from '../audio/AudioManager';
 import { DEPTH, PIXEL_BLOCK } from '../config/constants';
 import { ATLAS, SPRITE_SCALE, frameOf } from '../config/sprites';
-import { getLevelForDistance, LevelConfig, LEVELS } from '../config/levels';
+import { getLevelForDistance, LevelConfig, LEVELS, levelConfig, levelEnd } from '../config/levels';
 import { headingStyle, hudStyle, smallStyle, buttonStyle, popupStyle, UI_TEXT } from '../utils/TextStyles';
 import { createButton, UIButton } from './shared';
 import { textBeat } from '../utils/TweenPatterns';
@@ -45,6 +45,8 @@ export interface BossSegment {
 }
 
 export class GameHUD {
+  /** Decides the endless levels' looks and names (levels.ts endlessLook): the run's, set by GameScene. */
+  lookSeed = 0;
   private scene: Phaser.Scene;
 
   // Top center — score values + labels
@@ -248,7 +250,7 @@ export class GameHUD {
     this.abilityStrip.sync(data.abilities);
 
     // === BOTTOM: Level progress bar ===
-    const level = data.level !== undefined ? LEVELS[data.level - 1] : getLevelForDistance(data.distance);
+    const level = data.level !== undefined ? levelConfig(data.level, this.lookSeed) : getLevelForDistance(data.distance, this.lookSeed);
     this.drawLevelBar(data.distance, level, data.tutorial === true);
 
     // Speed text + color from level
@@ -282,7 +284,7 @@ export class GameHUD {
 
   }
 
-  private drawLevelBar(distance: number, levelConfig: LevelConfig, tutorial: boolean): void {
+  private drawLevelBar(distance: number, level: LevelConfig, tutorial: boolean): void {
     // Boss HP mode — repurpose the level bar
     if (this.bossMode && this.bossSegments) {
       this.drawSegments(this.bossSegments);
@@ -301,9 +303,8 @@ export class GameHUD {
 
     this.speedText.setVisible(true);
 
-    const index = LEVELS.indexOf(levelConfig);
-    const levelSpan = index + 1 < LEVELS.length ? LEVELS[index + 1].distanceThreshold - levelConfig.distanceThreshold : 0;
-    const barColor = levelConfig.color;
+    const levelSpan = levelEnd(level.level) - level.distanceThreshold;
+    const barColor = level.color;
 
     const cr = (barColor >> 16) & 0xff;
     const cg = (barColor >> 8) & 0xff;
@@ -322,14 +323,14 @@ export class GameHUD {
       this.levelBarText.setText('Samouczek');
       return;
     }
-    const progress = levelSpan > 0 ? Phaser.Math.Clamp((distance - levelConfig.distanceThreshold) / levelSpan, 0, 1) : 1;
+    const progress = levelSpan > 0 ? Phaser.Math.Clamp((distance - level.distanceThreshold) / levelSpan, 0, 1) : 1;
     this.drawBar(progress, barColor, highlightColor, borderColor, true);
 
     // Bar text — show total distance / next level threshold
-    const nextThreshold = levelConfig.distanceThreshold + levelSpan;
+    const nextThreshold = level.distanceThreshold + levelSpan;
     // Past the level's end while its boss waits (the fight is fought in the old level) there is no "next" to count to
     const distLabel = levelSpan > 0 && distance < nextThreshold ? `(${Math.floor(distance)}/${nextThreshold})m` : `${Math.floor(distance)}m`;
-    this.levelBarText.setText(`Lv${levelConfig.level} ${levelConfig.name} ${distLabel}`);
+    this.levelBarText.setText(`Lv${level.level} ${level.name} ${distLabel}`);
   }
 
   /** The rounded bar at the bottom: shadow, border and dark base, then the fill with its scrolling stripes. */

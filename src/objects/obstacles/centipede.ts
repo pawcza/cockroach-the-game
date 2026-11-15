@@ -14,6 +14,7 @@ import { cruiseAt } from './vacuum';
 export function spawnCentipede(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
   const bug = kit.enemy(plan);
   bug.anims.stop();
   // The art faces right; it runs left, at the roach
@@ -36,7 +37,7 @@ export function spawnCentipede(kit: ObstacleKit, plan: EnemyPlan): void {
     if (!before || now.pose === before.pose || !kit.isOnScreen(bug)) return;
     if (now.pose === 'windup') {
       fx.play('flare-big-orange', bug.x - bug.displayWidth * .4, bug.y - 10, { depth: DEPTH.PICKUPS + 1 });
-      if (kit.isAhead(bug)) kit.audio.playSfx('centipede-rear', VOL.obstacle * 0.35);
+      if (kit.isAhead(bug)) kit.audio.playSfx(look.sound('centipede-rear'), VOL.obstacle * 0.35);
     }
     if (before.pose === 'air' && now.lane) fx.play('dust-land', bug.x, feetY(plan.id, now.lane), { depth: DEPTH.OBSTACLES + 1 });
   });

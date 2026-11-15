@@ -1,5 +1,9 @@
 import { io, Socket } from 'socket.io-client';
+import { COURSE_VERSION, OUTDATED_CLIENT } from '../../server/daily';
 import type { PlayerPlace } from '../../server/lobby';
+
+/** The course version this page last reloaded itself for (sessionStorage). */
+const RELOADED_KEY = 'cockroach-reloaded-for-course';
 import type { Look } from '../config/skins';
 
 export interface MPPlayer {
@@ -62,7 +66,14 @@ class MultiplayerClient {
 
   connect(): void {
     if (this.socket) return;
-    this.socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
+    // The server only takes clients that lay the same course from a seed (server/daily.ts COURSE_VERSION)
+    this.socket = io({ path: '/socket.io', transports: ['websocket', 'polling'], auth: { course: COURSE_VERSION } });
+    this.socket.on('connect_error', (error) => {
+      // This page is older than the server: a reload brings the new game (once a session, in case the server is the old one)
+      if (error.message !== OUTDATED_CLIENT || sessionStorage.getItem(RELOADED_KEY) === String(COURSE_VERSION)) return;
+      sessionStorage.setItem(RELOADED_KEY, String(COURSE_VERSION));
+      window.location.reload();
+    });
     this.socket.on('connect', () => {
       this._myId = this.socket!.id!;
       // Re-emit any pending room joins after reconnection

@@ -20,6 +20,8 @@ const roachLane = (y: number, kit: ObstacleKit): Lane => (y > (kit.topY + kit.bo
 export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
+  const art = look.anim('wasp');
   const wasp = kit.enemy(plan, { shadow: false });
   wasp.anims.stop();
   wasp.setVisible(false).setData('flies', true).setData('harmless', true);
@@ -43,7 +45,7 @@ export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
     const shiver = w.phase === 'windup' ? Math.round(Math.sin(now / 14) * 2) : 0;
     wasp.setVisible(true).setPosition(Math.round(w.x) + shiver, Math.round(w.y));
     const frame = w.phase === 'dive' || w.phase === 'windup' ? 2 : Math.floor(now / 45) % 2;
-    wasp.setFrame(frameOf('wasp', frame));
+    wasp.setFrame(frameOf(art, frame));
     wasp.setData('floor', w.lane).setData('harmless', zones.length === 0);
     // The stretch of its lane the dive will sweep, from the lock; then where the sting is
     hazard(waspDiveLane(w, WASP, roach.x, body), zones);
@@ -52,11 +54,11 @@ export function spawnWasp(kit: ObstacleKit, plan: EnemyPlan): void {
         // A glint on its sting and a pink flare round it, riding with it as it draws back
         fx.play('glint-white', -18, -6, { follow: wasp, depth: DEPTH.PICKUPS + 2 });
         fx.play('flare-big-pink', 0, -14, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
-        kit.audio.playSfx('wasp-buzz', VOL.obstacle * 0.4);
+        kit.audio.playSfx(look.sound('wasp-buzz'), VOL.obstacle * 0.4);
       }
       if (w.phase === 'dive') {
         fx.play('streak-pink', 30, -10, { follow: wasp, depth: DEPTH.PICKUPS + 1 });
-        if (kit.isAhead(wasp)) kit.audio.playSfx('wasp-dive', VOL.obstacle * 0.5);
+        if (kit.isAhead(wasp)) kit.audio.playSfx(look.sound('wasp-dive'), VOL.obstacle * 0.5);
       }
       was = w.phase;
     }

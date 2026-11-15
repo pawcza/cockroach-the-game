@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { VOL } from '../../audio/AudioManager';
 import { DEPTH, FLOOR_TOP_Y } from '../../config/constants';
-import { ATLAS, SPRITE_SCALE, frameOf } from '../../config/sprites';
+import { SPRITE_SCALE, frameOf, textureOf } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { BLEACH_JUG_UP, EnemyPlan, laneY } from './behaviours';
 import { TIMINGS, partOf, placeOf } from './cast';
@@ -24,6 +24,9 @@ const SPLASH_BODY_H = 16;
 export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
+  const dropArt = look.anim('bleach-drop');
+  const splashArt = look.anim('bleach-splash');
   const jug = kit.enemy(plan, { shadow: false });
   jug.anims.timeScale = 0.5;
   jug.setDepth(DEPTH.BEHIND_LEDGE);
@@ -31,15 +34,15 @@ export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   (jug.body as Phaser.Physics.Arcade.Body).checkCollision.none = true;
   jug.setData('flies', true);
 
-  const bead = scene.add.image(plan.x, laneY('top'), ATLAS, frameOf('bleach-drop', 0))
+  const bead = scene.add.image(plan.x, laneY('top'), textureOf(frameOf(dropArt, 0)), frameOf(dropArt, 0))
     .setScale(SPRITE_SCALE).setDepth(DEPTH.BEHIND_LEDGE);
-  const drop = scene.add.image(plan.x, laneY('bottom'), ATLAS, frameOf('bleach-drop', FALLING))
+  const drop = scene.add.image(plan.x, laneY('bottom'), textureOf(frameOf(dropArt, FALLING)), frameOf(dropArt, FALLING))
     .setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES).setVisible(false);
   // The jug and its bead are hand-tuned (cast.ts Placement); the drop, the splash and the wet spot stay put
   const jugAt = placeOf(plan.id);
   const beadAt = partOf(plan.id, 'bead');
   const hazard = kit.hazard(jug);
-  const splash = kit.createSprite(plan.x, laneY('bottom'), 'bleach-splash', 'bleach', null);
+  const splash = kit.createSprite(plan.x, laneY('bottom'), splashArt, look.cause, null);
   splash.anims.stop();
   splash.setData('floor', 'bottom');
   splash.setData('telegraphs', false);
@@ -54,13 +57,13 @@ export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
     jug.setDepth(DEPTH.BEHIND_LEDGE);
     jug.y = FLOOR_TOP_Y - BLEACH_JUG_UP + jug.displayHeight * (jug.originY - 0.5) + jugAt.dy;
     const { bead: b, drop: d, splash: s } = now.parts!;
-    bead.setPosition(b.x + beadAt.dx, b.y + beadAt.dy).setFrame(frameOf('bleach-drop', b.frame));
+    bead.setPosition(b.x + beadAt.dx, b.y + beadAt.dy).setFrame(frameOf(dropArt, b.frame));
     drop.setVisible(d.visible).setPosition(d.x, d.y);
     hazard(null, [spot]);
-    splash.setFrame(frameOf('bleach-splash', s.frame));
+    splash.setFrame(frameOf(splashArt, s.frame));
     if (now.pose !== 'strike' || before?.pose === 'strike' || !before || !kit.isOnScreen(jug)) return;
     fx.burst('bit-green', plan.x, laneY('bottom') - 6, 3, 6, { depth: DEPTH.OBSTACLES + 1, speed: [60, 130], angle: [200, 340], gravity: 400, life: 400 });
-    if (now.cycle % HEARD_EVERY === 0 && kit.isAhead(jug)) kit.audio.playSfx('bleach-drip', VOL.obstacle * 0.4);
+    if (now.cycle % HEARD_EVERY === 0 && kit.isAhead(jug)) kit.audio.playSfx(look.sound('bleach-drip'), VOL.obstacle * 0.4);
   });
   kit.track(jug, { objects: [bead, drop, splash] });
 }

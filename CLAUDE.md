@@ -39,7 +39,7 @@ tests/
 art/sprites/       # Source renders for the atlas (tracked; art/renders holds the git-ignored candidates)
   bosses/          # Chosen boss figures and portraits, read by the boss rigs and portraits.py
   enemies/         # Picked enemy stills, read by swatters.py and hopact.py
-tools/art/         # Rigs and bake.py: rebuilds public/assets/sprites.webp + .json
+tools/art/         # Rigs and bake.py: rebuilds the atlases in public/assets (core sprites, enemies/, skins/, roach/) + packs.json
                    # portraits.py: boss portraits from art/sprites/bosses to public/boss/portraits (the versus splash)
                    # strip_meta.py: strips PNG text/EXIF chunks losslessly; every PNG added must go through it
                    # (ComfyUI embeds its workflow, private file names included). npm test fails on any that didn't
@@ -56,7 +56,9 @@ public/
 - Depth constants live in `DEPTH` enum in `src/config/constants.ts`. Never hardcode depth numbers.
 - Text styles use factories from `src/utils/TextStyles.ts` (`neonStyle`, `bodyStyle`, `smallStyle`, `popupStyle`, `buttonStyle`).
 - Audio files are `.ogg` format.
-- Sprites come from one atlas: use `src/config/sprites.ts` (`ATLAS`, `frameOf`, `playLoop`, `fitBody`). Frames are native pixels with their pivot on the baseline, so they draw at `SPRITE_SCALE` and are placed at the floor Y. Never rotate or glow them at runtime.
+- Sprites come from several atlases, loaded in packs (`src/config/packs.ts`, `systems/PackLoader.ts`): use `src/config/sprites.ts` (`textureOf(frame)` for the texture a frame is in, `hasFrame`, `frameOf`, `playLoop`, `fitBody`); never assume a frame is in `ATLAS`. Frames are native pixels with their pivot on the baseline, so they draw at `SPRITE_SCALE` and are placed at the floor Y. Never rotate or glow them at runtime.
+- Loading never decides the game: the course, enemies, hitboxes, the run's level and timing never wait on or change with what has loaded. A pack only changes looks and sounds, or holds a run's start (`src/config/packs.ts` `startPlan`, with a retry and the way back).
+- Enemies' level skins are data (`cast.ts` "Level skins", ids in `server/enemySkins.ts`): spawn files take every art and sound name through `kit.look(plan)`, never a literal.
 
 ## Multiplayer
 

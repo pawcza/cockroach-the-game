@@ -51,6 +51,9 @@ export class MenuNav {
     if (first) this.focus(first, false);
   }
 
+  /** The button with the focus, if any. */
+  get current(): UIButton | null { return this.focused; }
+
   focus(button: UIButton, sound = true): void {
     if (this.focused === button) return;
     if (sound && this.focused) playUi(this.scene, 'ui-hover');

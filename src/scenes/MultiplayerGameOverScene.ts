@@ -5,7 +5,7 @@ import { PLAYER_COLORS } from '../../server/lobby';
 import { DEPTH } from '../config/constants';
 import { titleStyle, smallStyle, buttonStyle, getScale, UI_TEXT } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
-import { addObstacleArt, createButton, createPanel, OBSTACLE_LABEL, showAchievement, UIButton } from '../ui/shared';
+import { addObstacleArt, createButton, createPanel, deathLabel, showAchievement, UIButton } from '../ui/shared';
 import { recordMatch } from '../systems/Profile';
 import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
@@ -133,7 +133,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       // Death cause icon + label below name
       const stats = entry.stats || {};
       const obstacleType = (stats.obstacleType as string) || 'fall';
-      const deathLabel = OBSTACLE_LABEL[obstacleType] || obstacleType;
+      const causeLabel = deathLabel(obstacleType);
 
       const statLineY = y + Math.round(16 * s);
 
@@ -162,7 +162,7 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       }
 
       // Death cause + stats line
-      const statParts: string[] = [deathLabel];
+      const statParts: string[] = [causeLabel];
       if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
       if (typeof stats.maxLevel === 'number') statParts.push(`lv${stats.maxLevel}`);

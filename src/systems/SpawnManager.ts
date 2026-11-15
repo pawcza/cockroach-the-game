@@ -69,6 +69,8 @@ export class SpawnManager {
   private canDash: () => boolean;
 
   private nextSpawnX: number;
+  /** Short of this x the course is the calm stretch after a checkpoint (startAt): pickups and plain blockers only. */
+  private calmUntilX = -Infinity;
   /** The bosses not beaten yet, nearest first or not: the course stops short of the nearest. */
   private bosses: BossDef[];
   /** The opening tutorial lays its own stretch: until it resumes, no beat of the regular course is laid. */
@@ -121,6 +123,16 @@ export class SpawnManager {
     this.nextSpawnX = COCKROACH_START_X + 400;
   }
 
+  /**
+   * The run starts from a checkpoint at world x: the bosses up to there are behind it, the course is laid from just
+   * ahead, and calm until `calmUntilX`.
+   */
+  startAt(x: number, calmUntilX: number): void {
+    this.bosses = this.bosses.filter(b => bossX(b.triggerDistance) > x);
+    this.nextSpawnX = x + 400;
+    this.calmUntilX = calmUntilX;
+  }
+
   advanceSpawnX(x: number): void {
     if (x > this.nextSpawnX) this.nextSpawnX = x;
   }
@@ -158,7 +170,7 @@ export class SpawnManager {
       const testPill = FIRST_PILL && this.firstSlot && !this.rng;
       this.firstSlot = false;
       if (testPill) this.spawnPickup(this.pills, slotX, 'pill', 'bottom');
-      else this.fill(slotX, this.layout.next(slotX, level), level);
+      else this.fill(slotX, slotX < this.calmUntilX ? this.layout.calm(slotX, level) : this.layout.next(slotX, level), level);
     }
 
     if (this.pendingPickupDestructions.length > 0) {
@@ -274,7 +286,8 @@ export class SpawnManager {
     this.hints.push(hint);
   }
 
-  cleanupOffscreen(cameraLeft: number, onPickupMissed: (comboLost: number) => void, currentCombo: number): void {
+  /** Takes away what has gone off the left edge; `onPickupsMissed` hears how many scoring pickups went (they each cost the combo). */
+  cleanupOffscreen(cameraLeft: number, onPickupsMissed: (count: number) => void): void {
     this.hints = this.hints.filter((hint) => {
       if (hint.x >= cameraLeft - 200) return true;
       this.scene.tweens.killTweensOf(hint);
@@ -287,20 +300,17 @@ export class SpawnManager {
       if (sprite.x < cameraLeft - 200 && !sprite.getData('behind')) sprite.destroy();
     });
 
-    let comboWasLost = false;
+    // Every pickup let go by counts, however many left in this frame (a long frame must not forgive the second one)
+    let missed = 0;
     const groups = [this.apples, this.beers, this.pills];
     for (const group of groups) {
-      group.getChildren().forEach((obj) => {
-        const sprite = obj as Phaser.Physics.Arcade.Sprite;
-        if (sprite.x < cameraLeft) {
-          if (!comboWasLost && currentCombo > 0) {
-            comboWasLost = true;
-            onPickupMissed(currentCombo);
-          }
-          sprite.destroy();
-        }
-      });
+      for (const obj of group.getChildren().slice()) {
+        if ((obj as Phaser.Physics.Arcade.Sprite).x >= cameraLeft) continue;
+        missed++;
+        obj.destroy();
+      }
     }
+    if (missed > 0) onPickupsMissed(missed);
     // An ammo box left behind loses no combo: it never scored
     this.ammo.getChildren().forEach((obj) => {
       if ((obj as Phaser.Physics.Arcade.Sprite).x < cameraLeft) obj.destroy();

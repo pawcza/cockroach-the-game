@@ -1,18 +1,16 @@
 import Phaser from 'phaser';
 import {
   COCKROACH_BASE_SPEED,
-  COCKROACH_SPEED_MAX_BOOST,
-  COCKROACH_SPEED_TAU,
   DASH_SPEED_BOOST,
   DASH_DURATION,
   PILL_SPEED_MULTIPLIER,
   PILL_DURATION,
-  SPEED_BOOST_PER_LEVEL,
   DEPTH,
 } from '../config/constants';
-import { ATLAS, FLIP_HOP_MS, HOP_MS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf, hopY } from '../config/sprites';
+import { textureOf, FLIP_HOP_MS, HOP_MS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf, hopY } from '../config/sprites';
 import { smallStyle } from '../utils/TextStyles';
-import { getLevelForDistance } from '../config/levels';
+import { levelNumberAt } from '../config/levels';
+import { cruiseSpeed } from '../objects/obstacles/cast';
 import { dress, parseRoach, pistolPoint, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
 import { getFx, roachGhost } from '../effects/Fx';
 import { gunfire } from '../effects/Gunfire';
@@ -135,7 +133,7 @@ export class GhostPlayer {
 
     // Their skin as they wear it; their lobby colour is the ring at their feet and their name, not a tint over the skin
     this.look = look;
-    this.sprite = scene.add.sprite(startX, floorBottomY - ROACH_FEET_OFFSET, ATLAS, frameOf(this.anim('run')));
+    this.sprite = scene.add.sprite(startX, floorBottomY - ROACH_FEET_OFFSET, textureOf(frameOf(this.anim('run'))), frameOf(this.anim('run')));
     this.sprite.setScale(SPRITE_SCALE);
     this.sprite.play(this.anim('run'));
     this.sprite.setAlpha(0.2);
@@ -162,13 +160,10 @@ export class GhostPlayer {
     // Extrapolate server time forward using wall clock (same clock player uses)
     const timeSinceUpdate = this.hasServerTime ? Date.now() - this.serverTimeLocal : 0;
     const effectiveTime = this.serverTime + timeSinceUpdate;
-    const elapsedSeconds = effectiveTime / 1000;
 
+    // The one speed formula (cast.ts cruiseSpeed), endless levels included
     const distance = Math.floor((this.sprite.x - this.startX) / 50);
-    const level = getLevelForDistance(distance).level;
-    const levelBonus = (level - 1) * SPEED_BOOST_PER_LEVEL;
-    const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
-    const baseSpeed = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
+    const baseSpeed = cruiseSpeed(effectiveTime, levelNumberAt(distance));
     const dashBoost = this._isDashing ? DASH_SPEED_BOOST : 0;
     return (baseSpeed + dashBoost) * this.pillSpeedBoost;
   }

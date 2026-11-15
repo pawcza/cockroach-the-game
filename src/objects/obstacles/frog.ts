@@ -7,9 +7,6 @@ import { EnemyPlan, laneY } from './behaviours';
 import { TIMINGS, placeOf } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
-const TONGUE = 0xd9607a;
-const TONGUE_DARK = 0x9a3550;
-const TIP = 0xf2a0b0;
 /** The tongue's thickness and its sticky tip's size, world px; its hitbox height, frame px. */
 const TONGUE_H = 6;
 const TIP_W = 10;
@@ -24,15 +21,16 @@ const LICK_H = 10;
 export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
   const frog = kit.enemy(plan);
   frog.anims.stop();
-  kit.playSoundOnVisible(frog, 'frog-croak', 0.4);
+  kit.playSoundOnVisible(frog, look.sound('frog-croak'), 0.4);
   const y = laneY(plan.lane) - 14;
-  const tongue = scene.add.rectangle(0, y, 10, TONGUE_H, TONGUE).setOrigin(0, .5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
-  const under = scene.add.rectangle(0, y + TONGUE_H / 2, 10, 2, TONGUE_DARK).setOrigin(0, .5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
-  const tip = scene.add.rectangle(0, y, TIP_W, TIP_H, TIP).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
+  const tongue = scene.add.rectangle(0, y, 10, TONGUE_H, look.color('tongue')).setOrigin(0, .5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
+  const under = scene.add.rectangle(0, y + TONGUE_H / 2, 10, 2, look.color('tongueDark')).setOrigin(0, .5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
+  const tip = scene.add.rectangle(0, y, TIP_W, TIP_H, look.color('tongueTip')).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
   // What hurts: the tongue's length, an invisible hitbox along it
-  const lick = kit.createSprite(plan.x, laneY(plan.lane), 'frog', 'frog', null);
+  const lick = kit.createSprite(plan.x, laneY(plan.lane), 'frog', look.cause, null);
   lick.anims.stop();
   lick.setVisible(false).setData('floor', plan.lane).setData('harmless', true).setData('telegraphs', true);
   const hazard = kit.hazard(frog);
@@ -58,7 +56,7 @@ export function spawnFrog(kit: ObstacleKit, plan: EnemyPlan): void {
     }
     if (!before || now.pose === before.pose || !kit.isOnScreen(frog)) return;
     if (now.pose === 'windup') fx.play('flare-big-pink', frog.x - 10 * placeOf(plan.id).size, frog.y - frog.displayHeight * .4, { depth: DEPTH.PICKUPS + 1 });
-    if (now.pose === 'strike' && kit.isAhead(frog)) kit.audio.playSfx('frog-tongue', VOL.obstacle * 0.4);
+    if (now.pose === 'strike' && kit.isAhead(frog)) kit.audio.playSfx(look.sound('frog-tongue'), VOL.obstacle * 0.4);
   });
   kit.track(frog, { objects: [tongue, under, tip, lick] });
 }

@@ -4,7 +4,7 @@
  */
 import Phaser from 'phaser';
 import { AudioManager } from '../audio/AudioManager';
-import { LEVELS } from '../config/levels';
+import { levelConfig } from '../config/levels';
 import { GameEventBridge } from '../multiplayer/GameEventBridge';
 import { GhostManager } from '../multiplayer/GhostManager';
 import { mpClient } from '../multiplayer/MultiplayerClient';
@@ -19,6 +19,8 @@ import { VersusSplash } from './boss/VersusSplash';
 import { ZlewiatanFight } from './boss/ZlewiatanFight';
 import { AbilityId } from './abilities';
 import { AbilityReward } from './AbilityReward';
+import { CHECKPOINTS, type Checkpoint, unlockedAfter } from './checkpoints';
+import { checkpointsUnlocked, unlockCheckpoints } from './Profile';
 import { GameOverHandler } from './GameOverHandler';
 import { RunState } from './RunState';
 import { ScoreTracker } from './ScoreTracker';
@@ -52,6 +54,8 @@ export interface BossEncounterDeps {
   absorbHit: () => boolean;
   /** A power was earned and the run has picked up again: where a lesson for it can be laid. */
   onAbilityEarned?: (ability: AbilityId) => void;
+  /** The boss just beaten unlocked a new checkpoint, and the run has picked up again: where to say so. */
+  onCheckpointUnlocked?: (checkpoint: Checkpoint) => void;
 }
 
 export class BossEncounter {
@@ -68,6 +72,10 @@ export class BossEncounter {
   private reward: AbilityReward | null = null;
   /** Solo: the world stands still under the splash, until the fight is made. */
   private _isFrozen = false;
+  /** Dev `?boss=`: the bosses before the one tried were skipped, so beating him unlocks nothing. */
+  private devSkip = false;
+  /** Unlocked by the boss just beaten, said once the run picks up again. */
+  private newCheckpoint: Checkpoint | null = null;
 
   constructor(scene: Phaser.Scene, deps: BossEncounterDeps) {
     this.scene = scene;
@@ -83,11 +91,23 @@ export class BossEncounter {
   private skipToBoss(id: string | null): void {
     const at = this.ladder.findIndex(boss => boss.id === id);
     if (at < 0) return;
+    this.devSkip = true;
     for (const earlier of this.ladder.slice(0, at)) {
       this.beaten.add(earlier.id);
       this.deps.run.abilities.grantReward(earlier);
     }
     this.ladder = this.ladder.map((boss, i) => (i === at ? { ...boss, triggerDistance: 15 } : boss));
+  }
+
+  /**
+   * A run started from a checkpoint: these bosses count as beaten from the first frame and their powers are owned,
+   * without the reward beat (the player had it when they beat them to unlock the checkpoint).
+   */
+  startAfter(beaten: readonly BossDef[]): void {
+    for (const boss of beaten) {
+      this.beaten.add(boss.id);
+      this.deps.run.abilities.grantReward(boss);
+    }
   }
 
   /** True from the trigger on, which in multiplayer is before the server has answered. */
@@ -194,11 +214,16 @@ export class BossEncounter {
       onWipe: () => {
         // The press (or, in a match, the hold's end): the boss's music comes in off the loop, quickly. Left to the
         // fight itself this came only after its intro, a walk-in or a rise, and then a level-length crossfade
-        audio.endPrelude(boss.music, LEVELS[run.currentLevel - 1].bgmKey);
+        audio.endPrelude(boss.music, this.levelMusic());
         onWipe();
       },
       onEnd: () => { this.splash = null; },
     });
+  }
+
+  /** The music of the level the run is in: an endless level's is the one it borrows (the run's look seed). */
+  private levelMusic(): string {
+    return levelConfig(this.deps.run.currentLevel, (this.scene.data.get('lookSeed') as number | undefined) ?? 0).bgmKey;
   }
 
   /** The hit-stop: the clock, physics, tweens and animations stop where they are. */
@@ -233,6 +258,7 @@ export class BossEncounter {
 
     this._isActive = true;
     clock.pause();
+    this.deps.run.feats.fightStarted();
     const fight = BOSS_FIGHTS[boss.id]!({
       scene: this.scene,
       player,
@@ -275,6 +301,12 @@ export class BossEncounter {
     this.scene.events.emit(BOSS_DEFEATED_EVENT, id);
     if (run.isDead) return;
 
+    // A match fights its own Zlewiatan, which feeds nothing. (A dev shortcut run is kept out of the profile by Profile.)
+    run.feats.bossBeaten(id, !this.deps.isMultiplayer);
+    const unlocked = checkpointsUnlocked();
+    const now = unlockedAfter(unlocked, id, { multiplayer: this.deps.isMultiplayer, devSkip: this.devSkip });
+    if (now > unlocked && unlockCheckpoints(now)) this.newCheckpoint = CHECKPOINTS[now - 1];
+
     // The registry says what this boss gives; a match, or a power already owned, gives nothing
     const earned = run.abilities.grantReward(bossById(id));
     if (!earned) {
@@ -300,7 +332,7 @@ export class BossEncounter {
     const { run, player, clock, audio, spawnManager } = this.deps;
     const camera = this.scene.cameras.main;
     player.resumeAfterBossFight();
-    player.updateSpeed(run.activePlayTime, run.currentLevel);
+    player.updateSpeed(run.courseTime, run.currentLevel);
     camera.startFollow(player.sprite, true, 1, 0);
     camera.setFollowOffset(-200, 0);
     clock.resume();
@@ -308,8 +340,10 @@ export class BossEncounter {
     this.scene.time.delayedCall(RESUME_GRACE_MS, () => player.endInvulnerability(blinkTween));
     // The level the fight was fought in; a level that waited on this boss arrives next frame (LevelProgression), with
     // its own music
-    audio.switchBGM(LEVELS[run.currentLevel - 1].bgmKey);
+    audio.switchBGM(this.levelMusic());
     spawnManager.advanceSpawnX(player.x + 400);
     if (earned) this.deps.onAbilityEarned?.(earned);
+    if (this.newCheckpoint) this.deps.onCheckpointUnlocked?.(this.newCheckpoint);
+    this.newCheckpoint = null;
   }
 }

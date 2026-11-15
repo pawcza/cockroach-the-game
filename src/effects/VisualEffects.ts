@@ -5,6 +5,10 @@ import type { Player } from '../objects/Player';
 import { popupStyle } from '../utils/TextStyles';
 import { getFx, type Fx, type FxHandle } from './Fx';
 import { popup } from './Popup';
+import { ComboDrops } from '../systems/RunState';
+
+/** The red slab's words for this much of the combo lost. */
+const comboLostText = (lost: number): string => `${lost} kombo w dupę`;
 
 // Speed tops out near 3.4x. The scene keeps its colours at every speed: only the edges of the screen close in.
 const VIGNETTE_FROM = 2.7; // ~Lv8
@@ -42,6 +46,8 @@ export class VisualEffects {
   private flashOverlay!: Phaser.GameObjects.Rectangle;
   private aura: FxHandle | null = null;
   private auraName = '';
+  /** The words on the combo-lost slab while it is up: further drops retotal them (updateComboLost). */
+  private comboLostLabel: Phaser.GameObjects.Text | null = null;
   private comboFlame: ComboFlame | null = null;
   private lines: FxHandle | null = null;
   private cone: FxHandle | null = null;
@@ -169,12 +175,18 @@ export class VisualEffects {
 
     const camera = this.scene.cameras.main;
     camera.shake(150, 0.008);
-    // The count it was, on a red slab at the top of the screen
-    popup(this.scene, camera.width / 2, 80, `${comboLost} kombo w dupę`, popupStyle({
+    // How much of it the misses took (each halves the combo), on a red slab at the top of the screen
+    const parts = popup(this.scene, camera.width / 2, 80, comboLostText(comboLost), popupStyle({
       fontSize: '12px', color: '#ff6a5a', strokeThickness: 4,
-    }), { plate: 'plate-red', scrollFactor: 0, hold: 1400 });
+    }), { plate: 'plate-red', scrollFactor: 0, hold: ComboDrops.HOLD_MS });
+    this.comboLostLabel = parts.find((part): part is Phaser.GameObjects.Text => part instanceof Phaser.GameObjects.Text) ?? null;
     // Over the slab, under the words, once the slab is up: the slab cracks and the pieces drop out
     this.fx.play('crack', camera.width / 2, 80, { scrollFactor: 0, depth: DEPTH.POPUP - 0.01, delay: 150 });
+  }
+
+  /** More of the combo went while its slab is still up: the slab's number becomes the total, nothing else happens. */
+  updateComboLost(total: number): void {
+    if (this.comboLostLabel?.active) this.comboLostLabel.setText(comboLostText(total));
   }
 
   /** A new combo tier: the multiplier's chevrons rise off the roach. */

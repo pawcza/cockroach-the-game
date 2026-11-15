@@ -2,19 +2,16 @@ import Phaser from 'phaser';
 import {
   COCKROACH_START_X,
   COCKROACH_BASE_SPEED,
-  COCKROACH_SPEED_MAX_BOOST,
-  COCKROACH_SPEED_TAU,
   DASH_DURATION,
   DASH_COOLDOWN,
   DASH_SPEED_BOOST,
   PILL_SPEED_MULTIPLIER,
   PILL_DURATION,
   PILL_WARN_TIME,
-  SPEED_BOOST_PER_LEVEL,
   DEPTH,
 } from '../config/constants';
 import {
-  ATLAS,
+  textureOf,
   FLIP_HOP_MS,
   HOP_MS,
   ROACH_FEET_OFFSET,
@@ -31,6 +28,7 @@ import { popupStyle } from '../utils/TextStyles';
 import { RunPistol } from './RunPistol';
 import { dress, parseRoach, pistolPoint, PLAIN, roachAnim, type Look, type RoachAnim, type Worn } from '../config/skins';
 import { PillEffect } from './PillEffect';
+import { cruiseSpeed } from './obstacles/cast';
 
 export type Floor = 'top' | 'bottom';
 
@@ -157,7 +155,7 @@ export class Player {
     this.cockroach = this.scene.physics.add.sprite(
       COCKROACH_START_X,
       0, // positioned correctly below after offset is calculated
-      ATLAS,
+      textureOf(frameOf(this.anim('idle'))),
       frameOf(this.anim('idle')),
     );
     this.cockroach.setCollideWorldBounds(false);
@@ -232,11 +230,9 @@ export class Player {
     this.pill.stop();
   }
 
-  updateSpeed(activePlayTime: number, currentLevel: number): void {
-    const elapsedSeconds = activePlayTime / 1000;
-    const levelBonus = (currentLevel - 1) * SPEED_BOOST_PER_LEVEL;
-    const timeBoost = COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-elapsedSeconds / COCKROACH_SPEED_TAU));
-    this._currentSpeed = COCKROACH_BASE_SPEED + timeBoost + levelBonus;
+  /** `courseTime`: the run's course clock (RunState.courseTime). `ramp`: the share of it a checkpoint's ramp allows. */
+  updateSpeed(courseTime: number, currentLevel: number, ramp = 1): void {
+    this._currentSpeed = cruiseSpeed(courseTime, currentLevel) * ramp;
     this._speedMultiplier = this._currentSpeed / COCKROACH_BASE_SPEED;
 
     // Auto-run (flat dash boost + pill multiplier), less what sucks at it; a dash breaks free of that

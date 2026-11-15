@@ -4,12 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { io, type Socket } from 'socket.io-client';
 import type { GameServerOptions } from '../../server/app';
+import { COURSE_VERSION } from '../../server/daily';
 
 export interface Harness {
   url: string;
   /** Signs in as this Google account through the real callback and returns the session cookie. */
   signIn: (googleSub: string, name?: string) => Promise<string>;
-  connect: (headers?: Record<string, string>) => Promise<Socket>;
+  /** A socket of this course version (daily.ts COURSE_VERSION), or of `course` (undefined: an old client's, none sent). */
+  connect: (headers?: Record<string, string>, course?: number | null) => Promise<Socket>;
   stop: () => Promise<void>;
 }
 
@@ -51,8 +53,11 @@ export async function startServer(options: GameServerOptions = { auth: TEST_AUTH
       });
       return cookiesOf(back).split('; ').find(c => c.startsWith('kc_session=')) ?? '';
     },
-    connect: (headers) => new Promise((resolve, reject) => {
-      const socket = io(url, { transports: ['websocket'], forceNew: true, reconnection: false, extraHeaders: headers });
+    connect: (headers, course = COURSE_VERSION) => new Promise((resolve, reject) => {
+      const socket = io(url, {
+        transports: ['websocket'], forceNew: true, reconnection: false, extraHeaders: headers,
+        auth: course === null ? {} : { course },
+      });
       sockets.push(socket);
       socket.once('connect', () => resolve(socket));
       socket.once('connect_error', reject);

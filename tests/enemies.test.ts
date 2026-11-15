@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { DASH_COOLDOWN, DASH_DURATION, DASH_SPEED_BOOST, GAME_WIDTH, PIXEL_BLOCK } from '../src/config/constants';
-import { LEVELS } from '../src/config/levels';
+import { LEVELS, levelEnd } from '../src/config/levels';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
 import {
   CAT_FRAMES, EnemyPlan, Lane, ROACH_BACK, ROACH_FRONT, Vacuum, laneY, newVacuum, otherLane, setOffScuttle, stepVacuum,
 } from '../src/objects/obstacles/behaviours';
 import {
-  CAST, CourseClock, ENEMIES, EnemyId, OWN_PATTERN, TIMINGS, VACUUM, bodyOf, castFor, chaseFor, enemyState,
-  nominalCourse,
+  CAST, CourseClock, ENDLESS_CAST, ENEMIES, EnemyId, OWN_PATTERN, TIMINGS, VACUUM, bodyOf, castFor, chaseFor, cruiseSpeed,
+  enemyState, nominalCourse,
 } from '../src/objects/obstacles/cast';
 import { BOSS_RESUME_PX, BOSS_RUNWAY_PX, CourseLayout, SlotItem, bossX, courseEnd } from '../src/systems/CourseLayout';
 import { beatSpacing } from '../src/systems/RunPatterns';
@@ -28,11 +28,13 @@ function layCourse(seed: number, level: number, slots: number, clock?: CourseClo
 }
 
 test('every enemy\'s art size matches its frame in the atlas', () => {
-  const atlas = JSON.parse(readFileSync('public/assets/sprites.json', 'utf8')) as {
-    frames: Record<string, { frame: { w: number; h: number }; anchor?: { y: number }; pivot?: { y: number } }>;
-  };
+  // The frames are spread over the pack atlases (tools/art/bake.py, assets/packs.json)
+  type Frames = Record<string, { frame: { w: number; h: number }; anchor?: { y: number }; pivot?: { y: number } }>;
+  const packs = JSON.parse(readFileSync('public/assets/packs.json', 'utf8')) as { core: string; enemies: Record<string, string> };
+  const frames: Frames = Object.assign({}, ...[packs.core, ...Object.values(packs.enemies)]
+    .map(path => (JSON.parse(readFileSync(`public/assets/${path}.json`, 'utf8')) as { frames: Frames }).frames));
   for (const def of Object.values(ENEMIES)) {
-    const frame = atlas.frames[`${def.art}_0`];
+    const frame = frames[`${def.art}_0`];
     assert.ok(frame, `${def.art} is in the atlas`);
     assert.equal(def.frame.w, frame.frame.w, `${def.id} width`);
     assert.equal(def.frame.h, frame.frame.h, `${def.id} height`);
@@ -204,6 +206,81 @@ test('each telegraphing enemy, alone, can be read within its stated reaction tim
   }
   assert.deepEqual(failures.slice(0, 20), []);
 });
+
+// ── The endless levels ───────────────────────────────────────────────────
+
+/** The nominal roach's speeds in an endless level: a dasher arriving early, the level's start, its end. */
+function endlessSpeeds(level: number): number[] {
+  const start = cruiseSpeed(nominalCourse.timeAt(150 + levelEnd(level - 1) * 50), level);
+  return [start - 60, start, cruiseSpeed(nominalCourse.timeAt(150 + levelEnd(level) * 50), level)];
+}
+
+test('the endless cast: anything fair at 612-725 px/s from any level, the lamp, vacuum, centipede, boots and the retired out', () => {
+  for (const out of ['lamp', 'vacuum', 'centipede', 'boots', 'catChase', 'pope', 'blackhole', 'sprayWall'] as EnemyId[]) {
+    assert.equal(ENDLESS_CAST[out], undefined, `${out} is in the endless cast`);
+  }
+  for (const level of [11, 25, 99]) assert.deepEqual(castFor(level).map(e => e.def.id), Object.keys(ENDLESS_CAST));
+  // From every act, the gun act leading; plain blockers keep the rhythm without being most of it
+  const ids = new Set(Object.keys(ENDLESS_CAST));
+  for (const id of ['onion', 'flipper', 'bleach', 'spray', 'newspaper', 'bird', 'hen', 'cat', 'frog', 'gull', 'wasp', 'bison', 'bait']) assert.ok(ids.has(id), id);
+  const plain = castFor(11).filter(e => !OWN_PATTERN.has(e.def.role));
+  const total = plain.reduce((sum, e) => sum + e.weight, 0);
+  const blockers = plain.filter(e => e.def.role === 'blocker').reduce((sum, e) => sum + e.weight, 0);
+  assert.ok(blockers / total > 0.1 && blockers / total < 0.35, `blockers are ${Math.round((blockers / total) * 100)}%`);
+  // Every one of them is laid: the plain ones by any beat, the others by their own patterns
+  for (const level of [11, 25]) {
+    const laid = new Set<string>();
+    for (let seed = 1; seed <= 6; seed++) {
+      for (const slot of layCourse(seed * 31 + level, level, 1500)) for (const item of slot.items) if (item.kind === 'enemy') laid.add(item.plan.id);
+    }
+    assert.deepEqual([...laid].sort(), [...ids].sort(), `level ${level}`);
+  }
+});
+
+/**
+ * The slowest reaction each endless enemy allows, alone, at endless speed (612-725 px/s): every one of them leaves a
+ * player at least 425 ms from its first readable cue (the story's floor is the cat's 400 ms). The lamp, whose light is
+ * on before it can be read at that speed, is not among them.
+ */
+const ENDLESS_REACTION_MS: Partial<Record<EnemyId, number>> = {
+  flipper: 700, newspaper: 700, spray: 550, bleach: 725, bird: 650, gull: 525, cat: 700, bison: 575, hedgehog: 600,
+  robotVacuum: 650, mop: 500, hen: 500, frog: 525, zapper: 425, repeller: 500, bait: 600,
+};
+
+test('each telegraphing endless enemy, alone, can be read within its reaction time at any phase at endless speed', () => {
+  for (const id of Object.keys(ENDLESS_CAST) as EnemyId[]) {
+    if (ENEMIES[id].telegraphs && id !== 'wasp') assert.ok(ENDLESS_REACTION_MS[id], `${id} has its endless reaction`);
+  }
+  const failures: string[] = [];
+  for (const [id, reaction] of Object.entries(ENDLESS_REACTION_MS) as [EnemyId, number][]) {
+    assert.ok(reaction >= 425, id);
+    for (const speed of [612, 680, 725]) {
+      for (let phase = 0; phase < 6000; phase += 263) {
+        for (const lane of ['top', 'bottom'] as Lane[]) {
+          const x = SLOT_X0 + 400;
+          const course: Laid[] = [{ x, items: [{ kind: 'enemy', plan: { id, x, lane, phase } }] }, { x: x + 900, items: [] }];
+          if (simulate(course, { level: 11, speed, reaction, dash: false }, SLOT_X0 - 900).died) failures.push(`${id} ${lane} phase ${phase} at ${speed} px/s`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(failures.slice(0, 20), []);
+});
+
+for (const level of [11, 15, 20, 25, 30]) {
+  test(`endless level ${level}: a player with hops and the dash who reads the telegraphs survives`, () => {
+    const failures: string[] = [];
+    for (const speed of endlessSpeeds(level)) {
+      for (let seed = 1; seed <= 12; seed++) {
+        const startX = SLOT_X0 - 900;
+        const course = layCourse(seed * 7919 + level, level, 90, steadyClock(startX, speed));
+        const result = simulate(course, { level, speed, reaction: REACTION_MS, dash: true }, startX);
+        if (result.died) failures.push(`seed ${seed} at ${Math.round(speed)} px/s: ${result.by} at x=${Math.round(result.x)}`);
+      }
+    }
+    assert.deepEqual(failures, []);
+  });
+}
 
 test('enemies hurt only low over their lane', () => {
   // Every zone's lane is the lane the enemy stands in or over, and nothing up high or far back has a zone

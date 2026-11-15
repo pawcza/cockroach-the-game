@@ -7,9 +7,6 @@ import { EnemyPlan, laneY } from './behaviours';
 import { TIMINGS } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
-const CORD = 0x1a1a22;
-const BOLT = 0xc9a8ff;
-const BOLT_CORE = 0xffffff;
 /** The bolt along the lane: this tall, its core this tall. */
 const BOLT_H = 10;
 const CORE_H = 4;
@@ -23,20 +20,23 @@ const CORE_H = 4;
 export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
   const zapper = kit.enemy(plan, { shadow: false });
   zapper.anims.stop();
   zapper.setData('flies', true);
   (zapper.body as Phaser.Physics.Arcade.Body).checkCollision.none = true;
-  const cord = scene.add.rectangle(plan.x, 0, SPRITE_SCALE, 10, CORD).setOrigin(0.5, 0).setDepth(DEPTH.OBSTACLES - 0.1);
+  // A skin that is no hanging thing draws no cord (look.draws)
+  const cord = scene.add.rectangle(plan.x, 0, SPRITE_SCALE, 10, look.color('cord')).setOrigin(0.5, 0).setDepth(DEPTH.OBSTACLES - 0.1)
+    .setVisible(look.draws('cord'));
   const hazard = kit.hazard(zapper);
   // The bolt: a violet streak along the lane with a white core, and its drop from the tube
-  const glow = scene.add.rectangle(0, 0, 10, BOLT_H, BOLT, 1).setOrigin(0, 0.5).setDepth(DEPTH.OBSTACLES + 1)
+  const glow = scene.add.rectangle(0, 0, 10, BOLT_H, look.color('bolt'), 1).setOrigin(0, 0.5).setDepth(DEPTH.OBSTACLES + 1)
     .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
-  const core = scene.add.rectangle(0, 0, 10, CORE_H, BOLT_CORE, 1).setOrigin(0, 0.5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
-  const drop = scene.add.rectangle(0, 0, CORE_H, 10, BOLT_CORE, 1).setOrigin(0.5, 0).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
+  const core = scene.add.rectangle(0, 0, 10, CORE_H, look.color('boltCore'), 1).setOrigin(0, 0.5).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
+  const drop = scene.add.rectangle(0, 0, CORE_H, 10, look.color('boltCore'), 1).setOrigin(0.5, 0).setDepth(DEPTH.OBSTACLES + 1).setVisible(false);
   // What hurts: the bolt's stretch, an invisible hitbox along it, harmless unless it strikes
   const { reach } = TIMINGS.zapper;
-  const hurt = kit.createSprite(plan.x - reach / 2 + 15, laneY(plan.lane), 'bug-zapper', 'zapper', null);
+  const hurt = kit.createSprite(plan.x - reach / 2 + 15, laneY(plan.lane), 'bug-zapper', look.cause, null);
   hurt.anims.stop();
   hurt.setVisible(false).setData('floor', plan.lane).setData('harmless', true).setData('telegraphs', true)
     .setData('flies', true).setData('unpuntable', true).setData('shows', zapper);
@@ -64,12 +64,12 @@ export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
     if (!before || now.pose === before.pose || !kit.isOnScreen(zapper)) return;
     if (now.pose === 'windup') {
       fx.play('crackle', zapper.x, zapper.y - zapper.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 1 });
-      if (kit.isAhead(zapper)) kit.audio.playSfx('zapper-charge', VOL.obstacle * 0.5);
+      if (kit.isAhead(zapper)) kit.audio.playSfx(look.sound('zapper-charge'), VOL.obstacle * 0.5);
     }
     if (striking) {
       fx.play('flare-big-violet', zapper.x, zapper.y - zapper.displayHeight * 0.4, { depth: DEPTH.PICKUPS + 2 });
       for (let i = 0; i < 3; i++) fx.play('bolt', x0 + Math.random() * (x1 - x0), y, { depth: DEPTH.PICKUPS + 2 });
-      if (kit.isAhead(zapper)) kit.audio.playSfx('zapper-bolt', VOL.obstacle * 0.5);
+      if (kit.isAhead(zapper)) kit.audio.playSfx(look.sound('zapper-bolt'), VOL.obstacle * 0.5);
     }
   });
   const shootable = zapper.getData('shootable');
@@ -78,6 +78,6 @@ export function spawnZapper(kit: ObstacleKit, plan: EnemyPlan): void {
     fx.play('flare-big-violet', zapper.x, zapper.y - zapper.displayHeight * 0.4, { depth: DEPTH.POPUP });
     return false;
   };
-  zapper.setFrame(frameOf('bug-zapper', 0));
+  zapper.setFrame(frameOf(look.anim('bug-zapper'), 0));
   kit.track(zapper, { objects: [cord, glow, core, drop, hurt] });
 }

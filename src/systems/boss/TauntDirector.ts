@@ -108,9 +108,9 @@ export class TauntDirector {
   /** Reactive taunts said this run. */
   get reactions(): number { return this.pacer.count; }
 
-  /** The player lost a combo of this many. */
-  comboLost(lost: number): void {
-    this.streakAt = STREAK_FIRST;
+  /** A miss took this many off the combo, leaving `left` (it halves): the next streak is counted from what is left. */
+  comboLost(lost: number, left = 0): void {
+    this.streakAt = Math.max(STREAK_FIRST, left + STREAK_STEP);
     if (lost >= COMBO_LOST_MIN) this.react('comboLost');
   }
 

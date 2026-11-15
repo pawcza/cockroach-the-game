@@ -3,7 +3,7 @@
  * shop shows them what there is and asks them to sign in.
  */
 import { PLAIN, type Look } from '../config/skins';
-import { profilePushed, type RunSnapshot } from '../systems/Profile';
+import { devRun, noteFacts, profilePushed, type RunSnapshot } from '../systems/Profile';
 import { account } from './Account';
 
 export interface Mission {
@@ -21,9 +21,18 @@ export interface ShopState {
   owned: string[];
   look: Look;
   missions: Mission[];
+  /** Missions finished, as the server counts them. */
+  missionsDone: number;
 }
 
 let current: ShopState | null = null;
+
+/** What the server just said. Missions done and items owned are its record, and the profile's achievements on them follow it. */
+function hear(state: ShopState): ShopState {
+  current = state;
+  noteFacts({ missionsDone: state.missionsDone, itemsOwned: state.owned.length });
+  return state;
+}
 
 /** The last state heard from the server; null for a guest or before it loads. */
 export const shop = (): ShopState | null => current;
@@ -50,23 +59,24 @@ export async function loadShop(): Promise<ShopState | null> {
     return null;
   }
   const res = await send('/api/me/shop');
-  current = res?.ok ? await res.json() as ShopState : null;
+  current = res?.ok ? hear(await res.json() as ShopState) : null;
   return current;
 }
 
 /** A finished run, for the missions. Returns the ones it finished, which have been paid. */
 export async function reportRun(run: RunSnapshot, multiplayer: boolean): Promise<{ text: string; reward: number }[]> {
-  if (!account()) return [];
+  if (!account() || devRun()) return [];
   // The run's achievements are paid with the profile: wait for that, so the state that comes back counts them
   await profilePushed();
   const res = await send('/api/me/run', {
-    score: run.score, distance: run.distance, level: run.level, combo: run.combo, apples: run.apples,
+    // The metres actually run: a run from a checkpoint does not get the distance before it for free
+    score: run.score, distance: run.distance - run.startDistance, level: run.level, combo: run.combo, apples: run.apples,
     beers: run.beers, pills: run.pills, nearMisses: run.nearMisses, dashThroughs: run.dashThroughs,
     wallsBroken: run.wallsBroken, daily: run.daily, multiplayer,
   });
   if (!res?.ok) return [];
   const { completed, state } = await res.json() as { completed: { text: string; reward: number }[]; state: ShopState };
-  current = state;
+  hear(state);
   return completed;
 }
 
@@ -75,7 +85,7 @@ export async function buyItem(item: string): Promise<string | null> {
   const res = await send('/api/me/buy', { item });
   if (!res) return 'Brak połączenia';
   if (!res.ok) return ((await res.json()) as { error?: string }).error ?? 'Nie udało się';
-  current = await res.json() as ShopState;
+  hear(await res.json() as ShopState);
   return null;
 }
 
@@ -83,6 +93,6 @@ export async function buyItem(item: string): Promise<string | null> {
 export async function wearLook(look: Look): Promise<boolean> {
   const res = await send('/api/me/look', look);
   if (!res?.ok) return false;
-  current = await res.json() as ShopState;
+  hear(await res.json() as ShopState);
   return true;
 }

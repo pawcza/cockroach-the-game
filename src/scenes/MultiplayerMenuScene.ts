@@ -7,6 +7,8 @@ import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
 import { getPlayerName, getPlayerNameOrDefault } from '../utils/Storage';
 import { showNameInput } from '../ui/NameInputOverlay';
+import { packs } from './DeferredLoadScene';
+import { matchRequires } from '../config/packs';
 
 export class MultiplayerMenuScene extends Phaser.Scene {
   private lobbyContainer!: Phaser.GameObjects.Container;
@@ -34,6 +36,8 @@ export class MultiplayerMenuScene extends Phaser.Scene {
 
     createSceneBackground(this, { level: 6, dim: 0.55 });
     this.nav = new MenuNav(this);
+    // What a match requires (every enemy's art) loads while the lobbies are browsed: the lobby only lets you be ready with it
+    void packs(this.game)?.ensure(matchRequires());
 
     this.add.text(Math.round(width / 2), 48, 'ZJAZD KARALUCHÓW', titleStyle({
       fontSize: '26px',
@@ -216,12 +220,18 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       const lobbyData = await request();
       const run = mpClient.takeRunInProgress();
       if (run) {
+        // Watching draws the course: its art first (a match never waits in the game), the run's clock moved on meanwhile
+        const asked = Date.now();
+        if ((await packs(this.game).ensure(matchRequires())).length > 0) {
+          mpClient.leaveLobby();
+          throw new Error('packs');
+        }
         sceneManager.goto(this, 'GameScene', {
           multiplayer: true,
           seed: run.seed,
           players: run.players,
           myId: mpClient.myId,
-          watch: { elapsedMs: run.elapsedMs, dead: run.dead },
+          watch: { elapsedMs: run.elapsedMs + Date.now() - asked, dead: run.dead },
         });
       } else {
         sceneManager.goto(this, 'LobbyScene', { lobbyData });

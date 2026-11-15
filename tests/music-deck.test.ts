@@ -266,9 +266,10 @@ test('fade-out while held ends the tracks at once', () => {
 test('the bosses each have a track of their own, and the boss assets load every one', () => {
   const keys = BOSSES.map(b => b.music);
   assert.equal(new Set(keys).size, BOSSES.length);
-  const loader = readFileSync(new URL('../src/scenes/DeferredLoadScene.ts', import.meta.url), 'utf8');
-  const block = loader.slice(loader.indexOf('const BOSS_AUDIO'), loader.indexOf('];', loader.indexOf('const BOSS_AUDIO')));
-  for (const key of keys) assert.ok(block.includes(`['${key}', `), `${key} is not in BOSS_AUDIO`);
+  // The boss packs (systems/PackLoader.ts): each boss's own track loads with his pack
+  const loader = readFileSync(new URL('../src/systems/PackLoader.ts', import.meta.url), 'utf8');
+  const block = loader.slice(loader.indexOf('const BOSS_PACKS'), loader.indexOf('function sfx('));
+  for (const key of keys) assert.ok(block.includes(`['${key}', `), `${key} is not in BOSS_PACKS`);
 });
 
 test('every boss: his own track off the pre-battle loop, his fight asking for it changes nothing, then the screens after', () => {

@@ -8,10 +8,14 @@ import { playUi } from '../../audio/AudioManager';
 import { dress, ITEMS, PLAIN, roachAnim, type Look, type Slot, type Worn } from '../../config/skins';
 import { ATLAS, ROACH_FEET_OFFSET, SPRITE_SCALE, frameOf } from '../../config/sprites';
 import { account } from '../../ui/Account';
-import { createButton, createPanel, type UIButton } from '../../ui/shared';
+import { takeNotices } from '../../systems/Profile';
+import { createButton, createPanel, showAchievement, type UIButton } from '../../ui/shared';
 import { buyItem, shop, wearLook } from '../../ui/Shop';
 import { addContactShadow } from '../../effects/ContactShadow';
 import { headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
+import { packs } from '../DeferredLoadScene';
+import { withShopSkin } from '../../systems/PackLoader';
+import type { PackId } from '../../config/packs';
 
 const TOP = 52;
 /** One and a half times the game's size: big enough to see what it wears, small enough for the panel. */
@@ -58,11 +62,17 @@ export function buildWardrobePage(
   const preview = scene.add.sprite(previewX, previewFeet - ROACH_FEET_OFFSET * (PREVIEW_SCALE / SPRITE_SCALE), ATLAS, frameOf('roach-run')).setScale(PREVIEW_SCALE);
   container.add(preview);
   let previewWorn: Worn[] = [];
+  let shown: Look | null = null;
+  const loader = packs(scene.game);
   const show = (look: Look): void => {
+    shown = look;
     preview.play(roachAnim('run', look), true);
     previewWorn.forEach(item => item.destroy());
     previewWorn = dress(scene, preview, look);
+    // Each shop skin's atlas is its own pack: the one in focus first, the plain roach until it is in
+    withShopSkin(loader, look.skin, () => { if (preview.active && shown === look) preview.play(roachAnim('run', look), true); });
   };
+  loader?.prefetch(ITEMS.skin.map((skin): PackId => `roach-${skin.id}`));
 
   // Missions, under the roach
   const missionsTop = previewFeet + 22;
@@ -137,6 +147,7 @@ export function buildWardrobePage(
     if (await wearLook(look)) onLookChanged(look);
     playUi(scene, 'ui-purchase');
     say('Kupione i założone!', UI_TEXT.named);
+    for (const achievement of takeNotices()) showAchievement(scene, achievement);
     refresh();
   };
 

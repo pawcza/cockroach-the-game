@@ -11,6 +11,7 @@ import { ObstacleKit } from './ObstacleKit';
  */
 export function spawnMop(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
+  const look = kit.look(plan);
   const mop = kit.enemy(plan);
   mop.anims.stop();
   mop.setData('flies', true);
@@ -36,7 +37,7 @@ export function spawnMop(kit: ObstacleKit, plan: EnemyPlan): void {
     if (now.pose === 'windup' && before.pose === 'idle') fx.play('flare-big-cyan', mop.x, now.y - mop.displayHeight * 0.3, { depth: DEPTH.PICKUPS + 1 });
     if (now.pose === 'strike') {
       fx.play('splash', mop.x, floor, { depth: DEPTH.OBSTACLES + 1 });
-      if (kit.isAhead(mop)) kit.audio.playSfx('mop-slap', VOL.obstacle * 0.4);
+      if (kit.isAhead(mop)) kit.audio.playSfx(look.sound('mop-slap'), VOL.obstacle * 0.4);
     }
   });
 }

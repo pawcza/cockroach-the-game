@@ -26,15 +26,16 @@ const THIN_MS = 250;
 export function spawnPestSpray(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
   const standY = feetY(plan.id, plan.lane);
   const spray = kit.enemy(plan);
-  kit.playSoundOnVisible(spray, 'spray-sfx', VOL.obstacle);
+  kit.playSoundOnVisible(spray, look.sound('spray-sfx'), VOL.obstacle);
   const half = bodyOf(ENEMIES.spray).half;
   const hazard = kit.hazard(spray);
   // What hurts: the cloud's stretch, an invisible hitbox on the lane, harmless unless the cloud is out. A dash or a pill
   // goes through it (the can is what gets punted), and it is the can that blinks when it kills
   const { reach } = TIMINGS.spray;
-  const cloud = kit.createSprite(plan.x - half - reach / 2, laneY(plan.lane), 'spray', 'spray', null);
+  const cloud = kit.createSprite(plan.x - half - reach / 2, laneY(plan.lane), 'spray', look.cause, null);
   cloud.anims.stop();
   cloud.setVisible(false).setData('floor', plan.lane).setData('harmless', true).setData('telegraphs', true)
     .setData('unpuntable', true).setData('shows', spray);
@@ -80,7 +81,7 @@ export function spawnPestSpray(kit: ObstacleKit, plan: EnemyPlan): void {
     }
     if (now.pose === 'strike') {
       puff();
-      if (kit.isAhead(spray)) kit.audio.playSfx('spray-sfx', VOL.obstacle * 0.4);
+      if (kit.isAhead(spray)) kit.audio.playSfx(look.sound('spray-sfx'), VOL.obstacle * 0.4);
     }
   });
 

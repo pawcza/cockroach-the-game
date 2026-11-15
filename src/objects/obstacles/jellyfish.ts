@@ -8,7 +8,7 @@ export function spawnJellyfish(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
   const jelly = kit.enemy(plan, { shadow: false });
   kit.drive(jelly, plan);
-  kit.playSoundOnVisible(jelly, 'jellyfish-sfx', 0.4);
+  kit.playSoundOnVisible(jelly, kit.look(plan).sound('jellyfish-sfx'), 0.4);
 
   // Violet motes drifting down off its tentacles
   const motes = kit.emitWhileOnScreen(jelly, 260, () => {

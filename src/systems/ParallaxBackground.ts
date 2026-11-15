@@ -79,6 +79,12 @@ export class ParallaxBackground {
     }
   }
 
+  /** Dressed for this level at once, no crossfade: a run that starts in it (from a checkpoint). */
+  showLevel(config: LevelConfig): void {
+    this.config = config;
+    this.show(this.current, config);
+  }
+
   crossfadeTo(config: LevelConfig): void {
     this.dress(this.next, config);
     this.nextConfig = config;

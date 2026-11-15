@@ -4,9 +4,9 @@ import { AudioManager, VOL } from '../audio/AudioManager';
 import { VisualEffects } from '../effects/VisualEffects';
 import { GameHUD } from '../ui/GameHUD';
 import { ComboFeedback } from './ComboFeedback';
-import { comboMultiplier, RunState } from './RunState';
+import { comboAfterMiss, ComboDrops, comboMultiplier, RunState } from './RunState';
 
-/** Losing a combo this long shatters it: the bigger sound. */
+/** A miss that takes this much off the combo shatters it: the bigger sound. */
 const BIG_COMBO = 10;
 
 export class ScoreTracker {
@@ -16,6 +16,7 @@ export class ScoreTracker {
   private comboFeedback: ComboFeedback;
   private audio: AudioManager;
   private vfx: VisualEffects;
+  private drops = new ComboDrops();
 
   constructor(
     scene: Phaser.Scene,
@@ -52,12 +53,27 @@ export class ScoreTracker {
     }
   }
 
-  loseCombo(comboLost: number): void {
-    this.vfx.comboLostEffect(comboLost);
-    this.audio.playComboLost(comboLost >= BIG_COMBO);
-    this.run.pickupCombo = 0;
-    this.comboFeedback.onComboLost();
-    this.vfx.setCombo(0);
+  /**
+   * A pickup went by: the combo halves, rounded down (comboAfterMiss). The loss is marked as one beat (ComboDrops): a
+   * slab with its shake and sting for a real drop (a big sting from BIG_COMBO lost), the same slab's number growing for
+   * drops that follow while it is up, nothing for a small one. The flames and the notices fall back to the tier of what
+   * is left. Returns how much was lost.
+   */
+  dropCombo(): number {
+    const before = this.run.pickupCombo;
+    const after = comboAfterMiss(before);
+    const lost = before - after;
+    this.run.pickupCombo = after;
+    const beat = this.drops.drop(lost, this.scene.time.now);
+    if (beat.kind === 'slab') {
+      this.vfx.comboLostEffect(beat.lost);
+      this.audio.playComboLost(beat.lost >= BIG_COMBO);
+    } else if (beat.kind === 'update') {
+      this.vfx.updateComboLost(beat.lost);
+    }
+    this.comboFeedback.onComboDropped(after);
+    this.vfx.setCombo(after);
+    return lost;
   }
 
   /** The combo starts over without a word: the tutorial's apples are gone when the real run starts. */
@@ -74,5 +90,10 @@ export class ScoreTracker {
       this.run.score += 1;
       this.run.lastScoreTime = this.scene.time.now;
     }
+  }
+
+  /** The distance's points for the metres run up to `distance` (RunState DistancePoints), the level of each metre given. */
+  tickDistance(distance: number, levelAt: (metre: number) => number): void {
+    this.run.score += this.run.distancePoints.advance(distance, levelAt);
   }
 }

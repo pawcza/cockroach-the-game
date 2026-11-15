@@ -1,6 +1,10 @@
 /**
- * The baked sprite atlas: frame names, animations and how sprites sit on the floor. The art comes from tools/art.
+ * The baked sprite atlases: frame names, animations and how sprites sit on the floor. The art comes from tools/art.
  * Frames are native pixels, so everything draws at SPRITE_SCALE, and their pivots sit on the object's baseline.
+ *
+ * Frames live in several atlases (the core one boot loads, and the packs of src/config/packs.ts), every name in exactly
+ * one. Ask `textureOf(frame)` for the texture a frame is in rather than naming one; `hasFrame` says whether it is loaded
+ * yet. Animations are made as the atlases holding their frames arrive (createSpriteAnimations).
  */
 import Phaser from 'phaser';
 import { PIXEL_BLOCK } from './constants';
@@ -105,18 +109,61 @@ const ANIMATIONS: Record<string, { frames: number; fps: number; once?: boolean }
 
 export const frameOf = (name: string, index = 0): string => `${name}_${index}`;
 
+/** Which loaded texture holds each frame. Frame names are unique across the atlases (tools/art/bake.py). */
+const homes = new Map<string, string>();
+
+/** Notes where an atlas's frames are, once it is in the texture manager. */
+export function registerAtlas(textures: Phaser.Textures.TextureManager, key: string): void {
+  if (!textures.exists(key)) return;
+  for (const name of textures.get(key).getFrameNames()) homes.set(name, key);
+}
+
+/** The texture a frame is in; the core atlas for one not loaded (yet). */
+export const textureOf = (frame: string): string => homes.get(frame) ?? ATLAS;
+
+/** Whether a frame is loaded. */
+export const hasFrame = (frame: string): boolean => homes.has(frame);
+
+/**
+ * An animation's frame count and rate: its own, or for a skin (`<skinId>/<base>`, a level skin of an enemy) its base
+ * animation's, whose frames it matches one for one. Undefined for a name that is no animation.
+ */
+export function animationOf(name: string): { frames: number; fps: number; once?: boolean } | undefined {
+  return ANIMATIONS[name] ?? ANIMATIONS[name.slice(name.indexOf('/') + 1)];
+}
+
+/** How many frames of an animation are loaded, counted from 0: all its strip's, which may be more than its loop plays. */
+export function framesOf(name: string): number {
+  let n = 0;
+  while (homes.has(frameOf(name, n))) n++;
+  return n;
+}
+
 /** The shop's skins, baked as roach-<skin>-<anim>: the same timing as the plain roach. Matches skins.ts. */
 const SKINS = ['zombie', 'lodowy', 'robot', 'lawa', 'metal', 'kosmiczny'];
 
+/**
+ * Makes every animation whose frames are all loaded and that isn't made yet: the core's at boot, the rest as their
+ * packs arrive (call again after each). A skin's animations, `<skinId>/<base>`, time like their base.
+ */
 export function createSpriteAnimations(scene: Phaser.Scene): void {
   const skinned = Object.entries(ANIMATIONS)
     .filter(([key]) => key.startsWith('roach-'))
     .flatMap(([key, config]) => SKINS.map(skin => [key.replace('roach-', `roach-${skin}-`), config] as const));
-  for (const [key, { frames, fps, once }] of [...Object.entries(ANIMATIONS), ...skinned]) {
+  const levelSkins = [...homes.keys()]
+    .filter(name => name.endsWith('_0') && name.includes('/'))
+    .map(name => name.slice(0, -2))
+    .flatMap(key => {
+      const config = animationOf(key);
+      return config ? [[key, config] as const] : [];
+    });
+  for (const [key, { frames, fps, once }] of [...Object.entries(ANIMATIONS), ...skinned, ...levelSkins]) {
     if (scene.anims.exists(key)) continue;
+    const names = Array.from({ length: frames }, (_, i) => frameOf(key, i));
+    if (!names.every(hasFrame)) continue;
     scene.anims.create({
       key,
-      frames: scene.anims.generateFrameNames(ATLAS, { prefix: `${key}_`, start: 0, end: frames - 1 }),
+      frames: names.map(frame => ({ key: textureOf(frame), frame })),
       frameRate: fps,
       repeat: once ? 0 : -1,
     });
@@ -125,7 +172,9 @@ export function createSpriteAnimations(scene: Phaser.Scene): void {
 
 /** Starts a looping animation on a random frame, so a row of apples doesn't move in lockstep. Purely cosmetic. */
 export function playLoop(sprite: Phaser.GameObjects.Sprite, name: string): void {
-  sprite.play({ key: name, startFrame: Math.floor(Math.random() * ANIMATIONS[name].frames) });
+  const config = animationOf(name);
+  if (!config || !sprite.scene.anims.exists(name)) return;
+  sprite.play({ key: name, startFrame: Math.floor(Math.random() * config.frames) });
 }
 
 /** Sizes an arcade body to a ratio of the art, ignoring the glow margin: standing on the baseline, or centred. */
@@ -141,6 +190,23 @@ export function fitBody(
   const body = sprite.body as Phaser.Physics.Arcade.Body;
   body.setSize(w, h, false);
   body.setOffset((sprite.width - w) / 2, centered ? (sprite.height - h) / 2 : sprite.height - GLOW_PAD - h);
+}
+
+/**
+ * fitBody, centred, for a sprite showing other art than the one its hitbox was made for (an enemy's level skin): the
+ * box `base` (a frame's size and baseline) would get, put on the same point of the sprite's baseline, whatever the
+ * size of the frame it shows.
+ */
+export function fitBodyAs(
+  sprite: Phaser.Physics.Arcade.Sprite,
+  ratio: { w: number; h: number },
+  base: { w: number; h: number; pivotY: number },
+): void {
+  const w = (base.w - GLOW_PAD * 2) * ratio.w;
+  const h = (base.h - GLOW_PAD * 2) * ratio.h;
+  const body = sprite.body as Phaser.Physics.Arcade.Body;
+  body.setSize(w, h, false);
+  body.setOffset((sprite.width - w) / 2, sprite.height * sprite.originY + base.h / 2 - base.pivotY * base.h - h / 2);
 }
 
 /**

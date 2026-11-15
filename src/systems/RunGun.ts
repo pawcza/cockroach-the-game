@@ -32,6 +32,8 @@ export interface RunGunCallbacks {
   onKill: (sprite: Phaser.Physics.Arcade.Sprite, base: number, label: string) => void;
   /** The roach was caught in a blast. */
   killRoach: (cause: string, culprit: Phaser.Physics.Arcade.Sprite) => void;
+  /** A round left the pistol (not a dry click). */
+  onShot: () => void;
 }
 
 export class RunGun {
@@ -63,6 +65,7 @@ export class RunGun {
       this.audio.playSfx('ui-press', VOL.gameplay);
       return;
     }
+    this.callbacks.onShot();
     const muzzle = this.player.runShoot();
     gunfire(this.scene, muzzle, this.player.sprite.depth);
     const image = this.scene.add.image(muzzle.x, muzzle.y, 'boss-shell').setScale(0.4).setDepth(DEPTH.GODRAY);

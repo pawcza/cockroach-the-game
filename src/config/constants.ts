@@ -26,6 +26,12 @@ export const COCKROACH_START_X = 150;
 export const COCKROACH_BASE_SPEED = 200;
 export const COCKROACH_SPEED_MAX_BOOST = 300; // max px/s added by time (1.5 * BASE)
 export const COCKROACH_SPEED_TAU = 200; // seconds to reach ~63% of max boost
+/**
+ * A run started from a checkpoint eases into its speed: this many ms of ramp for every px/s the start's speed is above
+ * the base speed (about 6 s after Pani Lodzia, 16 s after DJ Bigos, 20 s after Zlewiatan, 23 s after the Eksterminator; see
+ * systems/checkpoints.ts).
+ */
+export const CHECKPOINT_RAMP_MS_PER_SPEED = 55;
 
 // Spawning
 export const SPAWN_DISTANCE_AHEAD = 900;
@@ -43,7 +49,14 @@ export const PILL_DURATION = 5000; // 5 seconds
 export const PILL_WARN_TIME = 1000; // last 1 second blinks as warning
 
 // Speed per level (added on top of time-based acceleration)
-export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed
+export const SPEED_BOOST_PER_LEVEL = 20; // px/s per level crossed, levels 2-10
+/**
+ * Past level 10 (the endless levels after the Eksterminator) the time boost is mostly spent, so the levels take over:
+ * this much per endless level up to ENDLESS_TOP_LEVEL, and nothing more after it (objects/obstacles/cast.ts cruiseSpeed).
+ */
+export const ENDLESS_SPEED_PER_LEVEL = 3;
+/** The endless level from which nothing escalates any more: speed, tempo, waves, breathers and chunk weights hold. */
+export const ENDLESS_TOP_LEVEL = 25;
 
 export const BEER_CHANCE = 0.12;
 

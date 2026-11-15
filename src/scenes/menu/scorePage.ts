@@ -13,8 +13,9 @@ export function buildScorePage(
   container: Phaser.GameObjects.Container,
   width: number,
   height: number,
-  daily = false,
+  board: 'all' | 'daily' | 'endless' = 'all',
 ): (() => void)[] {
+  const daily = board === 'daily';
   const cleanups: (() => void)[] = [];
   // The tabs above say which board this is
   container.add(createPanel(scene, 8, 48, width - 16, height - 48 - 66));
@@ -23,12 +24,14 @@ export function buildScorePage(
   container.add(loadingText);
 
   // Today's board is the server's today, whatever this device's clock says
-  const load = daily ? fetchDaily().then((day) => (day ? fetchScores(day.date) : [])) : fetchScores();
+  const load = daily ? fetchDaily().then((day) => (day ? fetchScores(day.date) : [])) : fetchScores(undefined, board === 'endless' ? 'endless' : undefined);
   load.then((scores) => {
     loadingText.destroy();
 
     if (scores.length === 0) {
-      const emptyText = scene.add.text(width / 2, height / 2, daily ? 'Dziś jeszcze nikt...\nBądź pierwszy!' : 'Jeszcze pusto...\nBądź pierwszy!', bodyStyle({
+      const empty = daily ? 'Dziś jeszcze nikt...\nBądź pierwszy!'
+        : board === 'endless' ? 'Jeszcze pusto...\nPokonaj Eksterminatora i biegnij dalej!' : 'Jeszcze pusto...\nBądź pierwszy!';
+      const emptyText = scene.add.text(width / 2, height / 2, empty, bodyStyle({
         fontSize: '14px',
         color: UI_TEXT.muted,
         align: 'center',

@@ -4,7 +4,7 @@
  */
 import Phaser from 'phaser';
 import { DEPTH, PIXEL_BLOCK } from '../../config/constants';
-import { LEVELS } from '../../config/levels';
+import { levelConfig, lookLevel } from '../../config/levels';
 import { ObstacleKit } from './ObstacleKit';
 
 /** How far above the upper ledge the wall reaches, so it reads as closing the top lane too. Logical px. */
@@ -25,7 +25,9 @@ const PLANK_ROWS = 19;
 export function spawnWall(kit: ObstacleKit, x: number, level: number): void {
   const { scene } = kit;
   const height = kit.bottomY + SINK - (kit.topY - HEAD_ROOM);
-  const key = wallTexture(scene, level, height) ?? wallTexture(scene, 1, height)!;
+  // An endless level's wall is the ledge of the story level it wears (the run's look seed, set by GameScene)
+  const look = lookLevel(levelConfig(level, (scene.data.get('lookSeed') as number | undefined) ?? 0));
+  const key = wallTexture(scene, look, height) ?? wallTexture(scene, 1, height)!;
 
   const wall = kit.createPlain(x, kit.bottomY + SINK, key);
   wall.setOrigin(0.5, 1).setScale(PIXEL_BLOCK).setDepth(DEPTH.OBSTACLES);
@@ -43,8 +45,8 @@ export function spawnWall(kit: ObstacleKit, x: number, level: number): void {
 function wallTexture(scene: Phaser.Scene, level: number, heightLogical: number): string | null {
   const key = `wall-lv${level}`;
   if (scene.textures.exists(key)) return key;
-  const config = LEVELS.find(l => l.level === level);
-  if (!config || !scene.textures.exists(config.floorKey)) return null;
+  const config = levelConfig(level);
+  if (!scene.textures.exists(config.floorKey)) return null;
 
   const strip = scene.textures.get(config.floorKey).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
   const length = Math.min(strip.width, Math.ceil(heightLogical / PIXEL_BLOCK));

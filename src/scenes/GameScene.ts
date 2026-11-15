@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COCKROACH_START_X, FLOOR_BOTTOM_Y, FLOOR_TOP_Y } from '../config/constants';
-import { LEVELS } from '../config/levels';
+import { LEVELS, levelConfig, levelNumberAt, lookLevel } from '../config/levels';
 import { ObstacleSpawner } from '../objects/ObstacleSpawner';
 import { SeededRNG } from '../multiplayer/SeededRNG';
 import { MPPlayer } from '../multiplayer/MultiplayerClient';
@@ -29,7 +29,7 @@ import { ParallaxBackground } from '../systems/ParallaxBackground';
 import { PauseManager } from '../systems/PauseManager';
 import { PickupMagnet } from '../systems/PickupMagnet';
 import { RunCountdown } from '../systems/RunCountdown';
-import { comboMultiplier, RunState } from '../systems/RunState';
+import { pickupMultiplier, RunState } from '../systems/RunState';
 import { ScoreTracker } from '../systems/ScoreTracker';
 import { sceneManager } from '../systems/SceneManager';
 import { SpawnManager } from '../systems/SpawnManager';
@@ -44,11 +44,20 @@ import { SpectateController } from '../systems/SpectateController';
 import type { DailyRun } from '../ui/Scoreboard';
 import { BestRunGhost, RunTrackRecorder } from '../systems/BestRunGhost';
 import { getRecordGhostEnabled, isTutorialDone, loadBestTrack } from '../utils/Storage';
-import { awardDuringRun, type RunSnapshot } from '../systems/Profile';
+import { awardDuringRun, checkpointsUnlocked, type RunSnapshot } from '../systems/Profile';
+import { dashFromStart } from '../systems/abilities';
+import { allowedStart, levelReached, rampFactor, runStart, type Checkpoint, type RunStart } from '../systems/checkpoints';
 import { showAchievement } from '../ui/shared';
+import { bodyStyle, UI_TEXT } from '../utils/TextStyles';
 import { PLAIN, type Look } from '../config/skins';
 import { myLook } from '../ui/Shop';
-import { areDeferredAssetsLoaded, DEFERRED_LOADED_EVENT } from './DeferredLoadScene';
+import { packs } from './DeferredLoadScene';
+import { aheadNeeds, nextBossAfter, startPlan } from '../config/packs';
+import { waitForStart } from '../ui/StartWait';
+import { PACK_LOADED_EVENT } from '../systems/PackLoader';
+import { bossById } from '../systems/boss/bosses';
+import { MULTIPLAYER_BOSS, soloLadder } from '../systems/boss/fights';
+import { BOSS_DEFEATED_EVENT } from '../systems/BossEncounter';
 import { guardScene } from '../systems/guardScene';
 import type { UpdateGuard } from '../systems/UpdateGuard';
 
@@ -65,6 +74,20 @@ interface GameSceneData {
   watch?: { elapsedMs: number; dead: string[] };
   /** Karaluch Dnia: a solo run on the day's shared seed. */
   daily?: DailyRun;
+  /** A plain solo run: the checkpoint to start from (checkpoints.ts), 0 or none for the start. */
+  from?: number;
+  /** Restarted from the start wait with what it requires in: the worn skin's grace is over. */
+  packsChecked?: boolean;
+  /** A plain solo run's own look seed, kept through the start wait (lookSeedOf). */
+  lookSeed?: number;
+}
+
+/**
+ * What decides the endless levels' looks and the skins of their enemies (levels.ts endlessLook, cast.ts skinFor): the
+ * seed a match or Karaluch Dnia shares, so every client sees the same, or for a plain solo run a seed of its own.
+ */
+function lookSeedOf(data: GameSceneData | undefined): number {
+  return data?.lookSeed ?? (data?.multiplayer ? data.seed : data?.daily?.seed) ?? Math.floor(Math.random() * 0x7fffffff);
 }
 
 /** Builds a run in a fixed order and calls its systems in a fixed per-frame order. */
@@ -80,13 +103,18 @@ const CULPRIT_BLINK_FOR_MS = 500;
 const HIT_BLINK_MS = 80;
 /** After the tutorial the real course starts no nearer than this past the screen's right edge. */
 const COURSE_AHEAD_PX = 100;
+/** The note when a boss unlocks a checkpoint, in the combo notices' gold. */
+const CHECKPOINT_NOTICE_COLOR = 0xe8c15a;
+/** Dev only, `?boss=<id>`: BossEncounter puts that fight near the start, where the lesson would be. */
+const devBoss = (): boolean => import.meta.env.DEV && new URLSearchParams(window.location.search).has('boss');
 export class GameScene extends Phaser.Scene {
   // Read by ObstacleSpawner
   public floorBottomY = FLOOR_BOTTOM_Y;
   public floorTopY = FLOOR_TOP_Y;
   public get cockroach(): Phaser.Physics.Arcade.Sprite { return this.player.sprite; }
   public get isDead(): boolean { return this.run.isDead; }
-  public get runTime(): number { return Math.max(0, this.clock?.activePlayTime ?? 0); }
+  /** The course clock the enemies run on: time played, from where the run started on the course (RunState.courseOffset). */
+  public get runTime(): number { return Math.max(0, this.clock?.activePlayTime ?? 0) + this.run.courseOffset; }
   /** The vacuum's suction, on this client's roach only (ObstacleScene). */
   public pullRoach(share: number): void { if (!this.run.isDead) this.player.setPull(share); }
   /** A shot aerosol can goes off (ObstacleScene): the run's gun sees to what it takes with it. */
@@ -101,6 +129,10 @@ export class GameScene extends Phaser.Scene {
   private isMultiplayer = false;
   private rng: SeededRNG | null = null;
   private seed: number | null = null;
+  /** The endless levels' looks and skins (lookSeedOf); also in the scene's data, for the obstacles (look.ts, wall.ts). */
+  private lookSeed = 0;
+  /** The story level whose look a level wears in this run (its own, or the one an endless level borrows). */
+  private readonly lookLevelOf = (level: number): number => lookLevel(levelConfig(level, this.lookSeed));
   private clock!: GameClock;
   private eventBridge!: GameEventBridge;
 
@@ -137,6 +169,13 @@ export class GameScene extends Phaser.Scene {
   private startsAt: number | undefined;
   private watching: { elapsedMs: number; dead: string[] } | undefined;
   private daily: DailyRun | undefined;
+  /** Where this run starts: the course's start, or a checkpoint. */
+  private start: RunStart = runStart(0);
+  private notifications!: NotificationManager;
+  /** A run waiting for the packs it starts with (awaitStartLevel): nothing of it is built yet. */
+  private waitingForAssets = false;
+  /** The level the packs ahead were last asked for at (preloadAhead). */
+  private aheadAsked = 0;
   private look: Look = PLAIN;
   private gameInput!: GameInput;
   private spectate!: SpectateController;
@@ -150,6 +189,10 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const data = this.scene.settings.data as GameSceneData | undefined;
+    this.lookSeed = lookSeedOf(data);
+    this.data.set('lookSeed', this.lookSeed);
+    this.waitingForAssets = this.awaitStartLevel(data);
+    if (this.waitingForAssets) return;
     this.guard = guardScene(this);
 
     this.resetRun(data);
@@ -158,6 +201,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createPlaySystems();
     this.createEncounters(data);
+    this.startFromCheckpoint();
     this.listenForLifecycle();
 
     this.gameInput = new GameInput(this, this.run, this.player, this.pauseManager, this.eventBridge, this.boss,
@@ -173,6 +217,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(): void {
+    if (this.waitingForAssets) return;
     // The last net: each piece below is guarded on its own, this only catches what falls between them
     this.guard.run('GameScene.update', () => this.step(), true);
   }
@@ -230,6 +275,7 @@ export class GameScene extends Phaser.Scene {
     // Multiplayer and Karaluch Dnia lay out the same run for everyone from one seed; a plain solo run doesn't
     this.seed = this.isMultiplayer ? data?.seed ?? null : this.daily?.seed ?? null;
     this.rng = this.seed !== null ? new SeededRNG(this.seed) : null;
+    this.start = this.startOf(data);
 
     // Defensive cleanup of prior run. The Clock outlives a restart, so leaving a paused run would freeze this one.
     this.clock?.destroy();
@@ -239,10 +285,71 @@ export class GameScene extends Phaser.Scene {
     this.session?.destroy();
     this.boss?.destroy();
 
-    this.run.reset(this.time.now, this.isMultiplayer);
+    // Beaten Lodzia once, and every run keeps the dash: solo and daily, from the countdown on. The opening lesson teaches
+    // lane hops with nothing else, so it runs without; startRealRun hands the dash over when it ends
+    this.run.reset(this.time.now, this.isMultiplayer, !this.isTutorialRun() && dashFromStart(checkpointsUnlocked()), this.start.distance);
+    this.run.courseOffset = this.start.courseOffsetMs;
+    this.run.feats.begin({ index: this.start.index, level: this.start.level.level });
     this.ambient.reset();
     this.floorBottomY = FLOOR_BOTTOM_Y;
     this.floorTopY = FLOOR_TOP_Y;
+  }
+
+  /** Never in a match or Karaluch Dnia, which lay one course out for everyone; nor with the dev shortcut to a boss (?boss=). */
+  private isTutorialRun(): boolean {
+    return !this.isMultiplayer && !this.daily && !devBoss() && !isTutorialDone();
+  }
+
+  /**
+   * Only a plain solo run, past the opening lesson, starts from a checkpoint: a match and Karaluch Dnia lay one course
+   * for everyone from its start, and the dev `?boss=` shortcut has its own idea of where the run is.
+   */
+  private startOf(data: GameSceneData | undefined): RunStart {
+    const solo = !data?.multiplayer && !data?.daily && !devBoss() && isTutorialDone();
+    return runStart(solo ? allowedStart(data?.from, checkpointsUnlocked()) : 0);
+  }
+
+  /**
+   * A run starts only with what it needs (src/config/packs.ts startPlan): every enemy's base art and its level's images,
+   * and the worn shop skin if it comes within a grace period. Until then nothing is built and no countdown starts: the
+   * wait shows (ui/StartWait.ts), with the way back, and offers a retry if a pack fails; then the run is made afresh. A
+   * match never waits here: the lobby only lets a player be ready with what a match requires. True while it waits.
+   */
+  private awaitStartLevel(data: GameSceneData | undefined): boolean {
+    const loader = packs(this.game);
+    loader.setStreaming(false);
+    // Whichever way this scene is left, the waiting state included, the menu streams again
+    this.events.once('shutdown', () => loader.setStreaming(true));
+    const start = this.startOf(data);
+    const multiplayer = data?.multiplayer ?? false;
+    const ladder = multiplayer ? [bossById(MULTIPLAYER_BOSS)] : soloLadder();
+    const me = multiplayer ? data?.players?.find(p => p.id === data?.myId)?.look ?? PLAIN : myLook();
+    const plan = startPlan({
+      level: start.level.level, nextBoss: nextBossAfter(start.distance, ladder), wornSkin: me.skin, match: multiplayer,
+      look: this.lookLevelOf,
+      otherSkins: multiplayer ? (data?.players ?? []).map(p => p.look?.skin).filter((skin): skin is string => typeof skin === 'string') : [],
+    });
+    const ready = multiplayer || loader.allReady(data?.packsChecked ? plan.required : [...plan.required, ...plan.grace]);
+    if (ready) {
+      loader.prefetch([...plan.required, ...plan.grace, ...plan.soon]);
+      return false;
+    }
+    waitForStart(this, loader, plan, {
+      ready: () => this.scene.restart({ ...data, lookSeed: this.lookSeed, packsChecked: true }),
+      leave: () => sceneManager.goto(this, 'MenuScene'),
+    });
+    return true;
+  }
+
+  /**
+   * What lies ahead loads at the run's quiet moments: its countdown, right after a level switch, and the reward beat
+   * after a boss (src/config/packs.ts aheadNeeds: the next two levels and the next boss). Nothing else starts mid-run.
+   */
+  private preloadAhead(force = false): void {
+    const level = this.run.currentLevel;
+    if (!force && level === this.aheadAsked) return;
+    this.aheadAsked = level;
+    packs(this.game).prefetch(aheadNeeds(level, this.boss?.upcoming?.boss.id ?? null, this.lookLevelOf));
   }
 
   private createWorld(): void {
@@ -250,7 +357,8 @@ export class GameScene extends Phaser.Scene {
 
     this.background = new ParallaxBackground(this, width, height);
 
-    this.floorManager = new FloorManager(this, this.floorTopY, this.floorBottomY);
+    this.floorManager = new FloorManager(this, this.floorTopY, this.floorBottomY, (level) => packs(this.game).isReady(`level-${level}`),
+      this.lookSeed);
     this.floorManager.create(width);
 
     // Audio comes before Player, which needs it
@@ -289,15 +397,17 @@ export class GameScene extends Phaser.Scene {
         if (this.run.isDead || this.run.isCountingDown || this.boss.isFrozen) return;
         this.pauseManager.toggle();
       },
-      this.isMultiplayer ? undefined : () => leaveRun('GameScene', { multiplayer: false, retry: true, daily: this.daily }),
+      this.isMultiplayer ? undefined : () => leaveRun('GameScene', { multiplayer: false, retry: true, daily: this.daily, from: this.start.index }),
       this.isMultiplayer ? undefined : () => leaveRun('MenuScene'),
     );
     this.hud.create();
+    this.hud.lookSeed = this.lookSeed;
 
-    const comboFeedback = new ComboFeedback(new NotificationManager(this));
+    this.notifications = new NotificationManager(this);
+    const comboFeedback = new ComboFeedback(this.notifications);
     this.score = new ScoreTracker(this, this.run, this.hud, comboFeedback, this.audio, this.vfx);
     this.levels = new LevelProgression(this, this.run, this.background, this.audio, this.hud, this.seed,
-      () => this.boss?.upcoming?.boss.triggerDistance ?? Infinity);
+      () => this.boss?.upcoming?.boss.triggerDistance ?? Infinity, (level) => packs(this.game).isReady(`level-${level}`), this.lookSeed);
     this.replayRecorder = new DeathReplayRecorder();
     this.runTrack = new RunTrackRecorder();
     this.bestGhost = null;
@@ -313,7 +423,7 @@ export class GameScene extends Phaser.Scene {
       addScore: (points) => this.score.addScore(points),
       getPickupCombo: () => run.pickupCombo,
       incrementCombo: () => this.score.incrementCombo(),
-      getComboMultiplier: () => comboMultiplier(run.pickupCombo),
+      getComboMultiplier: () => pickupMultiplier(run.pickupCombo, run.currentLevel),
       onAppleCollected: () => { run.applesCollected++; },
       onBeerCollected: () => { run.beersCollected++; },
       onPillCollected: () => { run.pillsCollected++; },
@@ -345,11 +455,12 @@ export class GameScene extends Phaser.Scene {
       onKill: (sprite, base, label) => {
         run.kills++;
         this.score.incrementCombo();
-        const points = Math.round(base * comboMultiplier(run.pickupCombo));
+        const points = Math.round(base * pickupMultiplier(run.pickupCombo, run.currentLevel));
         this.score.addScore(points);
         collisions.showPickupPopup(sprite.x, sprite.y - 50, `${label} +${points}`, '#ffb066');
       },
       killRoach: (cause, culprit) => this.killedBy(cause, culprit),
+      onShot: () => run.feats.shot(),
     }, KILL_SCORE, TIMINGS.aerosol.bonus);
     // An ammo box: rounds into the magazine, as many as fit
     this.physics.add.overlap(this.player.sprite, ammo, (_roach, box) => {
@@ -369,7 +480,7 @@ export class GameScene extends Phaser.Scene {
         this.audio.playSfx('przebicie', VOL.stinger);
       }
       this.score.incrementCombo();
-      const points = Math.round(base * comboMultiplier(run.pickupCombo));
+      const points = Math.round(base * pickupMultiplier(run.pickupCombo, run.currentLevel));
       if (this.inTutorial) return;
       this.score.addScore(points);
       collisions.showPickupPopup(x, y, `${label} +${points}`, color);
@@ -408,6 +519,8 @@ export class GameScene extends Phaser.Scene {
       getRunTrack: () => this.runTrack.track,
       getRunSnapshot: () => this.runSnapshot(),
       isPractice: () => this.inTutorial,
+      getStart: () => this.start,
+      getLookLevel: () => this.lookLevelOf(run.currentLevel),
     });
   }
 
@@ -431,6 +544,9 @@ export class GameScene extends Phaser.Scene {
         this.lessons.teach(ability, this.run.abilities.canShootInRun);
         if (ability === 'gun' && this.run.abilities.canShootInRun) this.spawnManager.hintNextWall();
       },
+      onCheckpointUnlocked: (checkpoint: Checkpoint) => {
+        this.notifications.showNotice(`NOWY START W MENU: ${checkpoint.place.toUpperCase()}`, CHECKPOINT_NOTICE_COLOR);
+      },
     });
 
     this.taunts = new TauntDirector({
@@ -446,6 +562,23 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * A run from a checkpoint: the world is moved on under the camera to its distance, the bosses before it count as
+   * beaten with their powers owned, the course is laid from there (calm while the speed ramps up), and the level it
+   * starts in is dressed from the first frame.
+   */
+  private startFromCheckpoint(): void {
+    const { start } = this;
+    if (start.index > 0) {
+      this.rebaseWorld(COCKROACH_START_X - start.x);
+      this.boss.startAfter(start.beaten);
+      this.spawnManager.startAt(start.x, start.calmUntilX);
+      this.levels.startIn(levelConfig(start.level.level, this.lookSeed));
+    }
+    // The HUD only follows a running frame: through the countdown it must already say where the run is, and what it owns
+    this.updateHud(this.getDistance());
+  }
+
   private listenForLifecycle(): void {
     // Auto-pause on tab losing focus (singleplayer only)
     const onVisibilityChange = () => {
@@ -455,14 +588,21 @@ export class GameScene extends Phaser.Scene {
       document.addEventListener('visibilitychange', onVisibilityChange);
     }
 
-    const regenerateFloors = () => this.floorManager.regenerateFloorTextures();
-    if (!areDeferredAssetsLoaded(this.game)) this.game.events.once(DEFERRED_LOADED_EVENT, regenerateFloors);
+    const onPack = (id: string): void => {
+      this.floorManager.regenerateFloorTextures();
+      // The worn shop skin arrived after the start's grace: the roach puts it on now
+      if (this.look.skin && id === `roach-${this.look.skin}`) this.player.setLook(this.look);
+    };
+    this.game.events.on(PACK_LOADED_EVENT, onPack);
+    const afterBoss = (): void => this.preloadAhead(true);
+    this.events.on(BOSS_DEFEATED_EVENT, afterBoss);
 
     this.scale.on(Phaser.Scale.Events.RESIZE, this.relayout, this);
 
     this.events.once('shutdown', () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      this.game.events.off(DEFERRED_LOADED_EVENT, regenerateFloors);
+      this.game.events.off(PACK_LOADED_EVENT, onPack);
+      this.events.off(BOSS_DEFEATED_EVENT, afterBoss);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.relayout, this);
       this.clock?.destroy();
       this.eventBridge?.destroy();
@@ -501,7 +641,7 @@ export class GameScene extends Phaser.Scene {
     camera.setFollowOffset(-200, 0);
     camera.scrollY = 0;
 
-    this.audio.startBGM('bgm-lv1');
+    this.levels.playMusic(levelConfig(this.run.currentLevel, this.lookSeed).bgmKey);
 
     // Starting invulnerability
     const blinkTween = this.player.startInvulnerabilityBlink();
@@ -509,10 +649,8 @@ export class GameScene extends Phaser.Scene {
 
     if (this.daily) this.hud.showDailyBanner(this.daily.date);
 
-    // Never in a match or Karaluch Dnia, which lay one course out for everyone
-    // Nor with the dev shortcut to a boss (?boss=), which puts the fight where the lesson would be
-    const toBoss = import.meta.env.DEV && new URLSearchParams(window.location.search).has('boss');
-    this.tutorial = !this.isMultiplayer && !this.daily && !toBoss && !isTutorialDone()
+    // The dev shortcut to a boss (?boss=) puts the fight where the lesson would be
+    this.tutorial = this.isTutorialRun()
       ? new Tutorial({
         scene: this, player: this.player, spawnManager: this.spawnManager, isPaused: () => this.pauseManager.isPaused,
         onDone: () => this.startRealRun(),
@@ -525,6 +663,7 @@ export class GameScene extends Phaser.Scene {
 
     this.player.freezeForCountdown();
     this.countdown = new RunCountdown(this, () => this.beginRunning(), this.quickStart, this.startsAt);
+    this.preloadAhead(true);
   }
 
   /**
@@ -536,7 +675,7 @@ export class GameScene extends Phaser.Scene {
     this.run.isDead = true;
     this.player.benchForWatching();
     this.clock.start(Date.now() - watch.elapsedMs);
-    this.audio.startBGM('bgm-lv1');
+    this.levels.playMusic('bgm-lv1');
     this.gameOverHandler.watchOnly = true;
 
     const ghosts = this.session.ghostManager;
@@ -549,10 +688,10 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Solo, if switched on in settings: the record run (or today's best daily run) races beside you, from where the
-   * run starts.
+   * run starts: the record from this same start (each checkpoint keeps its own).
    */
   private raceBestRun(): void {
-    const best = this.isMultiplayer || !getRecordGhostEnabled() ? null : loadBestTrack(this.daily?.date);
+    const best = this.isMultiplayer || !getRecordGhostEnabled() ? null : loadBestTrack(this.daily?.date, this.start.distance);
     if (!best) return;
     const laneY = (floor: Floor): number =>
       (floor === 'top' ? this.floorManager.topColliderY : this.floorManager.bottomColliderY) - ROACH_FEET_OFFSET;
@@ -580,6 +719,8 @@ export class GameScene extends Phaser.Scene {
       for (const obj of group.getChildren().slice()) obj.destroy();
     }
     this.run.restartCounts(this.time.now);
+    // The lesson is over: the dash, if the player has beaten Lodzia before, comes in now (its button and chip pop in)
+    if (!this.isMultiplayer && dashFromStart(checkpointsUnlocked())) this.run.abilities.grant('dash');
     this.score.clearCombo();
     this.clock.start();
     this.raceTime = 0;
@@ -616,7 +757,8 @@ export class GameScene extends Phaser.Scene {
     return {
       score: run.score,
       distance: Math.floor(this.getDistance()),
-      level: run.currentLevel,
+      startDistance: this.start.distance,
+      level: levelReached(run.currentLevel, this.start),
       combo: run.maxCombo,
       apples: run.applesCollected,
       beers: run.beersCollected,
@@ -627,6 +769,7 @@ export class GameScene extends Phaser.Scene {
       kills: run.kills,
       seconds: Math.floor(run.activePlayTime / 1000),
       daily: this.daily !== undefined,
+      feats: run.feats.snapshot(),
     };
   }
 
@@ -638,6 +781,8 @@ export class GameScene extends Phaser.Scene {
     this.clock.start(this.countdown.endsAt);
     this.run.lastScoreTime = this.time.now;
     this.session.startPositionBroadcast();
+    // From a checkpoint, the level it starts in is announced as the run goes
+    if (this.start.index > 0) this.hud.showLevelAnnouncement(levelConfig(this.start.level.level, this.lookSeed));
   }
 
   private updateDead(): void {
@@ -657,6 +802,7 @@ export class GameScene extends Phaser.Scene {
       this.player.freezeForCountdown();
       this.countdown.update();
     }, true);
+    this.piece('buttons', () => this.gameInput.showOwned());
     this.piece('floors', () => this.updateFloors(), true);
     this.piece('spawning', () => this.spawnManager.handleSpawning(this.cameraRight), true);
     this.piece('background', () => this.background.update());
@@ -678,8 +824,9 @@ export class GameScene extends Phaser.Scene {
     const piece = this.piece.bind(this);
 
     const tutorial = this.inTutorial;
-    // The tutorial runs at the start's speed however long it takes
-    piece('speed', () => player.updateSpeed(tutorial ? 0 : this.run.activePlayTime, this.run.currentLevel), true);
+    // The tutorial runs at the start's speed however long it takes; a run from a checkpoint eases into its speed
+    piece('speed', () => player.updateSpeed(tutorial ? 0 : this.run.courseTime, this.run.currentLevel,
+      rampFactor(this.run.activePlayTime, this.start.rampMs)), true);
     piece('dust', () => this.ambient.updateDust());
     piece('background', () => this.background.update());
     piece('floors', () => this.updateFloors(), true);
@@ -715,6 +862,13 @@ export class GameScene extends Phaser.Scene {
 
     const distance = this.getDistance();
     piece('levels', () => this.levels.update(distance), true);
+    // Each metre run pays a quarter point times the level it was in: past the level's start, the run's level (up to the
+    // boss still to beat), never the one ahead
+    if (!this.inTutorial) {
+      piece('distance points', () => this.score.tickDistance(distance,
+        (metre) => Math.min(levelNumberAt(metre), this.run.currentLevel)), true);
+    }
+    piece('packs ahead', () => this.preloadAhead());
     let fightStarts = false;
     piece('boss trigger', () => { fightStarts = this.boss.tryTrigger(distance); }, true);
     if (fightStarts) {
@@ -806,7 +960,10 @@ export class GameScene extends Phaser.Scene {
     if (!this.boss.isActive && this.tutorial?.absorbHit()) return true;
     // Nor the gun lesson's onion: one not shot is only punted
     if (!this.boss.isActive && this.lessons.spares(obstacle)) return true;
+    // Every fight asks here when something gets the roach, so a fight with no call to here was won without a hit
+    this.run.feats.hit(this.boss.isActive);
     if (!this.run.abilities.consumeMoult()) return false;
+    this.run.feats.moulted();
     this.player.moult();
     return true;
   }
@@ -824,7 +981,7 @@ export class GameScene extends Phaser.Scene {
       speedMultiplier: this.player.speedMultiplier,
       currentFloor: this.player.currentFloor,
       pickupCombo: this.run.pickupCombo,
-      comboMultiplier: comboMultiplier(this.run.pickupCombo),
+      comboMultiplier: pickupMultiplier(this.run.pickupCombo, this.run.currentLevel),
       timeNow: this.time.now,
       level: this.run.currentLevel,
       tutorial: this.inTutorial,
@@ -871,11 +1028,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cleanupOffscreen(): void {
-    this.spawnManager.cleanupOffscreen(
-      this.cameras.main.scrollX,
-      (comboLost) => { this.score.loseCombo(comboLost); this.taunts.comboLost(comboLost); },
-      this.run.pickupCombo,
-    );
+    // One halving per pickup let go by, in turn (RunState comboAfterMisses), whatever the frame timing
+    this.spawnManager.cleanupOffscreen(this.cameras.main.scrollX, (count) => {
+      for (let i = 0; i < count && this.run.pickupCombo > 0; i++) this.taunts.comboLost(this.score.dropCombo(), this.run.pickupCombo);
+    });
   }
 
   private get cameraRight(): number {

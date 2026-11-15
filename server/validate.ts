@@ -1,4 +1,8 @@
 /** Everything the server accepts from a client passes through here. Nothing a client sends is trusted as-is. */
+import { mergeProfileCopies } from './achievements';
+import { CHECKPOINT_STARTS, ENDLESS_START } from './bossDistances';
+import { COURSE_VERSION } from './daily';
+import { SKIN_CAUSES } from './enemySkins';
 
 export const MAX_NAME_LENGTH = 20;
 export const MAX_SCORE = 1_000_000;
@@ -12,6 +16,9 @@ const DEATH_CAUSES = new Set([
   'onion', 'spray', 'flipper', 'newspaper', 'bird', 'cat', 'disco',
   'jellyfish', 'pope', 'bison', 'blackhole', 'glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog',
   'gull', 'wasp', 'zapper', 'robotVacuum', 'repeller', 'aerosol', 'bait', 'boss', 'lodzia', 'bigos', 'eksterminator', 'fall', 'wall',
+  // The enemies' level skins, each its own cause (enemySkins.ts). An older client never sends one; an older server drops
+  // one it doesn't know (the cause is left out, the run still counts)
+  ...SKIN_CAUSES,
 ]);
 
 const NUMERIC_STATS = [
@@ -105,6 +112,18 @@ export interface ScoreSubmission {
   maxCombo: number | null;
   /** The day of a Karaluch Dnia run; null for an ordinary one. */
   daily: string | null;
+  /** The board it goes on besides the day's: null for the main one, 'endless' for a run from the Eksterminator's start. */
+  board: 'endless' | null;
+}
+
+/**
+ * Where the run started (metres): 0, or a checkpoint's distance. Absent counts as 0: a client cached from before
+ * checkpoints can only start there, and one from before the endless board cannot start at the Eksterminator. A start
+ * that is neither is junk.
+ */
+function parseStart(value: unknown): number | null {
+  if (value === undefined || value === null) return 0;
+  return typeof value === 'number' && (value === 0 || CHECKPOINT_STARTS.includes(value)) ? value : null;
 }
 
 export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: string } {
@@ -112,6 +131,17 @@ export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: 
 
   const score = parseScore(body.score);
   if (score === null) return { error: `Score must be an integer from 0 to ${MAX_SCORE}` };
+
+  // A run from a checkpoint is practice, whatever the client thinks it may send: only runs from 0 m make the main board
+  // (or the day's), and runs from the Eksterminator's start the endless one
+  const start = parseStart(body.start);
+  if (start === null) return { error: 'Invalid start' };
+  const endless = start === ENDLESS_START;
+  if (start > 0 && !endless) return { error: 'A run from a checkpoint is practice and is not ranked' };
+  const daily = parseDay(body.daily);
+  if (endless && daily) return { error: 'Karaluch Dnia starts from 0 m' };
+  // A daily run is laid from the day's seed: only a client laying today's course may be on its board
+  if (daily && body.course !== COURSE_VERSION) return { error: 'This version of the game is out of date: reload it' };
 
   return {
     score,
@@ -123,7 +153,8 @@ export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: 
     pillsCollected: wholeStat(body.pillsCollected),
     maxLevel: wholeStat(body.maxLevel),
     maxCombo: wholeStat(body.maxCombo),
-    daily: parseDay(body.daily),
+    daily,
+    board: endless ? 'endless' : null,
   };
 }
 
@@ -133,7 +164,20 @@ export function parseDay(value: unknown): string | null {
 }
 
 const MAX_PROFILE_STAT = 1_000_000_000;
-const MAX_ACHIEVEMENTS = 64;
+const MAX_PROFILE_STATS = 48;
+const MAX_ACHIEVEMENTS = 128;
+
+/**
+ * Stats that can only be so large, whatever a client claims: a boss is beaten once a run, and a run takes minutes. A
+ * bigger number is not refused (the profile is saved as it is for the rest) but held to the cap, so nothing a client
+ * invents reaches further than a player who played for years would. Missions done and items owned are claims too: what
+ * is paid on is the server's own record (economy.ts).
+ */
+const PROFILE_STAT_CAPS: Record<string, number> = {
+  lodziaWins: 100_000, bigosWins: 100_000, zlewiatanWins: 100_000, eksterminatorWins: 100_000,
+  noHitBossWins: 400_000, allBossRuns: 100_000, moultSaves: 1_000_000, bestKills: 1_000, pacifistRuns: 100_000,
+  missionsDone: 100_000, itemsOwned: 100, checkpoints: 10,
+};
 
 export interface ProfileData {
   stats: Record<string, number>;
@@ -157,7 +201,20 @@ export function parseProfile(body: unknown): ProfileData | null {
     }
     return out;
   };
-  const stats = pick(body.stats, 32);
+  const stats = pick(body.stats, MAX_PROFILE_STATS);
+  if (stats) for (const [key, cap] of Object.entries(PROFILE_STAT_CAPS)) if (key in stats) stats[key] = Math.min(stats[key], cap);
   const achievements = pick(body.achievements, MAX_ACHIEVEMENTS);
   return stats && achievements ? { stats, achievements } : null;
+}
+
+/**
+ * A save folded into the stored profile, so a client that doesn't know a newer stat (an old bundle still cached) can't
+ * erase it: the larger of every stat, every achievement with its earlier time. Null when the result would outgrow what
+ * a profile may hold, which only junk keys can do.
+ */
+export function mergeIntoStored(incoming: ProfileData, stored: unknown): ProfileData | null {
+  const before = parseProfile(stored);
+  const merged = before ? mergeProfileCopies(incoming, before) : incoming;
+  if (Object.keys(merged.stats).length > MAX_PROFILE_STATS || Object.keys(merged.achievements).length > MAX_ACHIEVEMENTS) return null;
+  return merged;
 }

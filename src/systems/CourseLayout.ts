@@ -4,7 +4,7 @@
  * the same order of random draws, whatever their own roach is doing. SpawnManager only builds what this returns.
  */
 import { BEER_CHANCE, COCKROACH_START_X, PILL_CHANCE } from '../config/constants';
-import { EnemyPicker, Random, CourseClock, nominalCourse } from '../objects/obstacles/cast';
+import { ENEMIES, EnemyPicker, Random, CourseClock, castFor, nominalCourse } from '../objects/obstacles/cast';
 import type { EnemyPlan, Lane } from '../objects/obstacles/behaviours';
 import { AMMO_CHANCE, AMMO_FROM_LEVEL } from './gunRules';
 import { Beat, RunPatterns } from './RunPatterns';
@@ -56,6 +56,11 @@ export class CourseLayout {
     return this.fill(x, this.patterns.next(level), level);
   }
 
+  /** The next slot of the calm stretch after a checkpoint: only pickups and plain blockers. */
+  calm(x: number, level: number): SlotItem[] {
+    return this.fill(x, this.patterns.calm(), level);
+  }
+
   private fill(x: number, beat: Beat, level: number): SlotItem[] {
     const other = (lane: Lane): Lane => (lane === 'top' ? 'bottom' : 'top');
     switch (beat.kind) {
@@ -67,6 +72,8 @@ export class CourseLayout {
         const enemy: SlotItem = { kind: 'enemy', plan: this.picker.pick(x, level, { lane: beat.obstacle, role: beat.role, pair: true }) };
         return [enemy, this.pickup(x, other(beat.obstacle), level)];
       }
+      case 'blocker':
+        return [this.blocker(x, beat.lane, level)];
       case 'wall':
         // Nothing seeded is drawn for a wall, so a client that leaves it out keeps every other slot the same
         return [{ kind: 'wall' }];
@@ -76,6 +83,19 @@ export class CourseLayout {
       case 'empty':
         return [];
     }
+  }
+
+  /** One of the level's plain standing blockers; the onion where the level fields none (the gun act's first level). */
+  private blocker(x: number, lane: Lane, level: number): SlotItem {
+    const standing = castFor(level).filter(e => e.def.role === 'blocker');
+    const pool = standing.length > 0 ? standing : [{ def: ENEMIES.onion, weight: 1 }];
+    let roll = this.rng.next() * pool.reduce((sum, e) => sum + e.weight, 0);
+    let def = pool[pool.length - 1].def;
+    for (const e of pool) {
+      roll -= e.weight;
+      if (roll < 0) { def = e.def; break; }
+    }
+    return { kind: 'enemy', plan: this.picker.pick(x, level, { lane, enemy: def.id }) };
   }
 
   /** An apple, or now and then a beer or (rarely) a pill; from level 7, with the gun, sometimes an ammo box. */

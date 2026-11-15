@@ -21,6 +21,11 @@ export class ComboFeedback {
     this.lastTier = -1;
   }
 
+  /** The combo fell to this (a miss halves it): each notice above it is earned again on the way back up. */
+  onComboDropped(combo: number): void {
+    this.lastTier = this.getCurrentTier(combo) ?? -1;
+  }
+
   private getCurrentTier(combo: number): number | null {
     for (let i = COMBO_TIERS.length - 1; i >= 0; i--) {
       if (combo >= COMBO_TIERS[i].threshold) return i;

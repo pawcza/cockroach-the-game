@@ -18,11 +18,12 @@ const SHADOW_H = 10;
  */
 export function spawnBird(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
+  const look = kit.look(plan);
   const bird = kit.enemy(plan);
   bird.setData('flies', true);
   const shadow = bird.getData('shadow') as Phaser.GameObjects.Image | undefined;
   shadow?.setDisplaySize(SHADOW_W, SHADOW_H);
-  kit.playSoundOnVisible(bird, 'bird-sfx', 0.4);
+  kit.playSoundOnVisible(bird, look.sound('bird-sfx'), 0.4);
 
   // The stretch it will skim: warned from its screech on, deadly while it hurts (the kill-zone look)
   const hazard = kit.hazard(bird);
@@ -39,7 +40,7 @@ export function spawnBird(kit: ObstacleKit, plan: EnemyPlan): void {
     bird.setFlipX(now.pose === 'recover');
     if (now.pose === 'windup' || now.pose === 'strike') {
       bird.anims.pause();
-      bird.setFrame(frameOf('bird', DIVE_FRAME));
+      bird.setFrame(frameOf(look.anim('bird'), DIVE_FRAME));
     } else if (bird.anims.isPaused) {
       bird.anims.resume();
     }
@@ -47,7 +48,7 @@ export function spawnBird(kit: ObstacleKit, plan: EnemyPlan): void {
       // The dive pose's first frame: a white flare on its head, a ring of light round it, the screech
       fx.play('flare-big-white', bird.x - bird.displayWidth * 0.25, bird.y - bird.displayHeight * 0.55, { depth: DEPTH.PICKUPS + 1 });
       fx.play('shield', bird.x, bird.getCenter().y, { depth: DEPTH.PICKUPS + 1 });
-      if (kit.isAhead(bird)) kit.audio.playSfx('bird-sfx', VOL.obstacle * 0.5);
+      if (kit.isAhead(bird)) kit.audio.playSfx(look.sound('bird-sfx'), VOL.obstacle * 0.5);
     }
   });
 }

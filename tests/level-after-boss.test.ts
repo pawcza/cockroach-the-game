@@ -43,10 +43,12 @@ test('a whole run: each level arrives on the first running frame after its boss 
       d--;
     }
   }
-  assert.deepEqual(arrivals.map(a => a.level), [2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(arrivals.map(a => a.level), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   assert.equal(arrivals.find(a => a.level === 3)!.after, 'lodzia');
   assert.equal(arrivals.find(a => a.level === 7)!.after, 'bigos');
   assert.equal(arrivals.find(a => a.level === 9)!.after, 'zlewiatan');
+  // The endless levels begin as the Eksterminator falls, at his distance
+  assert.deepEqual(arrivals.find(a => a.level === 11), { level: 11, at: 2600, after: 'eksterminator' });
 });
 
 test('a match, whose one boss is Zlewiatan: level 9 waits on it, the rest arrive by distance', () => {
@@ -54,4 +56,7 @@ test('a match, whose one boss is Zlewiatan: level 9 waits on it, the rest arrive
   assert.equal(levelBefore(1200, zlewiatan.triggerDistance).level, 7);
   assert.equal(levelBefore(1850, zlewiatan.triggerDistance).level, 8);
   assert.equal(levelBefore(1850, Infinity).level, 9);
+  // With no Eksterminator to wait on, a match goes into the endless levels at his distance
+  assert.equal(levelBefore(2600, Infinity).level, 11);
+  assert.equal(levelBefore(3100, Infinity).level, 12);
 });

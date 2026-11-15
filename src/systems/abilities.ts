@@ -1,6 +1,7 @@
 /**
  * What the roach can do right now, in this run. A run starts with lane hops only; each boss beaten hands over the next
- * power (the reward table is `reward` on the boss registry). Pure and Phaser-free, so the rules can be tested, and the
+ * power (the reward table is `reward` on the boss registry). Once Pani Lodzia has ever been beaten, the dash is kept:
+ * every run starts with it (`dashFromStart`). Pure and Phaser-free, so the rules can be tested, and the
  * one place that answers "can the player X now?": the input, the touch buttons and the HUD all ask here.
  */
 import type { BossDef } from './boss/bosses';
@@ -54,6 +55,14 @@ export const ABILITY_TEXT: Record<AbilityId, AbilityText> = {
   },
 };
 
+/**
+ * Whether a player starts every solo and daily run with the dash: they have beaten Pani Lodzia in one before. That is the
+ * `checkpoints` profile stat (>= 1: beaten in a solo or daily run, never through a dev shortcut or in a match), which
+ * the account carries between devices and which veterans have once they beat her again; `lodziaWins` counts a match's
+ * Lodzia too and would start at 0 for veterans.
+ */
+export const dashFromStart = (checkpointsUnlocked: number): boolean => checkpointsUnlocked >= 1;
+
 export class Abilities {
   private owned = new Set<AbilityId>();
   private charges = 0;
@@ -63,12 +72,16 @@ export class Abilities {
     this.reset(multiplayer);
   }
 
-  /** A new run: only the starting kit. */
-  reset(multiplayer: boolean): void {
+  /**
+   * A new run: only the starting kit. `keepsDash`: the dash a player who has beaten Lodzia keeps (solo and daily; a match
+   * gives everyone the same kit whatever they have earned).
+   */
+  reset(multiplayer: boolean, keepsDash = false): void {
     this.multiplayer = multiplayer;
     this.owned.clear();
     this.charges = 0;
     if (multiplayer) for (const id of MULTIPLAYER_KIT) this.grant(id);
+    else if (keepsDash) this.grant('dash');
   }
 
   has(id: AbilityId): boolean { return this.owned.has(id); }

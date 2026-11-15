@@ -18,14 +18,16 @@ const STAGGER_PX = 4;
 export function spawnRobotVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
+  const art = look.anim('robot-vacuum');
   const robot = kit.enemy(plan);
   robot.anims.stop();
-  kit.playSoundOnVisible(robot, 'robovac-whir', VOL.obstacle * 0.25);
+  kit.playSoundOnVisible(robot, look.sound('robovac-whir'), VOL.obstacle * 0.25);
   let cracked = false;
   let staggerUntil = 0;
   let smoke = 0;
   kit.drive(robot, plan, (now) => {
-    robot.setFrame(frameOf('robot-vacuum', (cracked ? 2 : 0) + (now.frame ?? 0)));
+    robot.setFrame(frameOf(art, (cracked ? 2 : 0) + (now.frame ?? 0)));
     if (scene.runTime < staggerUntil) robot.x += Math.round(Math.sin(scene.runTime / 20) * STAGGER_PX);
     if (cracked && kit.isOnScreen(robot) && ++smoke % 6 === 0) {
       fx.play('smoke', robot.x - 6 + Math.random() * 12, robot.y - robot.displayHeight * 0.35, { depth: DEPTH.OBSTACLES + 0.5, vy: -40, life: 500 });
@@ -41,6 +43,6 @@ export function spawnRobotVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
     staggerUntil = scene.runTime + STAGGER_MS;
     fx.burst('spark', robot.x, robot.y - robot.displayHeight * 0.3, 6, 14, { depth: DEPTH.POPUP, speed: [60, 140] });
     fx.play('crack', robot.x, robot.y - robot.displayHeight * 0.3, { depth: DEPTH.POPUP });
-    kit.audio.playSfx('robovac-crack', VOL.obstacle);
+    kit.audio.playSfx(look.sound('robovac-crack'), VOL.obstacle);
   };
 }

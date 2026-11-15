@@ -1,13 +1,11 @@
 import Phaser from 'phaser';
 import { VOL } from '../../audio/AudioManager';
-import {
-  COCKROACH_BASE_SPEED, COCKROACH_SPEED_MAX_BOOST, COCKROACH_SPEED_TAU, COCKROACH_START_X, DEPTH, SPEED_BOOST_PER_LEVEL,
-} from '../../config/constants';
+import { COCKROACH_START_X, DEPTH } from '../../config/constants';
 import { getLevelForDistance } from '../../config/levels';
 import { SPRITE_SCALE, frameOf } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { EnemyPlan, ROACH_BACK, VACUUM_MOUTH, laneY, newVacuum, stepVacuum } from './behaviours';
-import { VACUUM, feetY } from './cast';
+import { VACUUM, cruiseSpeed, feetY } from './cast';
 import { ObstacleKit } from './ObstacleKit';
 
 /** Its hitbox: the mouth of the nozzle, at its front (frame px), VACUUM_MOUTH wide in the world. */
@@ -19,8 +17,7 @@ const NOZZLE_INSET = 8;
 /** The roach's cruising speed as Player.updateSpeed has it, without a dash, a pill or the pull. */
 export const cruiseAt = (runTime: number, roachX: number): number => {
   const level = getLevelForDistance(Math.floor((roachX - COCKROACH_START_X) / 50)).level;
-  return COCKROACH_BASE_SPEED + COCKROACH_SPEED_MAX_BOOST * (1 - Math.exp(-runTime / 1000 / COCKROACH_SPEED_TAU))
-    + (level - 1) * SPEED_BOOST_PER_LEVEL;
+  return cruiseSpeed(runTime, level);
 };
 
 /**
@@ -34,6 +31,8 @@ export const cruiseAt = (runTime: number, roachX: number): number => {
 export function spawnVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
   const fx = getFx(scene);
+  const look = kit.look(plan);
+  const art = look.anim('vacuum');
   const vac = kit.enemy(plan);
   vac.anims.stop();
   vac.setVisible(false).setData('behind', true).setData('flies', true).setData('harmless', true);
@@ -69,7 +68,7 @@ export function spawnVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
     // Nothing to touch until its nozzle is in, nor once it has let go (not even for a pill to punt)
     body.checkCollision.none = v.phase === 'waiting' || v.phase === 'cue' || v.phase === 'leave';
     if (v.phase === 'waiting') return;
-    if (was === 'waiting') kit.audio.playSfx('vacuum-roar', VOL.obstacle * 0.7);
+    if (was === 'waiting') kit.audio.playSfx(look.sound('vacuum-roar'), VOL.obstacle * 0.7);
     if (v.phase === 'cue' || v.phase === 'enter') {
       // Heard and felt before it shows: dust and crumbs on screen swept off to the left
       if (++dust % 4 === 0) {
@@ -82,7 +81,7 @@ export function spawnVacuum(kit: ObstacleKit, plan: EnemyPlan): void {
     const y = v.from !== null ? Phaser.Math.Linear(feet(v.from), feet(v.lane), Phaser.Math.Easing.Sine.InOut(v.move)) : feet(v.lane);
     const shiver = v.wants !== null ? Math.round(Math.sin(now / 14) * 2) : 0;
     vac.setVisible(v.phase !== 'cue').setPosition(Math.round(v.nozzle - toFront + shiver), Math.round(y));
-    vac.setFrame(frameOf('vacuum', Math.floor(now / 50) % 2));
+    vac.setFrame(frameOf(art, Math.floor(now / 50) % 2));
     vac.setData('floor', v.from === null ? v.lane : null).setData('harmless', zones.length === 0);
     if (shadow) shadow.setVisible(v.phase !== 'cue' && v.from === null).setY(laneY(v.lane));
     // The stretch it is about to swallow, nozzle to tail, while it sucks in the roach's lane

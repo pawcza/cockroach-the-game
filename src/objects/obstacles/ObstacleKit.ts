@@ -5,13 +5,14 @@ import { DEPTH } from '../../config/constants';
 import { addContactShadow } from '../../effects/ContactShadow';
 import { KillZone, type ZoneState } from '../../effects/KillZone';
 import { LandingShadow } from '../../effects/LandingShadow';
-import { ATLAS, SPRITE_SCALE, fitBody, frameOf, playLoop } from '../../config/sprites';
+import { SPRITE_SCALE, fitBody, fitBodyAs, frameOf, playLoop, textureOf } from '../../config/sprites';
 import { Floor } from '../Player';
 import { EnemyPlan, EnemyState, Lane, OBSTACLE_SINK, laneY } from './behaviours';
 
 /** A stretch of one lane, for the kill-zone look. */
 export interface Stretch { lane: Lane; x0: number; x1: number }
-import { ENEMIES, EnemyId, enemyState, placeOf, shotSpan } from './cast';
+import { ENEMIES, EnemyId, enemyState, shotSpan } from './cast';
+import { type EnemyLook, lookOf } from './look';
 
 /** Contact shadow width against the obstacle's hitbox. */
 const SHADOW_WIDTH = 1.8;
@@ -71,6 +72,8 @@ export class ObstacleKit {
   readonly scene: ObstacleScene;
   readonly audio: AudioManager;
   private obstacles: Phaser.Physics.Arcade.Group;
+  /** Each enemy's look, decided once as it is built: a skin arriving later shows on the next one. */
+  private looks = new WeakMap<EnemyPlan, EnemyLook>();
 
   /**
    * Nothing here draws from the seed: what an enemy is, its lane and its phase come in its plan (cast.ts), so the course
@@ -111,9 +114,10 @@ export class ObstacleKit {
     art: string,
     type: string,
     floor: Floor | null,
-    opts?: { hitbox?: { w: number; h: number } },
+    opts?: { hitbox?: { w: number; h: number }; bodyAs?: { w: number; h: number; pivotY: number } },
   ): Phaser.Physics.Arcade.Sprite {
-    const sprite = this.obstacles.create(x, y, ATLAS, frameOf(art)) as Phaser.Physics.Arcade.Sprite;
+    const frame = frameOf(art);
+    const sprite = this.obstacles.create(x, y, textureOf(frame), frame) as Phaser.Physics.Arcade.Sprite;
     sprite.setScale(SPRITE_SCALE);
     sprite.setDepth(DEPTH.OBSTACLES);
     sprite.setImmovable(true);
@@ -121,7 +125,8 @@ export class ObstacleKit {
     sprite.setData('type', type);
     (sprite.body as Phaser.Physics.Arcade.Body).allowGravity = false;
     // Centred in the art, so the forgiving margin is even all round. A swinging obstacle's box doesn't swing
-    fitBody(sprite, opts?.hitbox ?? DEFAULT_HITBOX, true);
+    if (opts?.bodyAs) fitBodyAs(sprite, opts.hitbox ?? DEFAULT_HITBOX, opts.bodyAs);
+    else fitBody(sprite, opts?.hitbox ?? DEFAULT_HITBOX, true);
     playLoop(sprite, art);
     if (floor) this.plant(sprite, floor);
 
@@ -144,17 +149,34 @@ export class ObstacleKit {
    * An enemy's sprite where its plan puts it now, with its hitbox and data. Planted with a contact shadow unless it
    * floats free of the lanes. Start it with `drive`.
    */
+  /**
+   * The enemy's look in its slot (look.ts): the art of each of its parts, its sounds and its death cause, its level
+   * skin's when that is loaded. Spawn files take every art and sound name through it.
+   */
+  look(plan: EnemyPlan): EnemyLook {
+    let look = this.looks.get(plan);
+    if (!look) {
+      look = lookOf(this.scene, plan);
+      this.looks.set(plan, look);
+    }
+    return look;
+  }
+
   enemy(plan: EnemyPlan, opts: { shadow?: boolean } = {}): Phaser.Physics.Arcade.Sprite {
     const def = ENEMIES[plan.id as EnemyId];
+    const look = this.look(plan);
+    const art = look.anim(ENEMIES[look.view].art);
     const now = enemyState(plan, this.scene.runTime);
-    const place = placeOf(plan.id);
-    const sprite = this.createSprite(now.x + place.dx, now.y + place.dy, def.art, def.type, opts.shadow === false ? null : plan.lane, { hitbox: def.hitbox });
+    const place = look.place;
+    // Other art than its own (a skin, a borrowed look): its hitbox stays the one its own art gives
+    const bodyAs = art === def.art ? undefined : def.frame;
+    const sprite = this.createSprite(now.x + place.dx, now.y + place.dy, art, look.cause, opts.shadow === false ? null : plan.lane, { hitbox: def.hitbox, bodyAs });
     if (def.footprint) {
       // A swatter hurts along the stretch it lands on: a box that wide, low on the lane, under its flat pose
       const w = def.footprint / SPRITE_SCALE;
       const body = sprite.body as Phaser.Physics.Arcade.Body;
       body.setSize(w, SWATTER_BODY_H, false);
-      body.setOffset((sprite.width - w) / 2, sprite.height * def.frame.pivotY - SWATTER_BODY_H);
+      body.setOffset((sprite.width - w) / 2, sprite.height * (bodyAs ? sprite.originY : def.frame.pivotY) - SWATTER_BODY_H);
     }
     sprite.setData('telegraphs', def.telegraphs);
     sprite.setData('plan', plan);
@@ -175,8 +197,9 @@ export class ObstacleKit {
     plan: EnemyPlan,
     onChange?: (now: EnemyState, before: EnemyState | null) => void,
   ): void {
-    const def = ENEMIES[plan.id as EnemyId];
-    const place = placeOf(plan.id);
+    const look = this.look(plan);
+    const art = look.anim(ENEMIES[look.view].art);
+    const place = look.place;
     const shadow = sprite.getData('shadow') as Phaser.GameObjects.Image | undefined;
     const shadowAlpha = shadow?.alpha ?? 1;
     let landing: LandingShadow | null = null;
@@ -190,7 +213,7 @@ export class ObstacleKit {
       sprite.setPosition(now.x + place.dx, now.y + place.dy);
       // Far back in the room it is behind both ledges; close, in front of its lane
       sprite.setDepth(now.behind ? DEPTH.BEHIND_LEDGE : DEPTH.OBSTACLES);
-      if (now.frame !== undefined) sprite.setFrame(frameOf(def.art, now.frame));
+      if (now.frame !== undefined) sprite.setFrame(frameOf(art, now.frame));
       // Where its hit will come down: the shared landing shadow, from the start of its tell until it lands
       if (now.landings) (landing ??= new LandingShadow(this.scene)).show(now.landings);
       else landing?.hide();

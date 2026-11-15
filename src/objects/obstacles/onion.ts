@@ -13,12 +13,13 @@ const TEAR_MS = 800;
 export function spawnOnion(kit: ObstacleKit, plan: EnemyPlan): void {
   const fx = getFx(kit.scene);
   const { x } = plan;
+  const look = kit.look(plan);
   const standY = feetY(plan.id, plan.lane);
 
   const onion = kit.enemy(plan);
   kit.drive(onion, plan);
   // The commonest obstacle there is, so the quietest of them
-  kit.playSoundOnVisible(onion, 'onion-sfx', VOL.obstacle * 0.7);
+  kit.playSoundOnVisible(onion, look.sound('onion-sfx'), VOL.obstacle * 0.7);
 
   const stinkY = standY - onion.displayHeight * 0.75;
   const stink = kit.emitWhileOnScreen(onion, STINK_MS, () => {

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type { Socket } from 'socket.io-client';
+import { ENDLESS_START, PRACTICE_STARTS } from '../server/bossDistances';
+import { COURSE_VERSION } from '../server/daily';
 import { ack, flush, inGame, inLobby, next, startServer, type Harness } from './support/harness';
 
 let harness: Harness;
@@ -164,7 +166,7 @@ test('Karaluch Dnia has its own board: one best run per player, and only for an 
   const save = async (cookie: string, score: number, day: string | null, ip: string) => fetch(`${harness.url}/api/scores`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Forwarded-For': ip },
-    body: JSON.stringify({ score, daily: day }),
+    body: JSON.stringify({ score, daily: day, course: COURSE_VERSION }),
   });
   const ola = await harness.signIn('google-daily-ola', 'Ola');
   const jan = await harness.signIn('google-daily-jan', 'Jan');
@@ -180,6 +182,14 @@ test('Karaluch Dnia has its own board: one best run per player, and only for an 
   assert.deepEqual(board.map((e) => [e.name, e.score]), [['Ola', 500], ['Jan', 400]]);
   const allTime = await (await fetch(`${harness.url}/api/scores`)).json() as Array<{ score: number }>;
   assert.ok(!allTime.some((e) => [300, 400, 500].includes(e.score)), 'daily runs stay off the all-time board');
+  // An old bundle still open in a tab lays another course from the day's seed: its score stays off the day's board
+  const stale = await harness.signIn('google-daily-stale', 'Stale');
+  const res = await fetch(`${harness.url}/api/scores`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: stale, 'X-Forwarded-For': '203.0.113.54' },
+    body: JSON.stringify({ score: 450, daily: daily.date }),
+  });
+  assert.equal(res.status, 400);
 });
 
 test('a second death from the same player changes nothing', async () => {
@@ -274,6 +284,63 @@ test('scores are validated before they are stored', async () => {
   assert.deepEqual([entry.name, entry.score, entry.death_cause, entry.distance], ['Real', 42, null, null]);
 });
 
+test('a run from a practice checkpoint is never ranked; one from 0 m, or without a start, is', async () => {
+  const board = async () => (await (await fetch(`${harness.url}/api/scores`)).json() as Array<{ name: string; score: number }>);
+  for (const start of PRACTICE_STARTS) {
+    const res = await post(JSON.stringify({ score: 777_001, start }), await harness.signIn(`google-practice-${start}`, `Practice${start}`));
+    assert.equal(res.status, 400, `start ${start}`);
+  }
+  assert.equal((await post(JSON.stringify({ score: 777_001, start: 7 }), await harness.signIn('google-junk-start'))).status, 400);
+  assert.ok(!(await board()).some(entry => entry.score === 777_001), 'nothing of it reached the board');
+
+  assert.equal((await post(JSON.stringify({ score: 777_002, start: 0 }), await harness.signIn('google-from-zero'))).status, 201);
+  // An old client sends no start at all
+  assert.equal((await post(JSON.stringify({ score: 777_003 }), await harness.signIn('google-old-client'))).status, 201);
+  const scores = (await board()).map(entry => entry.score);
+  assert.ok(scores.includes(777_002) && scores.includes(777_003));
+});
+
+test('a run from the Eksterminator\'s start goes on the Bez końca board, and the boards never mix', async () => {
+  const scores = async (query = '') => (await (await fetch(`${harness.url}/api/scores${query}`)).json() as Array<{ name: string; score: number; board: string | null }>);
+  const cookie = await harness.signIn('google-endless', 'Endless');
+  // Not unlocked on the account: refused, and said why
+  const refused = await post(JSON.stringify({ score: 778_001, start: ENDLESS_START, maxLevel: 14 }), cookie);
+  assert.equal(refused.status, 403);
+  assert.match((await refused.json() as { error: string }).error, /Eksterminator/);
+  // Three starts are not enough either
+  const unlock = async (checkpoints: number, ip: string) => fetch(`${harness.url}/api/me/profile`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Forwarded-For': ip },
+    body: JSON.stringify({ stats: { checkpoints }, achievements: {} }),
+  });
+  assert.equal((await unlock(3, '203.0.113.150')).status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 5100));
+  assert.equal((await post(JSON.stringify({ score: 778_001, start: ENDLESS_START, maxLevel: 14 }), cookie)).status, 403);
+  // With the Eksterminator's start unlocked on the account: on the board
+  assert.equal((await unlock(4, '203.0.113.151')).status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 5100));
+  const res = await post(JSON.stringify({ score: 778_001, start: ENDLESS_START, maxLevel: 14 }), cookie);
+  assert.equal(res.status, 201);
+  assert.equal((await res.json() as { board: string }).board, 'endless');
+  assert.equal((await post(JSON.stringify({ score: 778_002 }), await harness.signIn('google-endless-main', 'Main'))).status, 201);
+
+  const endless = await scores('?board=endless');
+  assert.deepEqual(endless.map(e => [e.name, e.score]), [['Endless', 778_001]]);
+  const main = (await scores()).map(e => e.score);
+  assert.ok(main.includes(778_002) && !main.includes(778_001), 'Bez końca stays off the all-time board');
+  assert.ok(!endless.some(e => e.score === 778_002), 'and the all-time runs off Bez końca');
+  // Nor is it anyone's best on the main board
+  const best = await (await fetch(`${harness.url}/api/scores/Endless`)).json() as { entry: unknown };
+  assert.equal(best.entry, null);
+});
+
+test('a socket of another course version, or an old client that sends none, plays no match', async () => {
+  await assert.rejects(harness.connect(undefined, null), /Outdated client/);
+  await assert.rejects(harness.connect(undefined, COURSE_VERSION - 1), /Outdated client/);
+  const socket = await harness.connect();
+  assert.ok(socket.connected);
+  socket.disconnect();
+});
+
 test('bad requests get a short JSON error, no stack trace', async () => {
   const broken = await post('{not json');
   assert.equal(broken.status, 400);
@@ -289,6 +356,40 @@ test('the score limit applies per player', async () => {
   assert.equal((await post(body, first, '203.0.113.200')).status, 201);
   assert.equal((await post(body, first, '203.0.113.201')).status, 429);
   assert.equal((await post(body, second, '203.0.113.200')).status, 201);
+});
+
+test('a save from a client that does not know the newer stats leaves them in the stored profile', async () => {
+  const cookie = await harness.signIn('google-oldbundle', 'OldBundle');
+  const put = (body: unknown) => fetch(`${harness.url}/api/me/profile`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body),
+  });
+  const get = async () => (await (await fetch(`${harness.url}/api/me/profile`, { headers: { Cookie: cookie } })).json() as {
+    profile: { stats: Record<string, number>; achievements: Record<string, number> };
+  }).profile;
+
+  // The current client: new stats and a new achievement
+  assert.equal((await put({
+    stats: { runs: 10, bestScore: 8000, checkpoints: 2, lodziaWins: 1, moultSaves: 12, bestKills: 16 },
+    achievements: { 'boss-lodzia': 1000, 'wylinka-10': 2000, 'kanonada': 3000 },
+  })).status, 200);
+  // A cached old bundle: only the old stats, and its own ids, one of them earned earlier than the stored time
+  const old = { runs: 11, distance: 500, apples: 90, beers: 1, pills: 1, nearMisses: 2, dashThroughs: 3, wallsBroken: 0, kills: 0, dailyRuns: 0, matches: 0, matchWins: 0, seconds: 9, bestScore: 5000, bestDistance: 300, bestLevel: 3, bestCombo: 4 };
+  assert.equal((await put({ stats: old, achievements: { 'kanonada': 500, 'poziom-4': 4000 } })).status, 200);
+
+  const kept = await get();
+  assert.equal(kept.stats.checkpoints, 2);
+  assert.equal(kept.stats.lodziaWins, 1);
+  assert.equal(kept.stats.moultSaves, 12);
+  assert.equal(kept.stats.bestKills, 16);
+  assert.equal(kept.stats.runs, 11, 'the old save still adds what it has');
+  assert.equal(kept.stats.bestScore, 8000, 'a smaller best never lowers the stored one');
+  assert.equal(kept.stats.apples, 90);
+  assert.deepEqual(kept.achievements, { 'boss-lodzia': 1000, 'wylinka-10': 2000, 'kanonada': 500, 'poziom-4': 4000 }, 'a union, the earlier time kept');
+
+  // Junk keys cannot grow the stored profile without end
+  const junk = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`junk${i}`, 1]));
+  assert.equal((await put({ stats: junk, achievements: {} })).status, 400);
+  assert.equal(Object.keys((await get()).stats).length, 21, 'the stored profile is as it was');
 });
 
 test('a signed-in profile is stored as sent, junk is refused, and it goes with the account', async () => {

@@ -13,6 +13,9 @@ const KEYS = {
   TAUNTS: 'cockroach-taunts',
   RECORD_GHOST: 'cockroach-record-ghost',
   TUTORIAL_DONE: 'cockroach-tutorial-done',
+  START_CHECKPOINT: 'cockroach-start-checkpoint',
+  START_BESTS: 'cockroach-start-bests',
+  ACHIEVEMENTS_SEEN: 'cockroach-achievements-seen',
 } as const;
 
 const DEFAULT_NAME = 'Karaluch';
@@ -71,23 +74,56 @@ export function updateDailyBestIfBetter(date: string, score: number): void {
   if (score > getDailyBest(date)) localStorage.setItem(KEYS.DAILY_BEST, JSON.stringify({ date, score }));
 }
 
-/** The path of your record run, or of your best Karaluch Dnia run of that day, for its ghost. */
-export function loadBestTrack(daily?: string): RunTrack | null {
+/**
+ * Your best score from each place a solo run can start (metres: 0, or a checkpoint's distance), for the record ghost:
+ * a record set from a checkpoint is no race for a run from elsewhere, so each start keeps its own.
+ */
+function startBests(): Record<string, number> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEYS.START_BESTS) ?? 'null') as Record<string, number> | null;
+    return saved && typeof saved === 'object' ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The best score from this start. Before checkpoints every run started at 0: the record was the record from 0. */
+export function getStartBest(from: number): number {
+  const best = startBests()[from];
+  return typeof best === 'number' ? best : from === 0 ? getHighScore() : 0;
+}
+
+/**
+ * Call before the all-time record is updated: the first time, the record from 0 is pinned from it, before a run from a
+ * checkpoint can lift it.
+ */
+export function updateStartBestIfBetter(from: number, score: number): void {
+  const bests = startBests();
+  if (typeof bests[0] !== 'number') bests[0] = getHighScore();
+  if (score > (bests[from] ?? 0)) bests[from] = score;
+  localStorage.setItem(KEYS.START_BESTS, JSON.stringify(bests));
+}
+
+/** The record run's path from this start (metres), or your best Karaluch Dnia run of that day, for its ghost. */
+export function loadBestTrack(daily?: string, from = 0): RunTrack | null {
   try {
     if (daily) {
       const saved = JSON.parse(localStorage.getItem(KEYS.DAILY_BEST_RUN) ?? 'null') as { date?: string; track?: RunTrack } | null;
       return saved?.date === daily && saved.track ? saved.track : null;
     }
-    return JSON.parse(localStorage.getItem(KEYS.BEST_RUN) ?? 'null') as RunTrack | null;
+    return JSON.parse(localStorage.getItem(bestRunKey(from)) ?? 'null') as RunTrack | null;
   } catch {
     return null;
   }
 }
 
-export function saveBestTrack(track: RunTrack, daily?: string): void {
+/** From 0 the key it always had, so tracks saved before checkpoints still race. */
+const bestRunKey = (from: number): string => (from === 0 ? KEYS.BEST_RUN : `${KEYS.BEST_RUN}-${from}`);
+
+export function saveBestTrack(track: RunTrack, daily?: string, from = 0): void {
   try {
     if (daily) localStorage.setItem(KEYS.DAILY_BEST_RUN, JSON.stringify({ date: daily, track }));
-    else localStorage.setItem(KEYS.BEST_RUN, JSON.stringify(track));
+    else localStorage.setItem(bestRunKey(from), JSON.stringify(track));
   } catch {
     // Storage full or blocked: the ghost is a nicety, the run is saved either way
   }
@@ -146,4 +182,27 @@ export function isTutorialDone(): boolean {
 export function setTutorialDone(done: boolean): void {
   if (done) localStorage.setItem(KEYS.TUTORIAL_DONE, 'yes');
   else localStorage.removeItem(KEYS.TUTORIAL_DONE);
+}
+
+/** Where the last solo run was started from in the menu: 0 the start, otherwise a checkpoint's index (checkpoints.ts). */
+export function getStartCheckpoint(): number {
+  return parseInt(localStorage.getItem(KEYS.START_CHECKPOINT) || '0', 10) || 0;
+}
+
+export function setStartCheckpoint(index: number): void {
+  localStorage.setItem(KEYS.START_CHECKPOINT, index.toString());
+}
+
+/** The achievements (ids) that were earned when the achievements page was last opened on this device; the rest are news. */
+export function getAchievementsSeen(): string[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEYS.ACHIEVEMENTS_SEEN) ?? 'null') as unknown;
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setAchievementsSeen(ids: string[]): void {
+  localStorage.setItem(KEYS.ACHIEVEMENTS_SEEN, JSON.stringify(ids));
 }

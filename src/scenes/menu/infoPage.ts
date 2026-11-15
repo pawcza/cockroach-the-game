@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ATLAS, SPRITE_SCALE, frameOf, playLoop } from '../../config/sprites';
+import { SPRITE_SCALE, frameOf, hasFrame, playLoop, textureOf } from '../../config/sprites';
 import { bodyStyle, headingStyle, smallStyle, UI_TEXT } from '../../utils/TextStyles';
 import { getGamesPlayed, getHighScore } from '../../utils/Storage';
 import { createButton, createPanel, UIButton } from '../../ui/shared';
@@ -39,13 +39,15 @@ export function buildInfoPage(
   };
 
   // A row of art standing on one line, animated like in the game
+  // (one whose pack is still streaming in is left out, rather than shown as a missing texture)
   const lineUp = (at: { x: number; y: number }, keys: string[]): void => {
     const feetY = at.y + zoneH - 34;
     const step = zoneW / (keys.length + 1);
     keys.forEach((key, i) => {
+      if (!hasFrame(frameOf(key))) return;
       const x = Math.round(at.x + step * (i + 1));
       container.add(addContactShadow(scene, x, feetY, 60));
-      const sprite = scene.add.sprite(x, feetY, ATLAS, frameOf(key)).setScale(SPRITE_SCALE);
+      const sprite = scene.add.sprite(x, feetY, textureOf(frameOf(key)), frameOf(key)).setScale(SPRITE_SCALE);
       playLoop(sprite, key);
       container.add(sprite);
     });

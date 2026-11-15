@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { ATLAS, createSpriteAnimations } from '../config/sprites';
+import { ATLAS, createSpriteAnimations, registerAtlas } from '../config/sprites';
+import { BOOT_PACKS, packAssets, type PackManifest } from '../config/packs';
 import { sceneManager } from '../systems/SceneManager';
 import { DEFERRED_LOAD_SCENE } from './DeferredLoadScene';
 import { GOOGLE_G } from '../ui/shared';
@@ -8,7 +9,13 @@ import { VFX_ATLAS } from '../effects/Fx';
 
 /** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
  * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
-export const ASSET_REV = '?v=22';
+export const ASSET_REV = '?v=27';
+
+/** assets/packs.json, the bake's list of atlases (src/config/packs.ts). */
+export const PACKS_KEY = 'packs';
+
+/** Boot's packs are level 1's images: no atlas of the manifest. */
+const BOOT_MANIFEST: PackManifest = { core: 'sprites', enemies: {}, skins: {}, roach: {}, baked: [] };
 
 /** What index.html's loading screen offers the game. */
 interface LoadingScreen {
@@ -45,13 +52,14 @@ export class BootScene extends Phaser.Scene {
     this.load.atlas(VFX_ATLAS, 'assets/vfx.webp' + ASSET_REV, 'assets/vfx.json' + ASSET_REV);
     // Where worn items sit on the roach in every frame, and how each is worn: baked with the atlas
     this.load.json(ANCHORS_KEY, 'assets/anchors.json' + ASSET_REV);
+    this.load.json(PACKS_KEY, 'assets/packs.json' + ASSET_REV);
 
-
-    // --- Level 1: the rest of the levels and the boss load in DeferredLoadScene ---
-    for (const [prefix, dir] of [['sky', 'sky'], ['bg', 'mid'], ['fg', 'fg'], ['floor', 'floor']] as const) {
-      this.load.image(`lv1-${prefix}`, `levels/${dir}/lv1.webp`);
+    // --- Level 1's images: every other pack (the enemies, every level's sound) comes through the pack loader ---
+    for (const asset of BOOT_PACKS.flatMap(id => packAssets(id, BOOT_MANIFEST, {}) ?? [])) {
+      if (asset.kind === 'atlas') this.load.atlas(asset.key, asset.image + ASSET_REV, asset.json + ASSET_REV);
+      else if (asset.kind === 'image') this.load.image(asset.key, asset.url);
+      else this.load.audio(asset.key, asset.url);
     }
-    this.load.audio('bgm-lv1', 'levels/soundtracks/lv1.ogg');
 
     // --- Audio ---
     const audio: [string, string][] = [
@@ -63,26 +71,16 @@ export class BootScene extends Phaser.Scene {
       ['dash-ready', 'audio/dash-ready.ogg'],
       ['menu-bgm', 'audio/menu-bgm.ogg'],
       ['gameover-bgm', 'audio/gameover-bgm.ogg'],
-      ['spray-sfx', 'audio/spray.ogg'],
-      ['newspaper-sfx', 'audio/newspaper.ogg'],
-      ['bird-sfx', 'audio/bird.ogg'],
-      ['cat-sfx', 'audio/cat.ogg'],
-      ['flipper-sfx', 'audio/flipper.ogg'],
       ['huh', 'audio/huh.ogg'],
       ['cockroach-hiss', 'audio/cockroach-hiss.ogg'],
       ['cockroach-noise', 'audio/cockroach-noise.ogg'],
       ['burp', 'audio/burp.ogg'],
       ['pill-sfx', 'audio/pill.ogg'],
-      ['jellyfish-sfx', 'audio/jellyfish.ogg'],
-      ['pope-sfx', 'audio/pope.ogg'],
-      ['bison-sfx', 'audio/bison.ogg'],
-      ['blackhole-sfx', 'audio/blackhole.ogg'],
       ['cricket', 'audio/cricket.ogg'],
       ['combo-lost', 'audio/combo-lost.ogg'],
       ['combo-break', 'audio/combo-break.ogg'],
       ['hop-land', 'audio/hop-land.ogg'],
       ['heartbeat', 'audio/heartbeat.ogg'],
-      ['onion-sfx', 'audio/onion.ogg'],
       ['beer-sfx', 'audio/beer.ogg'],
       ['pill-end', 'audio/pill-end.ogg'],
       ['mult-up', 'audio/mult-up.ogg'],
@@ -91,20 +89,7 @@ export class BootScene extends Phaser.Scene {
       ['moult-pop', 'audio/moult-pop.ogg'],
       ['ability-reward', 'audio/ability-reward.ogg'],
       ...Array.from({ length: 8 }, (_, i): [string, string] => [`combo-tick-${i + 1}`, `audio/combo-tick-${i + 1}.ogg`]),
-      // Enemy sounds of their own (tools/audio/install.py)
-      ['hedgehog', 'audio/hedgehog.ogg'], ['centipede-rear', 'audio/centipede-rear.ogg'],
-      ['zapper-charge', 'audio/zapper-charge.ogg'], ['zapper-bolt', 'audio/zapper-bolt.ogg'],
-      ['aerosol-rattle', 'audio/aerosol-rattle.ogg'], ['aerosol-blast', 'audio/aerosol-blast.ogg'],
-      ['bait-ooze', 'audio/bait-ooze.ogg'], ['glue-squelch', 'audio/glue-squelch.ogg'],
-      ['bleach-drip', 'audio/bleach-drip.ogg'], ['frog-croak', 'audio/frog-croak.ogg'],
-      ['frog-tongue', 'audio/frog-tongue.ogg'], ['repeller-hum', 'audio/repeller-hum.ogg'],
-      ['repeller-ring', 'audio/repeller-ring.ogg'], ['spraywall-puff', 'audio/spraywall-puff.ogg'],
-      ['gull-screech', 'audio/gull-screech.ogg'], ['hen-cluck', 'audio/hen-cluck.ogg'],
-      ['hen-peck', 'audio/hen-peck.ogg'], ['robovac-whir', 'audio/robovac-whir.ogg'],
-      ['robovac-crack', 'audio/robovac-crack.ogg'], ['boots-stomp', 'audio/boots-stomp.ogg'],
-      ['mop-slap', 'audio/mop-slap.ogg'], ['lamp-flicker', 'audio/lamp-flicker.ogg'],
-      ['lamp-snap', 'audio/lamp-snap.ogg'], ['wasp-buzz', 'audio/wasp-buzz.ogg'],
-      ['wasp-dive', 'audio/wasp-dive.ogg'], ['vacuum-roar', 'audio/vacuum-roar.ogg'],
+      // The enemies' sounds load with their art: level 1's come above, the rest with their packs
       ['ui-press', 'audio/ui/press.ogg'],
       ['ui-hover', 'audio/ui/hover.ogg'],
       ['ui-back', 'audio/ui/back.ogg'],
@@ -123,6 +108,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    registerAtlas(this.textures, ATLAS);
     createSpriteAnimations(this);
     createItemAnimations(this);
     this.scene.launch(DEFERRED_LOAD_SCENE);
