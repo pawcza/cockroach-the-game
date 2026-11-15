@@ -1,12 +1,33 @@
-"""Bakes every animated sprite into public/assets/sprites.webp + sprites.json (Phaser JSON hash).
+"""Bakes every animated sprite into the game's atlases (Phaser JSON hash), one per pack, plus assets/packs.json.
 
-Run from the repo root after changing art/sprites or a rig: python3 tools/art/bake.py
+Run from the repo root after changing art/sprites or a rig: python3 tools/art/bake.py [--out DIR] [--no-skins]
 Then bump ASSET_REV in BootScene. Frames are native pixels (one texel = one world block), named <anim>_<n>, with a
 pivot on the object's baseline, so anything placed at the floor Y stands on the floor. Obstacles and pickups carry
 their soft red or green glow in the frames: no runtime outlines and no preFX cost.
+
+The atlases, each at most 2048 px a side (src/config/packs.ts loads them):
+  sprites            what boot needs: the plain roach (run and armed), worn items, pickups, the gun, buttons and icons
+  roach/<skin>       one shop skin each, loaded when it is worn or the wardrobe opens
+  enemies/lv<N>      the base art of the enemies that first appear in level N (ENEMY_TIER), loaded with that level;
+                     enemies/legacy holds art no level fields any more (old records, the hand-held swatters)
+  skins/lv<N>[-k]    level N's enemy skins, when any are baked, in as many sheets as they need
+Every frame is in exactly one of them; packs.json lists which exist, and which skins are baked. Everything is written
+only once the whole bake has succeeded (tools/art/packing.py publish).
+
+ENEMY SKINS (src/objects/obstacles/cast.ts): a skin is a base enemy drawn as something that fits a level. Its frames are
+named `<skinId>/<baseAnim>_<n>` (animation `<skinId>/<baseAnim>`, e.g. lv5-goose/hen and lv5-goose/hen-head), with the
+base animation's frame count and order, so the game poses it with the base's frame indices. Rigs come from
+tools/art/skinrigs.py (`SKIN_RIGS`, keyed by that animation key, each a callable returning frames like the base's rig),
+with stills in art/sprites/enemies/skins/<skinId>[-pose].png. Each is baked like its base animation (size, glow,
+padding, pivot by the base's name) into skins/lv<N> of the level in its id. A skin lights up in the game once every
+animation that depicts its base enemy (cast.ts SKIN_PARTS) is in; until then the base art shows.
 """
+import argparse
+import io
 import json
+import re
 import sys
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +37,8 @@ from scipy import ndimage as ni
 sys.path.insert(0, str(Path(__file__).parent))
 import armed  # noqa: E402
 import buttons  # noqa: E402
+import icons  # noqa: E402
+import packing  # noqa: E402
 import pixels  # noqa: E402
 from creatures import CREATURES  # noqa: E402
 from objects import OBJECTS  # noqa: E402
@@ -25,6 +48,15 @@ from gunact import GUNACT, GUNACT_PICKUPS  # noqa: E402
 from hopact import HOPACT  # noqa: E402
 from swatters import SWATTERS  # noqa: E402
 from worn import ITEMS, bake as bake_item  # noqa: E402
+
+try:
+    from skinrigs import SKIN_RIGS  # noqa: E402
+except ModuleNotFoundError:
+    SKIN_RIGS = {}
+except Exception:  # a rig file half-written mid-edit: bake without skins rather than not at all
+    print("tools/art/skinrigs.py failed to import, baking without skins:", file=sys.stderr)
+    traceback.print_exc()
+    SKIN_RIGS = {}
 
 OUT = Path("public/assets")
 AREA = 620        # visible native px every object is scaled to
@@ -40,7 +72,24 @@ UNLIT = {"bleach", "spray-big"}  # drawn without the enemies' red glow: harmless
 # Strips lit only on some frames: the bleach's drop glows only as it falls (frame 3), not while it swells at the cap; a
 # dancing boot only stomped down (frame 1), never lifted
 PARTLY_LIT = {"bleach-drop": {3}, "boot": {1}}
-ATLAS_WIDTH = 2048  # with the shop's skins; at most 2048 either way, which every phone takes
+ATLAS_WIDTH = 2048  # at most 2048 either way, which every phone takes
+
+# Which atlas each enemy animation goes in: the level whose cast (src/objects/obstacles/cast.ts CAST) first fields that
+# enemy. tests/packs.test.ts checks this against CAST. Art no level fields goes in enemies/legacy
+ENEMY_TIER = {
+    "onion": 1, "glue": 1, "flipper-swat": 1, "flipper": 1, "bleach": 1, "bleach-drop": 1, "bleach-splash": 1,
+    "spray": 2, "spray-big": 2, "lamp": 2, "mop": 2,
+    "newspaper-swat": 3, "newspaper": 3, "vacuum": 3,
+    "bird": 4, "hen": 4, "hen-head": 4,
+    "cat": 5, "frog": 5,
+    "centipede": 6, "boot": 6,
+    "jellyfish": 7, "gull": 7, "wasp": 7,
+    "bug-zapper": 8, "robot-vacuum": 8, "aerosol": 8,
+    "bison": 9, "hedgehog": 9, "repeller": 9,
+    "bait": 10,
+}
+LEGACY = {"pope", "blackhole", "disco", "flipper-swat-hand", "newspaper-swat-hand"}
+SKIN_KEY = re.compile(r"^lv(\d+)-[a-z0-9-]+/([a-z0-9-]+)$")
 
 
 def _drop_specks(frame: np.ndarray) -> np.ndarray:
@@ -118,6 +167,49 @@ def _with_glow(frame: Image.Image, colour: tuple[int, int, int]) -> Image.Image:
     return canvas
 
 
+def _resized_strip(name: str, frames: list[np.ndarray]) -> list[Image.Image]:
+    """The creatures and objects: from native rig frames to game size (AREA, MAX_SIZE, FACTOR, RESCALE by `name`), glowing."""
+    colour = GREEN if name in PICKUPS else RED
+    return [_with_glow(f, colour) for f in _rescaled(_resize(frames, name), RESCALE.get(name, 1))]
+
+
+def _sized_strip(name: str, frames: list[Image.Image]) -> list[Image.Image]:
+    """The swatters, the hop and gun acts' enemies: already at game size, padded, lit as `name` is (UNLIT, PARTLY_LIT)."""
+    # The bleach jug and the spray's big can stand out of the way at the back of the ledge: no red glow
+    lit = PARTLY_LIT.get(name)
+    return [_padded(f) if name in UNLIT or (lit is not None and i not in lit) else _with_glow(f, GREEN if name in GUNACT_PICKUPS else RED)
+            for i, f in enumerate(frames)]
+
+
+def _baseline(frames: list[Image.Image]) -> float:
+    return (frames[0].height - PAD) / frames[0].height
+
+
+RESIZED = {**CREATURES, **OBJECTS}
+SIZED = {**SWATTERS, **HOPACT, **GUNACT, **GUNACT_PICKUPS}
+
+
+def collect_skins(sheet: dict) -> dict:
+    """The enemy skins from tools/art/skinrigs.py, each treated like its base animation. A skin whose rig raises, or
+    whose strip doesn't match its base's frame count, is reported and left out whole (all its animations)."""
+    out, broken = {}, set()
+    for key, make in SKIN_RIGS.items():
+        skin = key.split("/", 1)[0]
+        match = SKIN_KEY.match(key)
+        base = match.group(2) if match else None
+        try:
+            if base is None or base not in sheet or not (base in RESIZED or base in SIZED):
+                raise ValueError(f"not <skinId>/<baseAnim> of a baked enemy animation")
+            frames = _resized_strip(base, make()) if base in RESIZED else _sized_strip(base, make())
+            if len(frames) != len(sheet[base][0]):
+                raise ValueError(f"{len(frames)} frames, its base {base} has {len(sheet[base][0])}")
+            out[key] = (frames, _baseline(frames))
+        except Exception as error:  # one broken skin must not stop the bake
+            print(f"skin {key} skipped: {error}", file=sys.stderr)
+            broken.add(skin)
+    return {key: entry for key, entry in out.items() if key.split("/", 1)[0] not in broken}
+
+
 def collect() -> tuple[dict, dict]:
     """Animation name to (frames, pivot y, or (x, y)); and the anchors file for what a roach wears."""
     sheet = {}
@@ -146,51 +238,86 @@ def collect() -> tuple[dict, dict]:
         sheet[f"acc-{item_id}"] = (frames, pivot)
         anchors["items"][item_id] = {"anchor": item.anchor, "behind": item.behind, "frames": len(frames), "fps": item.fps,
                                      "with": list(item.companions)}
-    for name, make in {**CREATURES, **OBJECTS}.items():
-        colour = GREEN if name in PICKUPS else RED
-        frames = [_with_glow(f, colour) for f in _rescaled(_resize(make(), name), RESCALE.get(name, 1))]
-        sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
+    for name, make in RESIZED.items():
+        frames = _resized_strip(name, make())
+        sheet[name] = (frames, _baseline(frames))
     # The swatters, the hop and gun acts' enemies: already at game size from their picked renders, one canvas per strip;
     # the ammo box is drawn at game size
-    for name, make in {**SWATTERS, **HOPACT, **GUNACT, **GUNACT_PICKUPS}.items():
-        # The bleach jug and the spray's big can stand out of the way at the back of the ledge: no red glow
-        lit = PARTLY_LIT.get(name)
-        frames = [_padded(f) if name in UNLIT or (lit is not None and i not in lit) else _with_glow(f, GREEN if name in GUNACT_PICKUPS else RED)
-                  for i, f in enumerate(make())]
-        sheet[name] = (frames, (frames[0].height - PAD) / frames[0].height)
+    for name, make in SIZED.items():
+        frames = _sized_strip(name, make())
+        sheet[name] = (frames, _baseline(frames))
     sheet.update(buttons.frames())
+    sheet.update(icons.frames())
     return sheet, anchors
 
 
-def pack(sheet, anchors) -> None:
-    placed, x, y, shelf = {}, 0, 0, 0
+ROACH_SKIN = re.compile(rf"^roach-({'|'.join(PAINTED)})-")
+
+
+def atlas_of(name: str) -> str:
+    """Which atlas an animation is baked into (see the header)."""
+    skin = SKIN_KEY.match(name)
+    if skin:
+        return f"skins/lv{skin.group(1)}"
+    worn = ROACH_SKIN.match(name)
+    if worn:
+        return f"roach/{worn.group(1)}"
+    if name in ENEMY_TIER:
+        return f"enemies/lv{ENEMY_TIER[name]}"
+    if name in LEGACY:
+        return "enemies/legacy"
+    if name in RESIZED or name in SIZED:
+        if name not in PICKUPS and name not in GUNACT_PICKUPS:
+            raise SystemExit(f"{name}: an enemy animation with no ENEMY_TIER or LEGACY entry")
+    return "sprites"
+
+
+def pack(sheet, anchors, out: Path = OUT, cap: int = ATLAS_WIDTH) -> None:
+    """Every atlas, packs.json, anchors.json and the loading screen's strip, all made in memory and only then written
+    (packing.publish): a bake that fails leaves `out` as it was. A level's skins take as many sheets as they need
+    (skins/lvN, skins/lvN-2, ...); any other atlas past `cap` stops the bake."""
+    groups: dict[str, list] = {}
     for name, (frames, pivot) in sheet.items():
-        for i, frame in enumerate(frames):
-            if x + frame.width > ATLAS_WIDTH:
-                x, y, shelf = 0, y + shelf, 0
-            placed[f"{name}_{i}"] = (frame, x, y, pivot)
-            x += frame.width
-            shelf = max(shelf, frame.height)
-    atlas = Image.new("RGBA", (ATLAS_WIDTH, y + shelf))
-    meta = {}
-    for key, (frame, fx, fy, pivot) in placed.items():
-        atlas.paste(frame, (fx, fy))
-        w, h = frame.size
-        px, py = pivot if isinstance(pivot, tuple) else (.5, pivot)
-        meta[key] = {
-            "frame": {"x": fx, "y": fy, "w": w, "h": h}, "rotated": False, "trimmed": False,
-            "spriteSourceSize": {"x": 0, "y": 0, "w": w, "h": h}, "sourceSize": {"w": w, "h": h},
-            "pivot": {"x": round(px, 4), "y": round(py, 4)},
-        }
-    atlas.save(OUT / "sprites.webp", lossless=True, quality=100, exact=True)
-    (OUT / "sprites.json").write_text(json.dumps({"frames": meta, "meta": {"image": "sprites.webp", "scale": "1"}}))
-    (OUT / "anchors.json").write_text(json.dumps(anchors))
+        groups.setdefault(atlas_of(name), []).extend((f"{name}_{i}", frame, pivot) for i, frame in enumerate(frames))
+    files: dict[str, bytes] = {}
+    manifest: dict = {"core": "sprites", "enemies": {}, "skins": {}, "roach": {},
+                      "baked": sorted({name.split("/", 1)[0] for name in sheet if SKIN_KEY.match(name)})}
+    for path, frames in groups.items():
+        try:
+            sheets = packing.split_sheets(frames, cap)
+        except packing.TooBig as error:
+            raise SystemExit(f"{path}: {error}")
+        kind, _, rest = path.partition("/")
+        if len(sheets) > 1 and kind != "skins":
+            raise SystemExit(f"{path}: needs {len(sheets)} sheets of {cap} px; only skins may take more than one")
+        for i, placed in enumerate(sheets):
+            name = path if i == 0 else f"{path}-{i + 1}"
+            files.update(packing.atlas_files(name, placed))
+            print(f"{name}: {len(placed)} frames, {len(files[name + '.webp']) // 1024} KB")
+            if kind == "skins":
+                manifest["skins"].setdefault(rest.removeprefix("lv"), []).append(name)
+        if kind == "enemies":
+            manifest["enemies"][rest.removeprefix("lv")] = path
+        elif kind == "roach":
+            manifest["roach"][rest] = path
+    files["packs.json"] = json.dumps(manifest, indent=1, sort_keys=True).encode()
+    files["anchors.json"] = json.dumps(anchors).encode()
     strip = Image.new("RGBA", (sum(f.width for f in sheet["roach-run"][0]), sheet["roach-run"][0][0].height))
     for i, frame in enumerate(sheet["roach-run"][0]):
         strip.paste(frame, (i * frame.width, 0))
-    strip.save(OUT / "roach-run.png")  # the HTML loading screen runs before the atlas exists
-    print(f"{len(placed)} frames, atlas {atlas.size}, {(OUT / 'sprites.webp').stat().st_size // 1024} KB")
+    buffer = io.BytesIO()
+    strip.save(buffer, format="PNG")  # the HTML loading screen runs before the atlas exists
+    files["roach-run.png"] = buffer.getvalue()
+    packing.publish(out, files, owned=["skins", "enemies", "roach"])
+    print(f"{sum(len(f) for f in groups.values())} frames in {len(files) // 2 - 2} atlases")
 
 
 if __name__ == "__main__":
-    pack(*collect())
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--out", type=Path, default=OUT, help="where to write (default public/assets)")
+    parser.add_argument("--no-skins", action="store_true", help="leave tools/art/skinrigs.py out")
+    args = parser.parse_args()
+    sheet, anchors = collect()
+    if not args.no_skins:
+        sheet.update(collect_skins(sheet))
+    pack(sheet, anchors, args.out)

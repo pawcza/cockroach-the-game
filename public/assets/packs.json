@@ -1,0 +1,123 @@
+{
+ "baked": [
+  "lv10-drone",
+  "lv10-fridge",
+  "lv10-mutant",
+  "lv10-pipe",
+  "lv10-sign",
+  "lv10-trolley",
+  "lv10-vulture",
+  "lv10-wire",
+  "lv2-fern",
+  "lv2-pipe",
+  "lv3-barrel",
+  "lv3-flyswatter",
+  "lv3-tomato",
+  "lv4-branch",
+  "lv4-flashlight",
+  "lv4-frond",
+  "lv4-molehole",
+  "lv4-puffball",
+  "lv4-rake",
+  "lv4-resin",
+  "lv4-resin-stub",
+  "lv4-toadstool",
+  "lv5-angel",
+  "lv5-bauble",
+  "lv5-candle",
+  "lv5-carp",
+  "lv5-goose",
+  "lv5-snowcan",
+  "lv5-treelight",
+  "lv6-blower",
+  "lv6-coaster",
+  "lv6-dog",
+  "lv6-extinguisher",
+  "lv6-mug",
+  "lv6-speaker",
+  "lv6-spotlight",
+  "lv6-vinyl",
+  "lv7-cormorant",
+  "lv7-crab",
+  "lv7-octopus",
+  "lv7-sandals",
+  "lv7-seaweed",
+  "lv7-shrimp",
+  "lv7-slide",
+  "lv7-sunscreen",
+  "lv7-windbreak",
+  "lv8-alien",
+  "lv8-antenna",
+  "lv8-blob",
+  "lv8-meteor",
+  "lv8-moonrock",
+  "lv8-rover",
+  "lv8-satellite",
+  "lv8-scroll",
+  "lv8-slipper",
+  "lv8-spacehen",
+  "lv8-thurible",
+  "lv8-ufo",
+  "lv9-boar",
+  "lv9-bottle",
+  "lv9-eagle",
+  "lv9-label",
+  "lv9-lynx",
+  "lv9-mosquito",
+  "lv9-mushrooms",
+  "lv9-shotglass",
+  "lv9-tree",
+  "lv9-vodka"
+ ],
+ "core": "sprites",
+ "enemies": {
+  "1": "enemies/lv1",
+  "10": "enemies/lv10",
+  "2": "enemies/lv2",
+  "3": "enemies/lv3",
+  "4": "enemies/lv4",
+  "5": "enemies/lv5",
+  "6": "enemies/lv6",
+  "7": "enemies/lv7",
+  "8": "enemies/lv8",
+  "9": "enemies/lv9",
+  "legacy": "enemies/legacy"
+ },
+ "roach": {
+  "kosmiczny": "roach/kosmiczny",
+  "lawa": "roach/lawa",
+  "lodowy": "roach/lodowy",
+  "metal": "roach/metal",
+  "robot": "roach/robot",
+  "zombie": "roach/zombie"
+ },
+ "skins": {
+  "10": [
+   "skins/lv10"
+  ],
+  "2": [
+   "skins/lv2"
+  ],
+  "3": [
+   "skins/lv3"
+  ],
+  "4": [
+   "skins/lv4"
+  ],
+  "5": [
+   "skins/lv5"
+  ],
+  "6": [
+   "skins/lv6"
+  ],
+  "7": [
+   "skins/lv7"
+  ],
+  "8": [
+   "skins/lv8"
+  ],
+  "9": [
+   "skins/lv9"
+  ]
+ }
+}
