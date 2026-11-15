@@ -3,7 +3,7 @@
  * shop shows them what there is and asks them to sign in.
  */
 import { PLAIN, type Look } from '../config/skins';
-import { devRun, noteFacts, profilePushed, type RunSnapshot } from '../systems/Profile';
+import { noteFacts } from '../systems/Profile';
 import { account } from './Account';
 
 export interface Mission {
@@ -28,7 +28,7 @@ export interface ShopState {
 let current: ShopState | null = null;
 
 /** What the server just said. Missions done and items owned are its record, and the profile's achievements on them follow it. */
-function hear(state: ShopState): ShopState {
+export function adoptShop(state: ShopState): ShopState {
   current = state;
   noteFacts({ missionsDone: state.missionsDone, itemsOwned: state.owned.length });
   return state;
@@ -36,6 +36,17 @@ function hear(state: ShopState): ShopState {
 
 /** The last state heard from the server; null for a guest or before it loads. */
 export const shop = (): ShopState | null => current;
+
+let listed: Record<string, number> = {};
+
+/** What things cost: the signed-in player's shop state has them, a guest's come from loadPrices. */
+export const priceList = (): Record<string, number> => current?.prices ?? listed;
+
+/** Reads the prices for a guest, so the wardrobe shows what there is to earn. Offline, there are none. */
+export async function loadPrices(): Promise<void> {
+  const prices = await read<Record<string, number>>(await send('/api/shop/prices'));
+  if (prices) listed = prices;
+}
 
 /** What your roach wears: your account's look, or the plain roach. */
 export const myLook = (): Look => current?.look ?? PLAIN;
@@ -52,47 +63,48 @@ async function send(path: string, body?: unknown): Promise<Response | null> {
   }
 }
 
+/** The body of an answer that is ok and JSON; null for anything else (a proxy's HTML page during a deploy, a cut connection). */
+async function read<T>(res: Response | null): Promise<T | null> {
+  if (!res?.ok) return null;
+  try {
+    return await res.json() as T;
+  } catch {
+    return null;
+  }
+}
+
 /** Fetches the shop for the signed-in player; a guest gets null. */
 export async function loadShop(): Promise<ShopState | null> {
   if (!account()) {
     current = null;
     return null;
   }
-  const res = await send('/api/me/shop');
-  current = res?.ok ? hear(await res.json() as ShopState) : null;
+  const state = await read<ShopState>(await send('/api/me/shop'));
+  current = state ? adoptShop(state) : null;
   return current;
-}
-
-/** A finished run, for the missions. Returns the ones it finished, which have been paid. */
-export async function reportRun(run: RunSnapshot, multiplayer: boolean): Promise<{ text: string; reward: number }[]> {
-  if (!account() || devRun()) return [];
-  // The run's achievements are paid with the profile: wait for that, so the state that comes back counts them
-  await profilePushed();
-  const res = await send('/api/me/run', {
-    // The metres actually run: a run from a checkpoint does not get the distance before it for free
-    score: run.score, distance: run.distance - run.startDistance, level: run.level, combo: run.combo, apples: run.apples,
-    beers: run.beers, pills: run.pills, nearMisses: run.nearMisses, dashThroughs: run.dashThroughs,
-    wallsBroken: run.wallsBroken, daily: run.daily, multiplayer,
-  });
-  if (!res?.ok) return [];
-  const { completed, state } = await res.json() as { completed: { text: string; reward: number }[]; state: ShopState };
-  hear(state);
-  return completed;
 }
 
 /** Buys an item; returns why not, or null when it's yours. */
 export async function buyItem(item: string): Promise<string | null> {
   const res = await send('/api/me/buy', { item });
   if (!res) return 'Brak połączenia';
-  if (!res.ok) return ((await res.json()) as { error?: string }).error ?? 'Nie udało się';
-  hear(await res.json() as ShopState);
+  if (!res.ok) {
+    try {
+      return ((await res.json()) as { error?: string }).error ?? 'Nie udało się';
+    } catch {
+      return 'Nie udało się';
+    }
+  }
+  const state = await read<ShopState>(res);
+  if (!state) return 'Nie udało się';
+  adoptShop(state);
   return null;
 }
 
 /** Puts on (or takes off) items you own. */
 export async function wearLook(look: Look): Promise<boolean> {
-  const res = await send('/api/me/look', look);
-  if (!res?.ok) return false;
-  hear(await res.json() as ShopState);
+  const state = await read<ShopState>(await send('/api/me/look', look));
+  if (!state) return false;
+  adoptShop(state);
   return true;
 }

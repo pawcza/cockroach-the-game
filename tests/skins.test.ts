@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { ENEMY_SKINS, SKIN_CAUSES } from '../server/enemySkins';
-import { parseDeathCause, parseRunStats, parseScoreSubmission } from '../server/validate';
+import { parseRunClaim } from '../server/runCheck';
+import { parseDeathCause, parseRunStats } from '../server/validate';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
 import {
   BORROWED, CAST, CODE_COLORS, ENDLESS_CAST, ENEMIES, MAX_CAST_LEVEL, SKINS, SKIN_PARTS, type EnemyId, placeOf, skinArt,
@@ -156,8 +157,8 @@ test('the server knows every skin\'s death cause and nothing made up', () => {
   for (const id of Object.keys(ENEMY_SKINS)) {
     assert.equal(parseDeathCause(id), id);
     assert.equal(parseRunStats({ obstacleType: id }).obstacleType, id);
-    const entry = parseScoreSubmission({ name: 'a', score: 1, deathCause: id });
-    assert.ok(!('error' in entry) && entry.deathCause === id);
+    const claim = { score: 1, distance: 1, level: 1, combo: 0, apples: 0, beers: 0, pills: 0, nearMisses: 0, dashThroughs: 0, wallsBroken: 0, kills: 0, seconds: 1, noHitWins: 0, moultSaves: 0 };
+    assert.equal(parseRunClaim({ ...claim, deathCause: id })?.deathCause, id);
   }
   for (const junk of ['lv5-goose ', 'LV5-GOOSE', 'lv99-thing', 'lv5-', '__proto__', 'toString', 'constructor', 'lv5-goose/hen', '']) {
     assert.equal(parseDeathCause(junk), null, JSON.stringify(junk));

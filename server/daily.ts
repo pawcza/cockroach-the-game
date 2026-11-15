@@ -5,11 +5,13 @@
 
 /**
  * The course's version: bumped whenever a release lays a different course from the same seed or scores a run another
- * way (2: levels 7-10 tighter, the endless levels, distance points, a miss halving the combo). A match only takes
- * clients of this version (multiplayer.ts), and a Karaluch Dnia score only from one (validate.ts), so an old bundle still
- * open in a tab never shares a run or a daily board with the new one. Absent counts as 1.
+ * way (2: levels 7-10 tighter, the endless levels, distance points, a miss halving the combo; 3: every run is reported
+ * against a ticket the server issued, runs.ts; the boss runway a second long and the quiet-time guarantee, RunPatterns).
+ * A match only takes clients of this version (multiplayer.ts), and a run is only ticketed, paid and ranked for one
+ * (app.ts), so an old bundle still open in a tab never shares a run or a board with the new one: it is told to reload.
+ * Absent counts as 1.
  */
-export const COURSE_VERSION = 2;
+export const COURSE_VERSION = 3;
 /** What a socket of another course version is refused with. */
 export const OUTDATED_CLIENT = 'Outdated client';
 

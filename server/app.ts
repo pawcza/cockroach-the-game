@@ -3,30 +3,51 @@ import http from 'http';
 import path from 'path';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { Server } from 'socket.io';
-import db, { getDailyScores, getEndlessScores, getProfile, getTopScores, getPlayerBest, insertScore, saveProfile } from './db';
-import { acceptsDaily, dailyDate, dailySeed } from './daily';
-import { CHECKPOINT_STARTS } from './bossDistances';
-import { buy, lookOf, parseLook, parseRunReport, payAchievements, payStored, reportRun, shopState, wear } from './economy';
+import db, { getDailyScores, getEndlessScores, getProfile, getTopScores, getPlayerBest, insertScore, saveProfile, type User } from './db';
+import { acceptsDaily, COURSE_VERSION, dailyDate, dailySeed } from './daily';
+import { buy, lookOf, parseLook, payAchievements, SHOP, shopState, wear } from './economy';
 import { createAuth, type AuthOptions } from './auth';
 import { setupMultiplayer, type MultiplayerOptions } from './multiplayer';
 import { clientIp, originAllowed } from './net';
-import { mergeIntoStored, parseDay, parseProfile, parseScoreSubmission } from './validate';
+import {
+  claimRun, deathSeen, finishRun, issueTicket, modeOf, noteMatchDeath, noteMatchOver, parseRunClaim, startAllowed, takeForBoard, validStart,
+  type CheckedRun, type Owner,
+} from './runs';
+import { mergeIntoStored, parseDay, parseProfile } from './validate';
 
-export interface GameServerOptions extends MultiplayerOptions {
+export interface GameServerOptions extends Omit<MultiplayerOptions, 'tickets'> {
   /** Google sign-in. Without it nobody can sign in, so nobody can save a score. */
   auth?: AuthOptions | null;
+  /** The clock runs are checked on (ms). Tests move it on; it defaults to the real one. */
+  now?: () => number;
 }
 
-/** Whether a stored profile has the Eksterminator's start unlocked (stats.checkpoints counts the boss starts: 4 of them). */
-function endlessUnlocked(profile: unknown): boolean {
-  const checkpoints = (profile as { stats?: { checkpoints?: unknown } } | null)?.stats?.checkpoints;
-  return typeof checkpoints === 'number' && checkpoints >= CHECKPOINT_STARTS.length;
+/** What a client of another version is told: its runs would not pay or rank, so it should reload. */
+const OUTDATED = { error: 'This version of the game is out of date: reload it', reload: true };
+
+const ticketIdOf = (body: unknown): string | null => {
+  const ticket = (body as { ticket?: unknown } | undefined)?.ticket;
+  return typeof ticket === 'string' && /^[\w-]{16,32}$/.test(ticket) ? ticket : null;
+};
+
+/** How long a match player's report waits for the socket's word of the death. */
+const MATCH_DEATH_WAIT_MS = 3000;
+
+const currentClient = (body: unknown): boolean => (body as { course?: unknown } | undefined)?.course === COURSE_VERSION;
+
+/** A checked run on its board, under the account's name. */
+function rank(user: User, run: CheckedRun) {
+  return insertScore(
+    user.id, user.name, run.score, run.deathCause, run.distance, run.seconds, run.apples, run.beers, run.pills, run.level,
+    run.combo, run.mode === 'daily' ? run.dailyDate : null, run.start > 0 ? 'endless' : null,
+  );
 }
 
 /** Builds the HTTP and socket server without starting it, so tests can run it on a spare port. */
 export function createGameServer(options: GameServerOptions = {}) {
   const app = express();
   const auth = createAuth(options.auth ?? null);
+  const now = options.now ?? Date.now;
   app.disable('x-powered-by');
   app.use(express.json({ limit: '4kb' }));
 
@@ -97,8 +118,10 @@ export function createGameServer(options: GameServerOptions = {}) {
     // Folded into what is stored, so a client that doesn't know the newer stats can't wipe them
     const merged = mergeIntoStored(profile, getProfile(user.id));
     if (!merged) { res.status(400).json({ error: 'Invalid profile' }); return; }
+    // Kept for the player's own pages on every device; nothing is paid from it (the server counts its own: playerStats.ts).
+    // A sync is when a reward raised since it was paid is topped up (economy.ts payAchievements)
     saveProfile(user.id, merged);
-    res.json({ ok: true, paid: payAchievements(user.id, merged.stats) });
+    res.json({ ok: true, paid: payAchievements(user.id) });
   });
 
   // The shop: okruszki, owned items, what you wear and your three missions. Signed-in players only
@@ -107,31 +130,88 @@ export function createGameServer(options: GameServerOptions = {}) {
     if (!user) res.status(401).json({ error: 'Sign in first' });
     return user?.id ?? null;
   };
-  // A run report pays missions: one per two seconds is more than any real run needs
-  const runLimiter = rateLimit({
-    windowMs: 2000,
-    limit: 1,
-    message: { error: 'Too many reports, wait a moment' },
+  app.get('/api/me/shop', (req, res) => {
+    const id = signedIn(req, res);
+    if (id !== null) res.json(shopState(id));
+  });
+
+  // Runs: a ticket when one starts, its report when it ends (runs.ts). Signed in or not: a guest's run is checked
+  // too, and waits on its ticket for the account that signs in from that browser
+  const perPlayer = (windowMs: number, limit: number) => rateLimit({
+    windowMs,
+    limit,
+    message: { error: 'Too many runs, wait a moment' },
     keyGenerator: (req) => {
       const user = auth.userOf(req);
       return user ? `user:${user.id}` : ipKeyGenerator(clientIp(req.socket.remoteAddress, req.headers));
     },
     validate: { xForwardedForHeader: false },
   });
-  app.get('/api/me/shop', (req, res) => {
-    const id = signedIn(req, res);
-    if (id !== null) res.json(shopState(id));
+  // A run takes a few seconds even when it ends at the first obstacle: twenty a minute is more than anyone plays
+  const ticketLimiter = perPlayer(60_000, 20);
+  const reportLimiter = perPlayer(1000, 2);
+  const ownerOf = (req: Request, res: Response): Owner => {
+    const user = auth.userOf(req);
+    return { userId: user?.id ?? null, guest: user ? null : auth.ensureGuest(req, res) };
+  };
+
+  app.post('/api/run/start', ticketLimiter, (req, res) => {
+    if (!currentClient(req.body)) { res.status(409).json(OUTDATED); return; }
+    const { start, daily } = (req.body ?? {}) as { start?: unknown; daily?: unknown };
+    if (!validStart(start)) { res.status(400).json({ error: 'Invalid start' }); return; }
+    const day = daily === undefined || daily === null ? null : parseDay(daily);
+    // Yesterday's run still takes a ticket in the first minutes of today (a run begun on its last screen)
+    if (daily !== undefined && daily !== null && (!day || !acceptsDaily(day, now()))) {
+      res.status(400).json({ error: 'That day\'s run is over' });
+      return;
+    }
+    if (day && start !== 0) { res.status(400).json({ error: 'Karaluch Dnia starts from 0 m' }); return; }
+    // Only from a start the server has seen this account unlock; a guest's own unlocks can't be checked: from 0 only
+    const owner = ownerOf(req, res);
+    if (!startAllowed(owner, start)) {
+      res.status(403).json({ error: 'That start is not unlocked on this account', locked: true });
+      return;
+    }
+    res.json({ ticket: issueTicket(owner, day ? 'daily' : 'solo', start, day, now()) });
   });
-  app.post('/api/me/run', runLimiter, (req, res) => {
-    const id = signedIn(req, res);
-    if (id === null) return;
-    const run = parseRunReport(req.body);
-    if (!run) { res.status(400).json({ error: 'Invalid run' }); return; }
-    const completed = reportRun(id, run);
-    // A mission finished moves the record the missions achievements are paid from
-    if (completed.length > 0) payStored(id);
-    res.json({ completed, state: shopState(id) });
+
+  app.post('/api/run/finish', reportLimiter, async (req, res) => {
+    if (!currentClient(req.body)) { res.status(409).json(OUTDATED); return; }
+    const ticket = ticketIdOf(req.body);
+    const claim = parseRunClaim(req.body);
+    if (!ticket || !claim) { res.status(400).json({ error: 'Invalid run' }); return; }
+    // A match's run is held to the score the server relayed at its death: the socket's game:death may land a moment
+    // after this report, so it is waited for (a match player's report without one is refused)
+    if (modeOf(ticket) === 'match') {
+      for (let waited = 0; !deathSeen(ticket) && waited < MATCH_DEATH_WAIT_MS; waited += 100) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (!deathSeen(ticket)) { res.status(409).json({ error: 'The match has not seen this death' }); return; }
+    }
+    const result = finishRun(ticket, ownerOf(req, res), claim, now());
+    if (!result.ok) { res.status(result.status).json({ error: result.reason }); return; }
+    res.json({ receipt: result.receipt, state: result.receipt.paid ? shopState(auth.userOf(req)!.id) : null });
   });
+
+  // A guest's run, claimed by the account that has just signed in from the same browser; on its board too if asked
+  app.post('/api/run/claim', reportLimiter, (req, res) => {
+    const user = auth.userOf(req);
+    if (!user) { res.status(401).json({ error: 'Sign in first' }); return; }
+    if (!currentClient(req.body)) { res.status(409).json(OUTDATED); return; }
+    const ticket = ticketIdOf(req.body);
+    if (!ticket) { res.status(400).json({ error: 'Invalid run' }); return; }
+    const result = claimRun(ticket, user.id, auth.guestOf(req), now());
+    if (!result.ok) { res.status(result.status).json({ error: result.reason }); return; }
+    let saved = false;
+    if ((req.body as { board?: unknown }).board === true) {
+      const board = takeForBoard(ticket, user.id, now());
+      if (board.ok) { rank(user, board.run); saved = true; }
+    }
+    res.json({ receipt: result.receipt, state: shopState(user.id), saved, name: user.name });
+  });
+
+  // Clients from before tickets reported runs here: they are told to reload
+  app.post('/api/me/run', (_req, res) => { res.status(409).json(OUTDATED); });
   app.post('/api/me/buy', profileLimiter, (req, res) => {
     const id = signedIn(req, res);
     if (id === null) return;
@@ -139,7 +219,7 @@ export function createGameServer(options: GameServerOptions = {}) {
     const error = typeof item === 'string' ? buy(id, item) : 'Unknown item';
     if (error) { res.status(400).json({ error }); return; }
     // An item bought moves the record the shop achievement is paid from
-    payStored(id);
+    payAchievements(id);
     res.json(shopState(id));
   });
   app.post('/api/me/look', profileLimiter, (req, res) => {
@@ -149,6 +229,11 @@ export function createGameServer(options: GameServerOptions = {}) {
     const error = look ? wear(id, look) : 'Invalid look';
     if (error) { res.status(400).json({ error }); return; }
     res.json(shopState(id));
+  });
+
+  // The shop's prices, for guests too: the wardrobe shows them what there is to earn
+  app.get('/api/shop/prices', (_req, res) => {
+    res.json(Object.fromEntries(Object.entries(SHOP).map(([id, item]) => [id, item.price])));
   });
 
   // GET /api/daily: today's run, the same seed for everyone
@@ -163,43 +248,19 @@ export function createGameServer(options: GameServerOptions = {}) {
     res.json(getPlayerBest(req.params.playerName));
   });
 
-  // POST /api/scores: only signed-in players make the board, under their account's name
+  // POST /api/scores {ticket}: a run the server checked and paid to this account, on its board under the account's
+  // name. Once a run; a practice run from a checkpoint goes on none, Bez końca's needs its start unlocked
   app.post('/api/scores', submitLimiter, (req, res) => {
     const user = auth.userOf(req);
     if (!user) {
       res.status(401).json({ error: 'Sign in to save a score' });
       return;
     }
-    const submission = parseScoreSubmission(req.body);
-    if ('error' in submission) {
-      res.status(400).json({ error: submission.error });
-      return;
-    }
-    if (submission.daily && !acceptsDaily(submission.daily)) {
-      res.status(400).json({ error: 'That day\'s run is over' });
-      return;
-    }
-    // Bez końca starts at the Eksterminator: only an account whose profile has that start unlocked may be on its board
-    if (submission.board === 'endless' && !(endlessUnlocked(getProfile(user.id)))) {
-      res.status(403).json({ error: 'Beat the Eksterminator first: the endless start is not unlocked on this account' });
-      return;
-    }
-
-    res.status(201).json(insertScore(
-      user.id,
-      user.name,
-      submission.score,
-      submission.deathCause,
-      submission.distance,
-      submission.timeSurvived,
-      submission.applesCollected,
-      submission.tyskiesCollected,
-      submission.pillsCollected,
-      submission.maxLevel,
-      submission.maxCombo,
-      submission.daily,
-      submission.board,
-    ));
+    const ticket = ticketIdOf(req.body);
+    if (!ticket || !currentClient(req.body)) { res.status(409).json(OUTDATED); return; }
+    const board = takeForBoard(ticket, user.id, now());
+    if (!board.ok) { res.status(board.status).json({ error: board.reason }); return; }
+    res.status(201).json(rank(user, board.run));
   });
 
   // The privacy policy, at the address given on Google's consent screen
@@ -236,6 +297,17 @@ export function createGameServer(options: GameServerOptions = {}) {
       const user = auth.userOf({ headers });
       return user ? lookOf(user.id) : null;
     },
+    // A match's runs get their tickets from the match: the server knows when it started, who died when, who won
+    tickets: {
+      issue: (headers, startsAt) => {
+        const user = auth.userOf({ headers });
+        const guest = user ? null : auth.guestOf({ headers });
+        return user || guest ? issueTicket({ userId: user?.id ?? null, guest }, 'match', 0, null, startsAt) : null;
+      },
+      death: (ticket, score) => noteMatchDeath(ticket, score, now()),
+      over: (players) => noteMatchOver(players),
+    },
+    now,
   });
 
   /** Stops accepting connections, then closes the database. */

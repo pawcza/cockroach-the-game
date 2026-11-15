@@ -1,6 +1,8 @@
 /**
- * The signed-in player, if any. Guests play everything; only the leaderboard needs a Google sign-in, which is a
- * full-page redirect, so a score waiting to be saved is parked in sessionStorage and saved on the way back.
+ * The signed-in player, if any. Guests play everything; okruszki and the leaderboard need a Google sign-in, which is a
+ * full-page redirect: a guest who signs in from a game over parks that run in sessionStorage (its ticket, which the
+ * server lets the account that signs in from this browser claim once, and what the screen showed), and the game boots
+ * straight back onto that game over (BootScene, takeReturnToRun).
  */
 import { setPlayerName } from '../utils/Storage';
 
@@ -9,10 +11,16 @@ export interface Account {
   name: string;
 }
 
-/** A finished run's numbers, as POST /api/scores takes them. */
-export type ScoreSubmission = Record<string, number | string | null>;
+/** A guest's run waiting for the sign-in round trip: its ticket, whether it goes on its board, the game over's data. */
+export interface PendingRun {
+  ticket: string;
+  board: boolean;
+  view: Record<string, unknown>;
+}
 
-const PENDING_KEY = 'cockroach-pending-score';
+const PENDING_KEY = 'cockroach-pending-run';
+/** Said by the menu when the way back to a run failed (takeReturnNotice). */
+const NOTICE_KEY = 'cockroach-return-notice';
 
 let current: Account | null = null;
 let available = false;
@@ -40,9 +48,13 @@ export async function loadAccount(): Promise<Account | null> {
   return current;
 }
 
-/** Leaves for Google's sign-in page. A score passed here is saved when the player comes back signed in. */
-export function signIn(pending?: ScoreSubmission): void {
-  if (pending) sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+/** Leaves for Google's sign-in page. A run passed here is claimed, and its game over shown again, on the way back. */
+export function signIn(pending?: PendingRun): void {
+  try {
+    if (pending) sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+  } catch {
+    // Storage blocked: the sign-in still works, the run is only not brought back
+  }
   window.location.href = '/api/auth/google';
 }
 
@@ -78,26 +90,48 @@ export async function renameAccount(name: string): Promise<boolean> {
   }
 }
 
-export async function submitScore(submission: ScoreSubmission): Promise<boolean> {
+/**
+ * Back from Google with a run parked before leaving: the run (taken once) and how the sign-in went. Null when there is
+ * no run waiting, and the address bar's sign-in result is left for the menu.
+ */
+export function takeReturnToRun(): { run: PendingRun; signIn: 'ok' | 'failed' } | null {
+  if (!new URL(window.location.href).searchParams.has('signin')) return null;
+  let raw: string | null = null;
   try {
-    const res = await fetch('/api/scores', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(submission),
-    });
-    return res.ok;
+    raw = sessionStorage.getItem(PENDING_KEY);
+    sessionStorage.removeItem(PENDING_KEY);
   } catch {
-    return false;
+    return null;
   }
+  if (!raw) return null;
+  let run: PendingRun | null = null;
+  try {
+    const parsed = JSON.parse(raw) as PendingRun;
+    const view = parsed?.view as { score?: unknown; guest?: unknown } | null | undefined;
+    // The game over can only be drawn from a score and the guest's receipt
+    if (typeof parsed?.ticket === 'string' && typeof view === 'object' && view !== null && typeof view.score === 'number' && view.guest) run = parsed;
+  } catch {
+    // Garbled: handled below with the run that has no ticket
+  }
+  if (!run) {
+    // The run can't be shown, but the sign-in happened: the menu says how it went (the address bar's result is left for
+    // it) and, in a line of its own, that the result couldn't be brought back
+    parkReturnNotice('Nie udało się wrócić do wyniku biegu');
+    return null;
+  }
+  return { run, signIn: takeSignInResult() ?? 'failed' };
 }
 
-/** The score parked before a sign-in, taken once. */
-export function takePendingScore(): ScoreSubmission | null {
-  const raw = sessionStorage.getItem(PENDING_KEY);
-  sessionStorage.removeItem(PENDING_KEY);
-  if (!raw) return null;
+/** Something to say on the menu when the way back to a run failed: the menu says it once. */
+export function parkReturnNotice(message: string): void {
+  try { sessionStorage.setItem(NOTICE_KEY, message); } catch { /* the menu just says nothing */ }
+}
+
+export function takeReturnNotice(): string | null {
   try {
-    return JSON.parse(raw) as ScoreSubmission;
+    const message = sessionStorage.getItem(NOTICE_KEY);
+    sessionStorage.removeItem(NOTICE_KEY);
+    return message;
   } catch {
     return null;
   }

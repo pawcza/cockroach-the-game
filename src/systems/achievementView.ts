@@ -25,3 +25,46 @@ export function bossUnmet(achievement: Achievement, stats: Stats, earned: Record
   const boss = BOSSES.find(b => b.id === achievement.boss);
   return boss ? stats.bestDistance < boss.triggerDistance : false;
 }
+
+/**
+ * A level achievement ("Las Grochodrzew", "Remiza", "Na Księżycu") before the player has been to a level that high shows no
+ * name: its title would name a level they haven't seen. Its description ("Dobiegnij do poziomu N") says only the number.
+ */
+export function levelUnmet(achievement: Achievement, stats: Stats, earned: Record<string, number>): boolean {
+  const level = /^poziom-(\d+)$/.exec(achievement.id)?.[1];
+  return level !== undefined && !earned[achievement.id] && Number(level) > stats.bestLevel;
+}
+
+/** The atlas animation of the icon an achievement shows (tools/art/icons.py ach-*); a frame of it is `<name>_0`. */
+export const ICON_FALLBACK = 'ach-star';
+/** The picture for what is not shown yet (a boss not met), and for the silhouette's "?" . */
+export const ICON_HIDDEN = 'ach-unknown';
+
+const CARD_ICONS: Record<string, string> = {
+  jablka: 'apple', dystans: 'shoe', piwa: 'beer', pigulki: 'pill', biegi: 'roach', styk: 'warning', dash: 'bolt',
+  strzaly: 'gun', sciany: 'wall', codziennie: 'calendar', misje: 'clipboard', 'bez-konca': 'infinity',
+};
+
+const ONE_OFF_ICONS: Record<string, string> = {
+  'poziom-4': 'tree', 'poziom-6': 'hydrant', 'poziom-8': 'moon', 'poziom-10': 'eye',
+  'piec-tysiecy': 'coin-5k', 'dziesiec-tysiecy': 'coin-10k', bog: 'halo', 'piecdziesiat-tysiecy': 'peak',
+  'kombo-30': 'flame', 'kombo-60': 'jar', 'kombo-100': 'cycle',
+  'boss-lodzia': 'boss-lodzia', 'boss-bigos': 'boss-bigos', 'boss-zlewiatan': 'boss-zlewiatan', 'boss-eksterminator': 'boss-eksterminator',
+  nietykalny: 'shield', 'cztery-bossy': 'medal-4', skroty: 'map', 'wylinka-10': 'shell', kanonada: 'burst', pacyfista: 'peace',
+  'trzy-tysiace': 'pin', 'szafa-gra': 'wardrobe', towarzyski: 'chat', 'krol-zjazdu': 'crown',
+};
+
+/** The icon (atlas animation name) for an achievement: its card's, or its own; a star for one nobody has drawn yet. */
+export function achievementIcon(achievement: Pick<Achievement, 'id' | 'group'>): string {
+  const name = achievement.group ? CARD_ICONS[achievement.group] : ONE_OFF_ICONS[achievement.id];
+  return name ? `ach-${name}` : ICON_FALLBACK;
+}
+
+/** How a card's frame is coloured: nothing earned, then bronze, silver and gold, and its own look once every level is. */
+export type Tier = 'none' | 'bronze' | 'silver' | 'gold' | 'max';
+
+export function tierOf(done: number, of: number): Tier {
+  if (done <= 0) return 'none';
+  if (done >= of) return 'max';
+  return done === 1 ? 'bronze' : done === 2 ? 'silver' : 'gold';
+}

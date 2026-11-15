@@ -30,7 +30,8 @@
 
   <h2>Gdy grasz bez logowania</h2>
   <ul>
-    <li>Serwer nie zapisuje o Tobie niczego.</li>
+    <li>Serwer nie zapisuje Twojego nicku ani niczego, co mówi, kim jesteś. Zapisuje tylko wyniki Twoich biegów pod
+    losowym numerem z ciasteczka <code>kc_guest</code> (opisanego niżej) i kasuje je po 7 dniach.</li>
     <li>W Twojej przeglądarce (localStorage) zostają: wybrany nick, Twoje najlepsze wyniki, statystyki gry, zdobyte
     osiągnięcia, przebieg najlepszego biegu (do ducha, z którym się ścigasz) i ustawienia głośności. Możesz je usunąć,
     czyszcząc dane strony w przeglądarce.</li>
@@ -56,6 +57,8 @@
   <p>Nazwa gracza i zapisane wyniki są publiczne: widzi je każdy w tabeli „Bycze Karaluchy”.</p>
   <p>Żeby pamiętać, że jesteś zalogowany, gra ustawia jedno ciasteczko (<code>kc_session</code>, ważne 180 dni).
   Na czas logowania ustawia też drugie (<code>kc_oauth_state</code>, 10 minut), które chroni przed podszyciem się.
+  Gdy grasz bez konta, gra ustawia ciasteczko <code>kc_guest</code> (30 dni): losowy numer, który łączy Twój ukończony
+  bieg z tą przeglądarką, żeby po zalogowaniu można go było zapisać na koncie. Nie zawiera niczego o Tobie.
   Nie ma ciasteczek reklamowych ani analitycznych.</p>
   <p>Podstawą prawną jest wykonanie usługi, o którą prosisz, czyli prowadzenie Twojego konta i tabeli wyników
   (art. 6 ust. 1 lit. b RODO). Logi bezpieczeństwa opierają się na prawnie uzasadnionym interesie (art. 6 ust. 1 lit. f).</p>
@@ -90,7 +93,9 @@
 
   <h2>Playing without signing in</h2>
   <ul>
-    <li>The server stores nothing about you.</li>
+    <li>The server stores neither your nickname nor anything that says who you are. It only stores the results of
+    your runs under the random number from the <code>kc_guest</code> cookie (described below) and deletes them after
+    7 days.</li>
     <li>Your browser (localStorage) keeps your chosen nickname, your best scores, your game stats, the achievements you
     earned, the path of your best run (for the ghost you race) and your volume settings. Clearing the site's data in
     your browser removes them.</li>
@@ -115,7 +120,9 @@
   </ul>
   <p>Your player name and saved scores are public: anyone can see them on the leaderboard.</p>
   <p>To keep you signed in the game sets one cookie (<code>kc_session</code>, valid for 180 days). During sign-in it
-  also sets <code>kc_oauth_state</code> (10 minutes), which protects against forged sign-ins. There are no advertising
+  also sets <code>kc_oauth_state</code> (10 minutes), which protects against forged sign-ins. When you play without an
+  account the game sets <code>kc_guest</code> (30 days): a random number that ties your finished run to this browser,
+  so it can be saved to your account after you sign in. It holds nothing about you. There are no advertising
   or analytics cookies.</p>
   <p>The legal basis is providing the service you ask for: your account and the leaderboard (GDPR Art. 6(1)(b)).
   Security logs rely on legitimate interest (Art. 6(1)(f)).</p>

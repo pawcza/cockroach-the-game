@@ -1125,6 +1125,7 @@ export class BigosFight extends BossFight {
     this.place();
     if (this.stopped) {
       if (this.state === 'fighting') this.ctx.player.updateDash();
+      else this.ctx.player.cutDash();
       const forward = this.updateLunge();
       if (this.over) return;
       this.holdPlayer(-forward);

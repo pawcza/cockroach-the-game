@@ -6,9 +6,10 @@
 import Phaser from 'phaser';
 import type { PackLoader } from '../systems/PackLoader';
 import { SKIN_GRACE_MS, type StartPlan } from '../config/packs';
-import { bodyStyle, buttonStyle, UI_TEXT } from '../utils/TextStyles';
+import { bodyStyle, buttonStyle, capCentreShift, UI_TEXT } from '../utils/TextStyles';
 import { MenuNav } from './MenuNav';
 import { createButton, type UIButton } from './shared';
+import { GAP, TAB_ON, TOUCH_MIN } from './kit';
 
 export interface StartWaitHandlers {
   /** Everything needed is in: build the run. */
@@ -29,8 +30,16 @@ export function waitForStart(scene: Phaser.Scene, loader: PackLoader, plan: Star
     shown.forEach(o => o.destroy());
     shown = [];
   };
-  const button = (x: number, label: string, action: () => void): UIButton => {
-    const b = createButton(scene, x, height / 2 + 44, 200, 36, label, 0x444444, buttonStyle({ fontSize: '10px' }), action);
+  /** The message sits in the middle, its buttons a button's height under it. */
+  const line = (text: string, color: string, size: string, wrap = 0): Phaser.GameObjects.Text => {
+    const t = scene.add.text(width / 2, height / 2 - 20, text, bodyStyle({ fontSize: size, color, align: 'center', ...(wrap ? { wordWrap: { width: wrap } } : {}) }))
+      .setOrigin(0.5).setScrollFactor(0);
+    t.setY(Math.round(height / 2 - 20 + capCentreShift(t)));
+    shown.push(t);
+    return t;
+  };
+  const button = (x: number, label: string, action: () => void, primary = false): UIButton => {
+    const b = createButton(scene, x, height / 2 + 36, 200, TOUCH_MIN, label, primary ? TAB_ON : 0x444444, buttonStyle({ fontSize: '10px' }), action);
     b.all.forEach(o => (o as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor?.(0));
     shown.push(...b.all);
     return b;
@@ -39,7 +48,7 @@ export function waitForStart(scene: Phaser.Scene, loader: PackLoader, plan: Star
 
   const attempt = (): void => {
     clear();
-    shown.push(scene.add.text(width / 2, height / 2, 'Ładowanie...', bodyStyle({ color: UI_TEXT.muted })).setOrigin(0.5).setScrollFactor(0));
+    line('Ładowanie...', UI_TEXT.bone, '16px');
     const menu = button(width / 2, 'Menu', leave);
     nav.set([menu], { onBack: leave });
     void loader.ensure(plan.required).then(async (failed) => {
@@ -56,10 +65,9 @@ export function waitForStart(scene: Phaser.Scene, loader: PackLoader, plan: Star
 
   const offerRetry = (): void => {
     clear();
-    shown.push(scene.add.text(width / 2, height / 2 - 10, 'Nie udało się wczytać gry. Sprawdź połączenie.',
-      bodyStyle({ color: '#e07a6a' })).setOrigin(0.5).setScrollFactor(0));
-    const retry = button(width / 2 - 110, 'Spróbuj ponownie', attempt);
-    const menu = button(width / 2 + 110, 'Menu', leave);
+    line('Nie udało się wczytać gry. Sprawdź połączenie.', '#e07a6a', '16px', Math.min(width - 48, 560));
+    const retry = button(width / 2 - 100 - GAP / 2, 'Spróbuj ponownie', attempt, true);
+    const menu = button(width / 2 + 100 + GAP / 2, 'Menu', leave);
     nav.set([retry, menu], { initial: retry, onBack: leave });
   };
 

@@ -12,6 +12,10 @@ export interface Harness {
   signIn: (googleSub: string, name?: string) => Promise<string>;
   /** A socket of this course version (daily.ts COURSE_VERSION), or of `course` (undefined: an old client's, none sent). */
   connect: (headers?: Record<string, string>, course?: number | null) => Promise<Socket>;
+  /** Moves the server's run clock (runs.ts) on by this much: a run's time passes without the test waiting for it. */
+  advance: (ms: number) => void;
+  /** The server's run clock now. */
+  now: () => number;
   stop: () => Promise<void>;
 }
 
@@ -36,7 +40,8 @@ export async function startServer(options: GameServerOptions = { auth: TEST_AUTH
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockroach-test-'));
   process.env.DB_PATH = path.join(dir, 'scores.db');
   const { createGameServer } = await import('../../server/app');
-  const { server, close } = createGameServer(options);
+  let offset = 0;
+  const { server, close } = createGameServer({ now: () => Date.now() + offset, ...options });
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   const sockets: Socket[] = [];
@@ -62,6 +67,8 @@ export async function startServer(options: GameServerOptions = { auth: TEST_AUTH
       socket.once('connect', () => resolve(socket));
       socket.once('connect_error', reject);
     }),
+    advance: (ms) => { offset += ms; },
+    now: () => Date.now() + offset,
     stop: async () => {
       for (const socket of sockets) socket.disconnect();
       await close();

@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { mpClient, type MPLobbyData, type MPPlayer, type MPRanking } from '../multiplayer/MultiplayerClient';
+import { mpClient, type MPLobbyData, type MPPlayer, type MPRanking, type MPStart } from '../multiplayer/MultiplayerClient';
 import { MP_START_LEAD_MS } from '../../server/lobby';
 import { PLAYER_COLORS } from '../../server/lobby';
 import { DEPTH } from '../config/constants';
-import { titleStyle, smallStyle, buttonStyle, getScale, UI_TEXT } from '../utils/TextStyles';
+import { bodyStyle, buttonStyle, capCentreShift, getScale, smallStyle, titleStyle, UI_TEXT } from '../utils/TextStyles';
 import { createSceneBackground } from '../ui/SceneBackground';
 import { addObstacleArt, createButton, createPanel, deathLabel, showAchievement, UIButton } from '../ui/shared';
 import { recordMatch } from '../systems/Profile';
@@ -11,28 +11,75 @@ import { MenuNav } from '../ui/MenuNav';
 import { sceneManager } from '../systems/SceneManager';
 import { fetchScores } from '../ui/Scoreboard';
 import { updateHighScoreIfBetter } from '../utils/Storage';
-import { account, signIn, signInAvailable, submitScore, type ScoreSubmission } from '../ui/Account';
+import { account, signIn, signInAvailable } from '../ui/Account';
 import { ReplayData } from '../systems/DeathReplay';
-import { DeathReplayPlayer } from '../systems/DeathReplayPlayer';
+import { DEATH_REPLAY_OFFERED, DeathReplayPlayer } from '../systems/DeathReplayPlayer';
+import { rankRun, type RunResult } from '../systems/RunTickets';
+import { CrumbReceipt } from './CrumbReceipt';
+import { spaced } from '../../server/achievements';
+import { EDGE, GAP, TAB_ON } from '../ui/kit';
 
 interface MPGameOverData {
   rankings: MPRanking[];
   myId: string;
   isHost: boolean;
   replayData?: ReplayData | null;
+  /** The server's answer to this player's run report (RunTickets.ts): the receipt's every number. */
+  result?: Promise<RunResult>;
+  /** Set by relayoutData(): this is the same screen built again for a new width. */
+  relayout?: Relayout;
 }
+
+/** The server's answer for this player's run, and whether it may go on the board: asked once, kept. */
+interface Settled {
+  run: RunResult;
+  inTop100: boolean;
+  /** The board save, once pressed: null not yet, then pending, then how it went. */
+  saved: null | 'saving' | 'yes' | 'no';
+}
+
+/** What a rebuild of the screen carries over: the match is counted once, the answer is asked once, the focus stays. */
+interface Relayout {
+  task: Promise<Settled> | null;
+  painted: boolean;
+  focus: string | null;
+}
+
+const REMATCH_FOCUS = 'rematch';
+
+/** Touch targets on this screen are at least this tall. */
+const BUTTON_H = 48;
+/** The table is never wider than this: the name and the score would be too far apart to read across. */
+const TABLE_MAX_W = 720;
+/** Where a death's picture sits, before the words about it. */
+const ICON_SLOT = 24;
+const AGAIN_H = 56;
 
 export class MultiplayerGameOverScene extends Phaser.Scene {
   private lobbyUpdatedHandler: ((lobbyData: MPLobbyData) => void) | null = null;
-  private gameStartHandler: ((data: { seed: number; players: MPPlayer[] }) => void) | null = null;
+  private gameStartHandler: ((data: MPStart) => void) | null = null;
   private replayData: ReplayData | null = null;
+  private runData!: MPGameOverData;
+  private task: Promise<Settled> | null = null;
+  private painted = false;
+  private focusKey: () => string | null = () => null;
+  private generation = 0;
 
   constructor() {
     super({ key: 'MultiplayerGameOverScene' });
   }
 
+  /** viewport-fit: a new screen width builds this screen again; the match was counted and the run answered already. */
+  relayoutData(): MPGameOverData {
+    return { ...this.runData, result: undefined, relayout: { task: this.task, painted: this.painted, focus: this.focusKey() } };
+  }
+
   create(data: MPGameOverData): void {
     const { width, height } = this.cameras.main;
+    const again = data.relayout;
+    const generation = ++this.generation;
+    this.runData = data;
+    this.painted = again?.painted ?? false;
     const s = getScale();
     const rankings = data.rankings || [];
     const myId = data.myId;
@@ -52,117 +99,71 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
     // --- Update local highscore ---
     const myRanking = rankings.find(r => r.id === myId);
     // A match you played (not one you only watched) counts, and a win when you top it
-    if (myRanking && rankings.length > 1) {
+    if (myRanking && rankings.length > 1 && !again) {
       for (const achievement of recordMatch(rankings[0].id === myId)) showAchievement(this, achievement);
     }
     if (myRanking) {
       updateHighScoreIfBetter(myRanking.score);
     }
 
-    // --- Rankings table ---
-    const tableStartY = Math.round(65 * s);
-    const lineHeight = Math.round(58 * s);
-    const statFontSize = `${Math.round(7 * s)}px`;
+    // --- Rankings table: one panel, no wider than reads well, centred; the okruszki receipt goes under it ---
+    const tableW = Math.min(width - EDGE * 2, TABLE_MAX_W);
+    const tableX = Math.round((width - tableW) / 2);
+    const tableTop = 56;
+    // Closer rows for a full lobby
+    const rowH = rankings.length > 2 ? 44 : 58;
+    const colRank = tableX + 16;
+    const colColor = tableX + 56;
+    const colName = tableX + 84;
+    const colScore = tableX + tableW - 16;
+    const tableBottom = tableTop + rankings.length * rowH + 8;
 
-    // Column positions
-    const colRank = Math.round(15 * s);
-    const colColor = Math.round(45 * s);
-    const colName = Math.round(68 * s);
-    const colScore = width - Math.round(15 * s);
+    if (rankings.length > 0) createPanel(this, tableX, tableTop, tableW, tableBottom - tableTop);
 
-    if (rankings.length > 0) {
-      createPanel(this, 6, tableStartY - Math.round(22 * s), width - 12, rankings.length * lineHeight + Math.round(8 * s));
-    }
+    const label = (x: number, y: number, text: string, size: string, color: string, originX = 0): Phaser.GameObjects.Text => {
+      const t = this.add.text(x, y, text, bodyStyle({ fontSize: size, color, strokeThickness: 0 })).setOrigin(originX, 0.5);
+      t.setY(Math.round(y + capCentreShift(t)));
+      return t;
+    };
 
     for (let i = 0; i < rankings.length; i++) {
       const entry = rankings[i];
       const rank = i + 1;
-      const y = tableStartY + i * lineHeight;
+      const top = tableTop + 4 + i * rowH;
+      const y = top + 14;
       const isMe = entry.id === myId;
+      const color = rank === 1 ? '#ffd700' : rank === 2 ? '#d6d6d6' : rank === 3 ? '#d9996a' : UI_TEXT.bone;
 
-      // Rank-based styling
-      let color: string;
-      let fontSize: number;
-      let strokeThickness: number;
-
-      if (rank === 1) {
-        color = '#ffd700';
-        fontSize = Math.round(12 * s);
-        strokeThickness = Math.round(4 * s);
-      } else if (rank === 2) {
-        color = '#c0c0c0';
-        fontSize = Math.round(11 * s);
-        strokeThickness = Math.round(3 * s);
-      } else if (rank === 3) {
-        color = '#cd7f32';
-        fontSize = Math.round(10 * s);
-        strokeThickness = Math.round(3 * s);
-      } else {
-        color = UI_TEXT.bone;
-        fontSize = Math.round(9 * s);
-        strokeThickness = Math.round(2 * s);
-      }
-
-      const rowStyle = smallStyle({
-        fontSize: `${fontSize}px`,
-        color,
-        strokeThickness,
-      });
-
-      // Row background for self
+      // Your own row is lit like a focused button
       if (isMe) {
-        this.add.rectangle(width / 2, y + Math.round(6 * s), width - Math.round(20 * s), lineHeight - Math.round(10 * s), 0x2a1f18, 0.9);
+        this.add.graphics().fillStyle(0x2a1f18, 1).fillRect(tableX + 4, top, tableW - 8, rowH - 4).fillStyle(0xe8c15a, 1).fillRect(tableX + 4, top, 4, rowH - 4);
       }
 
-      // Rank number (stable -- never animated)
-      this.add.text(colRank, y, `${rank}.`, rowStyle).setOrigin(0, 0.5);
+      label(colRank, y, `${rank}.`, '16px', color);
+      this.add.rectangle(colColor, y, 20, 20, PLAYER_COLORS[entry.color] ?? 0xffffff, 1).setStrokeStyle(2, isMe ? 0xfff1c2 : 0x000000);
 
-      // Player color square
-      const playerColor = PLAYER_COLORS[entry.color] ?? 0xffffff;
-      const sq = Math.round(16 * s);
-      this.add.rectangle(colColor, y, sq, sq, playerColor, 1);
+      // The score, then the name in what room is left
+      const score = label(colScore, y, spaced(entry.score), '24px', color, 1);
+      const name = label(colName, y, entry.name, '16px', isMe ? '#fff1c2' : color);
+      let shown = entry.name;
+      while (name.x + name.width > score.x - score.width - 16 && shown.length > 1) {
+        shown = shown.slice(0, -1);
+        name.setText(`${shown.trimEnd()}…`);
+      }
 
-      // Player name (highlight if self)
-      const nameStyle = { ...rowStyle };
-      if (isMe) nameStyle.color = '#fff1c2';
-      this.add.text(colName, y, entry.name, nameStyle).setOrigin(0, 0.5);
-
-      // Score (right-aligned)
-      this.add.text(colScore, y, String(entry.score), rowStyle).setOrigin(1, 0.5);
-
-      // Death cause icon + label below name
+      // Under the name: what killed them (its picture in a slot of its own, so the words line up whether it has one or not),
+      // and how the run went
       const stats = entry.stats || {};
       const obstacleType = (stats.obstacleType as string) || 'fall';
-      const causeLabel = deathLabel(obstacleType);
-
-      const statLineY = y + Math.round(16 * s);
-
-      // Show obstacle sprite if texture exists
-      let statTextX = colName;
-      if (obstacleType === 'boss') {
-        const faces = ['boss-face1', 'boss-face2', 'boss-face3'];
-        const faceSpacing = Math.round(14 * s);
-        faces.forEach((key, fi) => {
-          if (this.textures.exists(key)) {
-            const faceIcon = this.add.image(colName + fi * faceSpacing, statLineY, key);
-            faceIcon.setScale(Math.round(12 * s) / Math.max(faceIcon.width, faceIcon.height));
-            faceIcon.setOrigin(0, 0.5);
-            faceIcon.setDepth(DEPTH.PICKUPS);
-          }
-        });
-        statTextX = colName + faces.length * faceSpacing + Math.round(4 * s);
-      } else {
-        const icon = addObstacleArt(this, colName, statLineY, obstacleType);
-        if (icon) {
-          icon.setScale(Math.round(16 * s) / Math.max(icon.width, icon.height));
-          icon.setOrigin(0, 0.5);
-          icon.setDepth(DEPTH.PICKUPS);
-          statTextX = colName + Math.round(18 * s);
-        }
+      const statLineY = top + 33;
+      // (the boss's faces arrive with their pack: until then, none)
+      const icon = obstacleType === 'boss' && !this.textures.exists('boss-face2') ? null : addObstacleArt(this, colName + ICON_SLOT / 2, statLineY + 3, obstacleType);
+      if (icon) {
+        icon.setScale(18 / Math.max(icon.width, icon.height));
+        icon.setDepth(DEPTH.PICKUPS);
       }
 
-      // Death cause + stats line
-      const statParts: string[] = [causeLabel];
+      const statParts: string[] = [deathLabel(obstacleType)];
       if (stats.timeSurvived !== undefined) statParts.push(`${stats.timeSurvived}s`);
       if (stats.distance !== undefined) statParts.push(`${stats.distance}m`);
       if (typeof stats.maxLevel === 'number') statParts.push(`lv${stats.maxLevel}`);
@@ -174,71 +175,14 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       if (typeof stats.pillsCollected === 'number') pickupParts.push(`${stats.pillsCollected}`);
       if (pickupParts.length > 0) statParts.push(pickupParts.join('/'));
 
-      this.add.text(statTextX, statLineY, statParts.join('  '), smallStyle({
-        fontSize: statFontSize,
-        color: UI_TEXT.muted,
-        strokeThickness: 0,
-      })).setOrigin(0, 0.5);
+      const line = label(colName + ICON_SLOT + 8, statLineY, statParts.join('  '), '12px', UI_TEXT.muted);
+      // At the narrowest the line is a little long: the pickups and speed give way before it spills out of the panel
+      while (line.x + line.width > colScore && statParts.length > 3) {
+        statParts.splice(statParts.length - (statParts.length > 5 ? 2 : 1), 1);
+        line.setText(statParts.join('  '));
+      }
     }
 
-
-    // --- "Zapisz" button next to player's score ---
-    if (myRanking && myRanking.score > 0) {
-      const myIndex = rankings.findIndex(r => r.id === myId);
-      const myRowY = tableStartY + myIndex * lineHeight;
-
-      fetchScores().then((scores) => {
-        const inTop100 = scores.length < 100 || myRanking.score > scores[scores.length - 1].score;
-        // The board is for signed-in players. A guest goes to Google, which leaves the lobby; the score is saved back at the menu
-        const user = account();
-        if (inTop100 && (user || signInAvailable())) {
-          const saveBtnX = colScore - Math.round(60 * s);
-          const saveBtnY = myRowY - Math.round(12 * s);
-          const stats = myRanking.stats || {};
-          const num = (value: unknown): number | null => (typeof value === 'number' ? value : null);
-          const submission: ScoreSubmission = {
-            score: myRanking.score,
-            deathCause: typeof stats.obstacleType === 'string' ? stats.obstacleType : null,
-            distance: num(stats.distance),
-            timeSurvived: num(stats.timeSurvived),
-            applesCollected: num(stats.applesCollected),
-            tyskiesCollected: num(stats.tyskiesCollected),
-            pillsCollected: num(stats.pillsCollected),
-            maxLevel: num(stats.maxLevel),
-            maxCombo: num(stats.maxCombo),
-          };
-
-          // A guest gets Google's own button (its branding rules), on the score's line just left of it
-          const signInW = 180;
-          const scoreGap = Math.round(110 * s);
-          const saveBtn = user
-            ? createButton(this, saveBtnX, saveBtnY, Math.round(76 * s), Math.round(22 * s), 'Zapisz', 0x008800, buttonStyle({
-              fontSize: `${Math.round(8 * s)}px`,
-              strokeThickness: 2,
-            }), () => save())
-            : createButton(this, colScore - scoreGap - signInW / 2, myRowY, signInW, 26, 'Zaloguj przez Google', 0, buttonStyle({
-              fontSize: '7px',
-              strokeThickness: 2,
-            }), () => {
-              this.cleanupListeners();
-              mpClient.leaveLobby();
-              signIn(submission);
-            }, { google: true });
-          const save = (): void => {
-            for (const obj of saveBtn.all) obj.destroy();
-            setNav(bottomButtons);
-            void submitScore(submission).then((saved) => {
-              if (!this.scene.isActive()) return;
-              this.add.text(saveBtnX, saveBtnY, saved ? 'Zapisano' : 'Nie zapisano', smallStyle({
-                fontSize: `${Math.round(8 * s)}px`,
-                color: saved ? UI_TEXT.named : '#e07a6a',
-              })).setOrigin(0.5);
-            });
-          };
-          setNav([saveBtn, ...bottomButtons]);
-        }
-      }).catch(() => { /* offline is fine */ });
-    }
 
     // --- Buttons ---
     const btnS = buttonStyle({
@@ -246,9 +190,9 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       strokeThickness: Math.round(3 * s),
     });
 
-    const btnGap = Math.round(12 * s);
-    const btnH = Math.round(38 * s);
-    const btnY = height - Math.round(36 * s);
+    const btnGap = GAP + 2;
+    const btnH = BUTTON_H;
+    const btnY = height - 16 - AGAIN_H / 2;
 
     const leave = (): void => {
       sceneManager.goto(this, 'MultiplayerMenuScene', undefined, () => {
@@ -266,13 +210,14 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       });
     };
 
-    const startRun = (data: { seed: number; players: MPPlayer[] }): void => {
+    const startRun = (data: MPStart): void => {
       sceneManager.goto(this, 'GameScene', {
         multiplayer: true,
         seed: data.seed,
         players: data.players,
         myId: mpClient.myId,
         startsAt: Date.now() + MP_START_LEAD_MS,
+        ticket: data.ticket ?? null,
       }, () => this.cleanupListeners());
     };
 
@@ -293,24 +238,36 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       mpClient.setReady(!(me()?.ready ?? false)).then((updated) => { lobby = updated; refresh(); }).catch(() => {});
     };
 
-    // Left to right: leave, watch, the lobby screen, play again
+    // Left to right: leave, watch, the lobby screen, then play again, the big one
     const row: [string, number, () => void][] = [['Opuść', 0x666666, leave]];
-    if (this.replayData && this.replayData.frames.length > 0) row.push(['Odtwórz śmierć', 0x333366, () => this.playReplay()]);
+    if (DEATH_REPLAY_OFFERED && this.replayData && this.replayData.frames.length > 0) row.push(['Odtwórz śmierć', 0x333366, () => this.playReplay()]);
     row.push(['Lobby', 0x335555, toLobby]);
-    row.push(['Rewanżyk', 0x880000, rematchAction]);
-    const btnW = Math.min(Math.round(170 * s), Math.floor((width - 40 - btnGap * (row.length - 1)) / row.length));
-    const totalW = btnW * row.length + btnGap * (row.length - 1);
-    const bottomButtons: UIButton[] = row.map(([label, color, action], i) =>
-      createButton(this, width / 2 - totalW / 2 + btnW / 2 + i * (btnW + btnGap), btnY, btnW, btnH, label, color, btnS, action));
+    const room = width - EDGE * 2 - btnGap * row.length;
+    const againW = Math.min(280, Math.floor(room * 0.4));
+    const sideW = Math.min(150, Math.floor((room - againW) / row.length));
+    const totalW = sideW * row.length + againW + btnGap * row.length;
+    let bx = width / 2 - totalW / 2;
+    const bottomButtons: UIButton[] = row.map(([label, color, action]) => {
+      const button = createButton(this, bx + sideW / 2, btnY, sideW, btnH, label, color, btnS, action);
+      bx += sideW + btnGap;
+      return button;
+    });
+    bottomButtons.push(createButton(this, bx + againW / 2, btnY, againW, AGAIN_H, 'Rewanżyk', TAB_ON, buttonStyle({ fontSize: '16px', strokeThickness: 3 }), rematchAction));
     const rematch = bottomButtons[bottomButtons.length - 1];
+    // The focus stays where it was, across the buttons changing and a screen rebuilt for a new width
+    const keyOf = (button: UIButton | null): string | null => (button === rematch ? REMATCH_FOCUS : button?.txt.text ?? null);
+    let focusWas = again?.focus ?? null;
+    this.focusKey = () => keyOf(nav.current) ?? focusWas;
     const setNav = (buttons: UIButton[]): void => {
-      nav.set(buttons, { initial: rematch, onBack: leave });
+      const keep = keyOf(nav.current) ?? focusWas;
+      focusWas = null;
+      nav.set(buttons, { initial: buttons.find(b => keyOf(b) === keep) ?? rematch, onBack: leave });
     };
 
-    const hint = this.add.text(width / 2, btnY - btnH, '', smallStyle({
-      fontSize: `${Math.round(8 * s)}px`,
+    const hint = this.add.text(width / 2, btnY - AGAIN_H / 2 - 14, '', smallStyle({
+      fontSize: '8px',
       color: UI_TEXT.muted,
-      strokeThickness: Math.round(2 * s),
+      strokeThickness: 2,
       align: 'center',
     })).setOrigin(0.5);
 
@@ -319,19 +276,85 @@ export class MultiplayerGameOverScene extends Phaser.Scene {
       const total = guests().length;
       if (amHost()) {
         rematch.setLabel(`Rewanżyk (${ready}/${total})`);
-        rematch.setColor(0x880000);
+        rematch.setColor(TAB_ON);
         rematch.setEnabled(canStart());
         hint.setText(total === 0 ? 'Nie ma z kim grać: wszyscy wyszli' : canStart() ? 'Wszyscy gotowi!' : 'Czekamy, aż wszyscy dadzą Rewanżyk');
       } else {
         const isReady = me()?.ready ?? false;
         rematch.setLabel(isReady ? 'Gotowy!' : 'Rewanżyk');
-        rematch.setColor(isReady ? 0x008800 : 0x880000);
+        rematch.setColor(isReady ? 0x2f8a3a : TAB_ON);
         rematch.setEnabled(lobby?.status === 'waiting');
         hint.setText(isReady ? 'Czekamy, aż gospodarz zacznie...' : 'Rewanżyk = gotowy na kolejny zjazd');
       }
     };
     refresh();
     setNav(bottomButtons);
+
+    // --- The okruszki receipt, under the table: the server's answer to this player's run ---
+    if (myRanking) {
+      const receiptW = Math.min(420, width - 32);
+      // Down to the hint over the row of buttons, less the room for its own button when it has one (below)
+      const receipt = new CrumbReceipt(this, { x: Math.round(width / 2 - receiptW / 2), y: tableBottom + 12, w: receiptW, bottom: hint.y - 16 });
+      receipt.showPending();
+      this.input.on('pointerdown', () => receipt.skip());
+      // Asked once, here, and kept: a rebuild of the screen paints the same answer
+      this.task = again?.task ?? Promise.all([
+        data.result ?? Promise.resolve<RunResult>({ kind: 'none' }),
+        fetchScores().then((scores) => myRanking.score > 0 && (scores.length < 100 || myRanking.score > scores[scores.length - 1].score)).catch(() => false),
+      ]).then(([run, inTop100]): Settled => ({ run, inTop100, saved: null }));
+      void this.task.then((settled) => {
+        if (generation !== this.generation || !this.scene.isActive()) return;
+        const instant = this.painted;
+        this.painted = true;
+        const { run, inTop100 } = settled;
+        const user = account();
+        const guest = run.kind === 'checked' && !run.receipt.paid && run.receipt.counted;
+        const ranked = run.kind === 'checked' && run.receipt.board !== null;
+        if (run.kind === 'checked' && ((guest && signInAvailable()) || (user && inTop100 && ranked))) receipt.area.bottom -= BUTTON_H + 8;
+        receipt.show(run, {
+          guestLine: (crumbs) => signInAvailable() ? `Zaloguj się, żeby dostać ${crumbs} okr. i zapisać wynik` : `Z kontem dostał(a)byś ${crumbs} okr.`,
+        });
+        if (instant) receipt.skip();
+        if (run.kind !== 'checked') return;
+        const buttonY = receipt.bottom + 8 + BUTTON_H / 2;
+        const said = (saved: boolean): void => {
+          this.add.text(width / 2, buttonY, saved ? `Zapisano jako ${user?.name}` : 'Nie udało się zapisać', smallStyle({
+            color: saved ? UI_TEXT.named : '#e07a6a',
+          })).setOrigin(0.5);
+        };
+        if (guest && signInAvailable()) {
+          // Google's own button (its branding rules); the sign-in leaves the lobby, and comes back to this run's game over
+          const stats = myRanking.stats || {};
+          const num = (value: unknown): number | undefined => (typeof value === 'number' ? value : undefined);
+          const view = {
+            score: myRanking.score, distance: num(stats.distance), timeSurvived: num(stats.timeSurvived), level: num(stats.maxLevel),
+            obstacleType: typeof stats.obstacleType === 'string' ? stats.obstacleType : null, maxCombo: num(stats.maxCombo),
+            pickupCounts: { apples: num(stats.applesCollected) ?? 0, beers: num(stats.tyskiesCollected) ?? 0, pills: num(stats.pillsCollected) ?? 0 },
+            guest: run,
+          };
+          const button = createButton(this, width / 2, buttonY, 240, BUTTON_H, 'Zaloguj przez Google', 0, buttonStyle({ fontSize: '8px', strokeThickness: 2 }), () => {
+            this.cleanupListeners();
+            mpClient.leaveLobby();
+            signIn({ ticket: run.ticket, board: inTop100, view });
+          }, { google: true });
+          setNav([button, ...bottomButtons]);
+        } else if (user && inTop100 && ranked) {
+          if (settled.saved === 'yes' || settled.saved === 'no') { said(settled.saved === 'yes'); return; }
+          if (settled.saved === 'saving') return;
+          const button = createButton(this, width / 2, buttonY, 240, BUTTON_H, 'Zapisz wynik', 0x008800, buttonStyle({ fontSize: '10px', strokeThickness: 2 }), () => {
+            settled.saved = 'saving';
+            for (const obj of button.all) obj.destroy();
+            setNav(bottomButtons);
+            void rankRun(run.ticket).then((saved) => {
+              settled.saved = saved ? 'yes' : 'no';
+              // The screen may have been built again while it was asked: the line goes on whichever one is up
+              if (this.scene.isActive()) said(saved);
+            });
+          });
+          setNav([button, ...bottomButtons]);
+        }
+      });
+    }
 
     // --- Socket listeners ---
     this.lobbyUpdatedHandler = (lobbyData) => {

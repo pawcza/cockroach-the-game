@@ -1,6 +1,8 @@
 /** The privacy policy in the game, scrollable, read from public/privacy.html so the policy has one source. */
 import Phaser from 'phaser';
 import { createPanel } from '../../ui/shared';
+import type { Rect } from '../../ui/kit';
+import { createScrollList, type ScrollList } from '../../ui/ScrollList';
 import { smallStyle, UI_TEXT } from '../../utils/TextStyles';
 
 interface Block {
@@ -11,16 +13,18 @@ interface Block {
 /** Sizes as everywhere in the game (TextStyles snaps them to the font's grid): headings a step above the text. */
 const STYLE: Record<Block['kind'], { size: number; color: string; before: number }> = {
   h1: { size: 22, color: UI_TEXT.bone, before: 0 },
-  h2: { size: 16, color: UI_TEXT.amber, before: 22 },
-  h3: { size: 10, color: UI_TEXT.bone, before: 14 },
-  p: { size: 10, color: '#d8cab2', before: 10 },
-  li: { size: 10, color: '#d8cab2', before: 8 },
-  note: { size: 9, color: UI_TEXT.muted, before: 8 },
+  h2: { size: 16, color: UI_TEXT.amber, before: 32 },
+  h3: { size: 10, color: UI_TEXT.bone, before: 20 },
+  p: { size: 10, color: '#d8cab2', before: 14 },
+  li: { size: 10, color: '#d8cab2', before: 10 },
+  note: { size: 9, color: UI_TEXT.muted, before: 10 },
 };
-const LINE_SPACING = 4;
-const TOP = 40;
-const BOTTOM_ROOM = 96;
-const WHEEL = 0.6;
+/** Air between the lines of a paragraph: a phone's small letters need more of it than a monitor's. */
+const LINE_SPACING = 8;
+/** A line of 60 to 70 letters reads best: the column stops growing there, however wide the screen. */
+const COLUMN_MAX = 520;
+/** Under the panel: where the page is on the web. */
+const FOOTER_H = 32;
 const KEY_STEP = 60;
 
 /** The Polish half of the page: everything before its <hr>, flattened to headings, paragraphs and bullets. */
@@ -46,34 +50,20 @@ async function loadPolicy(): Promise<Block[]> {
   return blocks;
 }
 
-/** Fills the page; returns what to undo when the menu goes. Scrolls with the wheel, the arrows and a drag. */
-export function buildPrivacyPage(scene: Phaser.Scene, container: Phaser.GameObjects.Container, width: number, height: number): () => void {
-  const columnW = Math.min(width - 80, 680);
-  const left = Math.round((width - columnW) / 2);
-  const viewTop = TOP;
-  const viewBottom = height - BOTTOM_ROOM;
+/** Fills `area` of the page (kit contentArea); returns its list, for MenuNav's `scroll`, and to destroy when the menu goes. */
+export function buildPrivacyPage(scene: Phaser.Scene, container: Phaser.GameObjects.Container, area: Rect): ScrollList {
+  const columnW = Math.min(area.w - 64, COLUMN_MAX);
+  const left = Math.round(area.x + (area.w - columnW) / 2);
+  const viewTop = area.y + 16;
+  const viewBottom = area.y + area.h - FOOTER_H - 12;
 
-  container.add(createPanel(scene, left - 16, viewTop - 12, columnW + 32, viewBottom - viewTop + 24, 0.9));
-  const scroll = scene.add.container(0, 0);
-  container.add(scroll);
-  const maskShape = scene.make.graphics({});
-  maskShape.fillRect(left - 16, viewTop - 8, columnW + 32, viewBottom - viewTop + 16);
-  scroll.setMask(new Phaser.Display.Masks.GeometryMask(scene, maskShape));
-  // The mask lives outside the page, so it rides along with it as the page slides in and out
-  const followPage = (): void => { maskShape.y = container.y; };
-  scene.events.on('update', followPage);
+  container.add(createPanel(scene, left - 16, area.y, columnW + 32, area.h - FOOTER_H, 0.9));
+  const list = createScrollList(scene, container, { x: left - 16, y: viewTop - 8, w: columnW + 32, h: viewBottom - viewTop + 16 }, { step: KEY_STEP });
+  const scroll = list.content;
 
-  container.add(scene.add.text(Math.round(width / 2), viewBottom + 22, 'Strona www i wersja angielska: cockroach.wszystko.app/privacy', smallStyle({
+  container.add(scene.add.text(Math.round(area.x + area.w / 2), area.y + area.h - FOOTER_H / 2, 'Strona www i wersja angielska: cockroach.wszystko.app/privacy', smallStyle({
     fontSize: '8px', color: UI_TEXT.muted, strokeThickness: 0,
   })).setOrigin(0.5));
-
-  let scrollY = 0;
-  let maxScroll = 0;
-  const scrollTo = (y: number): void => {
-    scrollY = Phaser.Math.Clamp(y, 0, maxScroll);
-    scroll.y = -scrollY;
-  };
-  const shown = (): boolean => container.y === 0 && container.visible;
 
   const status = scene.add.text(left, viewTop, 'Wczytuję…', smallStyle({ fontSize: '10px', color: UI_TEXT.muted, strokeThickness: 0 }));
   scroll.add(status);
@@ -94,34 +84,9 @@ export function buildPrivacyPage(scene: Phaser.Scene, container: Phaser.GameObje
       scroll.add(text);
       y += text.height;
     }
-    maxScroll = Math.max(0, y + 16 - viewBottom);
+    list.setContentHeight(y + 16 - (viewTop - 8));
   }).catch(() => {
     if (status.active) status.setText('Nie udało się wczytać. Polityka jest pod cockroach.wszystko.app/privacy');
   });
-
-  const onWheel = (_p: Phaser.Input.Pointer, _o: unknown[], _dx: number, dy: number): void => {
-    if (shown()) scrollTo(scrollY + dy * WHEEL);
-  };
-  const onKey = (event: KeyboardEvent): void => {
-    if (!shown()) return;
-    const step = event.code === 'ArrowDown' || event.code === 'PageDown' ? 1 : event.code === 'ArrowUp' || event.code === 'PageUp' ? -1 : 0;
-    if (step !== 0) scrollTo(scrollY + step * (event.code.startsWith('Page') ? viewBottom - viewTop - 40 : KEY_STEP));
-  };
-  scene.input.on('wheel', onWheel);
-  scene.input.keyboard?.on('keydown', onKey);
-
-  // Dragging the text, on a phone
-  const drag = scene.add.rectangle(width / 2, (viewTop + viewBottom) / 2, columnW + 32, viewBottom - viewTop, 0x000000, 0).setInteractive();
-  container.add(drag);
-  let dragFrom = 0;
-  let scrollFrom = 0;
-  drag.on('pointerdown', (pointer: Phaser.Input.Pointer) => { dragFrom = pointer.y; scrollFrom = scrollY; });
-  drag.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (pointer.isDown) scrollTo(scrollFrom + dragFrom - pointer.y); });
-
-  return () => {
-    scene.events.off('update', followPage);
-    scene.input.off('wheel', onWheel);
-    scene.input.keyboard?.off('keydown', onKey);
-    maskShape.destroy();
-  };
+  return list;
 }

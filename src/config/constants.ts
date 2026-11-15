@@ -101,6 +101,11 @@ export const DEPTH = {
   SCORE_MILESTONE: 998,
   POPUP: 999,
   HUD: 1000,
+  /**
+   * The home screen's missions card, opened over the menu on a narrow screen. From POPUP up a layer is drawn on the ui
+   * camera, after all text (PixelCameras), so the menu's labels don't show through it; achievement toasts stay above.
+   */
+  MENU_MODAL: 1000,
   HUD_FILL: 1001,
   COUNTDOWN: 1000,
   ANNOUNCEMENT: 1002,
@@ -130,6 +135,8 @@ export const DEPTH = {
   DEATH_REPLAY_SPRITE: 6002,
   DEATH_REPLAY_TEXT: 6003,
   DEATH_REPLAY_LABEL: 6004,
+  /** The sparkle where a click or tap lands, over whatever was pressed. */
+  TAP_FX: 7000,
 } as const;
 
 /**

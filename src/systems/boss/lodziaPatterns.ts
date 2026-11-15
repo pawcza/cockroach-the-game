@@ -350,3 +350,24 @@ export function fightRandom(seed: number | null | undefined, bossId: string): ()
   const rng = new SeededRNG(mixed);
   return () => rng.next();
 }
+
+// ── The dash ────────────────────────────────────────────────────────────
+
+/** The dash, as Player has it: the roach's lunge, out and back, takes this long. */
+export const DASH_MS = 375;
+/** Out to the far end of the lunge in this share of the dash, back in the rest. */
+export const LUNGE_OUT_SHARE = 0.45;
+/** How far the roach lunges along its lane (px): enough to meet a slipper a little before it would arrive. */
+export const LUNGE_REACH = 110;
+
+/** The lunge's offset from the roach's spot, `dt` ms after the press (`reach` at its far end, 0 before and after). */
+export function lungeOffset(dt: number, reach = LUNGE_REACH): number {
+  if (dt < 0 || dt >= DASH_MS) return 0;
+  const out = DASH_MS * LUNGE_OUT_SHARE;
+  if (dt < out) {
+    const k = dt / out;
+    return reach * (1 - (1 - k) * (1 - k));
+  }
+  const back = (dt - out) / (DASH_MS - out);
+  return reach * (0.5 + 0.5 * Math.cos(Math.PI * back));
+}

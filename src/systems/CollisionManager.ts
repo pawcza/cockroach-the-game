@@ -1,18 +1,15 @@
 import Phaser from 'phaser';
-import { APPLE_SCORE, PILL_SCORE, BEER_SCORE, DEPTH } from '../config/constants';
+import { APPLE_SCORE, PILL_SCORE, BEER_SCORE } from '../config/constants';
 import { popupStyle } from '../utils/TextStyles';
 import { Player } from '../objects/Player';
 import { VisualEffects } from '../effects/VisualEffects';
 import { AudioManager, VOL } from '../audio/AudioManager';
-import { getFx } from '../effects/Fx';
 import { popup } from '../effects/Popup';
+import { punt } from '../effects/Punt';
+import { Hold, holdOn, settleHold, shiftHold } from './dashGrace';
 
 /** The burp follows the beer's clink by this long. */
 const BURP_DELAY_MS = 280;
-/** How far a punted obstacle flies, and for how long. Ahead of the roach, so it stays in view as it flies off. */
-const CRUSH_FLING_X = 500;
-const CRUSH_FLING_Y = 220;
-const CRUSH_MS = 750;
 
 export interface CollisionCallbacks {
   getScore: () => number;
@@ -27,6 +24,8 @@ export interface CollisionCallbacks {
   onPillStart: () => void;
   /** What killed the roach: its type, and the obstacle itself (for the hit-stop's flash). */
   onDie: (obstacleType?: string | null, culprit?: Phaser.Physics.Arcade.Sprite) => void;
+  /** The roach has a dash to give right now (owned, ready, not already on). */
+  dashAvailable: () => boolean;
   /** A hit that would kill: true when the wylinka took it (its shell is shed, and the obstacle is punted instead). */
   survivesHit: (obstacle?: Phaser.Physics.Arcade.Sprite) => boolean;
   onPickupCollected?: (x: number, y: number, frameName: string) => void;
@@ -36,6 +35,10 @@ export interface CollisionCallbacks {
 }
 
 export class CollisionManager {
+  /** The lethal touches held for a dash that may come (dashGrace.ts): at most one hold at a time. */
+  private hold: { rules: Hold; sprites: Phaser.Physics.Arcade.Sprite[] } | null = null;
+  /** The swap (its press time) that had its hold: it earns no second one. */
+  private spentFor: number | null = null;
   private scene: Phaser.Scene;
   private player: Player;
   private vfx: VisualEffects;
@@ -62,6 +65,8 @@ export class CollisionManager {
     pills: Phaser.Physics.Arcade.Group,
     obstacles: Phaser.Physics.Arcade.Group,
   ): void {
+    this.scene.events.on('update', this.settle, this);
+    this.scene.events.once('shutdown', () => this.scene.events.off('update', this.settle, this));
     this.scene.physics.add.overlap(
       this.player.sprite, apples,
       this.collectApple as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
@@ -88,8 +93,9 @@ export class CollisionManager {
           this.crushObstacle(sprite);
           return false;
         }
-        // An enemy between attacks (a raised slipper, a bird up high, a cat in mid-air) can't hurt and isn't punted
-        if (sprite.getData('harmless')) return false;
+        // An enemy between attacks (a raised slipper, a bird up high, a cat in mid-air) can't hurt and isn't punted. A
+        // wall's cloud is the exception for a dash: it may go through the wall while it is open, and takes it down
+        if (sprite.getData('harmless') && !(this.player.isDashing && sprite.getData('partOf'))) return false;
         const obstacleFloor = sprite.getData('floor');
         const inLane = !obstacleFloor || obstacleFloor === this.player.currentFloor;
         if (this.player.isDashing) {
@@ -100,13 +106,74 @@ export class CollisionManager {
           return false;
         }
         if (this.player.isInvulnerable) return false;
+        // Swapped lane a moment ago and the dash is a key press away: the touch is held for it (dashGrace.ts)
+        if (inLane && this.holds(sprite)) return false;
         return inLane;
       },
       this,
     );
   }
 
-  setupFloorColliders(
+  /**
+   * A lethal touch soon after a lane swap is held while a dash could still save the roach (dashGrace.ts). Everything
+   * that touches during the hold shares it; `settleHold` ends it by its own clock, whatever the overlap does.
+   */
+  private holds(sprite: Phaser.Physics.Arcade.Sprite): boolean {
+    const hop = this.player.lastHop;
+    const held = holdOn(this.scene.time.now, this.hold?.rules ?? null, hop?.at ?? null, this.spentFor, this.callbacks.dashAvailable());
+    if (!held) return false;
+    if (!this.hold) {
+      this.hold = { rules: held, sprites: [] };
+      this.spentFor = hop?.at ?? null;
+    }
+    if (!this.hold.sprites.includes(sprite)) {
+      this.hold.sprites.push(sprite);
+      // A held obstacle was not dodged: no close call for it
+      sprite.setData('dashGrace', true);
+    }
+    return true;
+  }
+
+  /** Every frame: a hold comes to its end, a dash that began inside it punts what was held, or its time is up and it kills. */
+  private settle(): void {
+    const hold = this.hold;
+    if (!hold) return;
+    const { player } = this;
+    // What the roach (or a pill) punted is settled; what fell with its ledge in the meantime still touched the roach
+    const live = hold.sprites.filter(sprite => sprite.active && !sprite.getData('punted'));
+    // The run is over, or what was held is gone (a boss cleared the arena, a pill punted it): nothing is left to settle
+    if (live.length === 0 || player.isDead) {
+      this.hold = null;
+      return;
+    }
+    const dashedAt = player.dashStartTime > 0 ? player.dashStartTime : null;
+    const verdict = settleHold(this.scene.time.now, hold.rules, dashedAt);
+    if (verdict === 'wait') return;
+    this.hold = null;
+    // What touched the roach is settled as it touched it: swapping out of the lane afterwards is no way out of it
+    const here = live;
+    if (verdict === 'punt' || player.crushesObstacles) {
+      for (const sprite of here) {
+        if (verdict === 'punt') this.callbacks.onDashThrough(sprite);
+        this.crushObstacle(sprite);
+      }
+      return;
+    }
+    if (player.isInvulnerable) return;
+    const body = (s: Phaser.Physics.Arcade.Sprite) => s as Phaser.Types.Physics.Arcade.GameObjectWithBody;
+    // Each one that touched counts, as each would have at its own touch (a moult takes one blow, a death ends the run)
+    for (const sprite of here) {
+      if (player.isDead) break;
+      this.hitObstacle(body(player.sprite), body(sprite));
+    }
+  }
+
+  /** The game stood still for `ms` (the pause): a hold's wait is what it was. */
+  adjustForPause(ms: number): void {
+    if (this.hold) this.hold = { ...this.hold, rules: shiftHold(this.hold.rules, ms) };
+  }
+
+    setupFloorColliders(
     floorTopBody: Phaser.GameObjects.Rectangle,
     floorBottomBody: Phaser.GameObjects.Rectangle,
   ): void {
@@ -201,33 +268,18 @@ export class CollisionManager {
    * On the pill, dashing through, or shedding its shell, the roach punts what it hits: a spark and a poof, then up and ahead, gone. Cosmetic and local, so no seeded
    * randomness; the obstacle stops colliding at once.
    */
-  private crushObstacle(obstacle: Phaser.Physics.Arcade.Sprite): void {
-    if (obstacle.getData('falling')) return;
+  private crushObstacle(struck: Phaser.Physics.Arcade.Sprite): void {
+    // What is hit may be one part of something bigger (a cloud of the spray wall): the whole of it goes
+    const obstacle = (struck.getData('partOf') as Phaser.Physics.Arcade.Sprite | undefined) ?? struck;
+    if (obstacle.getData('falling') || !obstacle.active) return;
     obstacle.setData('falling', true);
+    obstacle.setData('punted', true);
+    obstacle.emit('crushed');
     (obstacle.body as Phaser.Physics.Arcade.Body).enable = false;
     this.scene.tweens.killTweensOf(obstacle);
     (obstacle.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false);
-    obstacle.setDepth(DEPTH.POPUP - 1);
-    this.audio.playSfx('flipper-sfx', 0.5);
-    // The hit: a white-hot spark where it was struck and a poof as it leaves; it flies off unturned
-    const fx = getFx(this.scene);
-    const { y } = obstacle.getCenter();
-    fx.play('poof', obstacle.x, y, { depth: DEPTH.POPUP - 1 });
-    fx.play('spark-big', obstacle.x - 10, y, { depth: DEPTH.POPUP });
-    this.scene.tweens.add({
-      targets: obstacle,
-      x: obstacle.x + CRUSH_FLING_X + Math.random() * 200,
-      duration: CRUSH_MS,
-      ease: 'Quad.easeOut',
-    });
-    this.scene.tweens.add({
-      targets: obstacle,
-      y: obstacle.y - CRUSH_FLING_Y - Math.random() * 120,
-      alpha: 0,
-      duration: CRUSH_MS,
-      ease: 'Cubic.easeOut',
-      onComplete: () => obstacle.destroy(),
-    });
+    // The hit: a spark where it was struck, a poof, a thud; it flies off unturned
+    punt(this.scene, this.audio, obstacle, { x: struck.x, y: struck.getCenter().y });
   }
 
   private hitObstacle(

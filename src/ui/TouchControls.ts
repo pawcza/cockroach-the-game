@@ -8,6 +8,8 @@ export interface TouchControlCallbacks {
   onShoot: () => void;
   isDisabled: () => boolean;
   isDashAllowed: () => boolean;
+  /** A tap on the dash that is not allowed yet (the cooldown has a moment left): the input may keep it for a few frames. */
+  onDashEarly?: () => void;
 }
 
 /** The plate is 60 texels across (tools/art/buttons.py), drawn at SPRITE_SCALE. */
@@ -97,6 +99,7 @@ export class TouchControls {
     // DASH and GUN: bottom-right, each its own hit area. Hidden until something shows them.
     this.dash = this.createButton('dash', 0, cy, true, () => {
       if (this.callbacks.isDashAllowed()) this.callbacks.onDash();
+      else this.callbacks.onDashEarly?.();
     });
     this.gun = this.createButton('gun', 0, cy, false, () => this.callbacks.onShoot());
     this.pips = this.scene.add.graphics().setScrollFactor(0).setDepth(DEPTH.TOUCH_BUTTON);

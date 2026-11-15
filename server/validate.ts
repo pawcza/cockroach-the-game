@@ -1,7 +1,5 @@
 /** Everything the server accepts from a client passes through here. Nothing a client sends is trusted as-is. */
 import { mergeProfileCopies } from './achievements';
-import { CHECKPOINT_STARTS, ENDLESS_START } from './bossDistances';
-import { COURSE_VERSION } from './daily';
 import { SKIN_CAUSES } from './enemySkins';
 
 export const MAX_NAME_LENGTH = 20;
@@ -58,11 +56,6 @@ function parseStat(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= MAX_STAT ? value : null;
 }
 
-function wholeStat(value: unknown): number | null {
-  const stat = parseStat(value);
-  return stat === null ? null : Math.round(stat);
-}
-
 export function parseDeathCause(value: unknown): string | null {
   return typeof value === 'string' && DEATH_CAUSES.has(value) ? value : null;
 }
@@ -99,65 +92,6 @@ export function parseBossProjectile(value: unknown): BossProjectile | null {
   return { lane, speed, faceIdx, indestructible, volley };
 }
 
-/** A finished run as a client reports it. The name on the board comes from the signed-in account, not from here. */
-export interface ScoreSubmission {
-  score: number;
-  deathCause: string | null;
-  distance: number | null;
-  timeSurvived: number | null;
-  applesCollected: number | null;
-  tyskiesCollected: number | null;
-  pillsCollected: number | null;
-  maxLevel: number | null;
-  maxCombo: number | null;
-  /** The day of a Karaluch Dnia run; null for an ordinary one. */
-  daily: string | null;
-  /** The board it goes on besides the day's: null for the main one, 'endless' for a run from the Eksterminator's start. */
-  board: 'endless' | null;
-}
-
-/**
- * Where the run started (metres): 0, or a checkpoint's distance. Absent counts as 0: a client cached from before
- * checkpoints can only start there, and one from before the endless board cannot start at the Eksterminator. A start
- * that is neither is junk.
- */
-function parseStart(value: unknown): number | null {
-  if (value === undefined || value === null) return 0;
-  return typeof value === 'number' && (value === 0 || CHECKPOINT_STARTS.includes(value)) ? value : null;
-}
-
-export function parseScoreSubmission(body: unknown): ScoreSubmission | { error: string } {
-  if (!isRecord(body)) return { error: 'Invalid body' };
-
-  const score = parseScore(body.score);
-  if (score === null) return { error: `Score must be an integer from 0 to ${MAX_SCORE}` };
-
-  // A run from a checkpoint is practice, whatever the client thinks it may send: only runs from 0 m make the main board
-  // (or the day's), and runs from the Eksterminator's start the endless one
-  const start = parseStart(body.start);
-  if (start === null) return { error: 'Invalid start' };
-  const endless = start === ENDLESS_START;
-  if (start > 0 && !endless) return { error: 'A run from a checkpoint is practice and is not ranked' };
-  const daily = parseDay(body.daily);
-  if (endless && daily) return { error: 'Karaluch Dnia starts from 0 m' };
-  // A daily run is laid from the day's seed: only a client laying today's course may be on its board
-  if (daily && body.course !== COURSE_VERSION) return { error: 'This version of the game is out of date: reload it' };
-
-  return {
-    score,
-    deathCause: parseDeathCause(body.deathCause),
-    distance: wholeStat(body.distance),
-    timeSurvived: wholeStat(body.timeSurvived),
-    applesCollected: wholeStat(body.applesCollected),
-    tyskiesCollected: wholeStat(body.tyskiesCollected),
-    pillsCollected: wholeStat(body.pillsCollected),
-    maxLevel: wholeStat(body.maxLevel),
-    maxCombo: wholeStat(body.maxCombo),
-    daily,
-    board: endless ? 'endless' : null,
-  };
-}
-
 /** A calendar day, YYYY-MM-DD; whether it is still open is the server's call. */
 export function parseDay(value: unknown): string | null {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
@@ -170,8 +104,8 @@ const MAX_ACHIEVEMENTS = 128;
 /**
  * Stats that can only be so large, whatever a client claims: a boss is beaten once a run, and a run takes minutes. A
  * bigger number is not refused (the profile is saved as it is for the rest) but held to the cap, so nothing a client
- * invents reaches further than a player who played for years would. Missions done and items owned are claims too: what
- * is paid on is the server's own record (economy.ts).
+ * invents reaches further than a player who played for years would. Nothing is paid on a saved profile any more (the
+ * server counts its own: playerStats.ts); these caps also held the one-time seeding of those counts from the profiles.
  */
 const PROFILE_STAT_CAPS: Record<string, number> = {
   lodziaWins: 100_000, bigosWins: 100_000, zlewiatanWins: 100_000, eksterminatorWins: 100_000,

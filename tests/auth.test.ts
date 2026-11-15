@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { COURSE_VERSION } from '../server/daily';
 import { cookiesOf, startServer, type Harness } from './support/harness';
+import { ranked } from './support/runs';
 
 let harness: Harness;
 
@@ -20,10 +22,10 @@ async function me(cookie: string): Promise<{ user: { id: number; name: string } 
 }
 
 test('only signed-in players can save a score, under their account name', async () => {
-  assert.equal((await post('/api/scores', { score: 10 })).status, 401);
+  assert.equal((await post('/api/scores', { ticket: 'x'.repeat(22), course: COURSE_VERSION })).status, 401);
 
   const cookie = await harness.signIn('google-ola', 'Ola');
-  const res = await post('/api/scores', { name: 'Someone Else', score: 10 }, cookie);
+  const res = await ranked(harness, cookie, 10);
   assert.equal(res.status, 201);
   assert.equal((await res.json()).name, 'Ola');
 });
@@ -51,7 +53,7 @@ test('a callback without the matching state signs nobody in', async () => {
 test('signing in again finds the same player, and a rename follows their scores onto the board', async () => {
   const cookie = await harness.signIn('google-kornel', 'Kornel');
   const first = (await me(cookie)).user!;
-  assert.equal((await post('/api/scores', { score: 77 }, cookie)).status, 201);
+  assert.equal((await ranked(harness, cookie, 77)).status, 201);
 
   const again = await harness.signIn('google-kornel', 'Different Google Name');
   assert.deepEqual((await me(again)).user, first);
@@ -65,7 +67,7 @@ test('signing in again finds the same player, and a rename follows their scores 
 
 test('deleting an account takes it and its scores away for good', async () => {
   const cookie = await harness.signIn('google-leaver', 'Leaver');
-  assert.equal((await post('/api/scores', { score: 55 }, cookie)).status, 201);
+  assert.equal((await ranked(harness, cookie, 55)).status, 201);
   const res = await fetch(`${harness.url}/api/me`, { method: 'DELETE', headers: { cookie } });
   assert.equal(res.status, 200);
   assert.equal((await me(cookie)).user, null);

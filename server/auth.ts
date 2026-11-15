@@ -7,10 +7,14 @@ import type { Request, Response, Router } from 'express';
 import express from 'express';
 import { deleteUser, findOrCreateGoogleUser, getUser, renameUser, type User } from './db';
 import { forgetPlayer } from './economy';
+import { forgetTickets } from './runs';
 import { cleanName, isRecord, MAX_NAME_LENGTH } from './validate';
 
 const SESSION_COOKIE = 'kc_session';
 const STATE_COOKIE = 'kc_oauth_state';
+/** A guest's own random id: their runs' tickets are issued to it, so the account they sign in to can claim one. */
+const GUEST_COOKIE = 'kc_guest';
+const GUEST_DAYS = 30;
 const SESSION_DAYS = 180;
 const STATE_MINUTES = 10;
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -70,9 +74,12 @@ function idTokenPayload(token: unknown): Record<string, unknown> | null {
 
 export interface Auth {
   router: Router;
-  /** The signed-in player behind this request, or null. */
   /** The signed-in player behind a request or a socket handshake: only the cookie header is read. */
   userOf: (req: { headers: { cookie?: string } }) => User | null;
+  /** The guest id a request or a socket handshake carries, or null. */
+  guestOf: (req: { headers: { cookie?: string } }) => string | null;
+  /** The guest id of this request, given now if it had none. */
+  ensureGuest: (req: { headers: { cookie?: string } }, res: Response) => string;
 }
 
 export function createAuth(options: AuthOptions | null): Auth {
@@ -96,6 +103,19 @@ export function createAuth(options: AuthOptions | null): Auth {
     if (!Number.isInteger(id) || !Number.isFinite(issued)) return null;
     if (Date.now() - issued > SESSION_DAYS * 86_400_000) return null;
     return getUser(id);
+  };
+
+  const guestOf = (req: { headers: { cookie?: string } }): string | null => {
+    const id = parseCookies(req.headers.cookie)[GUEST_COOKIE];
+    return id && /^[\w-]{22}$/.test(id) ? id : null;
+  };
+
+  const ensureGuest = (req: { headers: { cookie?: string } }, res: Response): string => {
+    const known = guestOf(req);
+    if (known) return known;
+    const id = crypto.randomBytes(16).toString('base64url');
+    res.cookie(GUEST_COOKIE, id, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: GUEST_DAYS * 86_400_000 });
+    return id;
   };
 
   const exchangeCode = options?.exchangeCode ?? (async (code: string): Promise<GoogleProfile> => {
@@ -166,6 +186,8 @@ export function createAuth(options: AuthOptions | null): Auth {
 
   router.get('/me', (req, res) => {
     const user = userOf(req);
+    // A guest gets their id at once: a match started before their first solo run issues them a ticket too
+    if (!user) ensureGuest(req, res);
     res.json({ user: user && { id: user.id, name: user.name }, signInAvailable: options !== null });
   });
 
@@ -187,9 +209,10 @@ export function createAuth(options: AuthOptions | null): Auth {
     if (!user) { res.status(401).json({ error: 'Sign in first' }); return; }
     deleteUser(user.id);
     forgetPlayer(user.id);
+    forgetTickets(user.id);
     res.clearCookie(SESSION_COOKIE, { path: '/' });
     res.json({ ok: true });
   });
 
-  return { router, userOf };
+  return { router, userOf, guestOf, ensureGuest };
 }

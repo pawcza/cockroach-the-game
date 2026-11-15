@@ -16,7 +16,8 @@
  *   level-N         level N's images: what a run starting in level N waits for, and what its look switches on
  *   skins-N         level N's baked enemy skins (one or more sheets): until they are in, those enemies look like their base
  *   audio-N         level N's music, the base sounds of the enemies that first appear in it, its baked skins' sounds;
- *                   never waited for: a sound not in yet is silent, a track not in yet leaves the last one playing
+ *                   never waited for: a sound not in yet is silent, a level's track not in yet leaves the last level's
+ *                   playing until it lands (audio/MusicDeck.ts: no track outlives its moment)
  *   boss-common     what every fight shares (the choir, the pistol, the splash's sounds); boss-<id> one boss's own
  *   roach-<skin>    one shop skin of the roach
  */

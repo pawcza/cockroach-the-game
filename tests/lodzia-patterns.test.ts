@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   atSliver, attackLength, AttackKind, buildPhases, CLOSE_CALL_DAMAGE, CURLER_LANDINGS, curlerLanding, DODGE_DAMAGE,
-  dodgeWear, finisherFor, fightRandom, nextStep, simulate, SLIVER, smackWear, SMACK_DAMAGE, STAMINA, timeAttack,
+  DASH_MS, dodgeWear, finisherFor, fightRandom, LUNGE_REACH, lungeOffset, nextStep, simulate, SLIVER, smackWear, SMACK_DAMAGE, STAMINA, timeAttack,
 } from '../src/systems/boss/lodziaPatterns';
 
 const seeds = Array.from({ length: 300 }, (_, i) => i * 7919 + 1);
@@ -248,4 +248,21 @@ test('a daily seed gives everyone the same fight, and another day another one', 
   assert.deepEqual(phasesFor(20261111), phasesFor(20261111));
   const days = new Set(Array.from({ length: 20 }, (_, i) => JSON.stringify(phasesFor(20261111 + i))));
   assert.ok(days.size > 5);
+});
+
+test('the dash lunges out and comes home inside the dash, and a dodge-sized wear is all a dashed slipper costs her', () => {
+  assert.equal(lungeOffset(-1), 0);
+  assert.equal(lungeOffset(0), 0);
+  assert.equal(lungeOffset(DASH_MS), 0);
+  let peak = 0;
+  for (let t = 0; t < DASH_MS; t += 5) {
+    const x = lungeOffset(t);
+    assert.ok(x >= 0 && x <= LUNGE_REACH + 1e-9);
+    peak = Math.max(peak, x);
+  }
+  assert.ok(peak > LUNGE_REACH * 0.95);
+  // Punting a slipper is a dodge: it can wear her down to the sliver and never past it, so the boomerang still finishes her
+  let stamina = STAMINA;
+  for (let i = 0; i < 200; i++) stamina = dodgeWear(stamina, DODGE_DAMAGE);
+  assert.equal(stamina, SLIVER);
 });

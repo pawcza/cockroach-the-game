@@ -40,6 +40,8 @@ interface Run {
   lastScore: Map<string, number>;
   boss: BossState | null;
   bossDefeated: boolean;
+  /** Each player's run ticket (runs.ts), for those the server could issue one to (an account or a known guest). */
+  tickets: Map<string, string>;
 }
 
 export interface MultiplayerOptions {
@@ -47,6 +49,26 @@ export interface MultiplayerOptions {
   sweepMs?: number;
   /** What a connecting player's roach wears, from the account their cookie names; null for a guest. */
   lookOf?: (headers: { cookie?: string }) => { skin: string | null; head: string | null; back: string | null } | null;
+  /**
+   * The match's run tickets: issued to each player as it starts (null when the player is neither signed in nor a known
+   * guest), told each death as the server saw it, and who won. What a match pays is checked against these.
+   */
+  tickets?: {
+    issue: (headers: { cookie?: string }, startsAt: number) => string | null;
+    death: (ticket: string, score: number) => void;
+    over: (players: { ticketId: string; won: boolean }[]) => void;
+  };
+  /** The server's clock (ms); tests move it on. */
+  now?: () => number;
+}
+
+/** Runs work outside a socket handler (the sweep timer, the match's payments) so that a throw can't take the server down. */
+function safely(what: string, work: () => void): void {
+  try {
+    work();
+  } catch (error) {
+    console.error(`${what} failed:`, error);
+  }
 }
 
 function ackOf(value: unknown): Ack {
@@ -108,10 +130,17 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
     // Everyone is on the results now, ready for a rematch from there
     io.to(lobbyId).emit('lobby:updated', serializeLobby(lobbies, lobby));
     broadcastLobbyList();
+    // The match's count, after everyone has their results: paying never holds up or ends a match
+    safely('match over', () => options.tickets?.over(rankings.flatMap((player, place) => {
+      const ticketId = run.tickets.get(player.id);
+      return ticketId ? [{ ticketId, won: place === 0 }] : [];
+    })));
   }
 
   function recordDeath(lobbyId: string, run: Run, id: string, death: DeathRecord): void {
     run.deaths.set(id, death);
+    const ticket = run.tickets.get(id);
+    if (ticket) safely('match death', () => options.tickets?.death(ticket, death.score));
     io.to(lobbyId).except(id).emit('game:death', { id, ...death });
     transferBossHost(lobbyId, run, id);
     finishIfAllDead(lobbyId, run);
@@ -143,7 +172,7 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
   }
 
   // A client that stops talking without disconnecting (a backgrounded phone) would hold its lobby in-game forever
-  const sweep = setInterval(() => {
+  const sweep = setInterval(() => safely('stall sweep', () => {
     const now = Date.now();
     for (const [lobbyId, run] of runs) {
       for (const [id, seen] of [...run.lastSeen]) {
@@ -151,7 +180,7 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
         recordDeath(lobbyId, run, id, { score: run.lastScore.get(id) ?? 0, stats: { obstacleType: 'fall' } });
       }
     }
-  }, options.sweepMs ?? SWEEP_MS);
+  }), options.sweepMs ?? SWEEP_MS);
   sweep.unref();
 
   io.use((socket, next) => {
@@ -322,6 +351,16 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
       }
 
       const now = Date.now();
+      // Every player's run starts MP_START_LEAD_MS from now: their tickets are issued for that moment
+      const runStartsAt = (options.now ?? Date.now)() + MP_START_LEAD_MS;
+      const tickets = new Map<string, string>();
+      for (const id of lobby.players.keys()) {
+        const headers = io.sockets.sockets.get(id)?.handshake.headers;
+        safely('match ticket', () => {
+          const ticket = headers ? options.tickets?.issue(headers, runStartsAt) : null;
+          if (ticket) tickets.set(id, ticket);
+        });
+      }
       runs.set(lobby.id, {
         deaths: new Map(),
         lastSeen: new Map([...lobby.players.keys()].map((id) => [id, now])),
@@ -329,11 +368,15 @@ export function setupMultiplayer(io: Server, options: MultiplayerOptions = {}): 
         lastScore: new Map(),
         boss: null,
         bossDefeated: false,
+        tickets,
       });
 
       const players = lobbies.serializePlayers(lobby);
-      ack({ ok: true, seed: lobby.seed, players });
-      socket.to(lobby.id).emit('game:start', { seed: lobby.seed, players });
+      ack({ ok: true, seed: lobby.seed, players, ticket: tickets.get(socket.id) ?? null });
+      // Each player's own ticket, so the start goes to each one apart
+      for (const id of lobby.players.keys()) {
+        if (id !== socket.id) io.to(id).emit('game:start', { seed: lobby.seed, players, ticket: tickets.get(id) ?? null });
+      }
       broadcastLobbyList();
     });
 

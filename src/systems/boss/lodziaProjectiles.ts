@@ -65,6 +65,10 @@ export class Projectile {
   }
 
   get done(): boolean { return this._done; }
+  /** What it is (a thrown slipper, the boomerang, a curler). */
+  get kind(): LodziaProjectile { return this.flight.sprite; }
+  /** The lane it counts in right now. Only for what flies a plain path: asking the curler's would play its landings. */
+  get lane(): Lane { return this.flight.at(Math.min(this.elapsed, this.flight.duration)).lane; }
   get elapsed(): number { return this.scene.time.now - this.startedAt; }
 
   /** laneAt: the lane the roach was on at a scene time (it counts from the press), so a long frame still judges a
@@ -91,6 +95,17 @@ export class Projectile {
       }
     });
     if (t >= this.flight.duration) this.finish();
+  }
+
+  /**
+   * Taken out of the fight by a dash: it never reaches the roach and ends nothing (no smack, no pass). `fling` gets the
+   * picture to send off; the trail goes at once.
+   */
+  punt(fling: (sprite: Phaser.GameObjects.Sprite) => void): void {
+    if (this._done) return;
+    this._done = true;
+    this.trail.destroy();
+    fling(this.sprite);
   }
 
   /** Where it is now, for a puff. */

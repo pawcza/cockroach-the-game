@@ -6,10 +6,11 @@ import { DEFERRED_LOAD_SCENE } from './DeferredLoadScene';
 import { GOOGLE_G } from '../ui/shared';
 import { ANCHORS_KEY, createItemAnimations } from '../config/skins';
 import { VFX_ATLAS } from '../effects/Fx';
+import { parkReturnNotice, takeReturnToRun } from '../ui/Account';
 
 /** Bump when anything in public/assets changes. Those files were once served `immutable` for a year, so browsers
  * and Cloudflare that kept the old copies only fetch new ones under a new URL. */
-export const ASSET_REV = '?v=27';
+export const ASSET_REV = '?v=29';
 
 /** assets/packs.json, the bake's list of atlases (src/config/packs.ts). */
 export const PACKS_KEY = 'packs';
@@ -112,24 +113,32 @@ export class BootScene extends Phaser.Scene {
     createSpriteAnimations(this);
     createItemAnimations(this);
     this.scene.launch(DEFERRED_LOAD_SCENE);
-    // No fade of its own: the loading screen stays up until the menu has drawn its first frame, then fades away over it
-    sceneManager.enter(this, 'MenuScene');
+    // Back from a sign-in that a guest left for from a game over: straight onto that game over, the run claimed for the
+    // account there, never by way of the menu. A run that can't be shown (its data lost) goes to the menu, said why
+    const back = takeReturnToRun();
+    const view = back?.run.view as { score?: unknown; guest?: unknown } | undefined;
+    const target = back && typeof view?.score === 'number' && view.guest ? 'GameOverScene' : 'MenuScene';
+    if (back && target === 'MenuScene') parkReturnNotice('Nie udało się wrócić do wyniku biegu');
+    // No fade of its own: the loading screen stays up until that scene has drawn its first frame, then fades away over it
+    sceneManager.enter(this, target, back && target === 'GameOverScene'
+      ? { ...back.run.view, returned: { ticket: back.run.ticket, board: back.run.board, signIn: back.signIn, guest: view!.guest } }
+      : undefined);
     const loading = loadingScreen();
     if (!loading) return;
-    void Promise.all([loading.finish(), this.menuDrawn()]).then(() => loading.reveal());
+    void Promise.all([loading.finish(), this.drawn(target)]).then(() => loading.reveal());
   }
 
-  /** Resolves once MenuScene has been drawn twice, and the browser has had a frame to show it. */
-  private menuDrawn(): Promise<void> {
+  /** Resolves once the first scene has been drawn twice, and the browser has had a frame to show it. */
+  private drawn(key: string): Promise<void> {
     return new Promise((resolve) => {
       let frames = 0;
       const onRender = (): void => {
-        if (!this.scene.isActive('MenuScene') || ++frames < 2) return;
+        if (!this.scene.isActive(key) || ++frames < 2) return;
         this.game.events.off(Phaser.Core.Events.POST_RENDER, onRender);
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       };
       this.game.events.on(Phaser.Core.Events.POST_RENDER, onRender);
-      // A menu that never draws must not leave the loading screen up for good
+      // A scene that never draws must not leave the loading screen up for good
       setTimeout(resolve, 6000);
     });
   }

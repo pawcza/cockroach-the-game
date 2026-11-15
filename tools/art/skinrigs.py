@@ -685,7 +685,7 @@ LIFT.update({"lv4-branch": .3, "lv4-frond": .15, "lv7-crab": (.12, .28, .02)})
 SOFT.update({"lv4-branch", "lv4-frond", "lv6-mug"})
 
 OPTS: dict[str, dict[str, dict]] = {
-    "lv3-flyswatter": {"flipper-swat": {"head": "top", "flat_flip": True, "flat_h": 2.6, "flat_extra": .9, "raised_extra": .75}},
+    "lv3-flyswatter": {"flipper-swat": {"head": "top", "flat_h": 2.6, "flat_extra": .9, "raised_extra": .75}},
     "lv4-branch": {"flipper-swat": {"head": "top"}},
     "lv4-frond": {"newspaper-swat": {"head": "top", "flat_flip": True}},
     # Wider when it lands: flat, the base's footprint (35 frame px) must be covered by the mug, not by air beside it

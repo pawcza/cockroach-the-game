@@ -247,7 +247,7 @@ def collect() -> tuple[dict, dict]:
         frames = _sized_strip(name, make())
         sheet[name] = (frames, _baseline(frames))
     sheet.update(buttons.frames())
-    sheet.update(icons.frames())
+    sheet.update(icons.frames(sheet))
     return sheet, anchors
 
 

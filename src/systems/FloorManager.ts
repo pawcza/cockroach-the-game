@@ -18,10 +18,20 @@ const LANE_HIGHLIGHT = false;
 const FLOOR_OVERHANG = 200;
 
 // A painted ledge strip is one seamless image cut into tile-wide segments. Matches tools/art/levels.py.
-const LEDGE_SEGMENTS = 10;
+export const LEDGE_SEGMENTS = 10;
 const LEDGE_SEGMENT_W = FLOOR_TILE_STEP / PIXEL_BLOCK;
 /** The strip's top row sits this far above the floor line, so feet land on its top surface. */
-const LEDGE_LIFT = 4;
+export const LEDGE_LIFT = 4;
+
+/** Cuts a ledge strip into its tile-wide segments (frames segment-0 to segment-9), once. */
+export function cutLedgeSegments(textures: Phaser.Textures.TextureManager, key: string): void {
+  const texture = textures.get(key);
+  if (texture.has('segment-0')) return;
+  const height = texture.source[0].height;
+  for (let i = 0; i < LEDGE_SEGMENTS; i++) {
+    texture.add(`segment-${i}`, 0, i * LEDGE_SEGMENT_W, 0, LEDGE_SEGMENT_W, height);
+  }
+}
 
 interface TileLook {
   key: string;
@@ -209,7 +219,7 @@ export class FloorManager {
     if (config.painted) {
       if (!this.scene.textures.exists(config.floorKey)) return null;
       // Arrived but not cut into its segments yet (that happens once its whole pack is in): cut it now
-      this.cutLedgeSegments(config.floorKey);
+      cutLedgeSegments(this.scene.textures, config.floorKey);
       const index = Math.round((tx + this.phase) / FLOOR_TILE_STEP);
       const segment = ((index % LEDGE_SEGMENTS) + LEDGE_SEGMENTS) % LEDGE_SEGMENTS;
       return { key: config.floorKey, frame: `segment-${segment}`, scale: PIXEL_BLOCK, lift: LEDGE_LIFT };
@@ -226,22 +236,13 @@ export class FloorManager {
     tile.y = floorY - look.lift;
   }
 
-  private cutLedgeSegments(key: string): void {
-    const texture = this.scene.textures.get(key);
-    if (texture.has('segment-0')) return;
-    const height = texture.source[0].height;
-    for (let i = 0; i < LEDGE_SEGMENTS; i++) {
-      texture.add(`segment-${i}`, 0, i * LEDGE_SEGMENT_W, 0, LEDGE_SEGMENT_W, height);
-    }
-  }
-
   private generateRoundedFloorTextures(): void {
     for (let i = 1; i <= 10; i++) {
       const key = `floor-rounded-lv${i}`;
       const sourceKey = `lv${i}-floor`;
       if (!this.scene.textures.exists(sourceKey)) continue;
       if (LEVELS[i - 1].painted) {
-        this.cutLedgeSegments(sourceKey);
+        cutLedgeSegments(this.scene.textures, sourceKey);
         continue;
       }
       const sourceImage = this.scene.textures.get(sourceKey).getSourceImage() as HTMLImageElement;

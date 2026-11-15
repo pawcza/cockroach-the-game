@@ -159,14 +159,25 @@ test('the calm course lays only pickups and plain standing blockers, on every le
   }
 });
 
-test('the course after the calm stretch starts fresh: the level\'s newcomers are introduced first', () => {
-  const patterns = new RunPatterns(new SeededRNG(5));
-  for (let i = 0; i < 40; i++) {
-    const beat = patterns.calm();
-    assert.ok(beat.kind === 'pickup' || beat.kind === 'blocker' || beat.kind === 'empty', beat.kind);
+test('the calm stretch is never empty, and the course after it goes straight on: no newcomer show for a level already met', () => {
+  for (let seed = 1; seed <= 20; seed++) {
+    const patterns = new RunPatterns(new SeededRNG(seed));
+    const calm = Array.from({ length: 40 }, () => patterns.calm());
+    for (const beat of calm) assert.ok(beat.kind === 'pickup' || beat.kind === 'blocker' || beat.kind === 'empty', beat.kind);
+    // A blocker at least every six beats: each of its chunks has one
+    let since = 0;
+    for (const beat of calm) {
+      since = beat.kind === 'blocker' ? 0 : since + 1;
+      assert.ok(since <= 6, `seed ${seed}: ${since} beats without a blocker`);
+    }
+    const after = Array.from({ length: 60 }, () => patterns.next(7));
+    assert.ok(!after.some(b => b.kind === 'obstacle' && b.enemy), `seed ${seed}: ${JSON.stringify(after.find(b => b.kind === 'obstacle' && b.enemy))}`);
   }
-  const first = Array.from({ length: 6 }, () => patterns.next(7));
-  assert.ok(first.some(b => b.kind === 'obstacle' && b.enemy === 'jellyfish'), JSON.stringify(first));
+  // A run from the start still meets level 7's newcomers when it gets there
+  const fromStart = new RunPatterns(new SeededRNG(5));
+  for (let i = 0; i < 20; i++) fromStart.next(6);
+  const opening = Array.from({ length: 12 }, () => fromStart.next(7));
+  assert.ok(opening.some(b => b.kind === 'obstacle' && b.enemy === 'jellyfish'), JSON.stringify(opening));
 });
 
 test('missions and achievements count only levels a run ran into: not a checkpoint\'s start level', () => {
@@ -204,7 +215,7 @@ function course(seed: number, solo: boolean, ladder: number[], untilM: number): 
     const x = next;
     const level = getLevelForDistance(Math.floor((x - COCKROACH_START_X) / 50)).level;
     next += beatSpacing(level);
-    out.push(`${x}:` + JSON.stringify(x < start.calmUntilX ? layout.calm(x, level) : layout.next(x, level)));
+    out.push(`${x}:` + JSON.stringify(x < start.calmUntilX ? layout.calm(x, level) : layout.next(x, level, courseEnd(unbeaten))));
   }
   return out;
 }
@@ -213,23 +224,25 @@ const sha = (lines: string[]): string => createHash('sha256').update(lines.join(
 /** The slots short of DJ Bigos (levels 1-6): the course's lines up to his runway. */
 const toLevel6 = (lines: string[]): string[] => lines.filter(line => Number(line.slice(0, line.indexOf(':'))) < bossX(1200));
 
-// Levels 1-6: made with the code from before checkpoints (git HEAD at the time), the same driver, CourseLayout.next only;
-// they have never moved. The rest regenerated on purpose with the course version 2 (server/daily.ts COURSE_VERSION):
-// levels 7-10 tighter (RunPatterns beatSpacing) and the endless levels from 2600 m (a match, without the Eksterminator,
-// is in level 11 from there; Karaluch Dnia lays it 1000 px past him). Before version 2 the whole course hashed
-// 735ba36c... (daily, 452 slots) and fb0a405d... (match, 471 slots).
-test('a run from the start lays levels 1-6 exactly as before checkpoints, and the version 2 course after: Karaluch Dnia and a match', () => {
+// Regenerated on purpose with the course version 3 (server/daily.ts COURSE_VERSION): the boss runway a second at the
+// nominal speed instead of 900 px, no breather just before a boss, only the chunks a level's cast fields (levels 7-10),
+// the quiet-time guarantee (RunPatterns quietSlots), the newcomers' introductions without their trailing room and no
+// gull or charger where it can't follow the slot before (cast.ts followsSafely). The driver lays each slot against the
+// course's end, as SpawnManager does. Version 2 hashed d292dd60... (levels 1-6, 233 slots) and d41558a7... (daily, 470
+// slots), ccba6ff3... and 250eead6... (match, 244 and 489 slots); before version 2 the whole course hashed 735ba36c...
+// (daily, 452 slots) and fb0a405d... (match, 471 slots).
+test('a run from the start lays the version 3 course: Karaluch Dnia and a match', () => {
   const daily = course(20261114, true, BOSSES.map(b => b.triggerDistance), 2700);
   assert.equal(daily[1], '750:[{"kind":"enemy","plan":{"id":"glue","x":750,"lane":"top","phase":2541}}]');
-  assert.equal(toLevel6(daily).length, 233);
-  assert.equal(sha(toLevel6(daily)), 'd292dd6035f0800136581b8773e3903d26476f1ef17a35c9a6430a60efbc0b9b');
-  assert.equal(daily.length, 470);
-  assert.equal(sha(daily), 'd41558a75d1e354f90e61ba0124f12eb54c1944c466ddf30b69d59ef34362eaa');
+  assert.equal(toLevel6(daily).length, 237);
+  assert.equal(sha(toLevel6(daily)), '9d7e81bb5f72efbb1ddaab5142c9907a63cba77d4e11260ffa73e83883632c2b');
+  assert.equal(daily.length, 476);
+  assert.equal(sha(daily), '7f4233c64684b8169702b2ea24bd870775e5f1a5ecfb4c69669bbbf6a4e75b88');
   const match = course(4242, false, [bossById('zlewiatan').triggerDistance], 2700);
   assert.equal(toLevel6(match).length, 244);
-  assert.equal(sha(toLevel6(match)), 'ccba6ff308e8af039879d3a1535a542179e60d5ff74ac7ce49dddebf1c2fa013');
-  assert.equal(match.length, 489);
-  assert.equal(sha(match), '250eead62263578ea1143dab4aef83f8d8fecb062203b4aef63fc3605171db03');
+  assert.equal(sha(toLevel6(match)), 'cec78c2f9b85b87451cac782c34bc74ea4f0de4946e9c4afc6b875bb239cde88');
+  assert.equal(match.length, 490);
+  assert.equal(sha(match), 'e9bd1bddf9c30406573ecbf2f3c77cb10728b95237725cabcaac3a221374f744');
 });
 
 test('the nominal runner, on the one speed formula, gives the numbers it gave before up to the endless levels', () => {

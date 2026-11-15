@@ -7,7 +7,6 @@ const KEYS = {
   DAILY_BEST: 'cockroach-daily-best',
   BEST_RUN: 'cockroach-best-run',
   DAILY_BEST_RUN: 'cockroach-daily-best-run',
-  GAMES_PLAYED: 'cockroach-games-played',
   MUSIC_VOLUME: 'cockroach-music-vol',
   SFX_VOLUME: 'cockroach-sfx-vol',
   TAUNTS: 'cockroach-taunts',
@@ -127,14 +126,6 @@ export function saveBestTrack(track: RunTrack, daily?: string, from = 0): void {
   } catch {
     // Storage full or blocked: the ghost is a nicety, the run is saved either way
   }
-}
-
-export function getGamesPlayed(): number {
-  return parseInt(localStorage.getItem(KEYS.GAMES_PLAYED) || '0', 10);
-}
-
-export function incrementGamesPlayed(): void {
-  localStorage.setItem(KEYS.GAMES_PLAYED, (getGamesPlayed() + 1).toString());
 }
 
 export function getMusicVolume(): number {

@@ -521,6 +521,20 @@ export interface EnemyRequest {
   enemy?: EnemyId;
   /** A pickup stands in the other lane at the same x: nothing that reaches into both lanes (the bleach's jug). */
   pair?: boolean;
+  /** The enemies standing in the slot just before: nothing that can't follow them there (followsSafely). */
+  after?: readonly EnemyId[];
+}
+
+/**
+ * Whether an enemy may stand one slot after these (tests/enemies.test.ts, the neighbours). The gull's glide runs 140 px
+ * back from its slot (TIMINGS.gull glideDx), most of the way to the slot before: with anything there, the two can close
+ * both lanes over the few px between them, too close to hop through, for a player who reads both in time. Two chargers
+ * in a row both run at the roach, and can take both lanes at once the same way.
+ */
+export function followsSafely(def: EnemyDef, before: readonly EnemyId[]): boolean {
+  if (before.length === 0) return true;
+  if (def.id === 'gull') return false;
+  return !(def.role === 'charger' && before.some(id => ENEMIES[id].role === 'charger'));
 }
 
 /** Phases are drawn over this span: longer than any cycle, so every point of a rhythm is as likely. */
@@ -541,7 +555,10 @@ export class EnemyPicker {
     const wanted = request.enemy
       ? [{ def: ENEMIES[request.enemy], weight: 1 }]
       : request.role ? cast.filter(e => e.def.role === request.role) : plain;
-    const pool = wanted.length > 0 ? wanted : plain;
+    const listed = wanted.length > 0 ? wanted : plain;
+    // A named one is laid as asked; otherwise only what may follow the slot before (the same single draw either way)
+    const safe = request.enemy || !request.after ? listed : listed.filter(e => followsSafely(e.def, request.after!));
+    const pool = safe.length > 0 ? safe : listed;
     const fresh = pool.length > 1 ? pool.filter(e => e.def.id !== this.last) : pool;
     const total = fresh.reduce((sum, e) => sum + e.weight, 0);
     let roll = this.rng.next() * total;

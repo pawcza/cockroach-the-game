@@ -3,7 +3,11 @@ import { test } from 'node:test';
 import { levelEnd } from '../src/config/levels';
 import { SeededRNG } from '../src/multiplayer/SeededRNG';
 import { cruiseSpeed, nominalCourse } from '../src/objects/obstacles/cast';
-import { Beat, RunPatterns, beatSpacing, endlessProgress, waveHeat } from '../src/systems/RunPatterns';
+import { bossX, courseEnd, CourseLayout, BOSS_RESUME_PX } from '../src/systems/CourseLayout';
+import {
+  BOSS_NO_BREATHER_SLOTS, Beat, RunPatterns, beatSpacing, breatherBeats, endlessProgress, isThreat, quietSlots, waveHeat,
+} from '../src/systems/RunPatterns';
+import { getLevelForDistance } from '../src/config/levels';
 
 const lay = (seed: number, level: number, count: number): Beat[] => {
   const patterns = new RunPatterns(new SeededRNG(seed));
@@ -33,14 +37,16 @@ test('walls leave the dash time to come back', () => {
   assert.ok(Number.isFinite(last), 'walls do appear on level 10');
 });
 
-test('every wave ends in a breather of pickups', () => {
+test('every wave ends in a breather of pickups, as long as the level\'s quiet cap', () => {
   const beats = lay(11, 4, 3000);
-  // A breather is an empty beat then four pickups; count them
+  // A breather on level 4 is an empty beat then three pickups; count them
+  assert.equal(breatherBeats(4), 4);
   let breathers = 0;
-  for (let i = 0; i + 4 < beats.length; i++) {
-    if (beats[i].kind === 'empty' && beats.slice(i + 1, i + 5).every(b => b.kind === 'pickup')) breathers++;
+  for (let i = 0; i + 3 < beats.length; i++) {
+    if (beats[i].kind === 'empty' && beats.slice(i + 1, i + 4).every(b => b.kind === 'pickup')) breathers++;
   }
   assert.ok(breathers > 3000 / 40, `only ${breathers} breathers`);
+  assert.deepEqual(Array.from({ length: 10 }, (_, i) => breatherBeats(i + 1)), [3, 3, 3, 4, 4, 4, 5, 5, 5, 5]);
 });
 
 test('obstacles thicken with the levels but leave room to breathe', () => {
@@ -115,18 +121,7 @@ test('the endless levels lay no newcomers, no chunk whose enemies are out of the
   assert.ok(density(25) > density(11), `level 25 (${density(25)}) is no denser than level 11 (${density(11)})`);
   assert.ok(density(25) < 0.95, `level 25 density ${density(25)}`);
   // The breathers shorten: five beats to level 15, four to 20, three after
-  const breather = (level: number): number => {
-    const laid = beats(level);
-    const lengths: number[] = [];
-    for (let i = 1; i < laid.length; i++) {
-      if (laid[i].kind !== 'empty' || laid[i - 1].kind === 'empty') continue;
-      let n = 1;
-      while (i + n < laid.length && laid[i + n].kind === 'pickup') n++;
-      lengths.push(n);
-    }
-    return Math.max(...lengths);
-  };
-  assert.ok(breather(15) >= 5 && breather(25) < breather(15), `${breather(15)} then ${breather(25)}`);
+  assert.deepEqual([11, 15, 16, 20, 21, 25, 40].map(breatherBeats), [5, 5, 4, 4, 3, 3, 3]);
 });
 
 const roles = (beats: Beat[]): Set<string> =>
@@ -153,3 +148,138 @@ test('each level opens by introducing its newcomers, alone, once', () => {
   assert.deepEqual(named(2, 20).slice(0, 3), ['spray', 'lamp', 'mop']);
 });
 
+
+// ── The quiet-time guarantee ─────────────────────────────────────────────
+
+test('the quiet cap is 3 s at the nominal runner\'s speed where each level starts, in whole slots never over it', () => {
+  for (let level = 1; level <= 25; level++) {
+    const slots = 3 / tempo(level);
+    assert.equal(quietSlots(level), Math.floor(slots + 1e-9), `level ${level}: ${slots.toFixed(3)} slots in 3 s`);
+  }
+  for (const level of [26, 40, 200]) assert.equal(quietSlots(level), quietSlots(25));
+});
+
+/** Each beat laid, tagged with the chunk it came from (one tag per chunk laid; untagged: the guarantee's filler). */
+const chunkOf = new WeakMap<Beat, { name: string }>();
+const watched = RunPatterns.prototype as unknown as { lay(chunk: { name: string }): Beat[] };
+const layChunk = watched.lay;
+watched.lay = function (this: unknown, chunk: { name: string }): Beat[] {
+  const beats = layChunk.call(this, chunk);
+  const tag = { name: chunk.name };
+  for (const beat of beats) chunkOf.set(beat, tag);
+  return beats;
+};
+
+interface Slot { beat: Beat; level: number; afterBoss?: boolean }
+
+/**
+ * Where the guarantee is broken: two threats further apart than the level's cap (the higher where the gap crosses into
+ * the next level), one slot more if a breather lies between, or than one chunk's own room plus one (a filler goes only
+ * between chunks: a pickup trail, a light's quiet, the vacuum's and the wasp's hunts stay whole). Inside a level's
+ * opening, from one newcomer to the next, and across a boss fight there is nothing to keep.
+ */
+function quietBreaks(slots: Slot[]): string[] {
+  const breaks: string[] = [];
+  let last = -1;
+  for (let j = 0; j < slots.length; j++) {
+    if (slots[j].afterBoss) last = -1;
+    if (!isThreat(slots[j].beat)) continue;
+    const i = last;
+    last = j;
+    if (i < 0) continue;
+    const from = chunkOf.get(slots[i].beat)?.name ?? 'filler';
+    const to = chunkOf.get(slots[j].beat)?.name ?? 'filler';
+    if (from.startsWith('intro-') && to.startsWith('intro-')) continue;
+    const between = slots.slice(i + 1, j);
+    let room = 0;
+    for (let k = 0, run = 0; k < between.length; k++) {
+      run = k > 0 && chunkOf.get(between[k].beat) === chunkOf.get(between[k - 1].beat) ? run + 1 : 1;
+      room = Math.max(room, run);
+    }
+    const rest = between.some(s => chunkOf.get(s.beat)?.name === 'breather') ? 1 : 0;
+    const cap = Math.max(quietSlots(slots[i].level), quietSlots(slots[j].level)) + rest;
+    if (j - i > Math.max(cap, room + 1)) breaks.push(`slot ${i} (${from}) to ${j} (${to}): ${j - i} > ${cap}, level ${slots[j].level}`);
+  }
+  return breaks;
+}
+
+test('the quiet-time guarantee: no level goes longer than its cap without a threat, outside its rests', () => {
+  for (let level = 1; level <= 25; level++) {
+    for (let seed = 1; seed <= 4; seed++) {
+      const patterns = new RunPatterns(new SeededRNG(seed * 131 + level));
+      const slots = Array.from({ length: 1500 }, (): Slot => ({ beat: patterns.next(level), level }));
+      assert.deepEqual(quietBreaks(slots).slice(0, 3), [], `level ${level}, seed ${seed}`);
+      assert.ok(slots.some(s => s.beat.kind === 'filler'), `level ${level} never needs a filler`);
+    }
+  }
+});
+
+/** A solo run from the start as SpawnManager lays it, every boss beaten as the course reaches him; each slot's beat. */
+function soloRun(seed: number, untilM: number): { slots: Slot[]; items: ReturnType<CourseLayout['next']>[]; ends: number[]; draws: number[] } {
+  const rng = new SeededRNG(seed);
+  let drawn = 0;
+  const layout = new CourseLayout({ next: () => (drawn++, rng.next()) }, undefined, true);
+  const watchedNext = layout as unknown as { patterns: RunPatterns };
+  const next = watchedNext.patterns.next.bind(watchedNext.patterns);
+  let beat: Beat | undefined;
+  let planned = 0;
+  watchedNext.patterns.next = (level: number, slotsLeft?: number) => {
+    beat = next(level, slotsLeft);
+    planned = drawn;
+    return beat;
+  };
+  let unbeaten = [250, 1200, 1800, 2600];
+  let x = 550;
+  let afterBoss = false;
+  const slots: Slot[] = [];
+  const items: ReturnType<CourseLayout['next']>[] = [];
+  const ends: number[] = [];
+  const draws: number[] = [];
+  while (x < bossX(untilM)) {
+    const end = courseEnd(unbeaten);
+    if (x >= end) {
+      ends.push(slots.length);
+      const boss = Math.min(...unbeaten);
+      unbeaten = unbeaten.filter(d => d > boss);
+      x = Math.max(x, bossX(boss) + BOSS_RESUME_PX);
+      afterBoss = true;
+      continue;
+    }
+    const level = getLevelForDistance(Math.floor((x - 150) / 50)).level;
+    items.push(layout.next(x, level, end));
+    // What filling the slot drew, once its beat was planned
+    draws.push(drawn - planned);
+    slots.push({ beat: beat!, level, afterBoss });
+    afterBoss = false;
+    x += beatSpacing(level);
+  }
+  return { slots, items, ends, draws };
+}
+
+test('a whole run keeps the guarantee, takes no breather in the last slots before a boss and picks up with a threat after him', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const { slots, items, ends } = soloRun(seed * 7919 + 13, 3800);
+    assert.deepEqual(quietBreaks(slots).slice(0, 3), [], `seed ${seed}`);
+    assert.equal(ends.length, 4);
+    for (const end of ends) {
+      const last = slots.slice(end - BOSS_NO_BREATHER_SLOTS, end);
+      assert.ok(!last.some(s => chunkOf.get(s.beat)?.name === 'breather'), `seed ${seed}: a breather just before the boss at slot ${end}`);
+      assert.ok(isThreat(slots[end].beat), `seed ${seed}: slot ${end}, the first after a boss, is ${slots[end].beat.kind}`);
+      assert.ok(items[end].some(item => item.kind !== 'pickup'), `seed ${seed}: nothing to read after the boss`);
+    }
+  }
+});
+
+test('a filler draws nothing from the run\'s source: the course around it is the same, a slot later, on every client', () => {
+  // Two clients of one seed agree on every filler, and each filler is a plain enemy of the level's cast
+  const a = soloRun(4242, 3000);
+  const b = soloRun(4242, 3000);
+  assert.deepEqual(a.items, b.items);
+  const fillers = a.slots.flatMap((s, i) => (s.beat.kind === 'filler' ? [i] : []));
+  assert.ok(a.draws.filter(d => d >= 2).length > 100, 'an enemy\'s slot draws its pick and phase');
+  assert.ok(fillers.length > 20, `${fillers.length} fillers`);
+  for (const i of fillers) {
+    assert.equal(a.draws[i], 0, `the filler at slot ${i} drew from the source`);
+    assert.ok(a.items[i].length === 1 && a.items[i][0].kind === 'enemy', JSON.stringify(a.items[i]));
+  }
+});

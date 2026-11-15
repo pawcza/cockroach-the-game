@@ -475,6 +475,7 @@ export class ZlewiatanSoloFight extends BossFight {
     while (this.events.length && this.events[0].at <= this.clock && !this.over && !this.hitStop) this.events.shift()!.fn();
     if (this.over || this.hitStop) return;
     if (this.state === 'fighting') this.ctx.player.updateDash();
+    else this.ctx.player.cutDash();
     this.recoil = Math.max(0, this.recoil - (RECOIL_PX * dt) / RECOIL_MS);
     const forward = this.updateLunge();
     this.holdPlayer(Math.round(this.recoil) - forward);

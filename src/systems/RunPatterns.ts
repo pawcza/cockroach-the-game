@@ -24,6 +24,8 @@ export type Beat =
   | { kind: 'wall' }
   /** The spray's cloud wall: both lanes shut while its cloud hangs, open between puffs. */
   | { kind: 'cloud' }
+  /** A plain threat laid by the quiet-time guarantee (RunPatterns quietSlots), drawing nothing from the run's source. */
+  | { kind: 'filler' }
   | { kind: 'empty' };
 
 export interface Random {
@@ -119,26 +121,30 @@ const NEWCOMERS: Record<number, EnemyId[]> = {
 /** The ones that pick their own way between the lanes: shown with room either side instead of apples through. */
 const FREE: ReadonlySet<EnemyId> = new Set(['newspaper', 'bird', 'boots', 'jellyfish', 'pope', 'blackhole', 'gull']);
 
+/**
+ * A newcomer's introduction ends on its last apple, not in a hole: the next one, or the course, follows straight on. The
+ * vacuum and the wasp keep their quiet tail, which is their hunt, and the bait its room after the flood.
+ */
 function introduction(enemy: EnemyId): Chunk {
   const steps: Step[] = enemy === 'lamp'
-    ? [['empty'], ['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty']]
+    ? [['empty'], ['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B']]
     : enemy === 'mop'
-      ? [['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+      ? [['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B']]
       : enemy === 'vacuum'
         ? [['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty'], ['pickup', 'A'], ['pickup', 'A'], ['empty']]
         : enemy === 'centipede' || enemy === 'hen'
-          ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+          ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B']]
           : enemy === 'frog' || enemy === 'repeller'
-            ? [['empty'], ['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['empty']]
+            ? [['empty'], ['pickup', 'B'], ['obstacle', 'A', { enemy }], ['pickup', 'B']]
           : enemy === 'wasp'
             ? [['obstacle', 'A', { enemy }], ['empty'], ['empty'], ['pickup', 'B'], ['pickup', 'A'], ['empty']]
           : enemy === 'zapper'
-            ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B'], ['empty']]
+            ? [['empty'], ['obstacle', 'A', { enemy }], ['pickup', 'B'], ['pickup', 'B']]
           : enemy === 'bait'
             ? [['empty'], ['pickup', 'A'], ['obstacle', 'A', { enemy }], ['empty'], ['pickup', 'A'], ['empty']]
       : FREE.has(enemy)
         ? [['empty'], ['obstacle', null, { enemy }], ['empty'], ['pickup', 'A']]
-        : [['pickup', 'A'], ['obstacle', 'A', { enemy }], ['pickup', 'A'], ['empty']];
+        : [['pickup', 'A'], ['obstacle', 'A', { enemy }], ['pickup', 'A']];
   return { name: `intro-${enemy}`, minLevel: 1, heat: 0, weight: 0, steps };
 }
 
@@ -149,17 +155,51 @@ const BREATHER: Chunk = {
 
 /**
  * A run started from a checkpoint eases into its speed (checkpoints.ts): meanwhile only apples and plain blockers, each
- * with room round it.
+ * with room round it. Every one of its chunks has a blocker, so the stretch is calm, never empty.
  */
 const CALM: Chunk[] = [
-  BREATHER,
-  { name: 'calm-trail', minLevel: 1, heat: 0, weight: 1, steps: [['pickup', 'A'], ['pickup', 'A'], ['pickup', 'A'], ['empty']] },
   { name: 'calm-step', minLevel: 1, heat: 0, weight: 1, steps: [['blocker', 'A'], ['pickup', 'B'], ['pickup', 'B'], ['empty']] },
   { name: 'calm-bait', minLevel: 1, heat: 0, weight: 1, steps: [['pickup', 'A'], ['empty'], ['blocker', 'A'], ['pickup', 'B'], ['empty']] },
 ];
 
 /** A wall needs the dash back: at least this many beats since the last one. */
 const WALL_COOLDOWN_BEATS = 8;
+
+/** The fight is the wave's breather: none is laid in this many slots before the course stops short of a boss. */
+export const BOSS_NO_BREATHER_SLOTS = 8;
+
+/**
+ * THE QUIET-TIME GUARANTEE. Outside its deliberate rests the course never goes more than `quietSlots(level)` slots from
+ * one threat (an enemy, a wall, a cloud wall) to the next: 3 s at the nominal runner's speed where the level starts
+ * (cast.ts nominalCourse, cruiseSpeed; the slowest it runs there, so the most time a slot takes), rounded down to whole
+ * slots. Written out per level, like the spacing (tests/run-patterns.test.ts holds them to 3 s), levels 1 to 10; 6 from
+ * level 11. The rests: the breather, whose stretch may run one slot longer (it is the cap long itself, never more than a
+ * breath); a newcomer's introduction, alone, inside its level's opening; the calm stretch after a checkpoint; the boss
+ * runway; the run's start. Where a chunk about to start would break it, a filler beat (one plain threat, as a 'single'
+ * chunk would lay) goes first. It goes only between chunks, so it never comes inside a chunk's own room (a light's, a
+ * wall's, the vacuum's) and every pair of neighbours it makes is one two chunks laid side by side could already make;
+ * where a chunk's own room is longer than the cap (a pickup trail or a light's on levels 1-3, the vacuum's and the
+ * wasp's hunts) the stretch is that room and a slot. Past a beaten boss the course picks up with a threat (resume).
+ * A filler draws nothing from the run's source (CourseLayout), so the beats and picks round it are the ones the
+ * course would have laid without it, a slot later.
+ */
+const QUIET_SLOTS = [3, 3, 3, 4, 4, 4, 5, 5, 5, 5];
+const ENDLESS_QUIET_SLOTS = 6;
+export function quietSlots(level: number): number {
+  return level <= MAX_CAST_LEVEL ? QUIET_SLOTS[Math.max(1, level) - 1] : ENDLESS_QUIET_SLOTS;
+}
+
+/** What counts as a threat for the guarantee. */
+export const isThreat = (beat: Beat): boolean =>
+  beat.kind !== 'pickup' && beat.kind !== 'empty';
+
+/** A queued beat. The first of a chunk carries how many beats of the chunk come before its first threat (all, if none). */
+interface Queued {
+  beat: Beat;
+  lead?: number;
+  /** The chunk is the breather. */
+  rest?: boolean;
+}
 
 /**
  * How far an endless level is into its escalation: 0 up to level 10, rising by 1/15 a level to 1 at ENDLESS_TOP_LEVEL,
@@ -204,66 +244,121 @@ const asks = (chunk: Chunk): CastRole[] => chunk.steps.flatMap((step): CastRole[
   (step[0] === 'obstacle' || step[0] === 'pair') && typeof step[2] === 'string' ? [step[2]] : []);
 
 /**
- * The chunks a level lays. The story: by each chunk's own levels. An endless level: every chunk whose roles its cast
- * fields, whatever its levels, weighted towards the hotter ones as the escalation goes (a chunk's weight times
- * 1 + p(heat / 2 - 1): at the top a pickup trail weighs a quarter of its story weight, the gauntlet two and a half times).
+ * The chunks a level lays: only those whose roles its cast fields (a chunk built round an enemy the level doesn't field
+ * would lay a stand-in amid that enemy's quiet). The story: by each chunk's own levels too. An endless level: whatever
+ * their levels, weighted towards the hotter ones as the escalation goes (a chunk's weight times 1 + p(heat / 2 - 1): at
+ * the top a pickup trail weighs a quarter of its story weight, the gauntlet two and a half times).
  */
 function chunksFor(level: number): Chunk[] {
-  if (level <= MAX_CAST_LEVEL) return CHUNKS.filter(c => c.minLevel <= level && level <= (c.maxLevel ?? Infinity));
   const fielded = new Set<string>(castFor(level).map(e => e.def.role));
+  const laid = (c: Chunk): boolean => asks(c).every(role => fielded.has(role));
+  if (level <= MAX_CAST_LEVEL) return CHUNKS.filter(c => c.minLevel <= level && level <= (c.maxLevel ?? Infinity) && laid(c));
   const p = endlessProgress(level);
-  return CHUNKS.filter(c => asks(c).every(role => fielded.has(role)))
-    .map(c => ({ ...c, weight: c.weight * (1 + p * (c.heat / 2 - 1)) }));
+  return CHUNKS.filter(laid).map(c => ({ ...c, weight: c.weight * (1 + p * (c.heat / 2 - 1)) }));
 }
 
 /**
- * The breather that ends a wave: in the endless levels it shortens, from five beats to four past level 15 and to three
- * past level 20.
+ * The breather that ends a wave: apples for as long as the level's quiet cap (quietSlots), so it is a breath and not a
+ * hole; in the endless levels it shortens, to five beats, to four past level 15 and to three past level 20.
  */
+export function breatherBeats(level: number): number {
+  return Math.min(quietSlots(level), level <= 15 ? 5 : level <= 20 ? 4 : 3);
+}
 function breatherFor(level: number): Chunk {
-  if (level <= 15) return BREATHER;
-  return { ...BREATHER, steps: BREATHER.steps.slice(0, level <= 20 ? 4 : 3) };
+  return { ...BREATHER, steps: BREATHER.steps.slice(0, breatherBeats(level)) };
+}
+
+/** The beats a chunk lays before its first threat: all of them if it has none. */
+function leadOf(beats: Beat[]): number {
+  const first = beats.findIndex(isThreat);
+  return first < 0 ? beats.length : first;
 }
 
 export class RunPatterns {
   private rng: Random;
-  private queue: Beat[] = [];
+  private queue: Queued[] = [];
   private heat = 0;
   private beatsSinceWall = WALL_COOLDOWN_BEATS;
   /** The highest level whose newcomers have been shown. */
   private introduced = 0;
   /** The calm stretch's own queue: the regular course (its waves, newcomers and walls) starts fresh after it. */
   private calmQueue: Beat[] = [];
+  /** A calm stretch was laid: the run started from a checkpoint. */
+  private calmed = false;
+  /** Beats since the last threat, and whether a breather is among them (the quiet-time guarantee). */
+  private quiet = 0;
+  private resting = false;
 
   constructor(rng: Random) {
     this.rng = rng;
   }
 
-  /** The beat for the next slot, on this level. */
-  next(level: number): Beat {
-    // A new level's first beats introduce its newcomers, once each. A run that starts past level 1 (from a
-    // checkpoint, after its calm stretch) is shown its own level's
-    if (this.introduced === 0) this.introduced = level - 1;
+  /**
+   * The beat for the next slot, on this level. `slotsLeft`: how many slots the course still lays, this one included,
+   * before it stops short of a boss (Infinity: no boss ahead).
+   */
+  next(level: number, slotsLeft = Infinity): Beat {
+    // A new level's first beats introduce its newcomers, once each. A run from a checkpoint (it laid a calm stretch
+    // first) starts in the level its boss was beaten into: they have been met already, so no show
+    if (this.introduced === 0) this.introduced = this.calmed ? level : level - 1;
     while (this.queue.length === 0 && this.introduced < level) {
       this.introduced++;
-      for (const enemy of NEWCOMERS[this.introduced] ?? []) this.queue.push(...this.lay(introduction(enemy)));
+      // The opening is one piece for the guarantee: it may need a filler before it, never between its introductions
+      NEWCOMERS[this.introduced]?.forEach((enemy, i) => this.queue.push(...this.mark(this.lay(introduction(enemy)), i === 0)));
     }
-    if (this.queue.length === 0) this.queue = this.pickChunk(level);
-    const beat = this.queue.shift()!;
-    this.beatsSinceWall = beat.kind === 'wall' || beat.kind === 'cloud' ? 0 : this.beatsSinceWall + 1;
-    return beat;
+    if (this.queue.length === 0) this.queue = this.pickChunk(level, slotsLeft);
+    const head = this.queue[0];
+    if (head.lead !== undefined) {
+      const lead = head.lead;
+      delete head.lead;
+      // The next threat would come this many slots after the last one: past the cap, a filler first
+      const cap = quietSlots(level) + (head.rest || this.resting ? 1 : 0);
+      if (this.quiet + lead + 1 > cap) return this.counted({ kind: 'filler' });
+    }
+    this.queue.shift();
+    if (head.rest) this.resting = true;
+    return this.counted(head.beat);
+  }
+
+  /**
+   * The course was stopped short of a boss, who is beaten now: past him it starts on a fresh chunk (what was left of the
+   * one the runway cut is not carried past the fight), whose first beat is a threat or comes after a filler. The wave
+   * goes on where it was: one that was due its breather (none is laid just before a boss) takes it now.
+   */
+  resume(level: number): void {
+    this.queue = [];
+    this.quiet = quietSlots(level) - 1;
+    this.resting = false;
   }
 
   /** A beat of the calm stretch after a checkpoint: an apple, a plain blocker or room. */
   calm(): Beat {
+    this.calmed = true;
     if (this.calmQueue.length === 0) this.calmQueue = this.lay(CALM[Math.floor(this.rng.next() * CALM.length)]);
-    return this.calmQueue.shift()!;
+    return this.counted(this.calmQueue.shift()!);
   }
 
-  private pickChunk(level: number): Beat[] {
-    if (this.heat >= waveHeat(level)) {
+  private counted(beat: Beat): Beat {
+    if (isThreat(beat)) {
+      this.quiet = 0;
+      this.resting = false;
+    } else {
+      this.quiet++;
+    }
+    this.beatsSinceWall = beat.kind === 'wall' || beat.kind === 'cloud' ? 0 : this.beatsSinceWall + 1;
+    return beat;
+  }
+
+  private mark(beats: Beat[], check: boolean, rest = false): Queued[] {
+    return beats.map((beat, i) => (i === 0 && check ? { beat, lead: leadOf(beats), rest } : { beat }));
+  }
+
+  private pickChunk(level: number, slotsLeft: number): Queued[] {
+    const breather = breatherFor(level);
+    // (one slot spare: the guarantee may put a filler before it)
+    if (this.heat >= waveHeat(level) && breather.steps.length + 1 <= slotsLeft - BOSS_NO_BREATHER_SLOTS) {
       this.heat = 0;
-      return this.lay(breatherFor(level));
+      return this.mark(this.lay(breather), true, true);
     }
     // A wall waits for its cooldown and the queue it is laid from must not start with one already behind
     const wallReady = this.beatsSinceWall >= WALL_COOLDOWN_BEATS;
@@ -277,7 +372,7 @@ export class RunPatterns {
       if (roll < 0) { chosen = chunk; break; }
     }
     this.heat += chosen.heat;
-    return this.lay(chosen);
+    return this.mark(this.lay(chosen), true);
   }
 
   private lay(chunk: Chunk): Beat[] {

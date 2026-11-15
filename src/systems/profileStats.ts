@@ -3,6 +3,7 @@
  * stats still reach, and two copies (this browser's and the account's) merged. Profile.ts keeps them and stores them.
  */
 import { ACHIEVEMENTS, BOSS_WINS, mergeProfileCopies, type ProfileCopy, type Stats } from '../../server/achievements';
+import { ENDLESS_START } from '../../server/bossDistances';
 import type { BossId } from './boss/bosses';
 import type { FeatsSnapshot } from './RunFeats';
 
@@ -40,14 +41,14 @@ export const EMPTY: Stats = {
   matches: 0, matchWins: 0, seconds: 0, bestScore: 0, bestDistance: 0, bestLevel: 0, bestCombo: 0,
   checkpoints: 0,
   lodziaWins: 0, bigosWins: 0, zlewiatanWins: 0, eksterminatorWins: 0, noHitBossWins: 0, allBossRuns: 0, moultSaves: 0,
-  bestKills: 0, pacifistRuns: 0, missionsDone: 0, itemsOwned: 0,
+  bestKills: 0, pacifistRuns: 0, endlessRuns: 0, endlessBestLevel: 0, endlessBestDistance: 0, missionsDone: 0, itemsOwned: 0,
 };
 /**
- * Only achievements that exist and these stats reach: ones since retired or made harder drop out. Stats only grow,
- * so anything earned under today's rules always stays.
+ * Only achievements that still exist: one since retired drops out. One made harder since it was earned stays earned
+ * (the server keeps it paid too: economy.ts).
  */
-export function reached(stats: Stats, achievements: Record<string, number>): Record<string, number> {
-  return Object.fromEntries(ACHIEVEMENTS.filter(a => achievements[a.id] && a.test(stats)).map(a => [a.id, achievements[a.id]]));
+export function kept(achievements: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(ACHIEVEMENTS.filter(a => achievements[a.id]).map(a => [a.id, achievements[a.id]]));
 }
 
 /** Each boss the run beat, one more win. */
@@ -86,10 +87,16 @@ export function withRun(stats: Stats, run: RunSnapshot, finished: boolean): Stat
     bestDistance: Math.max(stats.bestDistance, run.distance),
     bestLevel: Math.max(stats.bestLevel, run.level),
     bestCombo: Math.max(stats.bestCombo, run.combo),
+    // Bez końca's own records: runs from the Eksterminator's checkpoint
+    ...(run.startDistance === ENDLESS_START ? {
+      endlessRuns: stats.endlessRuns + (finished ? 1 : 0),
+      endlessBestLevel: Math.max(stats.endlessBestLevel, run.level),
+      endlessBestDistance: Math.max(stats.endlessBestDistance, run.distance),
+    } : {}),
   };
 }
 
 export function merge(a: ProfileData, b: Partial<ProfileData> | null): ProfileData {
   const merged = mergeProfileCopies(a as unknown as ProfileCopy, b as Partial<ProfileCopy> | null);
-  return { stats: merged.stats as unknown as Stats, achievements: reached(merged.stats as unknown as Stats, merged.achievements) };
+  return { stats: merged.stats as unknown as Stats, achievements: kept(merged.achievements) };
 }

@@ -26,6 +26,13 @@ const SWATTER_BODY_H = 18;
 /** How far past the screen edge an obstacle may be and still throw particles. */
 const CULL_MARGIN = 100;
 
+/**
+ * How solid a picture is where it covers a lane it does not hurt in: the dripping jug and the big spray can hang over
+ * the upper lane, which is safe, so they are drawn see-through there and read as passable. What does hurt (the wet
+ * spot, the cloud) stays solid. Alpha on the sprite: looks only, no hitbox or timing.
+ */
+export const PASSABLE_ALPHA = 0.6;
+
 /** Properties ObstacleKit needs from GameScene without importing it directly. */
 export interface ObstacleScene extends Phaser.Scene {
   floorTopY: number;

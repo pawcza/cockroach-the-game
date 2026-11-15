@@ -4,6 +4,7 @@ import type { Socket } from 'socket.io-client';
 import { ENDLESS_START, PRACTICE_STARTS } from '../server/bossDistances';
 import { COURSE_VERSION } from '../server/daily';
 import { ack, flush, inGame, inLobby, next, startServer, type Harness } from './support/harness';
+import { ranked as rankedRun, ticketed as checkedRun, unlock, type RunShape } from './support/runs';
 
 let harness: Harness;
 let visitor = 0;
@@ -22,6 +23,9 @@ function post(body: string, cookie = session, ip = `203.0.113.${++visitor}`): Pr
     body,
   });
 }
+
+const ticketed = (cookie: string, score: number, run: RunShape) => checkedRun(harness, cookie, score, run);
+const ranked = (cookie: string, score: number, run: RunShape = {}) => rankedRun(harness, cookie, score, run);
 
 async function collect(socket: Socket, event: string): Promise<unknown[]> {
   const seen: unknown[] = [];
@@ -163,33 +167,22 @@ test('Karaluch Dnia has its own board: one best run per player, and only for an 
   assert.match(daily.date, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(typeof daily.seed, 'number');
 
-  const save = async (cookie: string, score: number, day: string | null, ip: string) => fetch(`${harness.url}/api/scores`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Forwarded-For': ip },
-    body: JSON.stringify({ score, daily: day, course: COURSE_VERSION }),
-  });
   const ola = await harness.signIn('google-daily-ola', 'Ola');
   const jan = await harness.signIn('google-daily-jan', 'Jan');
-  const late = await harness.signIn('google-daily-late', 'Late');
-  assert.equal((await save(ola, 300, daily.date, '203.0.113.50')).status, 201);
-  assert.equal((await save(jan, 400, daily.date, '203.0.113.52')).status, 201);
-  assert.equal((await save(late, 999, '2001-01-01', '203.0.113.53')).status, 400, 'a day long over');
+  assert.equal((await ranked(ola, 300, { daily: daily.date })).status, 201);
+  assert.equal((await ranked(jan, 400, { daily: daily.date })).status, 201);
   // One save per account every 5 s: Ola's better run comes after that
   await new Promise((resolve) => setTimeout(resolve, 5100));
-  assert.equal((await save(ola, 500, daily.date, '203.0.113.51')).status, 201);
+  assert.equal((await ranked(ola, 500, { daily: daily.date })).status, 201);
 
   const board = await (await fetch(`${harness.url}/api/scores?daily=${daily.date}`)).json() as Array<{ name: string; score: number }>;
   assert.deepEqual(board.map((e) => [e.name, e.score]), [['Ola', 500], ['Jan', 400]]);
   const allTime = await (await fetch(`${harness.url}/api/scores`)).json() as Array<{ score: number }>;
   assert.ok(!allTime.some((e) => [300, 400, 500].includes(e.score)), 'daily runs stay off the all-time board');
-  // An old bundle still open in a tab lays another course from the day's seed: its score stays off the day's board
+  // A day long over takes no ticket (tests/runs.test.ts); an old bundle's score is told to reload
   const stale = await harness.signIn('google-daily-stale', 'Stale');
-  const res = await fetch(`${harness.url}/api/scores`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: stale, 'X-Forwarded-For': '203.0.113.54' },
-    body: JSON.stringify({ score: 450, daily: daily.date }),
-  });
-  assert.equal(res.status, 400);
+  const res = await post(JSON.stringify({ score: 450, daily: daily.date, course: COURSE_VERSION - 1 }), stale);
+  assert.equal(res.status, 409);
 });
 
 test('a second death from the same player changes nothing', async () => {
@@ -275,59 +268,64 @@ test('only the boss host can send projectiles', async () => {
   assert.deepEqual(seen, []);
 });
 
-test('scores are validated before they are stored', async () => {
-  assert.equal((await post(JSON.stringify({ score: 1e308 }), await harness.signIn('google-huge'))).status, 400);
-
-  const res = await post(JSON.stringify({ name: 'Faked', score: 42, deathCause: { evil: true }, distance: 'far' }));
+test('the board takes only a checked run: no ticket, junk or someone else\'s run is refused', async () => {
+  assert.equal((await post(JSON.stringify({ score: 42, course: COURSE_VERSION }))).status, 409, 'no ticket');
+  assert.equal((await post(JSON.stringify({ ticket: 'x'.repeat(22), course: COURSE_VERSION }), await harness.signIn('google-huge'))).status, 404);
+  const owner = await harness.signIn('google-owner', 'Owner');
+  const ticket = await ticketed(owner, 900, {});
+  assert.equal((await post(JSON.stringify({ ticket, course: COURSE_VERSION }), await harness.signIn('google-taker'))).status, 404, 'not theirs');
+  const res = await post(JSON.stringify({ ticket, course: COURSE_VERSION, name: 'Faked', score: 99_999 }), owner);
   assert.equal(res.status, 201);
   const entry = await res.json();
-  assert.deepEqual([entry.name, entry.score, entry.death_cause, entry.distance], ['Real', 42, null, null]);
+  assert.deepEqual([entry.name, entry.score, entry.death_cause, entry.distance], ['Owner', 900, 'onion', 300]);
 });
 
-test('a run from a practice checkpoint is never ranked; one from 0 m, or without a start, is', async () => {
+test('a run from a practice checkpoint is never ranked; one from 0 m is', async () => {
   const board = async () => (await (await fetch(`${harness.url}/api/scores`)).json() as Array<{ name: string; score: number }>);
   for (const start of PRACTICE_STARTS) {
-    const res = await post(JSON.stringify({ score: 777_001, start }), await harness.signIn(`google-practice-${start}`, `Practice${start}`));
+    const cookie = await harness.signIn(`google-practice-${start}`, `Practice${start}`);
+    await unlock(harness, cookie, 4);
+    const res = await ranked(cookie, 901, { start, distance: start + 50 });
     assert.equal(res.status, 400, `start ${start}`);
   }
-  assert.equal((await post(JSON.stringify({ score: 777_001, start: 7 }), await harness.signIn('google-junk-start'))).status, 400);
-  assert.ok(!(await board()).some(entry => entry.score === 777_001), 'nothing of it reached the board');
-
-  assert.equal((await post(JSON.stringify({ score: 777_002, start: 0 }), await harness.signIn('google-from-zero'))).status, 201);
-  // An old client sends no start at all
-  assert.equal((await post(JSON.stringify({ score: 777_003 }), await harness.signIn('google-old-client'))).status, 201);
-  const scores = (await board()).map(entry => entry.score);
-  assert.ok(scores.includes(777_002) && scores.includes(777_003));
+  assert.ok(!(await board()).some(entry => entry.score === 901), 'nothing of it reached the board');
+  assert.equal((await ranked(await harness.signIn('google-from-zero'), 902)).status, 201);
+  assert.ok((await board()).some(entry => entry.score === 902));
 });
 
 test('a run from the Eksterminator\'s start goes on the Bez końca board, and the boards never mix', async () => {
   const scores = async (query = '') => (await (await fetch(`${harness.url}/api/scores${query}`)).json() as Array<{ name: string; score: number; board: string | null }>);
   const cookie = await harness.signIn('google-endless', 'Endless');
-  // Not unlocked on the account: refused, and said why
-  const refused = await post(JSON.stringify({ score: 778_001, start: ENDLESS_START, maxLevel: 14 }), cookie);
+  const me = (await (await fetch(`${harness.url}/api/me`, { headers: { Cookie: cookie } })).json() as { user: { id: number } }).user.id;
+  const endless = { start: ENDLESS_START, distance: ENDLESS_START + 100, level: 11 };
+  // Not unlocked on the account: no ticket at all, and said why
+  const refused = await ranked(cookie, 603, endless);
   assert.equal(refused.status, 403);
-  assert.match((await refused.json() as { error: string }).error, /Eksterminator/);
-  // Three starts are not enough either
-  const unlock = async (checkpoints: number, ip: string) => fetch(`${harness.url}/api/me/profile`, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Forwarded-For': ip },
-    body: JSON.stringify({ stats: { checkpoints }, achievements: {} }),
+  assert.match((await refused.json() as { error: string }).error, /not unlocked/);
+  // A saved profile claiming it unlocks nothing: the server counts its own (checked runs beating the bosses)
+  const { saveStats, statsOf } = await import('../server/playerStats');
+  await fetch(`${harness.url}/api/me/profile`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ stats: { checkpoints: 4 }, achievements: {} }),
   });
-  assert.equal((await unlock(3, '203.0.113.150')).status, 200);
   await new Promise((resolve) => setTimeout(resolve, 5100));
-  assert.equal((await post(JSON.stringify({ score: 778_001, start: ENDLESS_START, maxLevel: 14 }), cookie)).status, 403);
-  // With the Eksterminator's start unlocked on the account: on the board
-  assert.equal((await unlock(4, '203.0.113.151')).status, 200);
+  assert.equal((await ranked(cookie, 603, endless)).status, 403);
+  // Three starts are not enough either; four are
+  saveStats(me, { ...statsOf(me), checkpoints: 3 });
   await new Promise((resolve) => setTimeout(resolve, 5100));
-  const res = await post(JSON.stringify({ score: 778_001, start: ENDLESS_START, maxLevel: 14 }), cookie);
+  assert.equal((await ranked(cookie, 603, endless)).status, 403);
+  saveStats(me, { ...statsOf(me), checkpoints: 4 });
+  await new Promise((resolve) => setTimeout(resolve, 5100));
+  const res = await ranked(cookie, 603, endless);
   assert.equal(res.status, 201);
   assert.equal((await res.json() as { board: string }).board, 'endless');
-  assert.equal((await post(JSON.stringify({ score: 778_002 }), await harness.signIn('google-endless-main', 'Main'))).status, 201);
+  assert.equal((await ranked(await harness.signIn('google-endless-main', 'Main'), 904)).status, 201);
 
-  const endless = await scores('?board=endless');
-  assert.deepEqual(endless.map(e => [e.name, e.score]), [['Endless', 778_001]]);
+  const onEndless = await scores('?board=endless');
+  assert.deepEqual(onEndless.map(e => [e.name, e.score]), [['Endless', 603]]);
   const main = (await scores()).map(e => e.score);
-  assert.ok(main.includes(778_002) && !main.includes(778_001), 'Bez końca stays off the all-time board');
-  assert.ok(!endless.some(e => e.score === 778_002), 'and the all-time runs off Bez końca');
+  assert.ok(main.includes(904) && !main.includes(603), 'Bez końca stays off the all-time board');
+  assert.ok(!onEndless.some(e => e.score === 904), 'and the all-time runs off Bez końca');
   // Nor is it anyone's best on the main board
   const best = await (await fetch(`${harness.url}/api/scores/Endless`)).json() as { entry: unknown };
   assert.equal(best.entry, null);
@@ -350,12 +348,15 @@ test('bad requests get a short JSON error, no stack trace', async () => {
 });
 
 test('the score limit applies per player', async () => {
-  const body = JSON.stringify({ score: 1 });
   const first = await harness.signIn('google-rate-1');
   const second = await harness.signIn('google-rate-2');
-  assert.equal((await post(body, first, '203.0.113.200')).status, 201);
-  assert.equal((await post(body, first, '203.0.113.201')).status, 429);
-  assert.equal((await post(body, second, '203.0.113.200')).status, 201);
+  const [one, two] = [await ticketed(first, 905, {}), await ticketed(first, 906, {})];
+  // (the second ticket closed nothing: the first was already reported)
+  const three = await ticketed(second, 907, {});
+  const body = (ticket: string) => JSON.stringify({ ticket, course: COURSE_VERSION });
+  assert.equal((await post(body(one), first, '203.0.113.200')).status, 201);
+  assert.equal((await post(body(two), first, '203.0.113.201')).status, 429);
+  assert.equal((await post(body(three), second, '203.0.113.200')).status, 201);
 });
 
 test('a save from a client that does not know the newer stats leaves them in the stored profile', async () => {

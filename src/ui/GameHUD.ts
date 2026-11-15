@@ -5,6 +5,7 @@ import { ATLAS, SPRITE_SCALE, frameOf } from '../config/sprites';
 import { getLevelForDistance, LevelConfig, LEVELS, levelConfig, levelEnd } from '../config/levels';
 import { headingStyle, hudStyle, smallStyle, buttonStyle, popupStyle, UI_TEXT } from '../utils/TextStyles';
 import { createButton, UIButton } from './shared';
+import { GAP, TAB_ON, TOUCH_MIN } from './kit';
 import { textBeat } from '../utils/TweenPatterns';
 import { MenuNav } from './MenuNav';
 import { getFx } from '../effects/Fx';
@@ -119,7 +120,7 @@ export class GameHUD {
       .setDepth(DEPTH.HUD);
 
     this.scoreLabels = this.scene.add
-      .text(w / 2, 28, 'Punkciory / Kombo / Mnożnik Punkciorów', smallStyle({ fontSize: '6px', color: '#888888', strokeThickness: 2 }))
+      .text(w / 2, 28, 'Punkciory / Kombo / Mnożnik Punkciorów', smallStyle({ fontSize: '7px', color: '#888888', strokeThickness: 2 }))
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(DEPTH.HUD);
@@ -161,23 +162,30 @@ export class GameHUD {
       .setInteractive();
     this.pauseOverlay.on('pointerdown', () => { this.onTogglePause(); });
 
-    this.pauseText = this.scene.add.text(w / 2, h / 2 - 70, 'PAUZA', popupStyle({
+    // The menu as one stack centred on the screen: the title, the line under it, then the buttons, carry on first and biggest
+    const btnW = 260;
+    const btnH = TOUCH_MIN;
+    const primaryH = 56;
+    const buttons = 1 + (this.onRestart ? 1 : 0) + (this.onMenu ? 1 : 0);
+    const titleH = 40;
+    const subH = 16;
+    const stack = titleH + 12 + subH + 20 + primaryH + (buttons - 1) * (btnH + GAP);
+    const top = Math.round(h / 2 - stack / 2);
+
+    this.pauseText = this.scene.add.text(w / 2, top + titleH / 2, 'PAUZA', popupStyle({
       fontSize: '24px',
       color: UI_TEXT.bone,
       strokeThickness: 6,
       shadow: { offsetX: 0, offsetY: 4, color: '#5a0d0d', blur: 0, fill: true, stroke: true },
     })).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
-    this.pauseSubtext = this.scene.add.text(w / 2, h / 2 - 36, 'Esc albo stuknięcie w tło wraca do biegu', smallStyle({ fontSize: '7px', color: UI_TEXT.muted }))
+    this.pauseSubtext = this.scene.add.text(w / 2, top + titleH + 12 + subH / 2, 'Esc albo stuknięcie w tło wraca do biegu', smallStyle({ fontSize: '7px', color: UI_TEXT.muted }))
       .setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.PAUSE_TEXT).setVisible(false);
 
     // Pause menu buttons, stacked: carry on first
-    const btnW = 220;
-    const btnH = 34;
-    const btnGap = 44;
-    let btnY = h / 2;
+    let btnY = top + titleH + 12 + subH + 20;
     const btnS = buttonStyle({ fontSize: '10px', strokeThickness: 3 });
 
-    const setupPauseBtn = (btn: ReturnType<typeof createButton>): void => {
+    const setupPauseBtn = (btn: ReturnType<typeof createButton>, gapAfter: number): void => {
       for (const obj of btn.all) {
         const go = obj as unknown as Phaser.GameObjects.Components.ScrollFactor & Phaser.GameObjects.Components.Depth & Phaser.GameObjects.Components.Visible;
         go.setScrollFactor(0);
@@ -186,15 +194,15 @@ export class GameHUD {
       }
       this.pauseBtns.push(...btn.all);
       this.pauseButtons.push(btn);
-      btnY += btnGap;
+      btnY += btn.h + gapAfter;
     };
 
-    setupPauseBtn(createButton(this.scene, w / 2, btnY, btnW, btnH, 'Graj dalej', 0x006688, btnS, () => { this.onTogglePause(); }));
+    setupPauseBtn(createButton(this.scene, w / 2, btnY + primaryH / 2, btnW, primaryH, 'Graj dalej', TAB_ON, buttonStyle({ fontSize: '16px', strokeThickness: 3 }), () => { this.onTogglePause(); }), GAP);
     if (this.onRestart) {
-      setupPauseBtn(createButton(this.scene, w / 2, btnY, btnW, btnH, 'Od nowa', 0x880000, btnS, () => { this.onRestart!(); }));
+      setupPauseBtn(createButton(this.scene, w / 2, btnY + btnH / 2, btnW, btnH, 'Od nowa', 0x880000, btnS, () => { this.onRestart!(); }), GAP);
     }
     if (this.onMenu) {
-      setupPauseBtn(createButton(this.scene, w / 2, btnY, btnW, btnH, 'Menu', 0x444444, btnS, () => { this.onMenu!(); }, { sound: 'back' }));
+      setupPauseBtn(createButton(this.scene, w / 2, btnY + btnH / 2, btnW, btnH, 'Menu', 0x444444, btnS, () => { this.onMenu!(); }, { sound: 'back' }), GAP);
     }
     this.pauseNav = new MenuNav(this.scene);
     this.pauseNav.enabled = false;

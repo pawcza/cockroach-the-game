@@ -2,7 +2,9 @@
  * The run's music (MusicDeck): exactly one track is left once the fades are done, however quickly the music changes,
  * and stopping it ends every track it started. After a boss the music changes twice a frame apart (back to the level
  * the fight was fought in, then to the level that arrives as the reward): that used to leave the boss's music looping
- * for good, on into the game over and the next run.
+ * for good, on into the game over and the next run. Tracks load as the run goes (src/config/packs.ts): one asked for
+ * before its file is in comes in as it lands, if its moment is still on, and the track of a moment that is over never
+ * plays on in the meantime.
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -14,7 +16,8 @@ interface Track { key: string; level: number; ended: boolean; paused: boolean }
 interface Fade { from: number; to: number; t: number; onUpdate: (level: number) => void; onDone: () => void; stopped: boolean; done: boolean; scene: boolean }
 
 /** Sound and fades as plain records; a fade moves only when the test steps it, and stop() skips onDone as Phaser's does. */
-function rig() {
+function rig(missing: string[] = []) {
+  const notIn = new Set(missing);
   const tracks: Track[] = [];
   const fades: Fade[] = [];
   const ports: MusicPorts<Track> = {
@@ -27,6 +30,7 @@ function rig() {
       assert.equal(t.ended, false, `${t.key} ended twice`);
       t.ended = true;
     },
+    has: (key) => !notIn.has(key),
     fade: (from, to, onUpdate, onDone) => {
       const f: Fade = { from, to, t: 0, onUpdate, onDone, stopped: false, done: false, scene: true };
       fades.push(f);
@@ -54,7 +58,10 @@ function rig() {
   };
   const settle = (): void => { while (live().length > 0) step(0.25); };
   const sounding = (): string[] => tracks.filter(t => !t.ended).map(t => t.key);
-  return { deck: new MusicDeck(ports), tracks, step, settle, sounding, setPaused: (p: boolean) => { paused = p; } };
+  const deck = new MusicDeck(ports);
+  /** A track's file lands, as the audio cache tells AudioManager. */
+  const arrive = (key: string): void => { notIn.delete(key); deck.arrived(key); };
+  return { deck, tracks, step, settle, sounding, arrive, setPaused: (p: boolean) => { paused = p; } };
 }
 
 test('a plain change fades the old track out and ends it', () => {
@@ -311,4 +318,101 @@ test('every boss: his own track off the pre-battle loop, his fight asking for it
     settle();
     assert.deepEqual(sounding(), ['bgm-lv3'], boss.id);
   }
+});
+
+test('a track not in yet: silence instead of the last moment\'s track, and it comes in as it lands', () => {
+  const { deck, settle, sounding, arrive, tracks } = rig(['boss-aftermath']);
+  deck.start('boss-bgm');
+  deck.fadeOut(350);
+  deck.switchTo('boss-aftermath');
+  settle();
+  assert.deepEqual(sounding(), []);
+  assert.equal(deck.wanted, 'boss-aftermath');
+  arrive('boss-aftermath');
+  settle();
+  assert.deepEqual(sounding(), ['boss-aftermath']);
+  assert.equal(tracks.find(t => t.key === 'boss-aftermath')!.level, MUSIC_LEVEL);
+});
+
+test('a track that lands after its moment is over never plays', () => {
+  const { deck, settle, sounding, arrive } = rig(['boss-aftermath']);
+  deck.start('bgm-lv2');
+  deck.switchTo('boss-aftermath');
+  settle();
+  // The ability screen is dismissed before its loop is in: back to the level
+  deck.switchTo('bgm-lv2');
+  settle();
+  arrive('boss-aftermath');
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv2']);
+});
+
+test('the versus press with the boss\'s track not in: the level plays meanwhile, his fight asking changes nothing, his track comes in as it lands', () => {
+  const { deck, settle, sounding, arrive } = rig(['lodzia-bgm']);
+  deck.start('bgm-lv2');
+  deck.switchTo('boss-prelude', 400);
+  settle();
+  deck.switchTo('lodzia-bgm', 500, 'bgm-lv2');
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv2']);
+  deck.switchTo('lodzia-bgm');
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv2'], 'the fight asking for the awaited track silenced the fallback');
+  arrive('lodzia-bgm');
+  settle();
+  assert.deepEqual(sounding(), ['lodzia-bgm']);
+});
+
+test('the pre-battle loop not in: the level\'s music goes, and the loop comes in if the splash is still up', () => {
+  const { deck, settle, sounding, arrive } = rig(['boss-prelude']);
+  deck.start('bgm-lv2');
+  deck.switchTo('boss-prelude', 400);
+  settle();
+  assert.deepEqual(sounding(), []);
+  arrive('boss-prelude');
+  settle();
+  assert.deepEqual(sounding(), ['boss-prelude']);
+});
+
+test('a level\'s music kept until the next level\'s lands, and a stale wait dropped', () => {
+  const { deck, settle, sounding, arrive } = rig(['bgm-lv3', 'bgm-lv4']);
+  deck.start('bgm-lv2');
+  deck.switchTo('bgm-lv3', undefined, deck.key);
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv2']);
+  deck.switchTo('bgm-lv4', undefined, deck.key);
+  arrive('bgm-lv3');
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv2'], 'level 3\'s track came in after the run had reached level 4');
+  arrive('bgm-lv4');
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv4']);
+});
+
+test('a run\'s first track not in: silence, then it fades in; stop or a fade-out drops the wait', () => {
+  const { deck, settle, sounding, arrive } = rig(['bgm-lv5', 'bgm-lv6']);
+  deck.start('bgm-lv5');
+  assert.deepEqual(sounding(), []);
+  arrive('bgm-lv5');
+  settle();
+  assert.deepEqual(sounding(), ['bgm-lv5']);
+  deck.switchTo('bgm-lv6');
+  deck.stop();
+  arrive('bgm-lv6');
+  settle();
+  assert.deepEqual(sounding(), []);
+});
+
+test('a track landing while held waits, held, for the release', () => {
+  const { deck, settle, sounding, arrive, tracks } = rig(['boss-aftermath']);
+  deck.start('bgm-lv2');
+  deck.switchTo('boss-aftermath');
+  settle();
+  deck.hold();
+  settle();
+  arrive('boss-aftermath');
+  assert.equal(tracks.find(t => t.key === 'boss-aftermath')!.paused, true);
+  deck.release();
+  settle();
+  assert.deepEqual(sounding(), ['boss-aftermath']);
 });

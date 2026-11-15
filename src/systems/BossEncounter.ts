@@ -272,6 +272,7 @@ export class BossEncounter {
       abilities: this.deps.run.abilities,
       survivesHit: () => this.deps.absorbHit(),
       addScore: (points) => score.addScore(points),
+      onDashThrough: () => { this.deps.run.dashThroughs++; },
       showBar: (value, max) => hud.showBossHP(boss.name, value, max),
       updateBar: (value, last) => hud.updateBossHP(value, last),
       showSegments: (segments) => hud.showBossSegments(boss.name, segments),

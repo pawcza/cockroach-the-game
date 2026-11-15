@@ -364,8 +364,10 @@ export class Player {
     body.allowGravity = false;
     body.setVelocityY(0);
     this.cockroach.anims.timeScale = 1;
-    // Armed, it changes lanes with a somersault, pistol in hand
-    this.cockroach.play(this.anim(this.inBossStance ? 'flip' : 'hop'));
+    // Armed, it changes lanes with a somersault, pistol in hand. A dash carries on through the hop: it keeps its own
+    // legs and its afterimages, not a hop's pose
+    if (this._isDashing && !this.inBossStance) this.cockroach.play(this.anim('dash'), true);
+    else this.cockroach.play(this.anim(this.inBossStance ? 'flip' : 'hop'));
     this.hopTween = this.scene.tweens.addCounter({
       from: 0,
       to: 1,
@@ -402,6 +404,12 @@ export class Player {
 
     this.audio.playDash();
     if (DASH_ALPHA < 1) this.cockroach.setAlpha(DASH_ALPHA);
+    // Pressed in the middle of a lane swap: the dash's legs from this frame on, the hop's travel goes on under them
+    // (Armed in a boss fight the hop is the somersault, and ends back on aiming: the dash leaves the legs alone)
+    if (this.hopTween && !this.inBossStance) {
+      this.cockroach.anims.timeScale = 1;
+      this.cockroach.play(this.anim('dash'), true);
+    }
 
     // A kick of dust off the ledge, speed lines past it, and teal afterimages of its own frames left behind
     const fx = getFx(this.scene);
@@ -420,6 +428,11 @@ export class Player {
   private kickDust(name: string, dx: number): void {
     if (this._isDead) return;
     getFx(this.scene).play(name, this.cockroach.x + dx, this.cockroach.y + ROACH_FEET_OFFSET, { depth: this.cockroach.depth - 0.5 });
+  }
+
+  /** A dash still going when the fight that held it is over: it ends here, its cooldown starts. */
+  cutDash(): void {
+    if (this._isDashing) this.endDash();
   }
 
   private endDash(): void {

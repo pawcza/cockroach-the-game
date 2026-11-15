@@ -44,7 +44,8 @@ import { SpectateController } from '../systems/SpectateController';
 import type { DailyRun } from '../ui/Scoreboard';
 import { BestRunGhost, RunTrackRecorder } from '../systems/BestRunGhost';
 import { getRecordGhostEnabled, isTutorialDone, loadBestTrack } from '../utils/Storage';
-import { awardDuringRun, checkpointsUnlocked, type RunSnapshot } from '../systems/Profile';
+import { awardDuringRun, checkpointsUnlocked, devRun, type RunSnapshot } from '../systems/Profile';
+import { matchTicket, startTicket, type Ticket } from '../systems/RunTickets';
 import { dashFromStart } from '../systems/abilities';
 import { allowedStart, levelReached, rampFactor, runStart, type Checkpoint, type RunStart } from '../systems/checkpoints';
 import { showAchievement } from '../ui/shared';
@@ -80,6 +81,8 @@ interface GameSceneData {
   packsChecked?: boolean;
   /** A plain solo run's own look seed, kept through the start wait (lookSeedOf). */
   lookSeed?: number;
+  /** Multiplayer: this player's run ticket, from the match's start (server/runs.ts). */
+  ticket?: string | null;
 }
 
 /**
@@ -171,6 +174,8 @@ export class GameScene extends Phaser.Scene {
   private daily: DailyRun | undefined;
   /** Where this run starts: the course's start, or a checkpoint. */
   private start: RunStart = runStart(0);
+  /** This run's ticket (RunTickets.ts), or null when it reports nothing. */
+  private ticket: Ticket | null = null;
   private notifications!: NotificationManager;
   /** A run waiting for the packs it starts with (awaitStartLevel): nothing of it is built yet. */
   private waitingForAssets = false;
@@ -276,6 +281,10 @@ export class GameScene extends Phaser.Scene {
     this.seed = this.isMultiplayer ? data?.seed ?? null : this.daily?.seed ?? null;
     this.rng = this.seed !== null ? new SeededRNG(this.seed) : null;
     this.start = this.startOf(data);
+    // The server checks the run against a ticket: a match hands it over, a solo run asks for one now. Nothing to check
+    // for a dev shortcut run (Profile devRun) or a match only watched
+    this.ticket = devRun() || (this.isMultiplayer && data?.watch) ? null
+      : this.isMultiplayer ? matchTicket(data?.ticket) : startTicket(this.start.distance, this.daily?.date ?? null);
 
     // Defensive cleanup of prior run. The Clock outlives a restart, so leaving a paused run would freeze this one.
     this.clock?.destroy();
@@ -430,6 +439,7 @@ export class GameScene extends Phaser.Scene {
       onPickup: (x, score) => this.eventBridge.onPickup(x, score, run.pickupCombo),
       onPillStart: () => this.eventBridge.onPillStart(this.player.x),
       onDie: (obstacleType, culprit) => this.killedBy(obstacleType, culprit),
+      dashAvailable: () => run.abilities.canDash && this.player.dashReady && !this.player.isDashing,
       survivesHit: (obstacle) => this.absorbHit(obstacle),
       onPickupCollected: (x, y, frameName) => {
         this.replayRecorder.recordPickupCollected(this.time.now, x, y, frameName);
@@ -499,6 +509,7 @@ export class GameScene extends Phaser.Scene {
         this.audio.resumeLoops();
         this.audio.releaseBGM();
         this.player.adjustTimersForPause(pausedMs);
+        collisions.adjustForPause(pausedMs);
       },
     );
 
@@ -521,6 +532,7 @@ export class GameScene extends Phaser.Scene {
       isPractice: () => this.inTutorial,
       getStart: () => this.start,
       getLookLevel: () => this.lookLevelOf(run.currentLevel),
+      getTicket: () => this.ticket,
     });
   }
 

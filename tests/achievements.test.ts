@@ -5,9 +5,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ACHIEVEMENTS, BOSS_WINS, CARDS, ONE_OFFS, achievementTitle, spaced, type Stats } from '../server/achievements';
-import { bossUnmet, cardProgress } from '../src/systems/achievementView';
+import { bossUnmet, cardProgress, levelUnmet } from '../src/systems/achievementView';
 import { BOSSES } from '../src/systems/boss/bosses';
-import { EMPTY, merge, reached, withRun, type RunSnapshot } from '../src/systems/profileStats';
+import { EMPTY, kept, merge, withRun, type RunSnapshot } from '../src/systems/profileStats';
 import { ALL_BOSSES, NO_FEATS, RunFeats } from '../src/systems/RunFeats';
 import { devRunFrom } from '../src/systems/devRun';
 
@@ -40,13 +40,13 @@ test('the set: unique ids that fit a profile, every one earnable from zero, none
   assert.equal(ACHIEVEMENTS.length, CARDS.reduce((n, c) => n + c.levels.length, 0) + ONE_OFFS.length);
 });
 
-test('every achievement from before is still there with the same threshold and reward', () => {
+test('every achievement from before is still there, on its stat, never easier and never paying less', () => {
   for (const [id, stat, threshold, reward] of BEFORE) {
     const found = ACHIEVEMENTS.find(a => a.id === id);
     assert.ok(found, `${id} is gone`);
-    assert.equal(found.reward, reward, `${id} reward`);
-    assert.ok(found.test(withStat(stat, threshold)), `${id} at ${threshold}`);
-    assert.ok(!found.test(withStat(stat, threshold - 1)), `${id} just under ${threshold}`);
+    assert.ok(found.reward >= reward, `${id} pays ${found.reward}, it paid ${reward}`);
+    assert.ok(!found.test(withStat(stat, threshold - 1)), `${id} got easier than ${threshold}`);
+    assert.ok(!found.stat || found.stat === stat, `${id} moved to ${found.stat}`);
   }
 });
 
@@ -80,26 +80,27 @@ test('a level is earned exactly at its number', () => {
 
 test('the numbers the set was decided with', () => {
   const at = (id: string): number[] => CARDS.find(c => c.id === id)!.levels.map(l => l.at!);
-  assert.deepEqual(at('jablka'), [500, 3000, 10000, 30000]);
-  assert.deepEqual(at('dystans'), [10000, 42000, 100000, 250000]);
-  assert.deepEqual(at('piwa'), [50, 200, 750]);
-  assert.deepEqual(at('pigulki'), [10, 30, 100]);
-  assert.deepEqual(at('biegi'), [25, 100, 300]);
-  assert.deepEqual(at('styk'), [25, 100, 500]);
-  assert.deepEqual(at('dash'), [25, 100, 500]);
-  assert.deepEqual(at('strzaly'), [25, 100, 500]);
-  assert.deepEqual(at('sciany'), [10, 25, 100]);
-  assert.deepEqual(at('codziennie'), [3, 7, 30]);
-  assert.deepEqual(at('misje'), [10, 50, 150]);
+  // The rebalance of 2026-11-15 (server/achievements.ts, "The cards")
+  assert.deepEqual(at('jablka'), [1000, 5000, 15000, 40000]);
+  assert.deepEqual(at('dystans'), [15000, 42000, 150000, 500000]);
+  assert.deepEqual(at('piwa'), [100, 400, 1500]);
+  assert.deepEqual(at('pigulki'), [10, 40, 150]);
+  assert.deepEqual(at('biegi'), [30, 100, 300, 1000]);
+  assert.deepEqual(at('styk'), [50, 250, 1500]);
+  assert.deepEqual(at('dash'), [50, 250, 1500]);
+  assert.deepEqual(at('strzaly'), [25, 150, 750]);
+  assert.deepEqual(at('sciany'), [20, 75, 250]);
+  assert.deepEqual(at('codziennie'), [10, 30, 100]);
+  assert.deepEqual(at('misje'), [10, 50, 150, 400]);
   assert.deepEqual(at('bez-konca'), [15, 20, 25]);
   assert.equal(ONE_OFFS.length, 25);
-  assert.equal(ACHIEVEMENTS.length, 63);
+  assert.equal(ACHIEVEMENTS.length, 65);
 });
 
 test('the endless levels\' card: levels 15, 20 and 25 of a run, on the best level; all four starts for Mapa skrótów', () => {
   const card = CARDS.find(c => c.id === 'bez-konca')!;
   assert.equal(card.stat, 'bestLevel');
-  assert.deepEqual(card.levels.map(l => [l.id, l.reward]), [['bez-konca-1', 100], ['bez-konca-2', 250], ['bez-konca-3', 400]]);
+  assert.deepEqual(card.levels.map(l => [l.id, l.reward]), [['bez-konca-1', 400], ['bez-konca-2', 1200], ['bez-konca-3', 3000]]);
   assert.ok(!card.levels[0].test(withStat('bestLevel', 14)) && card.levels[0].test(withStat('bestLevel', 15)));
   // A run from the endless start counts its level 11 only once it is in level 12 (checkpoints.ts levelReached)
   assert.equal(withRun(EMPTY, { ...RUN, startDistance: 2600, level: 16 }, true).bestLevel, 16);
@@ -126,8 +127,18 @@ test('every boss has its achievement and its win stat', () => {
   }
 });
 
-test('a one-off pays between 60 and 400', () => {
-  for (const a of ONE_OFFS) assert.ok(a.reward >= 60 && a.reward <= 400, `${a.id} pays ${a.reward}`);
+test('a one-off pays at least 60, and the harder of a ladder always pays more', () => {
+  for (const a of ONE_OFFS) assert.ok(a.reward >= 60, `${a.id} pays ${a.reward}`);
+  const pays = (ids: string[]): number[] => ids.map(id => ACHIEVEMENTS.find(a => a.id === id)!.reward);
+  for (const ladder of [
+    ['poziom-4', 'poziom-6', 'poziom-8', 'poziom-10'], ['piec-tysiecy', 'dziesiec-tysiecy', 'bog', 'piecdziesiat-tysiecy'],
+    ['kombo-30', 'kombo-60', 'kombo-100'], ['boss-lodzia', 'boss-bigos', 'boss-zlewiatan', 'boss-eksterminator', 'cztery-bossy'],
+  ]) {
+    const rewards = pays(ladder);
+    rewards.slice(1).forEach((reward, i) => assert.ok(reward > rewards[i], `${ladder[i + 1]} pays more than ${ladder[i]}`));
+  }
+  // The top of a card pays like a payday: more than the shop's dearest item today
+  for (const card of CARDS.filter(c => c.levels.length === 4)) assert.ok(card.levels[3].reward >= 2000, card.id);
 });
 
 test('a run adds its totals and takes the larger of its bests, new stats included', () => {
@@ -173,7 +184,9 @@ test('whoever earned the old achievements keeps them, and the levels line up wit
   };
   const earned = Object.fromEntries(BEFORE.map(([id]) => [id, 1]));
   const stats = { ...EMPTY, ...oldStats };
-  assert.deepEqual(Object.keys(reached(stats, earned)).sort(), BEFORE.map(([id]) => id).sort());
+  assert.deepEqual(Object.keys(kept(earned)).sort(), BEFORE.map(([id]) => id).sort());
+  // Made harder since: still theirs, whatever their stats say now, and a retired id drops out
+  assert.deepEqual(Object.keys(kept({ sadownik: 1, 'gone-forever': 2 })), ['sadownik']);
   // ... and each is the level of its card that its old threshold says
   const level = (id: string): number | undefined => ACHIEVEMENTS.find(a => a.id === id)?.level;
   assert.deepEqual(['sadownik', 'maraton', 'piwosz', 'pigularz', 'wytrwaly', 'na-styk', 'przebijak', 'sciana', 'dnia'].map(level), [2, 2, 2, 2, 2, 2, 2, 2, 2]);
@@ -189,7 +202,7 @@ test('a card shows its level, what is next and when it is done', () => {
   const none = cardProgress(apples, { ...EMPTY, apples: 120 }, {});
   assert.deepEqual([none.done, none.next?.id, none.value], [0, 'jablka-1', 120]);
   const mid = cardProgress(apples, { ...EMPTY, apples: 1240 }, { 'jablka-1': 1, sadownik: 2 });
-  assert.deepEqual([mid.done, mid.next?.id, mid.next?.at], [2, 'jablka-3', 10000]);
+  assert.deepEqual([mid.done, mid.next?.id, mid.next?.at], [2, 'jablka-3', 15000]);
   const all = cardProgress(apples, { ...EMPTY, apples: 99999 }, Object.fromEntries(apples.levels.map(l => [l.id, 1])));
   assert.deepEqual([all.done, all.of, all.next], [4, 4, undefined]);
 });
@@ -202,6 +215,14 @@ test('a boss is not named before the player has met him', () => {
   assert.equal(bossUnmet(eksterminator, { ...EMPTY, bestDistance: 2000 }, {}), true);
   assert.equal(bossUnmet(eksterminator, { ...EMPTY, bestDistance: 2000 }, { 'boss-eksterminator': 1 }), false, 'earned');
   assert.equal(bossUnmet(ACHIEVEMENTS.find(a => a.id === 'bog')!, EMPTY, {}), false, 'only bosses');
+});
+
+test('a level achievement is not named before the player has been that high', () => {
+  const remiza = ACHIEVEMENTS.find(a => a.id === 'poziom-6')!;
+  assert.equal(levelUnmet(remiza, { ...EMPTY, bestLevel: 5 }, {}), true);
+  assert.equal(levelUnmet(remiza, { ...EMPTY, bestLevel: 6 }, {}), false, 'reached it');
+  assert.equal(levelUnmet(remiza, { ...EMPTY, bestLevel: 1 }, { 'poziom-6': 1 }), false, 'earned');
+  assert.equal(levelUnmet(ACHIEVEMENTS.find(a => a.id === 'bog')!, EMPTY, {}), false, 'only levels');
 });
 
 // -- The per-run trackers ---------------------------------------------------------------------------------------
@@ -364,7 +385,7 @@ test('progress never reads as the goal before it is reached', () => {
   assert.equal(distance.format(9950), '9.9 km');
   assert.equal(distance.format(10000), '10 km');
   assert.equal(distance.format(42000), '42 km');
-  assert.equal(distance.levels[0].description, 'Przebiegnij łącznie 10 km');
+  assert.equal(distance.levels[0].description, 'Przebiegnij łącznie 15 km');
   // Plain numbers are whole numbers, shown as they are
   const apples = CARDS.find(c => c.id === 'jablka')!;
   assert.equal(apples.format(499), '499');
@@ -381,4 +402,18 @@ test('a run under a dev shortcut is recognised, and only in development', () => 
   assert.equal(devRunFrom('?noskins', true), true);
   assert.equal(devRunFrom('?pill', true), true);
   assert.equal(devRunFrom('?noskins&pill', false), false);
+});
+
+test('Bez końca keeps records of its own: runs from the Eksterminator\'s start, their best level and distance', () => {
+  const endless = withRun(EMPTY, { ...RUN, startDistance: 2600, distance: 4100, level: 13 }, true);
+  assert.deepEqual([endless.endlessRuns, endless.endlessBestLevel, endless.endlessBestDistance], [1, 13, 4100]);
+  // A run from anywhere else leaves them, however far it got
+  const plain = withRun(endless, { ...RUN, distance: 5000, level: 14 }, true);
+  assert.deepEqual([plain.endlessRuns, plain.endlessBestLevel, plain.endlessBestDistance], [1, 13, 4100]);
+  // Mid-run they move as the bests do, the run itself counted once it is over
+  const during = withRun(EMPTY, { ...RUN, startDistance: 2600, distance: 3000, level: 11 }, false);
+  assert.deepEqual([during.endlessRuns, during.endlessBestDistance], [0, 3000]);
+  // A profile saved before them reads them as 0, and two copies merge to the larger
+  const merged = merge({ stats: { ...EMPTY, endlessBestLevel: 12 }, achievements: {} }, { stats: { endlessBestLevel: 15, endlessRuns: 4 } as unknown as Stats });
+  assert.deepEqual([merged.stats.endlessBestLevel, merged.stats.endlessRuns], [15, 4]);
 });

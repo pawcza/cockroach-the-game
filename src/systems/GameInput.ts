@@ -5,12 +5,14 @@ import { Player } from '../objects/Player';
 import { TouchControls } from '../ui/TouchControls';
 import { BossEncounter } from './BossEncounter';
 import type { BossFight } from './boss/BossFight';
+import { dashStillWanted } from './dashGrace';
 import { PauseManager } from './PauseManager';
 import { RunState } from './RunState';
 
 const { JustDown } = Phaser.Input.Keyboard;
 
 export class GameInput {
+  private scene: Phaser.Scene;
   private run: RunState;
   private player: Player;
   private pauseManager: PauseManager;
@@ -20,6 +22,8 @@ export class GameInput {
   /** Whether each earned button has been shown yet: its first showing pops in, once. */
   private dashShown: boolean;
   private gunShown: boolean;
+  /** When the dash was last asked for while it could not go yet: kept a few frames (dashGrace.ts), not dropped. */
+  private dashPressedAt: number | null = null;
 
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey: Phaser.Input.Keyboard.Key;
@@ -36,6 +40,7 @@ export class GameInput {
     /** A shot in the run, between the fights (RunGun). */
     private runShoot: () => void,
   ) {
+    this.scene = scene;
     this.run = run;
     this.player = player;
     this.pauseManager = pauseManager;
@@ -52,6 +57,7 @@ export class GameInput {
       onShoot: () => (this.boss.activeFight ? this.fightShoot() : this.shootInRun()),
       isDisabled: () => this.isBlocked,
       isDashAllowed: () => this.dashAllowed,
+      onDashEarly: () => this.askForDash(),
     });
     this.touchControls.create();
 
@@ -80,6 +86,7 @@ export class GameInput {
     JustDown(this.rightKey);
     JustDown(this.spaceKey);
     JustDown(this.escKey);
+    this.dashPressedAt = null;
   }
 
   /** What the run owns already has its touch buttons up: through the countdown, before the first running frame. */
@@ -100,7 +107,7 @@ export class GameInput {
     const dash = JustDown(this.rightKey);
     const shot = JustDown(this.spaceKey);
     this.hopOrDrop(up, down);
-    if (dash && this.dashAllowed) this.dash();
+    if (this.dashDue(dash)) this.dash();
     if (shot) this.shootInRun();
   }
 
@@ -127,7 +134,7 @@ export class GameInput {
     if (!fight.inputLive) return;
     this.hopOrDrop(up, down);
     if (shot) this.fightShoot();
-    if (dash && this.dashAllowed) this.fightDash();
+    if (this.dashDue(dash)) this.fightDash();
   }
 
   /** The dash button, for as long as the run owns the dash. Earned mid-run, it pops in the first time it shows. */
@@ -155,6 +162,23 @@ export class GameInput {
   private fightDash(): void {
     const fight = this.boss.activeFight;
     if (fight?.inputLive) fight.dash?.();
+  }
+
+  /** The dash was asked for, whether or not it can go: it goes as soon as it can, for a few frames after. */
+  private askForDash(): void {
+    if (this.run.abilities.canDash) this.dashPressedAt = this.scene.time.now;
+  }
+
+  /** Whether the dash goes this frame: pressed now, or pressed a few frames ago and ready only now. */
+  private dashDue(pressed: boolean): boolean {
+    if (pressed) this.askForDash();
+    if (!dashStillWanted(this.scene.time.now, this.dashPressedAt)) {
+      this.dashPressedAt = null;
+      return false;
+    }
+    if (!this.dashAllowed) return false;
+    this.dashPressedAt = null;
+    return true;
   }
 
   private get dashAllowed(): boolean {

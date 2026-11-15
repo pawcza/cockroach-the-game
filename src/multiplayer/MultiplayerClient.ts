@@ -17,6 +17,14 @@ export interface MPPlayer {
   look: Look | null;
 }
 
+/** A match starting, as the server says it to each player (lobby:start's answer, game:start). */
+export interface MPStart {
+  seed: number;
+  players: MPPlayer[];
+  /** This player's run ticket: what the run's report is checked against (server/runs.ts). */
+  ticket?: string | null;
+}
+
 export interface MPLobbyData {
   id: string;
   players: MPPlayer[];
@@ -207,8 +215,9 @@ class MultiplayerClient {
     return this.latestLobby;
   }
 
-  async startGame(): Promise<{ seed: number; players: MPPlayer[] }> {
-    return this.emitWithAck<{ ok: boolean; seed: number; players: MPPlayer[] }>('lobby:start');
+  /** Starts the match: its seed, its players, and this player's run ticket (server/runs.ts; null for nobody known). */
+  async startGame(): Promise<MPStart> {
+    return this.emitWithAck<MPStart & { ok: boolean }>('lobby:start');
   }
 
   // Game events — send

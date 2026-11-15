@@ -9,9 +9,9 @@ import {
 } from '../src/objects/obstacles/behaviours';
 import {
   CAST, CourseClock, ENDLESS_CAST, ENEMIES, EnemyId, OWN_PATTERN, TIMINGS, VACUUM, bodyOf, castFor, chaseFor, cruiseSpeed,
-  enemyState, nominalCourse,
+  enemyState, followsSafely, nominalCourse,
 } from '../src/objects/obstacles/cast';
-import { BOSS_RESUME_PX, BOSS_RUNWAY_PX, CourseLayout, SlotItem, bossX, courseEnd } from '../src/systems/CourseLayout';
+import { BOSS_RESUME_PX, CourseLayout, SlotItem, bossRunway, bossX, courseEnd } from '../src/systems/CourseLayout';
 import { beatSpacing } from '../src/systems/RunPatterns';
 import { Laid, simulate, withRun } from './support/enemySim';
 
@@ -297,7 +297,10 @@ test('enemies hurt only low over their lane', () => {
 
 test('the course stops in an empty runway short of each boss and picks up past it, the same on every client', () => {
   assert.equal(courseEnd([]), Infinity);
-  assert.equal(courseEnd([1200, 250]), bossX(250) - BOSS_RUNWAY_PX);
+  assert.equal(courseEnd([1200, 250]), bossX(250) - bossRunway(250));
+  // A second at the nominal runner's speed at each trigger, in whole px
+  assert.deepEqual([250, 1200, 1800, 2600].map(bossRunway), [287, 473, 545, 612]);
+  for (const m of [250, 1200, 1800, 2600]) assert.ok(Math.abs(bossRunway(m) / nominalCourse.speedAt(bossX(m)) - 1) < 0.002, `${m} m`);
   // SpawnManager's loop: slots every beat up to the course's end; a beaten boss moves it on, and the course resumes a
   // fixed distance past the boss
   const lay = (triggers: number[], seed: number): { x: number; items: SlotItem[] }[] => {
@@ -315,7 +318,7 @@ test('the course stops in an empty runway short of each boss and picks up past i
       const end = courseEnd(bosses);
       while (next <= roach + 1700 && next < end) {
         const level = Math.min(10, 1 + LEVELS.filter(l => l.distanceThreshold * 50 + 150 <= next).length - 1);
-        laid.push({ x: next, items: layout.next(next, level) });
+        laid.push({ x: next, items: layout.next(next, level, end) });
         next += beatSpacing(level);
       }
     }
@@ -324,13 +327,49 @@ test('the course stops in an empty runway short of each boss and picks up past i
   const solo = [250, 1200, 1800, 2600];
   const laid = lay(solo, 99);
   for (const m of solo) {
-    const inRunway = laid.filter(s => s.x >= bossX(m) - BOSS_RUNWAY_PX && s.x < bossX(m) + BOSS_RESUME_PX);
+    const inRunway = laid.filter(s => s.x >= bossX(m) - bossRunway(m) && s.x < bossX(m) + BOSS_RESUME_PX);
     assert.deepEqual(inRunway.map(s => s.x), [], `slots round the boss at ${m} m`);
     assert.ok(laid.some(s => s.x >= bossX(m) + BOSS_RESUME_PX), `the course goes on after ${m} m`);
   }
   // Two clients of a match (its one boss at 1800 m) lay the same slots
   assert.deepEqual(lay([1800], 7), lay([1800], 7));
   assert.ok(lay([1800], 7).some(s => s.x > bossX(250) && s.x < bossX(1200)), 'a match has no runway at the solo bosses');
+});
+
+// ── Neighbours: what may stand one slot after what ───────────────────────
+
+/**
+ * Courses that killed the 250 ms reader (300-1000 seeds of the version 3 course, before the rule): each pair alone, the
+ * roach starting where it started on its level, dies even with no reaction time at all. The gull's glide runs back
+ * into the slot before it; with a swatter or a charger there both lanes close over the few px between them.
+ */
+const DEADLY_NEIGHBOURS: { level: number; speed: number; startX: number; pair: [EnemyId, number, Lane, number][] }[] = [
+  { level: 7, speed: 510.27, startX: 61072, pair: [['flipper', 68550, 'bottom', 10049], ['gull', 68836, 'top', 6507]] },
+  { level: 8, speed: 544.58, startX: 74514, pair: [['newspaper', 80962, 'bottom', 11844], ['gull', 81254, 'top', 6254]] },
+  { level: 9, speed: 579.86, startX: 89650, pair: [['bison', 104014, 'bottom', 5208], ['gull', 104320, 'bottom', 11992]] },
+];
+
+test('the gull never stands right after an enemy, nor a charger right after a charger: the pairs that could not be read', () => {
+  for (const { level, speed, startX, pair } of DEADLY_NEIGHBOURS) {
+    const course: Laid[] = pair.map(([id, x, lane, phase]) => ({ x, items: [{ kind: 'enemy' as const, plan: { id, x, lane, phase } }] }));
+    course.push({ x: pair[1][1] + 900, items: [] });
+    assert.ok(simulate(course, { level, speed, reaction: 0, dash: true }, startX).died, `level ${level}: the pair is beatable after all`);
+    assert.equal(followsSafely(ENEMIES[pair[1][0]], [pair[0][0]]), false, `level ${level}: ${pair[0][0]} then ${pair[1][0]}`);
+  }
+  assert.equal(followsSafely(ENEMIES.bison, ['hedgehog']), false);
+  assert.equal(followsSafely(ENEMIES.gull, []), true);
+  // The course keeps to it, its fillers too, on every level the gull and the chargers are in
+  for (const level of [7, 8, 9, 10, 11, 18]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      const course = layCourse(seed * 7919 + level, level, 600);
+      for (let i = 1; i < course.length; i++) {
+        const before = course[i - 1].items.flatMap(item => (item.kind === 'enemy' ? [item.plan.id as EnemyId] : []));
+        for (const item of course[i].items) {
+          if (item.kind === 'enemy') assert.ok(followsSafely(ENEMIES[item.plan.id as EnemyId], before), `level ${level} seed ${seed}: ${item.plan.id} after ${before}`);
+        }
+      }
+    }
+  }
 });
 
 // ── The cat: a look before every swap, and a grace after it ──────────────

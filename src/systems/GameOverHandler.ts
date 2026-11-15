@@ -10,13 +10,13 @@ import { mpClient } from '../multiplayer/MultiplayerClient';
 import { sceneManager } from './SceneManager';
 import { ReplayData } from './DeathReplay';
 import { GameHUD } from '../ui/GameHUD';
-import { getPlayerNameOrDefault, updateHighScoreIfBetter, incrementGamesPlayed, getHighScore, getBestDistance, updateBestDistanceIfBetter, getDailyBest, updateDailyBestIfBetter, saveBestTrack, getStartBest, updateStartBestIfBetter } from '../utils/Storage';
+import { getPlayerNameOrDefault, updateHighScoreIfBetter, getHighScore, getBestDistance, updateBestDistanceIfBetter, getDailyBest, updateDailyBestIfBetter, saveBestTrack, getStartBest, updateStartBestIfBetter } from '../utils/Storage';
 import type { DailyRun } from '../ui/Scoreboard';
 import type { RunTrack } from './BestRunGhost';
-import { devRun, recordRun, takeNotices, type RunSnapshot } from './Profile';
+import { devRun, recordRun, type RunSnapshot } from './Profile';
 import { boardOf, isRanked, type RunStart } from './checkpoints';
-import { showAchievement, showMission } from '../ui/shared';
-import { reportRun } from '../ui/Shop';
+import { showAchievement } from '../ui/shared';
+import { finishRun, type RunResult, type Ticket } from './RunTickets';
 
 /**
  * Score milestones, in order. `tier` is how big the HUD makes it (1-10, see GameHUD.showScoreMilestone); `sound` is the
@@ -75,6 +75,9 @@ export class GameOverHandler {
   private isPractice: () => boolean;
   private getStart: () => Pick<RunStart, 'index' | 'distance'>;
   private getLookLevel: () => number | undefined;
+  private getTicket: () => Ticket | null;
+  /** The server's answer to this run's report, for the game over (solo) or the match's results. */
+  private result: Promise<RunResult> = Promise.resolve({ kind: 'none' });
 
   constructor(
     scene: Phaser.Scene,
@@ -107,6 +110,8 @@ export class GameOverHandler {
       getStart?: () => Pick<RunStart, 'index' | 'distance'>;
       /** The story level whose look the run is in (an endless level wears one): the game over's background. */
       getLookLevel?: () => number;
+      /** The run's ticket: what its report is checked against (RunTickets.ts); null for a run that reports nothing. */
+      getTicket?: () => Ticket | null;
     },
   ) {
     this.scene = scene;
@@ -134,6 +139,7 @@ export class GameOverHandler {
     this.isPractice = callbacks.isPractice ?? (() => false);
     this.getStart = callbacks.getStart ?? (() => ({ index: 0, distance: 0 }));
     this.getLookLevel = callbacks.getLookLevel ?? (() => undefined);
+    this.getTicket = callbacks.getTicket ?? (() => null);
     this.mpMyName = getPlayerNameOrDefault();
   }
 
@@ -142,22 +148,15 @@ export class GameOverHandler {
     const practice = this.isPractice();
     this.setIsDead();
     this.player.die();
-    // Every run counts in your stats, solo or in a match. What it earns shows on the solo results; in a match the
-    // run stays on screen while you spectate, so it shows there
+    // Every run counts in your stats, solo or in a match. What it earned locally shows on the solo results; in a
+    // match the run stays on screen while you spectate, so it shows there
     const snapshot = this.getRunSnapshot();
     const earned = practice ? [] : recordRun(snapshot);
     if (this.isMultiplayer) for (const achievement of earned) showAchievement(this.scene, achievement);
-    // Signed in, the run counts towards your missions. Solo, the results show what it paid; in a match, whatever is
-    // on screen when the answer comes
-    const missions = practice ? Promise.resolve([]) : reportRun(snapshot, this.isMultiplayer);
-    if (this.isMultiplayer) {
-      void missions.then((done) => {
-        const scene = this.scene.game.scene.getScenes(true)[0];
-        if (!scene) return;
-        for (const mission of done) showMission(scene, mission);
-        for (const achievement of takeNotices()) showAchievement(scene, achievement);
-      });
-    }
+    // The server checks the run against its ticket and pays it (a guest's: says what it would have paid). The results
+    // show its answer: every okruszek on them is the server's
+    const ticket = practice ? null : this.getTicket();
+    this.result = ticket ? finishRun(ticket, snapshot, obstacleType || 'fall') : Promise.resolve({ kind: 'none' });
 
     const score = this.getScore();
     document.title = `ZGNIOTŁEŚ SIĘ! | ${score} pkt`;
@@ -212,7 +211,6 @@ export class GameOverHandler {
     const previousBest = daily ? getDailyBest(daily.date) : endless ? getStartBest(start.distance) : getHighScore();
     const previousBestDistance = getBestDistance();
     if (!practice) {
-      incrementGamesPlayed();
       // Each start has its own record ghost, raced by the runs from there
       const previousStartBest = daily ? previousBest : getStartBest(start.distance);
       // A dev run (?boss=, ?checkpoints=) leaves every local record and ghost as it was
@@ -255,7 +253,7 @@ export class GameOverHandler {
         // The one gate to the boards: a dev run (?boss=, ?checkpoints=) and a practice checkpoint's run are never offered
         board,
         ranked: board !== null,
-        missions,
+        result: this.result,
       }, () => {
         this.vfx.destroy();
         this.audio.destroy();
@@ -288,6 +286,7 @@ export class GameOverHandler {
         myId: mpClient.myId,
         isHost: false,
         replayData,
+        result: this.result,
       }, () => {
         this.audio.destroy();
         this.scene.sound.stopAll();
@@ -394,6 +393,7 @@ export class GameOverHandler {
         myId: mpClient.myId,
         isHost: data.hostId === mpClient.myId,
         replayData,
+        result: this.result,
       }, () => {
         this.audio.destroy();
         this.scene.sound.stopAll();

@@ -5,7 +5,7 @@ import { SPRITE_SCALE, frameOf, textureOf } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { BLEACH_JUG_UP, EnemyPlan, laneY } from './behaviours';
 import { TIMINGS, partOf, placeOf } from './cast';
-import { ObstacleKit } from './ObstacleKit';
+import { ObstacleKit, PASSABLE_ALPHA } from './ObstacleKit';
 
 /** The falling drop's frame: the lit one (the three before it are the bead swelling at the cap, unlit). */
 const FALLING = 3;
@@ -19,7 +19,8 @@ const SPLASH_BODY_H = 16;
  * Dripping bleach (drip in behaviours.ts): a jug tipped in the background half way up the upper lane, dim, in neither
  * lane. A bead swells at its cap and falls behind the upper ledge, unlit: it never hurts. Under the ledge lit drops
  * fall one after another onto one spot of the lower lane, which stays wet and always hurts (the kill-zone look over
- * exactly it). Sounds: a drip and sizzling splash on some of the splashes.
+ * exactly it). The jug and its bead, which hang over the upper lane where nothing hurts, are drawn see-through; the
+ * lit drop and the wet spot are solid. Sounds: a drip and sizzling splash on some of the splashes.
  */
 export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   const { scene } = kit;
@@ -29,13 +30,13 @@ export function spawnBleach(kit: ObstacleKit, plan: EnemyPlan): void {
   const splashArt = look.anim('bleach-splash');
   const jug = kit.enemy(plan, { shadow: false });
   jug.anims.timeScale = 0.5;
-  jug.setDepth(DEPTH.BEHIND_LEDGE);
+  jug.setDepth(DEPTH.BEHIND_LEDGE).setAlpha(PASSABLE_ALPHA);
   // The jug never hurts: both lanes run in front of it
   (jug.body as Phaser.Physics.Arcade.Body).checkCollision.none = true;
   jug.setData('flies', true);
 
   const bead = scene.add.image(plan.x, laneY('top'), textureOf(frameOf(dropArt, 0)), frameOf(dropArt, 0))
-    .setScale(SPRITE_SCALE).setDepth(DEPTH.BEHIND_LEDGE);
+    .setScale(SPRITE_SCALE).setDepth(DEPTH.BEHIND_LEDGE).setAlpha(PASSABLE_ALPHA);
   const drop = scene.add.image(plan.x, laneY('bottom'), textureOf(frameOf(dropArt, FALLING)), frameOf(dropArt, FALLING))
     .setScale(SPRITE_SCALE).setDepth(DEPTH.OBSTACLES).setVisible(false);
   // The jug and its bead are hand-tuned (cast.ts Placement); the drop, the splash and the wet spot stay put

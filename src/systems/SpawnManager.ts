@@ -170,7 +170,7 @@ export class SpawnManager {
       const testPill = FIRST_PILL && this.firstSlot && !this.rng;
       this.firstSlot = false;
       if (testPill) this.spawnPickup(this.pills, slotX, 'pill', 'bottom');
-      else this.fill(slotX, slotX < this.calmUntilX ? this.layout.calm(slotX, level) : this.layout.next(slotX, level), level);
+      else this.fill(slotX, slotX < this.calmUntilX ? this.layout.calm(slotX, level) : this.layout.next(slotX, level, end), level);
     }
 
     if (this.pendingPickupDestructions.length > 0) {

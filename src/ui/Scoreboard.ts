@@ -28,33 +28,45 @@ export async function fetchDaily(): Promise<DailyRun | null> {
   }
 }
 
-/** The all-time board, one day's Karaluch Dnia board, or the endless one (Bez końca). */
+/** The all-time board, one day's Karaluch Dnia board, or the endless one (Bez końca). An empty board when it can't be reached. */
 export async function fetchScores(daily?: string, board?: 'endless'): Promise<ScoreEntry[]> {
+  return (await fetchScoreboard(daily, board)) ?? [];
+}
+
+/** The same, but null when the server couldn't be reached or answered badly, so a page can say so instead of "empty". */
+export async function fetchScoresChecked(daily?: string, board?: 'endless'): Promise<ScoreEntry[] | null> {
   return fetchScoreboard(daily, board);
 }
 
-async function fetchScoreboard(daily?: string, board?: 'endless'): Promise<ScoreEntry[]> {
+async function fetchScoreboard(daily?: string, board?: 'endless'): Promise<ScoreEntry[] | null> {
   try {
     const res = await fetch(`/api/scores?limit=100${daily ? `&daily=${daily}` : board ? `&board=${board}` : ''}`);
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     return await res.json();
   } catch {
-    return [];
+    return null;
   }
 }
 
+/** The leader's name as far as the button's second line has room for: it is a few characters of a long one. */
+const LEADER_NAME_MAX = 10;
+
 /**
- * One line on where you stand in today's Karaluch Dnia: your saved place, or where your best run here would land, or
- * who leads when you haven't played. The board holds each player's best, at most 100 of them.
+ * One line on where you stand in today's Karaluch Dnia, short enough for the mode button's second line: your saved
+ * place, or where your best run here would land, or who leads when you haven't played. The board holds each player's
+ * best, at most 100 of them.
  */
 export function dailyStanding(board: ScoreEntry[], me: { id: number } | null, localBest: number): string {
   const total = board.length >= 100 ? '100+' : String(board.length);
   const mine = me ? board.findIndex(entry => entry.user_id === me.id) : -1;
-  if (mine >= 0) return `Ty: ${board[mine].score} · ${mine + 1}. miejsce z ${total}`;
+  if (mine >= 0) return `Ty: ${board[mine].score} · ${mine + 1}. z ${total}`;
   if (localBest > 0) {
     const place = board.filter(entry => entry.score > localBest).length + 1;
-    return `Ty: ${localBest} · byłoby ${place}. z ${board.length + 1}`;
+    return `Ty: ${localBest} · byłoby ${place}.`;
   }
-  if (board.length > 0) return `Prowadzi ${board[0].name}: ${board[0].score}`;
+  if (board.length > 0) {
+    const { name, score } = board[0];
+    return `1. ${name.length > LEADER_NAME_MAX ? `${name.slice(0, LEADER_NAME_MAX - 1)}…` : name}: ${score}`;
+  }
   return 'Nikt jeszcze nie grał';
 }

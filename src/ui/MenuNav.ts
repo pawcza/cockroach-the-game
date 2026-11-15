@@ -14,6 +14,23 @@ const DRIFT_WEIGHT = 0.1;
 /** Buttons whose faces don't line up come after every one that does. */
 const OFF_LINE_PENALTY = 10_000;
 
+/** A scrolling list on the page (ScrollList): the arrows up and down scroll it where there is no button to move to. */
+export interface ScrollTarget {
+  /** Scrolls by this many steps; whether it moved. */
+  scrollBy: (steps: number) => boolean;
+  atTop: () => boolean;
+  /** Whether the button is one of the list's rows. */
+  holds: (button: UIButton) => boolean;
+  /** Scrolls so the button is in view. */
+  reveal: (button: UIButton) => void;
+}
+
+/** Where a button's middle is on the screen now: its page may have slid or its list scrolled since it was made. */
+function centre(button: UIButton): { x: number; y: number } {
+  const m = button.hitZone.getWorldTransformMatrix();
+  return { x: m.tx, y: m.ty };
+}
+
 /**
  * Keyboard focus for a screen's buttons: arrows (or WASD) move to the nearest button that way, Enter or Space
  * presses it, Esc goes back. The mouse moves the same focus, so there is only ever one lit button.
@@ -23,6 +40,7 @@ export class MenuNav {
   private focused: UIButton | null = null;
   private hooked = new WeakSet<UIButton>();
   private onBack: (() => void) | null = null;
+  private scroll: ScrollTarget | null = null;
   /** Off while something else owns the keyboard, such as the name input. */
   enabled = true;
 
@@ -35,11 +53,20 @@ export class MenuNav {
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.input.keyboard?.off('keydown', onKey));
   }
 
-  /** Makes these buttons the ones the arrows move between, focusing `initial`. */
-  set(buttons: UIButton[], opts: { initial?: UIButton; onBack?: () => void } = {}): void {
+  /**
+   * Makes these buttons the ones the arrows move between, focusing `initial`. With `scroll`, up and down scroll that
+   * list when there is no button that way (and up scrolls it back to its top before leaving it).
+   */
+  set(buttons: UIButton[], opts: { initial?: UIButton; onBack?: () => void; scroll?: ScrollTarget } = {}): void {
     this.focused?.setFocused(false);
+    // The page being left keeps no lit button: a finger's tap leaves its button hovered, and a page sliding away
+    // from under a still mouse gets no pointerout
+    for (const button of this.buttons) {
+      if (!buttons.includes(button) && button.hitZone.active) button.hitZone.emit('pointerout');
+    }
     this.buttons = buttons;
     this.onBack = opts.onBack ?? null;
+    this.scroll = opts.scroll ?? null;
     for (const button of buttons) {
       if (this.hooked.has(button)) continue;
       this.hooked.add(button);
@@ -60,6 +87,7 @@ export class MenuNav {
     this.focused?.setFocused(false);
     this.focused = button;
     button.setFocused(true);
+    if (this.scroll?.holds(button)) this.scroll.reveal(button);
   }
 
   private handleKey(event: KeyboardEvent): void {
@@ -69,7 +97,8 @@ export class MenuNav {
       if (direction[0] !== 0 && this.focused?.adjust) this.focused.adjust(direction[0]);
       else this.move(direction[0], direction[1]);
     } else if (event.code === 'Enter' || event.code === 'NumpadEnter' || event.code === 'Space') {
-      this.focused?.activate();
+      // A held key repeats: it is one press, never a second one
+      if (!event.repeat) this.focused?.activate();
     } else if (event.code === 'Escape') {
       if (this.onBack) playUi(this.scene, 'ui-back');
       this.onBack?.();
@@ -93,20 +122,26 @@ export class MenuNav {
     }
     let best: UIButton | null = null;
     let bestScore = Infinity;
+    const at = centre(from);
     for (const candidate of this.buttons) {
       if (candidate === from || !candidate.enabled) continue;
-      const centreAlong = (candidate.x - from.x) * dx + (candidate.y - from.y) * dy;
+      const to = centre(candidate);
+      const centreAlong = (to.x - at.x) * dx + (to.y - at.y) * dy;
       if (centreAlong <= 0) continue;
       // Edge to edge along the arrow, and how far apart the faces are across it (0 when they overlap)
       const halfAlong = (b: UIButton): number => (dx !== 0 ? b.w : b.h) / 2;
       const halfAcross = (b: UIButton): number => (dx !== 0 ? b.h : b.w) / 2;
       const gap = Math.max(0, centreAlong - halfAlong(from) - halfAlong(candidate));
-      const centreAcross = Math.abs((candidate.x - from.x) * dy + (candidate.y - from.y) * dx);
+      const centreAcross = Math.abs((to.x - at.x) * dy + (to.y - at.y) * dx);
       const apart = Math.max(0, centreAcross - halfAcross(from) - halfAcross(candidate));
       if (apart > 0 && centreAcross > centreAlong) continue;
       const score = (apart > 0 ? OFF_LINE_PENALTY : 0) + gap + centreAcross * DRIFT_WEIGHT;
       if (score < bestScore) { bestScore = score; best = candidate; }
     }
+    // A list scrolls before the focus leaves it upwards, and scrolls on down where no button is left below
+    const scroll = this.scroll;
+    if (scroll && dy < 0 && !scroll.atTop() && !(best && scroll.holds(best))) { scroll.scrollBy(-1); return; }
     if (best) this.focus(best);
+    else if (scroll && dy > 0) scroll.scrollBy(1);
   }
 }

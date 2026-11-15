@@ -48,7 +48,7 @@ export class RiskBonus {
   dashedThrough(sprite: Phaser.Physics.Arcade.Sprite): void {
     if (sprite.getData('dashedThrough')) return;
     sprite.setData('dashedThrough', true);
-    this.award(DASH_THROUGH_SCORE, 'PRZEBICIE!', sprite.x, sprite.y - 50, '#ffe066', { dashed: String(sprite.getData('type')) });
+    this.award(DASH_THROUGH_SCORE, 'PRZEBICIE!', sprite.x, sprite.y - 50, '#ffe066', { dashed: String(sprite.getData('dashAs') ?? sprite.getData('type')) });
   }
 
   /** The nearest obstacle ahead in the lane just left, if it was about to arrive. */
@@ -60,7 +60,7 @@ export class RiskBonus {
     for (const obj of this.obstacles.getChildren()) {
       const sprite = obj as Phaser.Physics.Arcade.Sprite;
       const body = sprite.body as Phaser.Physics.Arcade.Body | null;
-      if (!body?.enable || sprite.getData('floor') !== from || sprite.getData('nearMiss')) continue;
+      if (!body?.enable || sprite.getData('floor') !== from || sprite.getData('nearMiss') || sprite.getData('dashGrace')) continue;
       const gap = body.left - roach.right;
       if (gap >= 0 && gap <= reach && gap < closestGap) {
         closest = sprite;

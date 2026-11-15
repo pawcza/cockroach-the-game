@@ -31,6 +31,8 @@ export interface BossFightContext {
   /** A hit that would kill: true when the wylinka took it, and the fight goes on. */
   survivesHit: () => boolean;
   addScore: (points: number) => void;
+  /** The roach dashed through something the boss threw: counts like a dash through an obstacle in the run. */
+  onDashThrough?: () => void;
   /** The bar in place of the level bar, under the boss's name: its HP, or whatever else this fight counts down. */
   showBar: (value: number, max: number) => void;
   /** `last`: the boss is on its last legs, and the bar says so. */

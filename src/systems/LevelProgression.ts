@@ -36,8 +36,6 @@ export class LevelProgression {
   private levelReady: (level: number) => boolean;
   /** The level whose look is showing: behind the run's level while that level's images are still loading. */
   private shownLevel = 1;
-  /** A track to switch to once it is loaded. */
-  private musicDue: string | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -76,14 +74,15 @@ export class LevelProgression {
 
   /**
    * The run's level is game state (speed, score, records, what the HUD says): it follows distance and the boss gates at
-   * once, whatever has loaded. Only its look and sound follow when they are in (present).
+   * once, whatever has loaded. Only its look and sound follow when they are in: the look in present(), the music as
+   * its file lands (AudioManager), the last level's playing on until then.
    */
   update(distance: number): void {
     this.gate = this.nextBossAt();
     const config = levelBefore(distance, this.gate, this.lookSeed);
     if (config.level !== this.run.currentLevel) {
       this.run.currentLevel = config.level;
-      this.musicDue = config.bgmKey;
+      this.audio.switchBGM(config.bgmKey, undefined, true);
     }
     this.present();
     this.run.feats.observe(this.run.currentLevel, this.run.abilities.canShootInRun);
@@ -100,14 +99,9 @@ export class LevelProgression {
     this.shownLevel = config.level;
   }
 
-  /** The run's music: now if it is in, otherwise as soon as it arrives (until then the last track plays on). */
+  /** The run's music: now if it is in, otherwise as soon as it arrives. */
   playMusic(key: string): void {
-    if (this.scene.cache.audio.exists(key)) {
-      this.audio.startBGM(key);
-      this.musicDue = null;
-    } else {
-      this.musicDue = key;
-    }
+    this.audio.startBGM(key);
   }
 
   setPaused(paused: boolean): void {
@@ -128,10 +122,6 @@ export class LevelProgression {
    * last level's look stays. Its music joins whenever it arrives, on its own: it never holds the look.
    */
   private present(): void {
-    if (this.musicDue && this.scene.cache.audio.exists(this.musicDue)) {
-      this.audio.switchBGM(this.musicDue);
-      this.musicDue = null;
-    }
     const level = this.run.currentLevel;
     if (level === this.shownLevel) return;
     const config = levelConfig(level, this.lookSeed);

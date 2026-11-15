@@ -6,7 +6,10 @@
  * since the sound manager outlives the scene.
  *
  * It can also hold everything where it is (the pause menu: only the crickets sound) and let it go on from the same spot.
- * The hold's fades run on a clock of their own, as the scene's tweens and timers stand still while paused.
+ *
+ * A track asked for before its file is in (packs load as the run goes) is waited for: it comes in the moment it arrives
+ * (arrived), unless the music has been changed since. Until then nothing plays, or what the caller names (`meanwhile`):
+ * never the track of a moment that is over.
  */
 
 /** A track's level at full: the music setting scales it (AudioManager). */
@@ -24,7 +27,9 @@ export interface MusicPorts<T> {
   setLevel(track: T, level: number): void;
   /** Stops a track and frees it. */
   end(track: T): void;
-  /** A fade on the scene's clock, `ms` long (the deck's default when not given). */
+  /** Whether a track's file is in, so it can play now. */
+  has(key: string): boolean;
+  /** A fade `ms` long (the deck's default when not given). */
   fade(from: number, to: number, onUpdate: (level: number) => void, onDone: () => void, ms?: number): MusicFade;
   /** A fade that runs whatever the scene clock does, for the hold (the scene is paused then). */
   ramp(from: number, to: number, ms: number, onUpdate: (level: number) => void, onDone: () => void): MusicFade;
@@ -51,6 +56,8 @@ export class MusicDeck<T> {
   private master = 1;
   private masterFade: MusicFade | null = null;
   private held = false;
+  /** Asked for before its file was in: comes in when it arrives (arrived), unless the music changes first. */
+  private due: { key: string; ms?: number } | null = null;
 
   constructor(ports: MusicPorts<T>) {
     this.ports = ports;
@@ -61,17 +68,48 @@ export class MusicDeck<T> {
 
   get current(): T | null { return this.playing?.track ?? null; }
 
-  /** Straight in at full level, everything else ended. */
+  /** The track the music is on or waiting for: '' when none. */
+  get wanted(): string { return this.due?.key ?? this._key; }
+
+  /** Straight in at full level, everything else ended. Not in yet: silence until it arrives, then it fades in. */
   start(key: string): void {
     this.stop();
+    if (!this.ports.has(key)) {
+      this.due = { key };
+      return;
+    }
     this._key = key;
     this.playing = { track: this.ports.play(key, MUSIC_LEVEL), level: MUSIC_LEVEL, fade: null };
   }
 
   get isHeld(): boolean { return this.held; }
 
-  /** Crossfades to the track, over `ms` when given; the same one again does nothing. */
-  switchTo(key: string, ms?: number): void {
+  /**
+   * Crossfades to the track, over `ms` when given; the same one again (playing or awaited) does nothing. A track not in
+   * yet comes in when it arrives; until then `meanwhile` plays (a track's key: the one playing keeps on), or nothing.
+   */
+  switchTo(key: string, ms?: number, meanwhile: string | null = null): void {
+    if (key === this.wanted) return;
+    if (this.ports.has(key)) {
+      this.due = null;
+      this.crossfade(key, ms);
+      return;
+    }
+    this.due = { key, ms };
+    if (meanwhile === this._key) return;
+    if (meanwhile && this.ports.has(meanwhile)) this.crossfade(meanwhile, ms);
+    else this.silence(ms);
+  }
+
+  /** A track's file is in: the one waited for, if it still is, comes in now. */
+  arrived(key: string): void {
+    if (this.due?.key !== key) return;
+    const { ms } = this.due;
+    this.due = null;
+    this.crossfade(key, ms);
+  }
+
+  private crossfade(key: string, ms?: number): void {
     if (key === this._key) return;
     this._key = key;
     if (this.held) {
@@ -97,6 +135,11 @@ export class MusicDeck<T> {
 
   /** Fades the music out over `ms` and ends it; nothing plays after (a boss's music under his victory stinger). */
   fadeOut(ms: number): void {
+    this.due = null;
+    this.silence(ms);
+  }
+
+  private silence(ms?: number): void {
     const old = this.playing;
     this._key = '';
     this.playing = null;
@@ -137,6 +180,7 @@ export class MusicDeck<T> {
     this.held = false;
     this.endAll();
     this._key = '';
+    this.due = null;
   }
 
   private all(): Playing<T>[] {

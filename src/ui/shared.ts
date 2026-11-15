@@ -6,11 +6,14 @@ import { capCentreShift, FONT_GRID, smallStyle } from '../utils/TextStyles';
 import { playUi } from '../audio/AudioManager';
 import { DEPTH } from '../config/constants';
 import { getFx } from '../effects/Fx';
+import { hasTapSparkle } from './TapSparkle';
 import { bossById } from '../systems/boss/bosses';
 import { BIGOS_TEXTURE, bigosFrame } from '../systems/boss/bigosConfig';
 import { LODZIA_TEXTURE, lodziaFrame } from '../systems/boss/lodziaConfig';
 import { EKS_TEXTURE, eksFrame } from '../systems/boss/eksterminatorConfig';
+import { achievementIcon } from '../systems/achievementView';
 import { achievementTitle, type Achievement } from '../systems/Profile';
+import { addAchievementIcon } from './achievementIcon';
 import { account } from './Account';
 
 export interface UIButton {
@@ -58,6 +61,17 @@ const ICON_GAP = 8;
 const CAPTION_DROP = 12;
 /** The badge's centre, in from the face's top right corner. */
 const BADGE_INSET = 8;
+/** A label steps down the font's grid to fit, but never below this: 8 px is too small to read on a phone. */
+const MIN_LABEL = FONT_GRID * 2;
+
+/** Cuts a text that is still too wide for `room` at its smallest, ending it with an ellipsis. */
+function truncate(text: Phaser.GameObjects.Text, room: number): void {
+  let content = text.text;
+  while (text.width > room && content.length > 1) {
+    content = content.slice(0, -1);
+    text.setText(`${content.trimEnd()}…`);
+  }
+}
 
 // Sign in with Google keeps Google's dark-theme colours (branding guidelines): the fill must stay the one the G's
 // tile was drawn on, so focus shows only in the rim and the label
@@ -128,10 +142,11 @@ export function createButton(
   let shift = 0;
   const fit = (): void => {
     let size = parseFloat(String(txt.style.fontSize));
-    while (txt.width > room && size > FONT_GRID) {
+    while (txt.width > room && size > MIN_LABEL) {
       size -= FONT_GRID;
       txt.setFontSize(size);
     }
+    truncate(txt, room);
     shift = capCentreShift(txt) - (sub ? SUB_LIFT : 0);
     txt.setY(y + shift);
   };
@@ -143,7 +158,9 @@ export function createButton(
   const fitSub = (): void => {
     if (!sub) return;
     sub.setFontSize(subSize!);
-    if (sub.width > room) sub.setFontSize(parseFloat(String(subSize)) - FONT_GRID);
+    const smaller = parseFloat(String(subSize)) - FONT_GRID;
+    if (sub.width > room && smaller >= MIN_LABEL) sub.setFontSize(smaller);
+    truncate(sub, room);
     subShift = capCentreShift(sub) + SUB_DROP;
   };
   fitSub();
@@ -170,6 +187,7 @@ export function createButton(
       g!.setY(y + dy).setAlpha(enabled ? 1 : 0.4);
       txt.setY(y + dy + shift);
       txt.setColor(!enabled ? TEXT_DISABLED : lit ? GOOGLE_TEXT_FOCUS : GOOGLE_TEXT);
+      sub?.setY(y + dy + subShift).setColor(!enabled ? TEXT_DISABLED : lit ? SUB_FOCUS : SUB_IDLE);
       return;
     }
     frame(bg, left, top, w, h, lit ? accent : RIM);
@@ -195,7 +213,7 @@ export function createButton(
   hitZone.on('pointerdown', () => { if (enabled) { pressed = true; draw(); } });
   // The button's own sound, when it is pressed: a back button says so, a row that only holds a slider stays quiet
   const pressSound = (): void => { if (opts.sound !== 'none') playUi(scene, opts.sound === 'back' ? 'ui-back' : 'ui-press'); };
-  // And a sparkle off its middle, wherever it sits: inside a menu's container too, drawn just over that container.
+  // And a sparkle off its middle (for a key press, or where presses don't sparkle by themselves), wherever it sits: inside a menu's container too, drawn just over that container.
   // On real time, so it shows over a paused run
   const sparkle = (): void => {
     if (opts.sound === 'none' || !bg.active) return;
@@ -209,7 +227,8 @@ export function createButton(
     pressed = false;
     draw();
     pressSound();
-    sparkle();
+    // Scenes that sparkle wherever they are pressed have done it already, under the finger
+    if (!hasTapSparkle(scene)) sparkle();
     action();
   });
 
@@ -258,7 +277,11 @@ export function addObstacleArt(
   y: number,
   type: string,
 ): Phaser.GameObjects.Image | null {
-  if (type === 'boss') return scene.add.image(x, y, 'boss-face2').setScale(0.25);
+  if (type === 'boss') {
+    // His face arrives with his pack: until then the head from the icons, which are always there
+    if (!scene.textures.exists('boss-face2')) return addAchievementIcon(scene, x, y, `ach-boss-${bossById('zlewiatan').id}`);
+    return scene.add.image(x, y, 'boss-face2').setScale(0.25);
+  }
   // Half her size, mid-slam, stood on her middle: her full height would fill the screen
   if (type === 'lodzia') {
     if (!scene.textures.exists(LODZIA_TEXTURE)) return null;
@@ -333,8 +356,10 @@ export const OBSTACLE_LABEL: Record<string, string> = {
   wall: 'Ściana',
 };
 
-const TOAST_W = 300;
-const TOAST_H = 44;
+const TOAST_W = 360;
+const TOAST_H = 56;
+/** The icon (24 texels, at the game's pixel scale) sits at the left; the two lines of text start after it. */
+const TOAST_TEXT_X = 70;
 /** Right side, below the band where level announcements and milestones show, so on a narrow screen they don't meet. */
 const TOAST_TOP = 120;
 const TOAST_MARGIN = 16;
@@ -347,29 +372,34 @@ const SHINE_MS = 380;
  */
 export function showAchievement(scene: Phaser.Scene, achievement: Achievement): void {
   const title = achievementTitle(achievement);
-  showToast(scene, account() ? `${title}! +${achievement.reward} okruszków` : `Osiągnięcie: ${title}`, achievement.description);
+  showToast(scene, account() ? `${title}! +${achievement.reward} okruszków` : `Osiągnięcie: ${title}`, achievement.description, achievementIcon(achievement));
 }
 
 /** A finished mission, with what it paid. */
 export function showMission(scene: Phaser.Scene, mission: { text: string; reward: number }): void {
-  showToast(scene, `Misja wykonana! +${mission.reward} okruszków`, mission.text);
+  showToast(scene, `Misja wykonana! +${mission.reward} okruszków`, mission.text, 'ach-clipboard');
 }
 
 /** At most this many toasts at once; the rest wait their turn, so a big run doesn't bury the screen. */
 const TOASTS_AT_ONCE = 3;
 
-interface ToastQueue { taken: boolean[]; waiting: [string, string][] }
+interface ToastQueue { taken: boolean[]; waiting: [string, string, string][] }
 
-function showToast(scene: Phaser.Scene, heading: string, line: string): void {
-  const queue: ToastQueue = (scene.data.get('toasts') as ToastQueue | undefined)
-    ?? { taken: new Array<boolean>(TOASTS_AT_ONCE).fill(false), waiting: [] };
-  scene.data.set('toasts', queue);
+function showToast(scene: Phaser.Scene, heading: string, line: string, icon: string): void {
+  let queue = scene.data.get('toasts') as ToastQueue | undefined;
+  if (!queue) {
+    queue = { taken: new Array<boolean>(TOASTS_AT_ONCE).fill(false), waiting: [] };
+    scene.data.set('toasts', queue);
+    // A scene that restarts keeps its data, but its toasts and their tweens are gone: start the next run with a clean queue
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.data.remove('toasts'));
+  }
+  const slots = queue;
   const slot = queue.taken.indexOf(false);
   if (slot < 0) {
-    queue.waiting.push([heading, line]);
+    queue.waiting.push([heading, line, icon]);
     return;
   }
-  queue.taken[slot] = true;
+  slots.taken[slot] = true;
   const camera = scene.cameras.main;
   const x = Math.round(camera.width - TOAST_W - TOAST_MARGIN);
   const y = TOAST_TOP + slot * (TOAST_H + 6);
@@ -377,18 +407,26 @@ function showToast(scene: Phaser.Scene, heading: string, line: string): void {
   const panel = scene.add.graphics();
   frame(panel, x, y, TOAST_W, TOAST_H, 0xe8c15a);
   panel.fillStyle(SLAB, 0.95).fillRect(x, y, TOAST_W, TOAST_H).fillStyle(0xe8c15a, 1).fillRect(x, y, BAR_W, TOAST_H);
-  const title = scene.add.text(x + 14, y + 13, heading, smallStyle({ fontSize: '7px', color: '#e8c15a', strokeThickness: 0 }))
+  const picture = addAchievementIcon(scene, x + BAR_W + 8 + 24, y + TOAST_H / 2, icon);
+  const title = scene.add.text(x + TOAST_TEXT_X, y + 17, heading, smallStyle({ fontSize: '7px', color: '#e8c15a', strokeThickness: 0 }))
     .setOrigin(0, 0.5);
-  const detail = scene.add.text(x + 14, y + 31, line, smallStyle({ fontSize: '7px', color: TEXT_IDLE, strokeThickness: 0 }))
+  const detail = scene.add.text(x + TOAST_TEXT_X, y + 39, line, smallStyle({ fontSize: '7px', color: TEXT_IDLE, strokeThickness: 0 }))
     .setOrigin(0, 0.5);
-  const parts = [panel, title, detail];
+  const parts = [panel, picture, title, detail];
   for (const part of parts) part.setScrollFactor(0).setDepth(DEPTH.ANNOUNCEMENT).setAlpha(0);
+  // Its place frees when the slab is gone, however that happens (a faded toast, or a scene that tore it down with its
+  // tweens); only a scene still running hands the place on
+  panel.once('destroy', () => {
+    slots.taken[slot] = false;
+    const next = scene.sys.isActive() ? slots.waiting.shift() : undefined;
+    if (next) showToast(scene, next[0], next[1], next[2]);
+  });
 
   scene.tweens.add({
     targets: parts, alpha: 1, duration: 200,
     onComplete: () => {
       // A light sweeps across the slab once, left to right
-      const from = x + BAR_W + 12;
+      const from = x + TOAST_TEXT_X;
       const to = x + TOAST_W - 12;
       getFx(scene).play('shine', from, y + TOAST_H / 2, {
         scrollFactor: 0, depth: DEPTH.ANNOUNCEMENT, ui: true, frame: 0, vx: ((to - from) * 1000) / SHINE_MS, life: SHINE_MS, alpha: .5,
@@ -397,10 +435,6 @@ function showToast(scene: Phaser.Scene, heading: string, line: string): void {
         targets: parts, alpha: 0, delay: TOAST_HOLD_MS, duration: 400,
         onComplete: () => {
           parts.forEach(part => part.destroy());
-          // Its place goes to the next one waiting
-          queue.taken[slot] = false;
-          const next = queue.waiting.shift();
-          if (next) showToast(scene, next[0], next[1]);
         },
       });
     },

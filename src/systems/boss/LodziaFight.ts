@@ -18,9 +18,10 @@ import { DEPTH } from '../../config/constants';
 import { SPRITE_SCALE } from '../../config/sprites';
 import { getFx } from '../../effects/Fx';
 import { popup } from '../../effects/Popup';
+import { punt } from '../../effects/Punt';
 import { LandingShadow, ShadowLook, Spot } from '../../effects/LandingShadow';
 import { popupStyle } from '../../utils/TextStyles';
-import { NEAR_MISS_SCORE } from '../RiskBonus';
+import { DASH_THROUGH_SCORE, NEAR_MISS_SCORE } from '../RiskBonus';
 import { BossFight, BossFightContext } from './BossFight';
 import {
   createLodziaAnimations, LODZIA_FACE, LODZIA_HELD, LODZIA_LANDING, LODZIA_REACH_BACK, LODZIA_RELEASE, LODZIA_TEXTURE,
@@ -28,8 +29,8 @@ import {
 } from './lodziaConfig';
 import {
   Attack, atSliver, attackLength, BOOMERANG_RELEASE_MS, buildPhases, CLOSE_CALL_DAMAGE, CLOSE_CALL_MS, curlerArrival,
-  curlerLanding, CURLER_LANDINGS, DODGE_DAMAGE, dodgeWear, FACE_MS, fightRandom, HazardKind, Lane, nextStep, other,
-  Phase, resolve, SLAM_IMPACT_MS, SMACK_DAMAGE, smackWear, STAMINA, TANTRUM_RELEASE_MS, THROW_MS, THROW_RELEASE_MS,
+  curlerLanding, CURLER_LANDINGS, DASH_MS, DODGE_DAMAGE, dodgeWear, FACE_MS, fightRandom, HazardKind, Lane, nextStep, other,
+  lungeOffset, Phase, resolve, SLAM_IMPACT_MS, SMACK_DAMAGE, smackWear, STAMINA, TANTRUM_RELEASE_MS, THROW_MS, THROW_RELEASE_MS,
   timeAttack, WAVE_MS, WINDUP_MS,
 } from './lodziaPatterns';
 import { Flight, Pass, Projectile } from './lodziaProjectiles';
@@ -68,6 +69,8 @@ const CURLER_MARK_WIDTH = 56;
 const CURLER_MARK_SETTLE_WIDTH = 90;
 /** A curler is bigger than a slipper: it flies this much lower, its middle about the roach's. */
 const CURLER_FLY_HEIGHT = 22;
+/** A dashing roach meets a slipper on its lane when it comes this close to its nose (px). */
+const DASH_MEETS_PX = 36;
 /** The boomerang turns back this far inside the screen's left edge. */
 const RICOCHET_INSET = 20;
 
@@ -143,6 +146,8 @@ export class LodziaFight extends BossFight {
   /** Every attack kind she has started, and how many boomerangs hit her: what a test run looks for. */
   readonly seen: Record<string, number> = {};
   private roachIdle: string | null = null;
+  /** When the roach's dash was pressed (scene time), while it lunges. */
+  private dashedAt: number | null = null;
   private stopped = false;
   private walkX: number | null;
   private readonly onPostUpdate = () => this.postUpdate();
@@ -206,8 +211,27 @@ export class LodziaFight extends BossFight {
     if (this.state === 'done') return;
     if (this.walkX !== null) this.lodzia.x = this.ctx.scene.cameras.main.scrollX + this.walkX;
     if (!this.stopped) return;
-    this.holdPlayer();
+    // A dash that is still going when she is down ends with the fight
+    if (this.state === 'fighting') this.ctx.player.updateDash();
+    else this.ctx.player.cutDash();
+    this.holdPlayer(-this.lungeOffset());
     this.standRoach();
+  }
+
+  /** The dash, for a roach that has it: a lunge along its lane that punts a thrown slipper it meets (dashThrough). */
+  dash(): void {
+    const { player, scene } = this.ctx;
+    if (this.state !== 'fighting' || !player.dashReady || player.isDashing) return;
+    player.startDash();
+    this.dashedAt = scene.time.now;
+  }
+
+  /** How far ahead of its spot the roach is, mid-lunge. */
+  private lungeOffset(): number {
+    if (this.dashedAt === null) return 0;
+    const dt = this.ctx.scene.time.now - this.dashedAt;
+    if (dt >= DASH_MS) this.dashedAt = null;
+    return lungeOffset(dt);
   }
 
   /** After the floor has laid its tiles out for the frame: shockwaves bump them; what she threw moves and hits. */
@@ -221,6 +245,7 @@ export class LodziaFight extends BossFight {
     const laneAt = (time: number) => this.laneAt(time);
     for (const p of this.projectiles) {
       if (this.over) return;
+      if (this.dashMeets(p)) this.dashThrough(p);
       p.update(laneAt);
     }
     this.projectiles = this.projectiles.filter(p => !p.done);
@@ -545,7 +570,35 @@ export class LodziaFight extends BossFight {
     return p;
   }
 
+  /** Whether the roach's dash has met this projectile: a thrown slipper on the roach's lane, at its nose. */
+  private dashMeets(p: Projectile): boolean {
+    const { player } = this.ctx;
+    if (p.done || !player.isDashing || p.kind !== 'kapec' || p.lane !== player.currentFloor) return false;
+    const x = p.position.x;
+    return x <= player.sprite.x + DASH_MEETS_PX && x >= player.sprite.x - DASH_MEETS_PX;
+  }
+
+  /**
+   * The dash punts a thrown slipper, the way it punts any obstacle (Punt.ts). It counts as a dodge, no more: her
+   * stamina goes down by a dodge's share (never into the sliver, which is the boomerang's), the attack's timing stands.
+   * Only what flies a plain path is punted: the boomerang's way home and a curler's roll are the fight's own.
+   */
+  private dashThrough(p: Projectile): void {
+    const { scene, audio, player } = this.ctx;
+    p.punt(sprite => punt(scene, audio, sprite));
+    this.ctx.onDashThrough?.();
+    audio.playSfx('przebicie', VOL.stinger);
+    this.ctx.addScore(DASH_THROUGH_SCORE);
+    this.wearDodge(DODGE_DAMAGE);
+    this.popupAt(player.x, player.y - 40, `PRZEBICIE! +${DASH_THROUGH_SCORE}`, '#ffe066');
+  }
+
   private projectileHit(p: Projectile, pass: Pass): void {
+    // A dash pressed as it reaches the roach still takes it out, a hair before it would have hit
+    if (this.ctx.player.isDashing && p.kind === 'kapec') {
+      this.dashThrough(p);
+      return;
+    }
     const { scene } = this.ctx;
     const at = scene.time.now - (p.elapsed - pass.at);
     // A moult took it and it flies on; or the roach is down, and the fight is being taken down with it

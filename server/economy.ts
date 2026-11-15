@@ -1,11 +1,13 @@
 /**
- * Okruszki: the currency missions pay and the shop takes. Earned only, never bought. Signed-in players only: it lives
- * on the account. Prices and rewards are decided here, never by the client. Item ids match src/config/skins.ts and
+ * Okruszki: the currency every run, the missions and the achievements pay and the shop takes. Earned only, never
+ * bought. Signed-in players only: it lives on the account. Prices and rewards are decided here, never by the client,
+ * and what they are paid on is a run the server checked (runs.ts). Item ids match src/config/skins.ts and
  * tools/art/skins.py.
  */
-import db, { getProfile } from './db';
+import db from './db';
 import { dailyDate } from './daily';
-import { ACHIEVEMENTS, type Stats } from './achievements';
+import { ACHIEVEMENTS, achievementTitle, type Stats } from './achievements';
+import { forgetStats, statsOf } from './playerStats';
 import { isRecord } from './validate';
 
 export type Slot = 'skin' | 'head' | 'back';
@@ -37,7 +39,7 @@ export const SHOP: Record<string, { slot: Slot; price: number }> = {
   rakieta: { slot: 'back', price: 1200 },
 };
 
-/** A finished run as the client reports it. Trusted like a score is: there is nothing to buy with real money. */
+/** A finished run, as the missions measure it: the numbers of a run the server checked (runs.ts), never the client's. */
 export interface RunReport {
   score: number;
   distance: number;
@@ -63,10 +65,15 @@ interface Mission {
   perRun: boolean;
 }
 
+/**
+ * Set against the scoring of 2026-11 (distance points, a miss halving the combo) and the live board then: a median run
+ * of about 2 200 points (some 800 m), a good one 8 000, the best 21 000. A one-run mission asks for about a median run
+ * or more; one added up over runs, two or three of them.
+ */
 export const MISSIONS: Record<string, Mission> = {
-  'jablka-bieg': { text: 'Zjedz 30 jabłek w jednym biegu', goal: 30, reward: 60, measure: r => r.apples, perRun: true },
-  'jablka': { text: 'Zjedz łącznie 150 jabłek', goal: 150, reward: 80, measure: r => r.apples, perRun: false },
-  'dystans-bieg': { text: 'Przebiegnij 500 m w jednym biegu', goal: 500, reward: 70, measure: r => r.distance, perRun: true },
+  'jablka-bieg': { text: 'Zjedz 60 jabłek w jednym biegu', goal: 60, reward: 70, measure: r => r.apples, perRun: true },
+  'jablka': { text: 'Zjedz łącznie 250 jabłek', goal: 250, reward: 90, measure: r => r.apples, perRun: false },
+  'dystans-bieg': { text: 'Przebiegnij 1000 m w jednym biegu', goal: 1000, reward: 100, measure: r => r.distance, perRun: true },
   'dystans': { text: 'Przebiegnij łącznie 3 km', goal: 3000, reward: 90, measure: r => r.distance, perRun: false },
   'poziom-4': { text: 'Dobiegnij do poziomu 4', goal: 4, reward: 80, measure: r => r.level, perRun: true },
   'poziom-6': { text: 'Dobiegnij do poziomu 6', goal: 6, reward: 120, measure: r => r.level, perRun: true },
@@ -74,11 +81,11 @@ export const MISSIONS: Record<string, Mission> = {
   'styk': { text: '15 razy na styk', goal: 15, reward: 80, measure: r => r.nearMisses, perRun: false },
   'przebicia': { text: 'Przebij dashem 8 przeszkód', goal: 8, reward: 70, measure: r => r.dashThroughs, perRun: false },
   'sciana': { text: 'Przebij ścianę', goal: 1, reward: 70, measure: r => r.wallsBroken, perRun: false },
-  'kombo': { text: 'Kombo x15', goal: 15, reward: 80, measure: r => r.combo, perRun: true },
-  'piwa': { text: 'Wypij 5 piw', goal: 5, reward: 60, measure: r => r.beers, perRun: false },
+  'kombo': { text: 'Kombo x30', goal: 30, reward: 90, measure: r => r.combo, perRun: true },
+  'piwa': { text: 'Wypij 15 piw', goal: 15, reward: 60, measure: r => r.beers, perRun: false },
   'pigulka': { text: 'Zjedz pigułkę', goal: 1, reward: 70, measure: r => r.pills, perRun: false },
-  'wynik': { text: '500 punkciorów w jednym biegu', goal: 500, reward: 70, measure: r => r.score, perRun: true },
-  'wynik-duzy': { text: '1500 punkciorów w jednym biegu', goal: 1500, reward: 130, measure: r => r.score, perRun: true },
+  'wynik': { text: '3000 punkciorów w jednym biegu', goal: 3000, reward: 100, measure: r => r.score, perRun: true },
+  'wynik-duzy': { text: '8000 punkciorów w jednym biegu', goal: 8000, reward: 150, measure: r => r.score, perRun: true },
   'dnia': { text: 'Zagraj w Karalucha Dnia', goal: 1, reward: 50, measure: r => (r.daily ? 1 : 0), perRun: false },
   'zjazd': { text: 'Zagraj zjazd ze znajomymi', goal: 1, reward: 80, measure: r => (r.multiplayer ? 1 : 0), perRun: false },
   'biegi': { text: 'Zagraj 5 biegów', goal: 5, reward: 50, measure: () => 1, perRun: false },
@@ -89,10 +96,9 @@ const SLOTS = 3;
 /** Missions only a roach with the dash can do. */
 const NEEDS_DASH = new Set(['przebicia', 'sciana']);
 
-/** The dash is theirs from the start of every run once Pani Lodzia is beaten: the `checkpoints` stat, saved with the profile. */
+/** The dash is theirs from the start of every run once Pani Lodzia is beaten: the `checkpoints` stat, as the server counts it. */
 function ownsDash(userId: number): boolean {
-  const stats = (getProfile(userId) as { stats?: { checkpoints?: unknown } } | null)?.stats;
-  return typeof stats?.checkpoints === 'number' && stats.checkpoints >= 1;
+  return statsOf(userId).checkpoints >= 1;
 }
 
 db.exec(`
@@ -126,6 +132,34 @@ db.exec(`
     PRIMARY KEY (user_id, slot)
   );
 `);
+
+/**
+ * What each achievement paid before the rebalance of 2026-11-15: every row of achievements_paid from before it paid this
+ * much. Read once, by the migration below, so a reward raised since is topped up by the difference (payAchievements).
+ */
+const PAID_BEFORE_REBALANCE: Record<string, number> = {
+  'jablka-1': 50, sadownik: 150, 'jablka-3': 350, 'jablka-4': 800, 'dystans-1': 50, maraton: 300, 'dystans-3': 500, 'dystans-4': 800,
+  'piwa-1': 40, piwosz: 100, 'piwa-3': 200, 'pigulki-1': 40, pigularz: 100, 'pigulki-3': 200, 'biegi-1': 40, wytrwaly: 150, 'biegi-3': 300,
+  'styk-1': 40, 'na-styk': 100, 'styk-3': 200, 'dash-1': 40, przebijak: 100, 'dash-3': 200, 'strzaly-1': 40, 'strzaly-2': 120,
+  'strzaly-3': 300, 'sciany-1': 40, sciana: 120, 'sciany-3': 250, 'codziennie-1': 40, dnia: 100, 'codziennie-3': 200, 'misje-1': 50,
+  'misje-2': 150, 'misje-3': 350, 'bez-konca-1': 100, 'bez-konca-2': 250, 'bez-konca-3': 400, 'poziom-4': 60, 'poziom-6': 120,
+  'poziom-8': 200, 'poziom-10': 400, 'piec-tysiecy': 100, 'dziesiec-tysiecy': 200, bog: 400, 'piecdziesiat-tysiecy': 400,
+  'kombo-30': 100, 'kombo-60': 250, 'kombo-100': 400, 'boss-lodzia': 60, 'boss-bigos': 120, 'boss-zlewiatan': 200,
+  'boss-eksterminator': 300, nietykalny: 250, 'cztery-bossy': 400, skroty: 100, 'wylinka-10': 100, kanonada: 100, pacyfista: 250,
+  'trzy-tysiace': 200, 'szafa-gra': 150, towarzyski: 100, 'krol-zjazdu': 200,
+};
+
+// What each paid achievement paid, so a raised reward tops it up once: added on the first start with it, every row from
+// before filled with the reward of then
+try {
+  db.exec('ALTER TABLE achievements_paid ADD COLUMN reward INTEGER');
+} catch {
+  // Column already exists
+}
+db.transaction(() => {
+  const unset = db.prepare('UPDATE achievements_paid SET reward = ? WHERE achievement = ? AND reward IS NULL');
+  for (const [id, reward] of Object.entries(PAID_BEFORE_REBALANCE)) unset.run(reward, id);
+})();
 
 export interface Look {
   skin: string | null;
@@ -224,38 +258,52 @@ export const reportRun = db.transaction((userId: number, run: RunReport, now: nu
   return completed;
 });
 
+/** An achievement paid, as a receipt shows it. */
+export interface PaidAchievement {
+  id: string;
+  name: string;
+  reward: number;
+}
+
 /**
- * Pays every achievement these stats reach that this account hasn't been paid for. The stats are the client's, like
- * run reports, but each achievement pays once, so the most anyone can take this way is the list's total. Except for
- * the stats the server knows itself (missionsDone and itemsOwned), which are counted from its own record.
+ * Pays every achievement this account's stats reach that it hasn't been paid for, and tops up one paid before its
+ * reward was raised by the difference. The stats are the server's own (playerStats.ts: checked runs and matches), with
+ * the missions done and items owned from its own record; each achievement pays its reward once in all. One whose
+ * threshold was raised after it was paid stays paid, and is topped up only once the stats reach it again.
  */
-export const payAchievements = db.transaction((userId: number, stats: Record<string, number>) => {
-  // A stat the client didn't send is undefined, and undefined >= n is false: it reaches nothing
-  const full = {
-    ...stats,
+export const payAchievements = db.transaction((userId: number): PaidAchievement[] => {
+  const full: Stats = {
+    ...statsOf(userId),
     missionsDone: missionsDone(userId),
     itemsOwned: (db.prepare('SELECT COUNT(*) AS n FROM owned WHERE user_id = ?').get(userId) as { n: number }).n,
-  } as unknown as Stats;
+  };
   wallet(userId);
-  const paid: { id: string; reward: number }[] = [];
+  const paid: PaidAchievement[] = [];
   for (const achievement of ACHIEVEMENTS) {
     if (!achievement.test(full)) continue;
-    const fresh = db.prepare('INSERT OR IGNORE INTO achievements_paid (user_id, achievement) VALUES (?, ?)').run(userId, achievement.id);
-    if (fresh.changes === 0) continue;
-    db.prepare('UPDATE wallets SET crumbs = crumbs + ? WHERE user_id = ?').run(achievement.reward, userId);
-    paid.push({ id: achievement.id, reward: achievement.reward });
+    const row = db.prepare('SELECT reward FROM achievements_paid WHERE user_id = ? AND achievement = ?').get(userId, achievement.id) as
+      { reward: number | null } | undefined;
+    const owed = achievement.reward - (row ? row.reward ?? achievement.reward : 0);
+    if (owed <= 0) continue;
+    db.prepare(`
+      INSERT INTO achievements_paid (user_id, achievement, reward) VALUES (?, ?, ?)
+      ON CONFLICT(user_id, achievement) DO UPDATE SET reward = excluded.reward
+    `).run(userId, achievement.id, achievement.reward);
+    db.prepare('UPDATE wallets SET crumbs = crumbs + ? WHERE user_id = ?').run(owed, userId);
+    paid.push({ id: achievement.id, name: achievementTitle(achievement), reward: owed });
   }
   return paid;
 });
 
-/**
- * Pays what the stats last saved for this player reach, after something moved the server's own record: a mission
- * finished or an item bought. The profile's PUT pays everything else.
- */
-export function payStored(userId: number): { id: string; reward: number }[] {
-  const saved = getProfile(userId) as { stats?: Record<string, number> } | null;
-  return payAchievements(userId, saved?.stats ?? {});
+/** Adds okruszki to a wallet (a run's own pay); returns the new balance. */
+export function credit(userId: number, crumbs: number): number {
+  wallet(userId);
+  db.prepare('UPDATE wallets SET crumbs = crumbs + ? WHERE user_id = ?').run(crumbs, userId);
+  return wallet(userId).crumbs;
 }
+
+/** The okruszki in a wallet now. */
+export const balanceOf = (userId: number): number => wallet(userId).crumbs;
 
 export const buy = db.transaction((userId: number, item: string): string | null => {
   const entry = SHOP[item];
@@ -280,24 +328,10 @@ export function wear(userId: number, look: Look): string | null {
   return null;
 }
 
-/** Forgets a player's okruszki, items, missions and paid achievements, with their account. */
+/** Forgets a player's okruszki, items, missions, paid achievements and counted stats, with their account. */
 export function forgetPlayer(userId: number): void {
   for (const table of ['wallets', 'owned', 'missions', 'missions_done', 'achievements_paid']) db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
-}
-
-const COUNT = 1_000_000;
-
-/** A run report from the client: whole numbers in range, flags as booleans. */
-export function parseRunReport(body: unknown): RunReport | null {
-  if (!isRecord(body)) return null;
-  const keys = ['score', 'distance', 'level', 'combo', 'apples', 'beers', 'pills', 'nearMisses', 'dashThroughs', 'wallsBroken'] as const;
-  const out: Partial<RunReport> = {};
-  for (const key of keys) {
-    const value = body[key];
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > COUNT) return null;
-    out[key] = Math.floor(value);
-  }
-  return { ...out, daily: body.daily === true, multiplayer: body.multiplayer === true } as RunReport;
+  forgetStats(userId);
 }
 
 /** A look from the client: each slot an item id or null. Ownership is checked by wear(). */

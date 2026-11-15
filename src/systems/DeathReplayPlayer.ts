@@ -8,6 +8,9 @@ import { DEPTH, FLOOR_TOP_Y, FLOOR_BOTTOM_Y } from '../config/constants';
 
 const COCKROACH_SCREEN_X = 200;
 
+/** Off while the replay is broken: no screen offers it. The recorder and player stay, to come back to. */
+export const DEATH_REPLAY_OFFERED = false;
+
 export class DeathReplayPlayer {
   private scene: Phaser.Scene;
   private data: ReplayData;

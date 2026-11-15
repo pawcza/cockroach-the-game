@@ -6,7 +6,7 @@ import { account } from '../ui/Account';
 import { getAchievementsSeen, setAchievementsSeen } from '../utils/Storage';
 import { ACHIEVEMENTS, achievementTitle, CARDS, ONE_OFFS, type Achievement, type Stats } from '../../server/achievements';
 import { devRunFrom } from './devRun';
-import { EMPTY, merge, reached, withRun, type ProfileData, type RunSnapshot } from './profileStats';
+import { EMPTY, kept, merge, withRun, type ProfileData, type RunSnapshot } from './profileStats';
 
 export { ACHIEVEMENTS, achievementTitle, CARDS, ONE_OFFS, type Achievement, type RunSnapshot, type Stats };
 
@@ -18,7 +18,7 @@ function load(): ProfileData {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<ProfileData> | null;
     const stats = { ...EMPTY, ...saved?.stats };
-    const achievements = reached(stats, { ...saved?.achievements });
+    const achievements = kept({ ...saved?.achievements });
     // Levels and achievements added since this was saved: what the stats already reach is earned, without a fanfare
     for (const a of ACHIEVEMENTS) if (!achievements[a.id] && a.test(stats)) achievements[a.id] = Date.now();
     return { stats, achievements };
@@ -121,17 +121,8 @@ export function takeNotices(): Achievement[] {
   return taken;
 }
 
-let pushing: Promise<void> = Promise.resolve();
-
-/** Settles once the last copy sent to the account has landed, achievements paid; the shop asks after that. */
-export const profilePushed = (): Promise<void> => pushing;
-
-function pushProfile(): Promise<void> {
-  pushing = send();
-  return pushing;
-}
-
-async function send(): Promise<void> {
+/** Sends this browser's copy to the account: kept there for every device (nothing is paid from it: the server counts runs). */
+async function pushProfile(): Promise<void> {
   if (!account()) return;
   try {
     await fetch('/api/me/profile', {

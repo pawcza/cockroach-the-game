@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CHECKPOINT_STARTS, ENDLESS_START, PRACTICE_STARTS } from '../server/bossDistances';
-import { COURSE_VERSION } from '../server/daily';
-import { cleanName, MAX_SCORE, parseBossProjectile, parseProfile, parseRunStats, parseScoreSubmission } from '../server/validate';
+import { parseRunClaim, validStart } from '../server/runCheck';
+import { cleanName, MAX_SCORE, parseBossProjectile, parseProfile, parseRunStats } from '../server/validate';
 
 test('names lose control characters and surrounding space', () => {
   assert.equal(cleanName('  Kar\u0000aluch\n '), 'Karaluch');
@@ -10,55 +10,28 @@ test('names lose control characters and surrounding space', () => {
   assert.equal(cleanName(123), null);
 });
 
-test('a score submission needs a sane score', () => {
-  for (const body of [null, [], {}, { score: 1e308 }, { score: -1 }, { score: 1.5 }, { score: MAX_SCORE + 1 }, { score: '5' }]) {
-    assert.ok('error' in parseScoreSubmission(body), JSON.stringify(body));
+const CLAIM = {
+  score: 10, distance: 120, level: 2, combo: 3, apples: 4, beers: 1, pills: 0, nearMisses: 1, dashThroughs: 0, wallsBroken: 0,
+  kills: 0, seconds: 30, noHitWins: 0, moultSaves: 0,
+};
+
+test('a run report needs whole sane numbers and known bosses, once each', () => {
+  assert.ok(parseRunClaim(CLAIM));
+  for (const body of [null, [], {}, { ...CLAIM, score: 1e308 }, { ...CLAIM, score: -1 }, { ...CLAIM, distance: '5' },
+    { ...CLAIM, seconds: NaN }, { ...CLAIM, bosses: ['lodzia', 'nobody'] }, { ...CLAIM, bosses: 'lodzia' },
+    { ...CLAIM, bosses: ['lodzia', 'lodzia', 'bigos', 'zlewiatan', 'eksterminator'] }]) {
+    assert.equal(parseRunClaim(body), null, JSON.stringify(body));
   }
+  assert.deepEqual(parseRunClaim({ ...CLAIM, bosses: ['bigos', 'bigos'] })?.bosses, ['bigos']);
+  const odd = parseRunClaim({ ...CLAIM, combo: 12.7, deathCause: { nested: true }, allBosses: 'yes' });
+  assert.deepEqual([odd?.combo, odd?.deathCause, odd?.allBosses], [12, null, false]);
 });
 
-test('a run from 0 m is ranked on the main board, one from the Eksterminator on Bez końca; practice starts are refused', () => {
-  // An old cached client has no start to send, and cannot start anywhere but 0
-  for (const start of [undefined, 0, null]) {
-    const entry = parseScoreSubmission({ score: 10, start });
-    assert.ok(!('error' in entry) && entry.board === null, JSON.stringify(start));
-  }
+test('a run starts from 0 m or from a boss\'s checkpoint, nowhere else', () => {
   assert.deepEqual(CHECKPOINT_STARTS, [...PRACTICE_STARTS, ENDLESS_START]);
   assert.equal(PRACTICE_STARTS.length, 3);
-  for (const start of PRACTICE_STARTS) {
-    const refused = parseScoreSubmission({ score: 10, start });
-    assert.ok('error' in refused && /practice/.test(refused.error), `start ${start}`);
-    // The same on a daily run: the board for that day is for runs from 0, too
-    assert.ok('error' in parseScoreSubmission({ score: 10, start, daily: '2026-11-14', course: COURSE_VERSION }));
-  }
-  const endless = parseScoreSubmission({ score: 10, start: ENDLESS_START });
-  assert.ok(!('error' in endless) && endless.board === 'endless' && endless.daily === null);
-  // Karaluch Dnia always starts from 0 m
-  assert.ok('error' in parseScoreSubmission({ score: 10, start: ENDLESS_START, daily: '2026-11-14', course: COURSE_VERSION }));
-  for (const start of [-1, 1, 251, 2601, 1e9, '250', '2600', true, {}, NaN]) {
-    const refused = parseScoreSubmission({ score: 10, start });
-    assert.ok('error' in refused && refused.error === 'Invalid start', JSON.stringify(start));
-  }
-});
-
-test('a Karaluch Dnia score comes only from a client that lays today\'s course; the other boards take any', () => {
-  assert.ok(!('error' in parseScoreSubmission({ score: 10, daily: '2026-11-14', course: COURSE_VERSION })));
-  for (const course of [undefined, COURSE_VERSION - 1, String(COURSE_VERSION), COURSE_VERSION + 1]) {
-    const refused = parseScoreSubmission({ score: 10, daily: '2026-11-14', course });
-    assert.ok('error' in refused && /out of date/.test(refused.error), JSON.stringify(course));
-  }
-  // An old client's all-time score is taken as before
-  assert.ok(!('error' in parseScoreSubmission({ score: 10 })));
-});
-
-test('optional score fields that make no sense are dropped, not stored', () => {
-  const entry = parseScoreSubmission({
-    name: 'a', score: 1, deathCause: { nested: true }, distance: 'far', maxLevel: 1e300, maxCombo: 12.4,
-  });
-  assert.ok(!('error' in entry));
-  assert.deepEqual(
-    [entry.deathCause, entry.distance, entry.maxLevel, entry.maxCombo],
-    [null, null, null, 12],
-  );
+  for (const start of [0, ...CHECKPOINT_STARTS]) assert.ok(validStart(start), String(start));
+  for (const start of [undefined, null, -1, 1, 251, 2601, 1e9, '250', '2600', true, {}, NaN]) assert.ok(!validStart(start), JSON.stringify(start));
 });
 
 test('run stats keep known fields only', () => {
@@ -72,8 +45,7 @@ test('run stats keep known fields only', () => {
 test('every boss that can kill is a known death cause, made-up ones are not', () => {
   for (const cause of ['boss', 'lodzia', 'bigos', 'eksterminator']) {
     assert.equal(parseRunStats({ obstacleType: cause }).obstacleType, cause);
-    const entry = parseScoreSubmission({ name: 'a', score: 1, deathCause: cause });
-    assert.ok(!('error' in entry) && entry.deathCause === cause);
+    assert.equal(parseRunClaim({ ...CLAIM, deathCause: cause })?.deathCause, cause);
   }
   assert.equal(parseRunStats({ obstacleType: 'lodzia2' }).obstacleType, undefined);
 });
@@ -82,8 +54,7 @@ test('the hop, dash and gun acts\' enemies are known death causes', () => {
   for (const cause of ['glue', 'bleach', 'lamp', 'mop', 'vacuum', 'hen', 'frog', 'centipede', 'boots', 'hedgehog',
     'gull', 'wasp', 'zapper', 'robotVacuum', 'repeller', 'aerosol', 'bait']) {
     assert.equal(parseRunStats({ obstacleType: cause }).obstacleType, cause);
-    const entry = parseScoreSubmission({ name: 'a', score: 1, deathCause: cause });
-    assert.ok(!('error' in entry) && entry.deathCause === cause);
+    assert.equal(parseRunClaim({ ...CLAIM, deathCause: cause })?.deathCause, cause);
   }
 });
 

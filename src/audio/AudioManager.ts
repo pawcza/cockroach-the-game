@@ -67,6 +67,21 @@ export class AudioManager {
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+    // Every fade runs on the browser's clock: the music is no part of the world, and the world's freezes (the versus
+    // splash, the ability screen, the pause) stop the scene's tweens and timers, which used to leave a crossfade
+    // standing where it was, the old track at full and the new one silent
+    const ramp = (from: number, to: number, ms: number, onUpdate: (level: number) => void, onDone: () => void) => {
+      const t0 = performance.now();
+      const id = setInterval(() => {
+        const k = Math.min(1, (performance.now() - t0) / ms);
+        onUpdate(from + (to - from) * k);
+        if (k >= 1) {
+          clearInterval(id);
+          onDone();
+        }
+      }, 16);
+      return { stop: () => clearInterval(id) };
+    };
     this.music = new MusicDeck({
       play: (key, level) => {
         const sound = scene.sound.add(key, { volume: level * this.mv(), loop: true });
@@ -78,44 +93,37 @@ export class AudioManager {
         sound.stop();
         sound.destroy();
       },
-      fade: (from, to, onUpdate, onDone, ms = CROSSFADE_MS) => scene.tweens.addCounter({
-        from, to, duration: ms,
-        onUpdate: (tween) => onUpdate(tween.getValue() ?? to),
-        onComplete: onDone,
-      }),
-      // The hold's fades: the pause stops the scene's tweens and timers, so these run on the browser's clock
-      ramp: (from, to, ms, onUpdate, onDone) => {
-        const t0 = performance.now();
-        const id = setInterval(() => {
-          const k = Math.min(1, (performance.now() - t0) / ms);
-          onUpdate(from + (to - from) * k);
-          if (k >= 1) {
-            clearInterval(id);
-            onDone();
-          }
-        }, 16);
-        return { stop: () => clearInterval(id) };
-      },
+      has: (key) => scene.cache.audio.exists(key),
+      fade: (from, to, onUpdate, onDone, ms = CROSSFADE_MS) => ramp(from, to, ms, onUpdate, onDone),
+      ramp,
       pause: (sound) => { (sound as Phaser.Sound.WebAudioSound).pause(); },
       resume: (sound) => { (sound as Phaser.Sound.WebAudioSound).resume(); },
     });
+    // A track asked for before its pack was in starts as its file lands, if it is still the one wanted
+    scene.cache.audio.events.on(Phaser.Cache.Events.ADD, this.onAudioAdded, this);
     // The sound manager outlives the scene: whatever way the run is left, its music and loops go with it
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
 
+  private onAudioAdded(_cache: unknown, key: string): void {
+    this.music.arrived(key);
+  }
+
   private mv(): number { return getMusicVolume(); }
 
+  /** The run's first track, straight in; not in yet, it fades in as it arrives. */
   startBGM(key: string = 'bgm-lv1'): void {
-    if (!this.scene.cache.audio.exists(key)) return;
     this.music.start(key);
   }
 
-  /** Crossfades to a track (the level crossfade unless `ms` is given). Waits while the pre-battle loop holds the music. */
-  switchBGM(newKey: string, ms?: number): void {
+  /**
+   * Crossfades to a track (the level crossfade unless `ms` is given). Waits while the pre-battle loop holds the music. A
+   * track not in yet comes in as it arrives; until then nothing plays, or with `keep` the track playing goes on (a level's
+   * music, until the next level's is in).
+   */
+  switchBGM(newKey: string, ms?: number, keep = false): void {
     if (this.preluding) return;
-    if (this.music.key === newKey) return;
-    if (!this.scene.cache.audio.exists(newKey)) return;
-    this.music.switchTo(newKey, ms);
+    this.music.switchTo(newKey, ms, keep ? this.music.key : null);
   }
 
   stopBGM(): void {
@@ -125,16 +133,18 @@ export class AudioManager {
 
   /** The versus splash opens: the pre-battle loop takes over from the level's music, and stays until endPrelude. */
   beginPrelude(key: string): void {
-    if (!this.scene.cache.audio.exists(key)) return;
     this.music.switchTo(key, PRELUDE_IN_MS);
     this.preluding = true;
   }
 
-  /** The player pressed start (the splash wipes): the boss's music comes in off the pre-battle loop, quickly. */
+  /**
+   * The player pressed start (the splash wipes): the boss's music comes in off the pre-battle loop, quickly. Not in yet,
+   * the level's music plays until it is.
+   */
   endPrelude(bossKey: string, levelKey: string): void {
     if (!this.preluding) return;
     this.preluding = false;
-    this.switchBGM(this.scene.cache.audio.exists(bossKey) ? bossKey : levelKey, BOSS_CROSSFADE_MS);
+    this.music.switchTo(bossKey, BOSS_CROSSFADE_MS, levelKey);
   }
 
   /** The boss is dead: his music fades quickly away under the victory stinger. */
@@ -298,6 +308,7 @@ export class AudioManager {
   }
 
   destroy(): void {
+    this.scene.cache.audio.events.off(Phaser.Cache.Events.ADD, this.onAudioAdded, this);
     this.stopLoops();
     this.stopBGM();
   }

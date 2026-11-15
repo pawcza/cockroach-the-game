@@ -144,131 +144,202 @@
     #load-overlay.reduced .ld-tip span { transition: none; }
 
     * { margin: 0; padding: 0; }
+    html { height: 100%; overflow: hidden; overscroll-behavior: none; background: #000; }
+    /* The page is pinned to what can be seen: src/viewportFit.ts sets this box from the visual viewport as the browser's
+       bars come and go. The canvas is centred inside the safe-area insets, clear of a notch and the home indicator */
     body {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
       background: #000;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      height: 100dvh;
       overflow: hidden;
+      overscroll-behavior: none;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
-    /* Portrait orientation overlay - mobile only, dismissed by tap */
+    body > canvas { flex: none; display: block; }
+
+    /* Phones and tablets only: held upright, "Obróć telefon"; on its side, before the first tap, "Dotknij, aby grać" (that
+       tap is the gesture the browser wants before it goes fullscreen). After that tap the hint comes back only when the
+       phone is turned upright again; "Graj mimo to" puts it away for good */
     #portrait-overlay {
       display: none;
       position: fixed;
       inset: 0;
       z-index: 99999;
-      background: #000;
+      box-sizing: border-box;
+      padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 24px;
+      background: radial-gradient(ellipse at 50% 42%, #1d1511 0%, #0b0807 72%);
       font-family: 'Tiny5', monospace;
-      cursor: pointer;
+      color: #f1e3c6;
+      text-align: center;
+      overflow: hidden;
     }
-
-    /* Show on mobile until dismissed by JS */
     @media (hover: none) and (pointer: coarse) {
-      #portrait-overlay:not(.dismissed) { display: flex; }
+      #portrait-overlay:not(.dismissed):not(.played) { display: flex; }
+    }
+    @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+      #portrait-overlay.played:not(.dismissed) { display: flex; }
+    }
+    #portrait-overlay .po-rotate { display: flex; }
+    #portrait-overlay .po-tap { display: none; }
+    @media (orientation: landscape) {
+      #portrait-overlay .po-rotate { display: none; }
+      #portrait-overlay .po-tap { display: flex; }
+      #portrait-overlay { cursor: pointer; }
     }
 
-    #portrait-overlay .cockroach-anim {
-      width: 176px;
-      height: 110px;
-      background: var(--ld-roach) 0 0 / 800% 100%;
-      image-rendering: pixelated;
-      position: absolute;
-      top: 20%;
-      animation: roach-run-across 3s linear infinite, roach-legs .5s steps(8) infinite;
-    }
-
-    @keyframes roach-legs { to { background-position-x: 800%; } }
-    @keyframes roach-run-across {
-      0% { left: -160px; }
-      100% { left: 100%; }
-    }
-
-
-    #portrait-overlay .message {
-      color: #ffffff;
-      font-size: 16px;
-      text-align: center;
-      line-height: 1.8;
-      padding: 0 30px;
-    }
-
-    #portrait-overlay .tap-message {
-      display: none;
-      color: #ffff00;
-      font-size: 16px;
-      text-align: center;
-      animation: tap-pulse 1s ease-in-out infinite alternate;
-    }
-
-    @keyframes tap-pulse {
-      from { opacity: 0.5; transform: scale(1); }
-      to { opacity: 1; transform: scale(1.05); }
-    }
-
-    /* In landscape: hide rotate hint, show tap prompt */
-    @media (orientation: landscape) and (hover: none) and (pointer: coarse) {
-      #portrait-overlay .message { display: none; }
-      #portrait-overlay .phone-hint { display: none; }
-      #portrait-overlay .tap-message { display: block; }
-    }
-
-    #portrait-overlay .phone-hint {
+    /* A slab like the menu's panels: dark, a brown rim, an amber stripe down the left */
+    #portrait-overlay .po-card {
       position: relative;
-      width: 60px;
-      height: 100px;
-      animation: phone-cycle 3.5s ease-in-out infinite;
+      box-sizing: border-box;
+      width: min(340px, 100%);
+      padding: 20px 20px 16px 24px;
+      flex-direction: column;
+      align-items: center;
+      background: #15100d;
+      border: 2px solid #3d2e25;
+      box-shadow: 0 0 0 2px #0b0807, 6px 8px 0 2px rgba(0, 0, 0, .55);
     }
+    #portrait-overlay .po-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: #e0a040;
+    }
+    #portrait-overlay .po-tap { width: min(440px, 100%); padding-top: 16px; }
 
-    #portrait-overlay .phone-rect {
+    #portrait-overlay .po-stage {
+      position: relative;
+      width: 100%;
+      height: 196px;
+      flex: none;
+    }
+    #portrait-overlay .po-phone {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 130px;
+      height: 130px;
+      margin-left: -65px;
+    }
+    #portrait-overlay .po-phone svg {
       position: absolute;
       inset: 0;
-      border: 3px solid #fff;
-      border-radius: 8px;
-      transform-origin: center center;
-      animation: phone-flip 3.5s ease-in-out infinite;
+      width: 100%;
+      height: 100%;
+      shape-rendering: crispEdges;
+      opacity: 0;
+      animation: 3.4s linear infinite;
     }
+    /* Four drawn frames, one after the other: upright, two steps over, on its side; a beat of nothing; again */
+    #portrait-overlay .po-phone svg:nth-child(1) { animation-name: po-f0; }
+    #portrait-overlay .po-phone svg:nth-child(2) { animation-name: po-f1; }
+    #portrait-overlay .po-phone svg:nth-child(3) { animation-name: po-f2; }
+    #portrait-overlay .po-phone svg:nth-child(4) { animation-name: po-f3; }
+    @keyframes po-f0 { 0%, 34.9% { opacity: 1; } 35%, 93.9% { opacity: 0; } 94%, 100% { opacity: 1; } }
+    @keyframes po-f1 { 0%, 34.9% { opacity: 0; } 35%, 39.9% { opacity: 1; } 40%, 100% { opacity: 0; } }
+    @keyframes po-f2 { 0%, 39.9% { opacity: 0; } 40%, 44.9% { opacity: 1; } 45%, 100% { opacity: 0; } }
+    @keyframes po-f3 { 0%, 44.9% { opacity: 0; } 45%, 87.9% { opacity: 1; } 88%, 100% { opacity: 0; } }
 
-    #portrait-overlay .phone-arrow {
+    /* The roach runs on the spot along a ledge that scrolls under it, a pixel step at a time */
+    #portrait-overlay .po-roach {
       position: absolute;
-      top: -28px;
-      right: -20px;
-      font-size: 28px;
-      color: #fff;
-      animation: arrow-fade 3.5s ease-in-out infinite;
+      left: 50%;
+      bottom: 4px;
+      width: 88px;
+      height: 55px;
+      margin-left: -44px;
+      background: var(--ld-roach) 0 0 / 704px 55px no-repeat;
+      image-rendering: pixelated;
+      animation: po-legs .5s steps(8) infinite;
+    }
+    @keyframes po-legs { to { background-position-x: -704px; } }
+    #portrait-overlay .po-floor {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 6px;
+      background:
+        linear-gradient(#3d2e25, #3d2e25) 0 0 / 100% 2px no-repeat,
+        repeating-linear-gradient(90deg, #2a201a 0 12px, transparent 12px 24px) 0 4px / 100% 2px no-repeat;
+      animation: po-floor .6s steps(6) infinite;
+    }
+    @keyframes po-floor { from { background-position: 0 0, 0 4px; } to { background-position: 0 0, -24px 4px; } }
+
+    #portrait-overlay .po-title {
+      margin-top: 18px;
+      font-size: 24px;
+      line-height: 32px;
+      height: 32px;
+      font-weight: 400;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #f1e3c6;
+      /* The menu's title: a drop in dark red, one font pixel down */
+      text-shadow: 0 3px 0 #5a0d0d, 0 6px 0 rgba(0, 0, 0, .6);
+    }
+    #portrait-overlay .po-line {
+      margin-top: 10px;
+      min-height: 48px;
+      font-size: 16px;
+      line-height: 24px;
+      color: #e0a040;
+      text-wrap: balance;
+    }
+    #portrait-overlay .po-anyway {
+      margin-top: 6px;
+      height: 48px;
+      padding: 0 16px;
+      border: 0;
+      background: none;
+      font: 400 16px/48px 'Tiny5', monospace;
+      color: #8a7d6b;
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 4px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #portrait-overlay .po-anyway:active { color: #f1e3c6; }
+
+    /* On its side: the roach twice the size, the title, a hint blinking in steps */
+    #portrait-overlay .po-tap .po-stage { height: 118px; }
+    #portrait-overlay .po-tap .po-roach { width: 176px; height: 110px; margin-left: -88px; bottom: 6px; background-size: 1408px 110px; animation-name: po-legs2; }
+    @keyframes po-legs2 { to { background-position-x: -1408px; } }
+    #portrait-overlay .po-tap .po-line { min-height: 24px; margin-top: 6px; color: #e8c15a; animation: po-blink 1.2s steps(1) infinite; }
+    @keyframes po-blink { 0%, 59% { opacity: 1; } 60%, 100% { opacity: .25; } }
+    @media (max-height: 300px) {
+      #portrait-overlay .po-tap .po-stage { height: 64px; }
+      #portrait-overlay .po-tap .po-roach { width: 88px; height: 55px; margin-left: -44px; bottom: 4px; background-size: 704px 55px; animation-name: po-legs; }
+      #portrait-overlay .po-title { margin-top: 10px; }
+    }
+    @media (max-height: 540px) and (orientation: portrait) {
+      #portrait-overlay .po-stage { height: 150px; }
+      #portrait-overlay .po-phone { width: 100px; height: 100px; margin-left: -50px; }
     }
 
-    @keyframes phone-flip {
-      0% { transform: rotate(0deg); opacity: 1; }
-      15% { transform: rotate(0deg); opacity: 1; }
-      45% { transform: rotate(90deg); opacity: 1; }
-      65% { transform: rotate(90deg); opacity: 1; }
-      80% { transform: rotate(90deg); opacity: 0; }
-      81% { transform: rotate(0deg); opacity: 0; }
-      100% { transform: rotate(0deg); opacity: 1; }
-    }
-
-    @keyframes arrow-fade {
-      0% { opacity: 0; }
-      15% { opacity: 1; }
-      40% { opacity: 1; }
-      50% { opacity: 0; }
-      100% { opacity: 0; }
-    }
-
-    @keyframes phone-cycle {
-      0% { opacity: 1; }
-      80% { opacity: 1; }
-      81% { opacity: 0; }
-      100% { opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+      #portrait-overlay .po-phone svg, #portrait-overlay .po-roach, #portrait-overlay .po-floor, #portrait-overlay .po-tap .po-line { animation: none; }
+      /* Still, the phone halfway over says it */
+      #portrait-overlay .po-phone svg:nth-child(3) { opacity: 1; }
     }
   </style>
 </head>
@@ -290,28 +361,66 @@
     <div class="ld-tip"><span></span></div>
   </div>
   <div id="portrait-overlay">
-    <div class="cockroach-anim"></div>
-    <div class="message">Karaluch zaleca<br>trzymać telefon<br>poziomo</div>
-    <div class="phone-hint">
-      <div class="phone-rect"></div>
-      <div class="phone-arrow">↷</div>
+    <div class="po-card po-rotate" role="dialog" aria-label="Obróć telefon">
+      <div class="po-stage" aria-hidden="true">
+        <div class="po-phone"></div>
+        <div class="po-floor"></div>
+        <div class="po-roach"></div>
+      </div>
+      <div class="po-title">Obróć telefon</div>
+      <div class="po-line">Karaluch biega tylko w poziomie</div>
+      <button class="po-anyway" type="button">Graj mimo to</button>
     </div>
-    <div class="tap-message">Dotknij aby grać</div>
+    <div class="po-card po-tap" role="button" aria-label="Dotknij, aby grać">
+      <div class="po-stage" aria-hidden="true">
+        <div class="po-floor"></div>
+        <div class="po-roach"></div>
+      </div>
+      <div class="po-title">Dotknij, aby grać</div>
+      <div class="po-line">Karaluch już przebiera nogami</div>
+    </div>
   </div>
   <script>
     (function() {
       var overlay = document.getElementById('portrait-overlay');
-      function dismissOverlay() {
-        overlay.classList.add('dismissed');
-        if (!document.fullscreenElement) {
+
+      // The phone, drawn on a grid a cell at a time at each angle of its turn, so every frame is crisp pixel art
+      var N = 26, PW = 12, PH = 22;
+      function frame(deg) {
+        var a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+        var paths = { rim: '', screen: '', bar: '' };
+        for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+          var x = i + 0.5 - N / 2, y = j + 0.5 - N / 2;
+          var u = x * c + y * s, v = -x * s + y * c;
+          var au = Math.abs(u), av = Math.abs(v);
+          if (au > PW / 2 || av > PH / 2) continue;
+          if (au > PW / 2 - 1 && av > PH / 2 - 1) continue; // rounded corners
+          var part = au > PW / 2 - 1.35 || av > PH / 2 - 1.35 ? 'rim'
+            : (av > PH / 2 - 3 && v > 0 && au < 2) ? 'bar' : 'screen';
+          paths[part] += 'M' + i + ' ' + j + 'h1v1h-1z';
+        }
+        return '<svg viewBox="0 0 ' + N + ' ' + N + '" xmlns="http://www.w3.org/2000/svg">'
+          + '<path fill="#2a201a" d="' + paths.screen + '"/>'
+          + '<path fill="#8a7d6b" d="' + paths.bar + '"/>'
+          + '<path fill="#f1e3c6" d="' + paths.rim + '"/></svg>';
+      }
+      overlay.querySelector('.po-phone').innerHTML = [0, 30, 60, 90].map(frame).join('');
+
+      function landscape() { return window.matchMedia('(orientation: landscape)').matches; }
+      // On its side, a tap anywhere plays; upright, only "Graj mimo to" does
+      function onTap(e) {
+        var insist = !!(e.target.closest && e.target.closest('.po-anyway'));
+        if (!insist && !landscape()) return;
+        // The mouse events a touch is followed by would land on the menu under it
+        if (e.type === 'touchend') e.preventDefault();
+        overlay.classList.add(insist ? 'dismissed' : 'played');
+        // The tap is the gesture fullscreen needs. Where there is no Fullscreen API (iPhone Safari) the page stays as it is
+        if (document.fullscreenEnabled && !document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(function() {});
         }
       }
-      overlay.addEventListener('click', dismissOverlay);
-      overlay.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        dismissOverlay();
-      });
+      overlay.addEventListener('click', onTap);
+      overlay.addEventListener('touchend', onTap);
     })();
   </script>
   <script>
