@@ -3,15 +3,24 @@
 
     python3 tools/audio/check.py
 
-1. Every key the code plays (playSfx, playUi, startLoop, SFX maps, obstacle sounds, ...) is loaded by BootScene or DeferredLoadScene.
+1. Every key the code plays (playSfx, playUi, startLoop, SFX maps, obstacle sounds, ...) is loaded: by BootScene, a level's audio pack or a boss pack.
 2. Every loaded key is played somewhere (music keys aside).
 3. Every loaded file exists, decodes (ffmpeg) and has a length.
 4. Every audio file under public/ is loaded, and every other file under public/ is mentioned somewhere in the code, the
    index page or the tools.
-"""
-import os, re, subprocess, sys
+5. The level skins' sounds (public/audio/skins/): manifest.json is valid JSON with every skin of skins.py as a key and
+   exactly the sounds skins.py says it has, every file it lists exists, decodes and has a length, and no file in skins/
+   is missing from it. The files it lists count as loaded for check 4 (the game picks them from it per level).
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+Which files the game loads comes from tools/audio/loaded.ts (see there), not from a regex over the sources.
+"""
+import json, os, re, subprocess, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import skins  # noqa: E402
+
+ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 SRC = os.path.join(ROOT, "src")
 PUBLIC = os.path.join(ROOT, "public")
 problems = []
@@ -29,38 +38,21 @@ def ts_files(base):
 
 
 # ---------------------------------------------------------------- what is loaded
+# The game loads its audio in several places (boot, the level packs of src/config/packs.ts, the boss packs of
+# src/systems/PackLoader.ts), partly computed, so loaded.ts (run with the repo's tsx) reads them the way the game does and
+# prints key -> file; see its header.
 loaded = {}  # key -> path under public/
-boot = read("src/scenes/BootScene.ts")
-deferred = read("src/scenes/DeferredLoadScene.ts")
-
-for key, path in re.findall(r"\['([\w-]+)', '((?:audio|levels)/[^']+\.ogg)'\]", boot):
-    loaded[key] = path
-for key, path in re.findall(r"this\.load\.audio\('([\w-]+)', '([^']+)'\)", boot):
-    loaded[key] = path
-if "combo-tick-${i + 1}" in boot:
-    for i in range(1, 9):
-        loaded[f"combo-tick-{i}"] = f"audio/combo-tick-{i}.ogg"
-for m in re.findall(r"const milestoneTiers = \[([^\]]+)\]", boot):
-    for n in re.findall(r"'(\d+)'", m):
-        loaded[f"milestone-{n}"] = f"audio/milestones/{n}.ogg"
-
-audio_block = re.search(r"const BOSS_AUDIO[^=]*= \[(.*?)\n\];", deferred, re.S).group(1)
-for key, file in re.findall(r"\['([\w-]+)', '([\w-]+)'\]", audio_block):
-    loaded[key] = f"boss/{file}.ogg"
-sfx_block = re.search(r"const BOSS_SFX[^=]*= \[(.*?)\n\];", deferred, re.S).group(1)
-for key, file in re.findall(r"\['([\w-]+)', '([\w-]+)'\]", sfx_block):
-    loaded[key] = f"boss/sfx/{file}.ogg"
-for name in re.findall(r"'([\w-]+)'", re.sub(r"\['[\w-]+', '[\w-]+'\]", "", sfx_block).split("...[")[-1].split("].map")[0]):
-    loaded[name] = f"boss/sfx/{name}.ogg"
-if "bgm-lv${i}" in deferred:
-    for i in range(2, 11):
-        loaded[f"bgm-lv{i}"] = f"levels/soundtracks/lv{i}.ogg"
-if "boss-hurt-${i}" in deferred:
-    for i in range(1, 7):
-        loaded[f"boss-hurt-{i}"] = f"boss/hurt-{i}.ogg"
-if "boss-cue-${i}" in deferred:
-    for i in range(1, 8):
-        loaded[f"boss-cue-{i}"] = f"boss/boss-cue-{i}.ogg"
+skin_keys = set()  # the skins' own sounds: loaded by the level packs, played by key through the skin manifest, never named in a play call
+_run = subprocess.run(["node", "--import", "tsx", os.path.join(HERE, "loaded.ts")], cwd=ROOT, capture_output=True, text=True)
+try:
+    _out = json.loads(_run.stdout)
+except ValueError:
+    _out = {"loaded": {}, "errors": [f"loaded.ts failed ({_run.returncode}): {(_run.stderr or _run.stdout).strip()[-400:]}"]}
+problems.extend(_out["errors"])
+for key, info in _out["loaded"].items():
+    loaded[key] = info["path"]
+    if info["path"].startswith("audio/skins/"):
+        skin_keys.add(key)
 
 # ---------------------------------------------------------------- what is played
 played = {}  # key or pattern -> a place that plays it
@@ -76,6 +68,7 @@ PATTERNS = [
     r"this\.sound\(\s*([`'])([^`']+)\1",
     r"\{ key: ([`'])([\w-]+)\1, volume",
     r"speed: [\d.]+, sound: ([`'])([\w-]+)\1",
+    r"(?:\blook|\))\.sound\(\s*([`'])([^`']+)\1",  # look.sound('bird-sfx'), kit.look(plan).sound(...): the enemy's base sound, or its skin's own (look.ts)
     r"\bswatter\([^,()]+,\s*[^,()]+,\s*([`'])([^`']+)\1",  # swatter(kit, plan, 'newspaper-sfx') hands the key on to playSoundOnVisible
 ]
 # A sound picked by a ternary (a key or another): counts as played, but is not itself required to be loaded
@@ -127,7 +120,7 @@ played_keys = set(candidates)
 for key in played:
     played_keys.update(keys_matching(key))
 for key in sorted(loaded):
-    if key not in played_keys and not MUSIC.match(key):
+    if key not in played_keys and not MUSIC.match(key) and key not in skin_keys:
         if key in PENDING:
             print(f"warning: {key} has no call site yet ({PENDING[key]})")
         else:
@@ -151,6 +144,12 @@ for key, path in sorted(loaded.items()):
 
 # 4. nothing under public/ nobody asks for
 loaded_paths = set(loaded.values())
+_skin_manifest_path = os.path.join(PUBLIC, "audio", "skins", "manifest.json")
+if os.path.exists(_skin_manifest_path):  # the game picks a skin's sound from the manifest: every file it lists counts as loaded
+    try:
+        loaded_paths.update(f"audio/skins/{sid}.ogg" for sounds in json.load(open(_skin_manifest_path, encoding="utf-8")).values() for sid in sounds.values())
+    except (ValueError, AttributeError):
+        pass  # check 5 reports a manifest that is not valid
 code = ""
 for p in list(ts_files(SRC)) + [os.path.join(ROOT, "index.html")]:
     code += open(p, encoding="utf-8").read()
@@ -171,6 +170,36 @@ for d, _, fs in os.walk(PUBLIC):
             if rel not in code and f not in code and re.sub(r"\d+", "", stem) + "${" not in code and \
                not re.search(r"['`/]" + re.escape(re.sub(r"\d+$", "", stem)) + r"\$\{", code) and stem not in code:
                 problems.append(f"file nothing mentions: public/{rel}")
+
+# 5. the level skins' sounds
+SKIN_DIR = os.path.join(PUBLIC, "audio", "skins")
+try:
+    skin_manifest = json.load(open(os.path.join(SKIN_DIR, "manifest.json"), encoding="utf-8"))
+except (OSError, ValueError) as e:
+    skin_manifest = None
+    problems.append(f"public/audio/skins/manifest.json missing or not valid JSON: {e}")
+if skin_manifest is not None:
+    if skin_manifest != skins.manifest():
+        problems.append("public/audio/skins/manifest.json differs from skins.py (run tools/audio/install.py)")
+    listed = set()
+    for skin, sounds in skin_manifest.items():
+        for base_key, sid in sounds.items():
+            path = os.path.join(SKIN_DIR, sid + ".ogg")
+            listed.add(sid + ".ogg")
+            if not os.path.exists(path):
+                problems.append(f"missing file: audio/skins/{sid}.ogg  ({skin}, {base_key})")
+                continue
+            r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True)
+            dec = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-f", "null", "-"], capture_output=True, text=True)
+            try:
+                dur = float(r.stdout.strip())
+            except ValueError:
+                dur = 0.0
+            if dec.returncode != 0 or dec.stderr.strip() or dur <= 0:
+                problems.append(f"does not decode: audio/skins/{sid}.ogg  {dec.stderr.strip()[:80]}")
+    for f in sorted(os.listdir(SKIN_DIR)):
+        if f.endswith(".ogg") and f not in listed:
+            problems.append(f"skin sound the manifest does not list: audio/skins/{f}")
 
 print(f"{len(loaded)} sounds loaded, {len(played)} play sites/keys checked")
 if problems:

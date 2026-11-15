@@ -1313,6 +1313,726 @@
      "note": "current: the boss's own music keeps playing (Lodzia's here)"
     }
    ]
+  },
+  "lv2-fern-onion": {
+   "section": "Skins: level 2",
+   "event": "Level 2 skin, potted fern: replaces onion",
+   "current": [
+    {
+     "file": "audio/onion.ogg",
+     "note": "the onion's sound it replaces"
+    }
+   ]
+  },
+  "lv2-pipe-bleach-drip": {
+   "section": "Skins: level 2",
+   "event": "Level 2 skin, leaking rusty water pipe: replaces bleach-drip",
+   "current": [
+    {
+     "file": "audio/bleach-drip.ogg",
+     "note": "the bleach's sound it replaces"
+    }
+   ]
+  },
+  "lv3-tomato-glue-squelch": {
+   "section": "Skins: level 3",
+   "event": "Level 3 skin, squashed tomato: replaces glue-squelch",
+   "current": [
+    {
+     "file": "audio/glue-squelch.ogg",
+     "note": "the glue's sound it replaces"
+    }
+   ]
+  },
+  "lv3-flyswatter-flipper": {
+   "section": "Skins: level 3",
+   "event": "Level 3 skin, plastic fly swatter: replaces flipper",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "the flipper's sound it replaces"
+    }
+   ]
+  },
+  "lv3-barrel-bleach-drip": {
+   "section": "Skins: level 3",
+   "event": "Level 3 skin, pickle barrel dripping brine: replaces bleach-drip",
+   "current": [
+    {
+     "file": "audio/bleach-drip.ogg",
+     "note": "the bleach's sound it replaces"
+    }
+   ]
+  },
+  "lv4-toadstool-onion": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, toadstool: replaces onion",
+   "current": [
+    {
+     "file": "audio/onion.ogg",
+     "note": "the onion's sound it replaces"
+    }
+   ]
+  },
+  "lv4-branch-flipper": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, pine branch swat: replaces flipper",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "the flipper's sound it replaces"
+    }
+   ]
+  },
+  "lv4-resin-stub-bleach-drip": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, branch stub dripping resin: replaces bleach-drip",
+   "current": [
+    {
+     "file": "audio/bleach-drip.ogg",
+     "note": "the bleach's sound it replaces"
+    }
+   ]
+  },
+  "lv4-puffball-spray": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, puffball mushroom puffing spores: replaces spray",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "the spray's sound it replaces"
+    }
+   ]
+  },
+  "lv4-frond-newspaper": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, fern frond swat: replaces newspaper",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "the newspaper's sound it replaces"
+    }
+   ]
+  },
+  "lv4-flashlight-lamp-flicker": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, old hand flashlight: replaces lamp-flicker",
+   "current": [
+    {
+     "file": "audio/lamp-flicker.ogg",
+     "note": "the lamp's sound it replaces"
+    }
+   ]
+  },
+  "lv4-flashlight-lamp-snap": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, old hand flashlight: replaces lamp-snap",
+   "current": [
+    {
+     "file": "audio/lamp-snap.ogg",
+     "note": "the lamp's sound it replaces"
+    }
+   ]
+  },
+  "lv4-rake-mop-slap": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, rake sweep: replaces mop-slap",
+   "current": [
+    {
+     "file": "audio/mop-slap.ogg",
+     "note": "the mop's sound it replaces"
+    }
+   ]
+  },
+  "lv4-molehole-vacuum-roar": {
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, molehill sucking things in: replaces vacuum-roar",
+   "current": [
+    {
+     "file": "audio/vacuum-roar.ogg",
+     "note": "the vacuum's sound it replaces"
+    }
+   ]
+  },
+  "lv5-bauble-onion": {
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, glass bauble: replaces onion",
+   "current": [
+    {
+     "file": "audio/onion.ogg",
+     "note": "the onion's sound it replaces"
+    }
+   ]
+  },
+  "lv5-candle-bleach-drip": {
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, candle dripping wax: replaces bleach-drip",
+   "current": [
+    {
+     "file": "audio/bleach-drip.ogg",
+     "note": "the bleach's sound it replaces"
+    }
+   ]
+  },
+  "lv5-angel-bird": {
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, flying nativity angel with a tiny trumpet: replaces bird",
+   "current": [
+    {
+     "file": "audio/bird.ogg",
+     "note": "the bird's sound it replaces"
+    }
+   ]
+  },
+  "lv5-goose-hen-cluck": {
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, goose: replaces hen-cluck",
+   "current": [
+    {
+     "file": "audio/hen-cluck.ogg",
+     "note": "the hen's sound it replaces"
+    }
+   ]
+  },
+  "lv5-carp-frog-croak": {
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, carp in a basin: replaces frog-croak",
+   "current": [
+    {
+     "file": "audio/frog-croak.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv5-carp-frog-tongue": {
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, carp in a basin: replaces frog-tongue",
+   "current": [
+    {
+     "file": "audio/frog-tongue.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv6-mug-flipper": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, heavy beer mug slam: replaces flipper",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "the flipper's sound it replaces"
+    }
+   ]
+  },
+  "lv6-extinguisher-spray": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, fire extinguisher blast: replaces spray",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "the spray's sound it replaces"
+    }
+   ]
+  },
+  "lv6-vinyl-newspaper": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, vinyl record in its sleeve swat: replaces newspaper",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "the newspaper's sound it replaces"
+    }
+   ]
+  },
+  "lv6-coaster-bird": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, thrown beer coaster whizzing: replaces bird",
+   "current": [
+    {
+     "file": "audio/bird.ogg",
+     "note": "the bird's sound it replaces"
+    }
+   ]
+  },
+  "lv6-dog-cat": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, dalmatian pounce: replaces cat",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "the cat's sound it replaces"
+    }
+   ]
+  },
+  "lv6-blower-frog-croak": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, party blower: replaces frog-croak",
+   "current": [
+    {
+     "file": "audio/frog-croak.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv6-blower-frog-tongue": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, party blower: replaces frog-tongue",
+   "current": [
+    {
+     "file": "audio/frog-tongue.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv6-speaker-vacuum-roar": {
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, bass speaker sucking in: replaces vacuum-roar",
+   "current": [
+    {
+     "file": "audio/vacuum-roar.ogg",
+     "note": "the vacuum's sound it replaces"
+    }
+   ]
+  },
+  "lv7-windbreak-newspaper": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, rolled windbreak (fabric and poles) swat: replaces newspaper",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "the newspaper's sound it replaces"
+    }
+   ]
+  },
+  "lv7-cormorant-hen-cluck": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, cormorant: replaces hen-cluck",
+   "current": [
+    {
+     "file": "audio/hen-cluck.ogg",
+     "note": "the hen's sound it replaces"
+    }
+   ]
+  },
+  "lv7-crab-cat": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, crab pounce (clicking claws): replaces cat",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "the cat's sound it replaces"
+    }
+   ]
+  },
+  "lv7-octopus-frog-croak": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, octopus: replaces frog-croak",
+   "current": [
+    {
+     "file": "audio/frog-croak.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv7-octopus-frog-tongue": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, octopus: replaces frog-tongue",
+   "current": [
+    {
+     "file": "audio/frog-tongue.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv7-shrimp-centipede-rear": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, shrimp rearing: replaces centipede-rear",
+   "current": [
+    {
+     "file": "audio/centipede-rear.ogg",
+     "note": "the centipede's sound it replaces"
+    }
+   ]
+  },
+  "lv7-sandals-boots-stomp": {
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, sandals with socks stomping in sand: replaces boots-stomp",
+   "current": [
+    {
+     "file": "audio/boots-stomp.ogg",
+     "note": "the boots's sound it replaces"
+    }
+   ]
+  },
+  "lv8-moonrock-aerosol-rattle": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, moon rock (rattles, then cracks and crumbles): replaces aerosol-rattle",
+   "current": [
+    {
+     "file": "audio/aerosol-rattle.ogg",
+     "note": "the aerosol's sound it replaces"
+    }
+   ]
+  },
+  "lv8-moonrock-aerosol-blast": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, moon rock (rattles, then cracks and crumbles): replaces aerosol-blast",
+   "current": [
+    {
+     "file": "audio/aerosol-blast.ogg",
+     "note": "the aerosol's sound it replaces"
+    }
+   ]
+  },
+  "lv8-thurible-spray": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, incense burner (chain clink, smoke puff): replaces spray",
+   "current": [
+    {
+     "file": "audio/spray.ogg",
+     "note": "the spray's sound it replaces"
+    }
+   ]
+  },
+  "lv8-scroll-newspaper": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, parchment scroll swat: replaces newspaper",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "the newspaper's sound it replaces"
+    }
+   ]
+  },
+  "lv8-spacehen-hen-cluck": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, hen in a space helmet: replaces hen-cluck",
+   "current": [
+    {
+     "file": "audio/hen-cluck.ogg",
+     "note": "the hen's sound it replaces"
+    }
+   ]
+  },
+  "lv8-spacehen-hen-peck": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, hen in a space helmet: replaces hen-peck",
+   "current": [
+    {
+     "file": "audio/hen-peck.ogg",
+     "note": "the hen's sound it replaces"
+    }
+   ]
+  },
+  "lv8-alien-cat": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, small alien pounce: replaces cat",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "the cat's sound it replaces"
+    }
+   ]
+  },
+  "lv8-blob-frog-croak": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, alien blob: replaces frog-croak",
+   "current": [
+    {
+     "file": "audio/frog-croak.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv8-blob-frog-tongue": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, alien blob: replaces frog-tongue",
+   "current": [
+    {
+     "file": "audio/frog-tongue.ogg",
+     "note": "the frog's sound it replaces"
+    }
+   ]
+  },
+  "lv8-satellite-jellyfish": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, satellite (beeps): replaces jellyfish",
+   "current": [
+    {
+     "file": "audio/jellyfish.ogg",
+     "note": "the jellyfish's sound it replaces"
+    }
+   ]
+  },
+  "lv8-meteor-gull-screech": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, meteor dive (whoosh and roar): replaces gull-screech",
+   "current": [
+    {
+     "file": "audio/gull-screech.ogg",
+     "note": "the gull's sound it replaces"
+    }
+   ]
+  },
+  "lv8-ufo-wasp-buzz": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, tiny UFO (hum, dive): replaces wasp-buzz",
+   "current": [
+    {
+     "file": "audio/wasp-buzz.ogg",
+     "note": "the wasp's sound it replaces"
+    }
+   ]
+  },
+  "lv8-ufo-wasp-dive": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, tiny UFO (hum, dive): replaces wasp-dive",
+   "current": [
+    {
+     "file": "audio/wasp-dive.ogg",
+     "note": "the wasp's sound it replaces"
+    }
+   ]
+  },
+  "lv8-rover-robovac-whir": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, old lunar rover (motor whir, breaking): replaces robovac-whir",
+   "current": [
+    {
+     "file": "audio/robovac-whir.ogg",
+     "note": "the robotVacuum's sound it replaces"
+    }
+   ]
+  },
+  "lv8-rover-robovac-crack": {
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, old lunar rover (motor whir, breaking): replaces robovac-crack",
+   "current": [
+    {
+     "file": "audio/robovac-crack.ogg",
+     "note": "the robotVacuum's sound it replaces"
+    }
+   ]
+  },
+  "lv9-vodka-aerosol-rattle": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, vodka bottle (glass clink, shatter): replaces aerosol-rattle",
+   "current": [
+    {
+     "file": "audio/aerosol-rattle.ogg",
+     "note": "the aerosol's sound it replaces"
+    }
+   ]
+  },
+  "lv9-vodka-aerosol-blast": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, vodka bottle (glass clink, shatter): replaces aerosol-blast",
+   "current": [
+    {
+     "file": "audio/aerosol-blast.ogg",
+     "note": "the aerosol's sound it replaces"
+    }
+   ]
+  },
+  "lv9-bottle-flipper": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, bottle swung by the neck: replaces flipper",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "the flipper's sound it replaces"
+    }
+   ]
+  },
+  "lv9-lynx-cat": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, lynx pounce (snarl): replaces cat",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "the cat's sound it replaces"
+    }
+   ]
+  },
+  "lv9-shotglass-jellyfish": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, floating shot glass (glassy shimmer): replaces jellyfish",
+   "current": [
+    {
+     "file": "audio/jellyfish.ogg",
+     "note": "the jellyfish's sound it replaces"
+    }
+   ]
+  },
+  "lv9-eagle-gull-screech": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, eagle dive (cry): replaces gull-screech",
+   "current": [
+    {
+     "file": "audio/gull-screech.ogg",
+     "note": "the gull's sound it replaces"
+    }
+   ]
+  },
+  "lv9-mosquito-wasp-buzz": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, huge mosquito (whine, dive): replaces wasp-buzz",
+   "current": [
+    {
+     "file": "audio/wasp-buzz.ogg",
+     "note": "the wasp's sound it replaces"
+    }
+   ]
+  },
+  "lv9-mosquito-wasp-dive": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, huge mosquito (whine, dive): replaces wasp-dive",
+   "current": [
+    {
+     "file": "audio/wasp-dive.ogg",
+     "note": "the wasp's sound it replaces"
+    }
+   ]
+  },
+  "lv9-tree-zapper-bolt": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, lightning-struck tree (crackle charge, bolt): replaces zapper-bolt",
+   "current": [
+    {
+     "file": "audio/zapper-bolt.ogg",
+     "note": "the zapper's sound it replaces"
+    }
+   ]
+  },
+  "lv9-boar-robovac-whir": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, wild boar (grunting trot, squeal): replaces robovac-whir",
+   "current": [
+    {
+     "file": "audio/robovac-whir.ogg",
+     "note": "the robotVacuum's sound it replaces"
+    }
+   ]
+  },
+  "lv9-boar-robovac-crack": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, wild boar (grunting trot, squeal): replaces robovac-crack",
+   "current": [
+    {
+     "file": "audio/robovac-crack.ogg",
+     "note": "the robotVacuum's sound it replaces"
+    }
+   ]
+  },
+  "lv9-mushrooms-repeller-hum": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, glowing mushroom ring (hum, ring pulse): replaces repeller-hum",
+   "current": [
+    {
+     "file": "audio/repeller-hum.ogg",
+     "note": "the repeller's sound it replaces"
+    }
+   ]
+  },
+  "lv9-mushrooms-repeller-ring": {
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, glowing mushroom ring (hum, ring pulse): replaces repeller-ring",
+   "current": [
+    {
+     "file": "audio/repeller-ring.ogg",
+     "note": "the repeller's sound it replaces"
+    }
+   ]
+  },
+  "lv10-sign-flipper": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, bent enamel street sign swung: replaces flipper",
+   "current": [
+    {
+     "file": "audio/flipper.ogg",
+     "note": "the flipper's sound it replaces"
+    }
+   ]
+  },
+  "lv10-pipe-newspaper": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, corroded metal pipe used as a club: replaces newspaper",
+   "current": [
+    {
+     "file": "audio/newspaper.ogg",
+     "note": "the newspaper's sound it replaces"
+    }
+   ]
+  },
+  "lv10-mutant-cat": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, three-eyed mutant cat pounce: replaces cat",
+   "current": [
+    {
+     "file": "audio/cat.ogg",
+     "note": "the cat's sound it replaces"
+    }
+   ]
+  },
+  "lv10-fridge-jellyfish": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, small floating fridge (compressor hum, buzz, cold shimmer): replaces jellyfish",
+   "current": [
+    {
+     "file": "audio/jellyfish.ogg",
+     "note": "the jellyfish's sound it replaces"
+    }
+   ]
+  },
+  "lv10-vulture-gull-screech": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, wasteland vulture dive (hoarse hiss-croak, wing rush): replaces gull-screech",
+   "current": [
+    {
+     "file": "audio/gull-screech.ogg",
+     "note": "the gull's sound it replaces"
+    }
+   ]
+  },
+  "lv10-drone-wasp-buzz": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, battered quadcopter drone (rotor whine, bearing rattle): replaces wasp-buzz",
+   "current": [
+    {
+     "file": "audio/wasp-buzz.ogg",
+     "note": "the wasp's sound it replaces"
+    }
+   ]
+  },
+  "lv10-drone-wasp-dive": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, battered quadcopter drone (rotor whine, bearing rattle): replaces wasp-dive",
+   "current": [
+    {
+     "file": "audio/wasp-dive.ogg",
+     "note": "the wasp's sound it replaces"
+    }
+   ]
+  },
+  "lv10-trolley-bison": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, runaway supermarket trolley charging: replaces bison",
+   "current": [
+    {
+     "file": "audio/bison.ogg",
+     "note": "the bison's sound it replaces"
+    }
+   ]
+  },
+  "lv10-wire-hedgehog": {
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, rolling ball of barbed wire winding up: replaces hedgehog",
+   "current": [
+    {
+     "file": "audio/hedgehog.ogg",
+     "note": "the hedgehog's sound it replaces"
+    }
+   ]
   }
  },
  "sounds": [
@@ -6231,6 +6951,2198 @@
    "crest_db": 12.8,
    "dc": 0.0,
    "loop_seam_ratio": 1.0
+  },
+  {
+   "id": "lv2-fern-onion",
+   "group": "lv2-fern-onion",
+   "variant": "",
+   "section": "Skins: level 2",
+   "event": "Level 2 skin, potted fern: replaces onion",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp2500-8500 > lp40 > bp500-2000 > lp15 > hp2000 > crackle 22/s > norm -19LUFS peak<=-1.5",
+   "note": "fern fronds brushed: rustling pink noise (ragged flutter), soft low 'shff', a few dry twig ticks",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.01,
+   "peak_dbfs": -5.65,
+   "lufs": -19.3,
+   "centroid_hz": 5680,
+   "attack_ms": 64.1,
+   "onset_ms": 8.4,
+   "active_s": 0.997,
+   "crest_db": 16.5,
+   "dc": 1e-05
+  },
+  {
+   "id": "lv2-pipe-bleach-drip",
+   "group": "lv2-pipe-bleach-drip",
+   "variant": "",
+   "section": "Skins: level 2",
+   "event": "Level 2 skin, leaking rusty water pipe: replaces bleach-drip",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 5000->1200 q1.1 > bubbles 28->8/s > norm -19LUFS peak<=-1.5",
+   "note": "drop into a rusty pipe: plink with a short hollow metal ring, small water splash, trickle (no fizz)",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.563,
+   "peak_dbfs": -3.77,
+   "lufs": -19.1,
+   "centroid_hz": 6047,
+   "attack_ms": 6.8,
+   "onset_ms": 0.1,
+   "active_s": 0.56,
+   "crest_db": 16.6,
+   "dc": 1e-05
+  },
+  {
+   "id": "lv3-tomato-glue-squelch",
+   "group": "lv3-tomato-glue-squelch",
+   "variant": "",
+   "section": "Skins: level 3",
+   "event": "Level 3 skin, squashed tomato: replaces glue-squelch",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-squish/oga-squish__squish_03.mp3",
+    "oga-100-cc0-sfx/plop_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-squish",
+     "page": "https://opengameart.org/content/squish-sounds-effects",
+     "author": "EZduzziteh (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load oga-squish__squish_03.mp3 > basweep 1800->250 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > hp1500 > crackle 70/s > bubbles 45->10/s > load plop_02.ogg > norm -19LUFS peak<=-1.5",
+   "note": "pack squish + wet splat + seeds (fine clicks) + a few bubbles and a pack plop: pulp, no sticky squeak",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.458,
+   "peak_dbfs": -2.94,
+   "lufs": -19.1,
+   "centroid_hz": 2754,
+   "attack_ms": 6.7,
+   "onset_ms": 0.1,
+   "active_s": 0.455,
+   "crest_db": 16.2,
+   "dc": 3e-05
+  },
+  {
+   "id": "lv3-flyswatter-flipper",
+   "group": "lv3-flyswatter-flipper",
+   "variant": "",
+   "section": "Skins: level 3",
+   "event": "Level 3 skin, plastic fly swatter: replaces flipper",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-cc0-sfx/hit_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 3000->9000 q1.2 > whoosh > bp1200-5500 > load hit_01.ogg > hp3000 > crackle 170/s > hp2500 > sat1 > norm -14.7LUFS peak<=-1.5",
+   "note": "plastic swatter: short airy swish, then a thin plastic thwack at the base's moment, mesh rattle and a little ring",
+   "category": "gameplay",
+   "target_lufs": -14.7,
+   "loop": false,
+   "duration_s": 0.504,
+   "peak_dbfs": -1.18,
+   "lufs": -15.9,
+   "centroid_hz": 8251,
+   "attack_ms": 84.2,
+   "onset_ms": 6.8,
+   "active_s": 0.354,
+   "crest_db": 17.7,
+   "dc": -0.0001
+  },
+  {
+   "id": "lv3-barrel-bleach-drip",
+   "group": "lv3-barrel-bleach-drip",
+   "variant": "",
+   "section": "Skins: level 3",
+   "event": "Level 3 skin, pickle barrel dripping brine: replaces bleach-drip",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactWood_light_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactWood_light_001.ogg > basweep 3500->900 q1.0 > bubbles 30->6/s > norm -19LUFS peak<=-1.5",
+   "note": "drop into a barrel: hollow wood plop and knock, brine plink, small splash, drips",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.57,
+   "peak_dbfs": -1.87,
+   "lufs": -19.3,
+   "centroid_hz": 4304,
+   "attack_ms": 7.1,
+   "onset_ms": 0.2,
+   "active_s": 0.541,
+   "crest_db": 17.4,
+   "dc": -0.00012
+  },
+  {
+   "id": "lv4-toadstool-onion",
+   "group": "lv4-toadstool-onion",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, toadstool: replaces onion",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp2500 > bubbles 14->5/s > norm -19LUFS peak<=-1.5",
+   "note": "two spongy squeak-boings (soft sine glides), a puff of spores, damp little pops",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.012,
+   "peak_dbfs": -3.22,
+   "lufs": -19.0,
+   "centroid_hz": 2110,
+   "attack_ms": 14.1,
+   "onset_ms": 0.7,
+   "active_s": 1.004,
+   "crest_db": 14.8,
+   "dc": -7e-05
+  },
+  {
+   "id": "lv4-branch-flipper",
+   "group": "lv4-branch-flipper",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, pine branch swat: replaces flipper",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-metal-wood/wood_hit_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 500->4500 q0.9 > whoosh > load wood_hit_03.ogg > hp2500 > crackle 200/s > hp2500 > sat1 > norm -14.7LUFS peak<=-1.5",
+   "note": "pine branch: swish through needles, then a pack wood thwack at the base's moment, needle rustle, twig snap",
+   "category": "gameplay",
+   "target_lufs": -14.7,
+   "loop": false,
+   "duration_s": 0.495,
+   "peak_dbfs": -1.47,
+   "lufs": -15.2,
+   "centroid_hz": 8215,
+   "attack_ms": 93.4,
+   "onset_ms": 7.6,
+   "active_s": 0.452,
+   "crest_db": 15.9,
+   "dc": -1e-05
+  },
+  {
+   "id": "lv4-resin-stub-bleach-drip",
+   "group": "lv4-resin-stub-bleach-drip",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, branch stub dripping resin: replaces bleach-drip",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-squish/oga-squish__squishpop.mp3"
+   ],
+   "packs": [
+    {
+     "name": "oga-squish",
+     "page": "https://opengameart.org/content/squish-sounds-effects",
+     "author": "EZduzziteh (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 900->150 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > load oga-squish__squishpop.mp3 > bubbles 12->4/s > norm -19LUFS peak<=-1.5",
+   "note": "thick resin drip: slow low bloop, heavy squelch, a sticky pop (no fizz, no sizzle)",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.637,
+   "peak_dbfs": -2.98,
+   "lufs": -19.2,
+   "centroid_hz": 3622,
+   "attack_ms": 8.4,
+   "onset_ms": 0.2,
+   "active_s": 0.605,
+   "crest_db": 15.5,
+   "dc": -7e-05
+  },
+  {
+   "id": "lv4-puffball-spray",
+   "group": "lv4-puffball-spray",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, puffball mushroom puffing spores: replaces spray",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp250-3500 > bp250-3500 > bp250-3500 > bp1500-6500 > hp5000 > crackle 26/s > norm -19LUFS peak<=-1.5",
+   "note": "spore puffs: three soft low-passed 'ff' bursts over a fine powder hush, tiny high sparkle ticks",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.005,
+   "peak_dbfs": -2.17,
+   "lufs": -19.2,
+   "centroid_hz": 5093,
+   "attack_ms": 232.1,
+   "onset_ms": 1.8,
+   "active_s": 0.995,
+   "crest_db": 18.4,
+   "dc": -6e-05
+  },
+  {
+   "id": "lv4-frond-newspaper",
+   "group": "lv4-frond-newspaper",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, fern frond swat: replaces newspaper",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactSoft_medium_002.ogg",
+    "kenney-rpg-audio/Audio/cloth4.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 700->4500 q0.8 > whoosh > load impactSoft_medium_002.ogg > lp2500 > load cloth4.ogg > bp2000-7000 > lp35 > hp2500 > crackle 70/s > sat1 > norm -16LUFS peak<=-1.5",
+   "note": "fern frond: leafy pink swish, soft pack slap with cloth, rustle tail",
+   "category": "gameplay",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 1.153,
+   "peak_dbfs": -1.71,
+   "lufs": -16.3,
+   "centroid_hz": 5638,
+   "attack_ms": 179.1,
+   "onset_ms": 30.4,
+   "active_s": 1.074,
+   "crest_db": 15.5,
+   "dc": -0.00028
+  },
+  {
+   "id": "lv4-flashlight-lamp-flicker",
+   "group": "lv4-flashlight-lamp-flicker",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, old hand flashlight: replaces lamp-flicker",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-cc0-sfx/switch_01.ogg",
+    "oga-100-cc0-sfx/switch_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "hp900 > hp900 > hp900 > lp3500 > load switch_01.ogg > load switch_02.ogg > lp800 > norm -17LUFS peak<=-1.5",
+   "note": "battery torch flicker: three dull switch-contact ticks (pack switch clicks) and a weak, gated buzz; no mains arc",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.299,
+   "peak_dbfs": -1.47,
+   "lufs": -18.0,
+   "centroid_hz": 4314,
+   "attack_ms": 8.9,
+   "onset_ms": 0.0,
+   "active_s": 0.227,
+   "crest_db": 17.2,
+   "dc": 0.00021
+  },
+  {
+   "id": "lv4-flashlight-lamp-snap",
+   "group": "lv4-flashlight-lamp-snap",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, old hand flashlight: replaces lamp-snap",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-cc0-sfx/switch_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load switch_02.ogg > lp400 > thump > sat1.8 > hp1200 > norm -17LUFS peak<=-1.5",
+   "note": "torch switched on: plastic click-clack (pack switch) + knock + battery tinks + a dim filament ping",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.505,
+   "peak_dbfs": -1.17,
+   "lufs": -17.2,
+   "centroid_hz": 2138,
+   "attack_ms": 7.7,
+   "onset_ms": 0.0,
+   "active_s": 0.494,
+   "crest_db": 15.7,
+   "dc": 2e-05
+  },
+  {
+   "id": "lv4-rake-mop-slap",
+   "group": "lv4-rake-mop-slap",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, rake sweep: replaces mop-slap",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactWood_medium_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactWood_medium_002.ogg > lp1500 > lp400 > thump > sat1.8 > bp1200-6000 > hp1500 > crackle 160/s > basweep 500->2500 q0.8 > whoosh > norm -17LUFS peak<=-1.5",
+   "note": "rake head thud (pack wood) then tines dragging: gated rasp at the tine rate, dirt and twig ticks, a swish",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.574,
+   "peak_dbfs": -1.42,
+   "lufs": -17.2,
+   "centroid_hz": 5741,
+   "attack_ms": 11.2,
+   "onset_ms": 0.1,
+   "active_s": 0.564,
+   "crest_db": 15.0,
+   "dc": -0.00216
+  },
+  {
+   "id": "lv4-molehole-vacuum-roar",
+   "group": "lv4-molehole-vacuum-roar",
+   "variant": "",
+   "section": "Skins: level 4",
+   "event": "Level 4 skin, molehill sucking things in: replaces vacuum-roar",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp260 > basweep 400->2200 q0.9 > lp20 > hp600 > crackle 160/s > lp400 > thump > sat1.8 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "earth sucked in: brown rumble, gritty band noise sweeping up, dense soil crackle, a low gulp at the end",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 1.412,
+   "peak_dbfs": -4.06,
+   "lufs": -17.0,
+   "centroid_hz": 4178,
+   "attack_ms": 229.3,
+   "onset_ms": 17.0,
+   "active_s": 1.404,
+   "crest_db": 6.2,
+   "dc": 0.00014
+  },
+  {
+   "id": "lv5-bauble-onion",
+   "group": "lv5-bauble-onion",
+   "variant": "",
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, glass bauble: replaces onion",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactGlass_light_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactGlass_light_001.ogg > norm -19LUFS peak<=-1.5",
+   "note": "glass bauble: a bright glass strike, then a cascade of glassy tings at falling levels",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.009,
+   "peak_dbfs": -3.63,
+   "lufs": -19.0,
+   "centroid_hz": 8181,
+   "attack_ms": 8.3,
+   "onset_ms": 0.1,
+   "active_s": 0.993,
+   "crest_db": 18.6,
+   "dc": -1e-05
+  },
+  {
+   "id": "lv5-candle-bleach-drip",
+   "group": "lv5-candle-bleach-drip",
+   "variant": "",
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, candle dripping wax: replaces bleach-drip",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp1200-3500 > lp900 > hp2000 > crackle 40/s > norm -19LUFS peak<=-1.5",
+   "note": "wax drop: a soft tick, a fluttering flame (low-passed noise with 11 Hz flutter), faint sizzle",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.659,
+   "peak_dbfs": -1.15,
+   "lufs": -19.7,
+   "centroid_hz": 5281,
+   "attack_ms": 5.9,
+   "onset_ms": 0.0,
+   "active_s": 0.655,
+   "crest_db": 17.8,
+   "dc": -0.00021
+  },
+  {
+   "id": "lv5-angel-bird",
+   "group": "lv5-angel-bird",
+   "variant": "",
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, flying nativity angel with a tiny trumpet: replaces bird",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 1411/2665/4076 > lp2352 > sat1.5 > formant 1411/2665/4076 > lp2352 > sat1.5 > formant 1884/3559/5444 > lp3141 > sat1.5 > formant 2374/4484/6858 > lp3957 > sat1.5 > norm -15.5LUFS peak<=-1.5",
+   "note": "tiny trumpet fanfare: three short rising brassy notes then a long vibrato note, wing-flutter tinkles on top",
+   "category": "gameplay",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 2.412,
+   "peak_dbfs": -8.82,
+   "lufs": -15.5,
+   "centroid_hz": 6093,
+   "attack_ms": 24.4,
+   "onset_ms": 1.3,
+   "active_s": 2.406,
+   "crest_db": 8.9,
+   "dc": -0.0
+  },
+  {
+   "id": "lv5-goose-hen-cluck",
+   "group": "lv5-goose-hen-cluck",
+   "variant": "",
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, goose: replaces hen-cluck",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 900/1700/2700 > formant 900/1700/2700 > formant 900/1700/2700 > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "'hok-hok-HONK': two short and one long nasal honk (formant-filtered saw with rasp), the last rising then falling",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.609,
+   "peak_dbfs": -4.7,
+   "lufs": -17.0,
+   "centroid_hz": 2312,
+   "attack_ms": 321.7,
+   "onset_ms": 2.4,
+   "active_s": 0.604,
+   "crest_db": 12.5,
+   "dc": -0.0
+  },
+  {
+   "id": "lv5-carp-frog-croak",
+   "group": "lv5-carp-frog-croak",
+   "variant": "",
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, carp in a basin: replaces frog-croak",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bubbles 40->20/s > bubbles 30->55/s > lp1200 > lp2800 > norm -17LUFS peak<=-1.5",
+   "note": "gulp-and-gurgle: a wet 'blup' (falling sine over bubbles), then a longer gurgle with a low gulp, all low-passed",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.697,
+   "peak_dbfs": -3.99,
+   "lufs": -17.0,
+   "centroid_hz": 652,
+   "attack_ms": 20.7,
+   "onset_ms": 0.2,
+   "active_s": 0.696,
+   "crest_db": 12.3,
+   "dc": -4e-05
+  },
+  {
+   "id": "lv5-carp-frog-tongue",
+   "group": "lv5-carp-frog-tongue",
+   "variant": "",
+   "section": "Skins: level 5",
+   "event": "Level 5 skin, carp in a basin: replaces frog-tongue",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-cc0-sfx/splash_01.ogg",
+    "oga-100-cc0-sfx/plop_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 600->3500 q0.9 > whoosh > load splash_01.ogg > load plop_01.ogg > lp400 > thump > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "wet lunge: rising swish, pack splash cut short, wet pack plop at the base's smack, low thump",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.296,
+   "peak_dbfs": -2.33,
+   "lufs": -17.1,
+   "centroid_hz": 4257,
+   "attack_ms": 163.4,
+   "onset_ms": 28.8,
+   "active_s": 0.289,
+   "crest_db": 15.8,
+   "dc": -0.00056
+  },
+  {
+   "id": "lv6-mug-flipper",
+   "group": "lv6-mug-flipper",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, heavy beer mug slam: replaces flipper",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactWood_medium_002.ogg",
+    "kenney-impact-sounds/Audio/impactGlass_heavy_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 250->1200 q0.9 > whoosh > load impactWood_medium_002.ogg > hp120 > load impactGlass_heavy_002.ogg > lp3500 > lp400 > thump > sat2 > bubbles 40->10/s > basweep 2500->600 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > sat1 > norm -14.7LUFS peak<=-1.5",
+   "note": "heavy mug slam: low swish, pack wood table thud + glass clunk (low-passed) + low thump, beer slosh",
+   "category": "gameplay",
+   "target_lufs": -14.7,
+   "loop": false,
+   "duration_s": 0.406,
+   "peak_dbfs": -3.19,
+   "lufs": -14.7,
+   "centroid_hz": 1989,
+   "attack_ms": 80.3,
+   "onset_ms": 23.6,
+   "active_s": 0.399,
+   "crest_db": 10.1,
+   "dc": -0.00106
+  },
+  {
+   "id": "lv6-extinguisher-spray",
+   "group": "lv6-extinguisher-spray",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, fire extinguisher blast: replaces spray",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp400-7000 > lp30 > lp900 > hp1500 > lp400 > thump > sat1.8 > norm -19LUFS peak<=-1.5",
+   "note": "extinguisher blast: a lever click and chuff, then a loud broadband 'pshhh' over a low gas rumble with turbulence",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 1.009,
+   "peak_dbfs": -7.2,
+   "lufs": -19.2,
+   "centroid_hz": 6722,
+   "attack_ms": 11.2,
+   "onset_ms": 0.1,
+   "active_s": 1.009,
+   "crest_db": 14.1,
+   "dc": 0.0
+  },
+  {
+   "id": "lv6-vinyl-newspaper",
+   "group": "lv6-vinyl-newspaper",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, vinyl record in its sleeve swat: replaces newspaper",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/bookPlace2.ogg",
+    "oga-100-cc0-sfx/paper_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 500->3200 q1.0 > whoosh > load bookPlace2.ogg > load paper_01.ogg > hp1500 > crackle 90/s > bp3000-9000 > lp400 > thump > sat1.8 > sat1 > norm -16LUFS peak<=-1.5",
+   "note": "record sleeve: stiff cardboard swish, pack book slap + paper, vinyl crackle and a disc hiss in the tail",
+   "category": "gameplay",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 1.028,
+   "peak_dbfs": -1.96,
+   "lufs": -16.2,
+   "centroid_hz": 6677,
+   "attack_ms": 201.0,
+   "onset_ms": 35.5,
+   "active_s": 1.016,
+   "crest_db": 14.4,
+   "dc": 4e-05
+  },
+  {
+   "id": "lv6-coaster-bird",
+   "group": "lv6-coaster-bird",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, thrown beer coaster whizzing: replaces bird",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 1100->2400 q3 > basweep 2400->1300 q3 > norm -15.5LUFS peak<=-1.5",
+   "note": "spinning cardboard disc: fluttering whirr (band noise, AM slowing 34 to 22 Hz) with a doppler pass, a thin wind whistle",
+   "category": "gameplay",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 2.412,
+   "peak_dbfs": -1.53,
+   "lufs": -15.7,
+   "centroid_hz": 4381,
+   "attack_ms": 1060.9,
+   "onset_ms": 2.1,
+   "active_s": 2.409,
+   "crest_db": 16.3,
+   "dc": -1e-05
+  },
+  {
+   "id": "lv6-dog-cat",
+   "group": "lv6-dog-cat",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, dalmatian pounce: replaces cat",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/barking_01.ogg",
+    "oga-80-creature/barking_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load barking_01.ogg > load barking_02.ogg > pitch x0.900 > formant 400/900/2000 > formant 400/900/2000 > sat1 > norm -15.1LUFS peak<=-1.5",
+   "note": "grr-WOOF-WOOF: a rising synth growl (AM saw through vowel formants) with two pack dog barks, a growl tail",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 0.907,
+   "peak_dbfs": -1.85,
+   "lufs": -15.2,
+   "centroid_hz": 2480,
+   "attack_ms": 199.2,
+   "onset_ms": 11.6,
+   "active_s": 0.899,
+   "crest_db": 13.7,
+   "dc": -4e-05
+  },
+  {
+   "id": "lv6-blower-frog-croak",
+   "group": "lv6-blower-frog-croak",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, party blower: replaces frog-croak",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 1100/2400/3800 > formant 1100/2400/3800 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "party blower: a short reedy toot, then a longer toot that rises as the paper unrolls; buzzy square through kazoo formants",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.709,
+   "peak_dbfs": -7.74,
+   "lufs": -17.0,
+   "centroid_hz": 2627,
+   "attack_ms": 20.0,
+   "onset_ms": 0.8,
+   "active_s": 0.709,
+   "crest_db": 9.8,
+   "dc": 0.0
+  },
+  {
+   "id": "lv6-blower-frog-tongue",
+   "group": "lv6-blower-frog-tongue",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, party blower: replaces frog-tongue",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/bookFlip3.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 1500->6000 q1.0 > whoosh > bp2500-8000 > hp3000 > load bookFlip3.ogg > norm -17LUFS peak<=-1.5",
+   "note": "paper unrolling: rising swish, a fast 'brrt' flutter, then a crisp snap (click + pack page flip) as it springs out",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.291,
+   "peak_dbfs": -2.32,
+   "lufs": -17.3,
+   "centroid_hz": 7892,
+   "attack_ms": 124.7,
+   "onset_ms": 0.8,
+   "active_s": 0.29,
+   "crest_db": 18.2,
+   "dc": -2e-05
+  },
+  {
+   "id": "lv6-speaker-vacuum-roar",
+   "group": "lv6-speaker-vacuum-roar",
+   "variant": "",
+   "section": "Skins: level 6",
+   "event": "Level 6 skin, bass speaker sucking in: replaces vacuum-roar",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > lp400 > thump > sat2.5 > basweep 3500->400 q1.2 > lp500 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "bass speaker: sub swell, kick thumps coming faster and louder, an inhaling falling band-noise sweep, mains buzz",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 1.412,
+   "peak_dbfs": -10.51,
+   "lufs": -17.0,
+   "centroid_hz": 1116,
+   "attack_ms": 205.1,
+   "onset_ms": 9.7,
+   "active_s": 1.409,
+   "crest_db": 3.8,
+   "dc": 0.00023
+  },
+  {
+   "id": "lv7-windbreak-newspaper",
+   "group": "lv7-windbreak-newspaper",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, rolled windbreak (fabric and poles) swat: replaces newspaper",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-rpg-audio/Audio/cloth2.ogg",
+    "kenney-rpg-audio/Audio/cloth4.ogg",
+    "oga-100-metal-wood/wood_hit_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-rpg-audio",
+     "page": "https://kenney.nl/assets/rpg-audio",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 200->1800 q0.8 > whoosh > load cloth2.ogg > load cloth4.ogg > lp3000 > load wood_hit_01.ogg > bp100-1500 > bp100-1500 > bp100-1500 > bp100-1500 > bp100-1500 > sat1 > norm -16LUFS peak<=-1.5",
+   "note": "windbreak: low cloth swish, canvas thwack (pack cloth) with a pack wood pole clack, then three fading flaps",
+   "category": "gameplay",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 1.199,
+   "peak_dbfs": -1.82,
+   "lufs": -16.1,
+   "centroid_hz": 2385,
+   "attack_ms": 173.3,
+   "onset_ms": 30.2,
+   "active_s": 1.128,
+   "crest_db": 14.1,
+   "dc": -5e-05
+  },
+  {
+   "id": "lv7-cormorant-hen-cluck",
+   "group": "lv7-cormorant-hen-cluck",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, cormorant: replaces hen-cluck",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 450/1000/2200 > formant 450/1000/2200 > formant 450/1000/2200 > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "'krr-krr-KRAAAH': two short and one long hoarse croak (low saw, strong rasp and AM, vowel formants), the last falling",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.581,
+   "peak_dbfs": -3.66,
+   "lufs": -17.0,
+   "centroid_hz": 2212,
+   "attack_ms": 289.6,
+   "onset_ms": 1.5,
+   "active_s": 0.579,
+   "crest_db": 13.0,
+   "dc": -0.0
+  },
+  {
+   "id": "lv7-crab-cat",
+   "group": "lv7-crab-cat",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, crab pounce (clicking claws): replaces cat",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactTin_medium_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp2500-8000 > bp2072-3848 > bp3479-6462 > bp2097-3895 > bp2069-3842 > bp1918-3563 > bp3261-6056 > bp3091-5740 > bp2646-4914 > bp2805-5209 > bp2640-4904 > bp2426-4507 > bp1788-3321 > bp1689-3137 > bp2393-4445 > bp1636-3038 > bp1962-3643 > bp1897-3524 > bp2630-4885 > bp2503-4648 > bp2003-3719 > bp3235-6008 > bp1732-3217 > hp1800 > load impactTin_medium_003.ogg > hp1800 > load impactTin_medium_003.ogg > hp1800 > load impactTin_medium_003.ogg > sat1 > norm -15.1LUFS peak<=-1.5",
+   "note": "claw clicks: a scuttle (gated high noise), a flurry of tiny castanet clicks speeding up, two big claw snaps (click + pack tin tink)",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 0.893,
+   "peak_dbfs": -1.31,
+   "lufs": -15.4,
+   "centroid_hz": 6724,
+   "attack_ms": 323.5,
+   "onset_ms": 2.9,
+   "active_s": 0.881,
+   "crest_db": 16.5,
+   "dc": -7e-05
+  },
+  {
+   "id": "lv7-octopus-frog-croak",
+   "group": "lv7-octopus-frog-croak",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, octopus: replaces frog-croak",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/burble_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bubbles 40->20/s > load burble_02.ogg > pitch x0.850 > lp3000 > bubbles 25->20/s > norm -17LUFS peak<=-1.5",
+   "note": "wet blubs: one small bubble, then a longer pack burble pitched down and low-passed with bubbles under it",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.709,
+   "peak_dbfs": -2.36,
+   "lufs": -17.1,
+   "centroid_hz": 1492,
+   "attack_ms": 7.8,
+   "onset_ms": 0.2,
+   "active_s": 0.709,
+   "crest_db": 14.2,
+   "dc": 0.0
+  },
+  {
+   "id": "lv7-octopus-frog-tongue",
+   "group": "lv7-octopus-frog-tongue",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, octopus: replaces frog-tongue",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-squish/oga-squish__squishpop.mp3"
+   ],
+   "packs": [
+    {
+     "name": "oga-squish",
+     "page": "https://opengameart.org/content/squish-sounds-effects",
+     "author": "EZduzziteh (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 1200->7000 q1.0 > whoosh > hp2500 > load oga-squish__squishpop.mp3 > norm -17LUFS peak<=-1.5",
+   "note": "tentacle whip: a fast high swish, a sharp crack, a wet pack squish-pop and a rising sucker 'schlp'",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.296,
+   "peak_dbfs": -2.51,
+   "lufs": -17.1,
+   "centroid_hz": 7648,
+   "attack_ms": 129.9,
+   "onset_ms": 23.0,
+   "active_s": 0.291,
+   "crest_db": 17.1,
+   "dc": 3e-05
+  },
+  {
+   "id": "lv7-shrimp-centipede-rear",
+   "group": "lv7-shrimp-centipede-rear",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, shrimp rearing: replaces centipede-rear",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2800 > crackle 400/s > hp2500 > bp2000-7000 > sat1 > norm -17LUFS peak<=-1.5",
+   "note": "snapping shrimp: a burst of dense tiny clicks and one low 'pop' snap, then fast leg patter (gated high noise) and a second pop",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.801,
+   "peak_dbfs": -1.31,
+   "lufs": -17.3,
+   "centroid_hz": 6733,
+   "attack_ms": 46.2,
+   "onset_ms": 0.1,
+   "active_s": 0.788,
+   "crest_db": 17.5,
+   "dc": 0.0
+  },
+  {
+   "id": "lv7-sandals-boots-stomp",
+   "group": "lv7-sandals-boots-stomp",
+   "variant": "",
+   "section": "Skins: level 7",
+   "event": "Level 7 skin, sandals with socks stomping in sand: replaces boots-stomp",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactSoft_medium_003.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat1.6 > hp1200 > crackle 600/s > lp5000 > bp700-3500 > lp60 > load impactSoft_medium_003.ogg > lp2500 > norm -17LUFS peak<=-1.5",
+   "note": "sandal in sand: a soft low thump, granular sand crunch, a pack soft slap of the sole (low-passed)",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.347,
+   "peak_dbfs": -2.23,
+   "lufs": -17.4,
+   "centroid_hz": 3879,
+   "attack_ms": 17.3,
+   "onset_ms": 0.2,
+   "active_s": 0.298,
+   "crest_db": 13.3,
+   "dc": 3e-05
+  },
+  {
+   "id": "lv8-moonrock-aerosol-rattle",
+   "group": "lv8-moonrock-aerosol-rattle",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, moon rock (rattles, then cracks and crumbles): replaces aerosol-rattle",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-75-breaking-hit/bfh1_rock_hit_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-75-breaking-hit",
+     "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp1347-3144 > bp651-1520 > bp1350-3152 > bp796-1858 > bp1644-3837 > bp1540-3594 > bp1440-3360 > bp1531-3574 > bp576-1345 > bp789-1841 > load bfh1_rock_hit_01.ogg > hp1500 > hp500 > crackle 90/s > sat1 > norm -17LUFS peak<=-1.5",
+   "note": "pebbles shifting inside the rock: stony ticks that quicken, then a crack and a small crumble where the spurt was",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.634,
+   "peak_dbfs": -1.24,
+   "lufs": -17.3,
+   "centroid_hz": 5866,
+   "attack_ms": 282.1,
+   "onset_ms": 0.1,
+   "active_s": 0.591,
+   "crest_db": 18.4,
+   "dc": 2e-05
+  },
+  {
+   "id": "lv8-moonrock-aerosol-blast",
+   "group": "lv8-moonrock-aerosol-blast",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, moon rock (rattles, then cracks and crumbles): replaces aerosol-blast",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-75-breaking-hit/bfh1_rock_breaking_01.ogg",
+    "oga-75-breaking-hit/bfh1_rock_falling_03.ogg",
+    "oga-100-cc0-sfx-2/sfx100v2_stones_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx-2",
+     "page": "https://opengameart.org/content/100-cc0-sfx-2",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-75-breaking-hit",
+     "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "lp400 > thump > sat2 > load bfh1_rock_breaking_01.ogg > load bfh1_rock_falling_03.ogg > load sfx100v2_stones_01.ogg > hp400 > crackle 140/s > lp1500 > norm -15.5LUFS peak<=-1.5",
+   "note": "rock bursting: low thump, pack rock breaking + falling rubble + stones, coarse crumble crackle, a puff of dust",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.727,
+   "peak_dbfs": -1.45,
+   "lufs": -15.7,
+   "centroid_hz": 7685,
+   "attack_ms": 11.6,
+   "onset_ms": 0.1,
+   "active_s": 0.598,
+   "crest_db": 12.3,
+   "dc": -0.00037
+  },
+  {
+   "id": "lv8-thurible-spray",
+   "group": "lv8-thurible-spray",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, incense burner (chain clink, smoke puff): replaces spray",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp3000 > hp3000 > hp3000 > hp3000 > hp3000 > hp3000 > hp3000 > hp3000 > lp1800 > hp3000 > crackle 50/s > norm -19LUFS peak<=-1.5",
+   "note": "incense burner: a swinging run of chain clinks (clicks + small bells at random pitch), soft smoke puffs, ember crackle",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.939,
+   "peak_dbfs": -2.8,
+   "lufs": -19.2,
+   "centroid_hz": 5450,
+   "attack_ms": 234.0,
+   "onset_ms": 0.0,
+   "active_s": 0.884,
+   "crest_db": 15.9,
+   "dc": -0.00011
+  },
+  {
+   "id": "lv8-scroll-newspaper",
+   "group": "lv8-scroll-newspaper",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, parchment scroll swat: replaces newspaper",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-cc0-sfx/paper_03.ogg",
+    "oga-100-cc0-sfx/paper_04.ogg",
+    "kenney-impact-sounds/Audio/impactWood_light_003.ogg",
+    "oga-100-cc0-sfx/paper_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-100-cc0-sfx",
+     "page": "https://opengameart.org/content/100-cc0-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp1500-6000 > load paper_03.ogg > load paper_04.ogg > load impactWood_light_003.ogg > hp3000 > crackle 220/s > load paper_01.ogg > sat1 > norm -16LUFS peak<=-1.5",
+   "note": "parchment: pack paper unroll crinkle, narrow dry swish, a hollow knock of the rod, dry crackle and flutter in the tail",
+   "category": "gameplay",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 1.114,
+   "peak_dbfs": -1.78,
+   "lufs": -16.3,
+   "centroid_hz": 7280,
+   "attack_ms": 183.8,
+   "onset_ms": 31.0,
+   "active_s": 1.107,
+   "crest_db": 17.3,
+   "dc": -2e-05
+  },
+  {
+   "id": "lv8-spacehen-hen-cluck",
+   "group": "lv8-spacehen-hen-cluck",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, hen in a space helmet: replaces hen-cluck",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 600/1300/2300 > formant 600/1300/2300 > formant 600/1300/2300 > lp1600 > echo 0.004s > bp300-2000 > hp2000 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "cluck from inside a helmet: the hen's wind-up pitched down, low-passed to 1.6 kHz, tight metallic cavity echoes, radio click and breath hiss",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.609,
+   "peak_dbfs": -7.29,
+   "lufs": -16.9,
+   "centroid_hz": 1063,
+   "attack_ms": 369.3,
+   "onset_ms": 0.0,
+   "active_s": 0.605,
+   "crest_db": 9.2,
+   "dc": -0.0
+  },
+  {
+   "id": "lv8-spacehen-hen-peck",
+   "group": "lv8-spacehen-hen-peck",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, hen in a space helmet: replaces hen-peck",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "hp2500 > lp400 > thump > sat1.8 > norm -17LUFS peak<=-1.5",
+   "note": "beak on the helmet glass: a short glass tink, a click and a small hollow thump",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.094,
+   "peak_dbfs": -2.22,
+   "lufs": -17.0,
+   "centroid_hz": 3492,
+   "attack_ms": 5.4,
+   "onset_ms": 0.0,
+   "active_s": 0.088,
+   "crest_db": 17.3,
+   "dc": -0.00014
+  },
+  {
+   "id": "lv8-alien-cat",
+   "group": "lv8-alien-cat",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, small alien pounce: replaces cat",
+   "source": "pack",
+   "pack_files": [
+    "oga-80-creature/alien_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load alien_03.ogg > norm -15.1LUFS peak<=-1.5",
+   "note": "small alien: three FM chirps (rising, falling, long warble with fast vibrato) over a pack alien voice",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 0.881,
+   "peak_dbfs": -9.42,
+   "lufs": -15.3,
+   "centroid_hz": 5870,
+   "attack_ms": 17.5,
+   "onset_ms": 0.7,
+   "active_s": 0.88,
+   "crest_db": 9.1,
+   "dc": -0.0
+  },
+  {
+   "id": "lv8-blob-frog-croak",
+   "group": "lv8-blob-frog-croak",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, alien blob: replaces frog-croak",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/burble_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load burble_01.ogg > losweep 4000->600 q1.0 > norm -17LUFS peak<=-1.5",
+   "note": "gel burble: a FM 'bloop' then a longer pack burble low-passed with a falling sweep and a wobbling jelly undertone",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.709,
+   "peak_dbfs": -2.71,
+   "lufs": -17.0,
+   "centroid_hz": 1163,
+   "attack_ms": 7.9,
+   "onset_ms": 0.0,
+   "active_s": 0.709,
+   "crest_db": 13.7,
+   "dc": -0.00025
+  },
+  {
+   "id": "lv8-blob-frog-tongue",
+   "group": "lv8-blob-frog-tongue",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, alien blob: replaces frog-tongue",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-squish/oga-squish__squish_05.mp3"
+   ],
+   "packs": [
+    {
+     "name": "oga-squish",
+     "page": "https://opengameart.org/content/squish-sounds-effects",
+     "author": "EZduzziteh (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load oga-squish__squish_05.mp3 > basweep 2000->500 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "gel stretch: a rising FM 'sproing' then a pack squish and splat at the base's smack",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.299,
+   "peak_dbfs": -3.55,
+   "lufs": -17.2,
+   "centroid_hz": 3395,
+   "attack_ms": 19.3,
+   "onset_ms": 1.1,
+   "active_s": 0.299,
+   "crest_db": 14.3,
+   "dc": -2e-05
+  },
+  {
+   "id": "lv8-satellite-jellyfish",
+   "group": "lv8-satellite-jellyfish",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, satellite (beeps): replaces jellyfish",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp4000 > lp4000 > lp4000 > lp4000 > lp4000 > lp4000 > lp4000 > bp2000-6000 > lp40 > echo 0.17s > norm -15.1LUFS peak<=-1.5",
+   "note": "telemetry beeps in a pattern (square blips through a soft low-pass) over a rising sine sweep, a low carrier and radio static; echo",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 1.512,
+   "peak_dbfs": -6.33,
+   "lufs": -15.1,
+   "centroid_hz": 4730,
+   "attack_ms": 12.5,
+   "onset_ms": 0.4,
+   "active_s": 1.508,
+   "crest_db": 10.4,
+   "dc": 1e-05
+  },
+  {
+   "id": "lv8-meteor-gull-screech",
+   "group": "lv8-meteor-gull-screech",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, meteor dive (whoosh and roar): replaces gull-screech",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "losweep 5000->400 q0.7 > lp150 > hp700 > crackle 200/s > basweep 3000->300 q1.0 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "meteor dive: a fast-rising roar (noise through a falling low-pass), rumble, fire crackle and a doppler pass sweep",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.889,
+   "peak_dbfs": -5.73,
+   "lufs": -17.2,
+   "centroid_hz": 3208,
+   "attack_ms": 269.4,
+   "onset_ms": 1.8,
+   "active_s": 0.883,
+   "crest_db": 7.4,
+   "dc": 0.00014
+  },
+  {
+   "id": "lv8-ufo-wasp-buzz",
+   "group": "lv8-ufo-wasp-buzz",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, tiny UFO (hum, dive): replaces wasp-buzz",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "norm -17LUFS peak<=-1.5",
+   "note": "UFO hum: a wobbling FM sine around 300-360 Hz with a detuned twin (beating), 9 Hz tremolo and a faint high shimmer",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.669,
+   "peak_dbfs": -6.64,
+   "lufs": -16.9,
+   "centroid_hz": 823,
+   "attack_ms": 239.6,
+   "onset_ms": 4.3,
+   "active_s": 0.662,
+   "crest_db": 9.8,
+   "dc": -2e-05
+  },
+  {
+   "id": "lv8-ufo-wasp-dive",
+   "group": "lv8-ufo-wasp-dive",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, tiny UFO (hum, dive): replaces wasp-dive",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 4000->700 q1.0 > whoosh > lp900 > hp2500 > sat1.3 > norm -17LUFS peak<=-1.5",
+   "note": "UFO dive: an FM zip falling 1500 to 200 Hz over a swish, ending in a low buzzy bzzt",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.509,
+   "peak_dbfs": -10.55,
+   "lufs": -17.1,
+   "centroid_hz": 2386,
+   "attack_ms": 92.3,
+   "onset_ms": 0.2,
+   "active_s": 0.508,
+   "crest_db": 7.3,
+   "dc": 2e-05
+  },
+  {
+   "id": "lv8-rover-robovac-whir",
+   "group": "lv8-rover-robovac-whir",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, old lunar rover (motor whir, breaking): replaces robovac-whir",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp1800 > bp1500-5000 > lp1500 > lp50 > norm -19LUFS peak<=-1.5",
+   "note": "old rover motor: a rising servo whine with slow wobble, gear-ratchet ticks, a dusty crunch, one low telemetry blip; no cheerful beeps",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.919,
+   "peak_dbfs": -9.63,
+   "lufs": -19.0,
+   "centroid_hz": 2348,
+   "attack_ms": 190.1,
+   "onset_ms": 1.7,
+   "active_s": 0.919,
+   "crest_db": 8.5,
+   "dc": -5e-05
+  },
+  {
+   "id": "lv8-rover-robovac-crack",
+   "group": "lv8-rover-robovac-crack",
+   "variant": "",
+   "section": "Skins: level 8",
+   "event": "Level 8 skin, old lunar rover (motor whir, breaking): replaces robovac-crack",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_medium_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load impactMetal_medium_002.ogg > lp1500 > hp3000 > crackle 200/s > hp1500 > norm -17LUFS peak<=-1.5",
+   "note": "rover breaking: pack metal clank + a crack, motor whine winding down 500 to 60 Hz, sparks and debris tinks",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.351,
+   "peak_dbfs": -1.44,
+   "lufs": -17.1,
+   "centroid_hz": 3344,
+   "attack_ms": 48.6,
+   "onset_ms": 0.0,
+   "active_s": 0.351,
+   "crest_db": 15.7,
+   "dc": -0.00033
+  },
+  {
+   "id": "lv9-vodka-aerosol-rattle",
+   "group": "lv9-vodka-aerosol-rattle",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, vodka bottle (glass clink, shatter): replaces aerosol-rattle",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bubbles 50->20/s > lp1500 > norm -17LUFS peak<=-1.5",
+   "note": "bottle jostling: glass clinks that quicken (random glass tings), then a liquid slosh and glug",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.606,
+   "peak_dbfs": -2.58,
+   "lufs": -17.1,
+   "centroid_hz": 5408,
+   "attack_ms": 483.1,
+   "onset_ms": 0.2,
+   "active_s": 0.596,
+   "crest_db": 16.1,
+   "dc": 0.00012
+  },
+  {
+   "id": "lv9-vodka-aerosol-blast",
+   "group": "lv9-vodka-aerosol-blast",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, vodka bottle (glass clink, shatter): replaces aerosol-blast",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-75-breaking-hit/bfh1_glass_breaking_03.ogg",
+    "kenney-impact-sounds/Audio/impactGlass_heavy_000.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-75-breaking-hit",
+     "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load bfh1_glass_breaking_03.ogg > load impactGlass_heavy_000.ogg > hp1500 > basweep 3500->600 q1.5 > hp400 > crackle 90/s > splat > sat1.6 > lp400 > thump > sat1.8 > norm -15.5LUFS peak<=-1.5",
+   "note": "bottle shattering: pack glass breaking + heavy glass hit, liquid splash, a low thump, a cascade of shard tings",
+   "category": "boss",
+   "target_lufs": -15.5,
+   "loop": false,
+   "duration_s": 0.7,
+   "peak_dbfs": -1.36,
+   "lufs": -16.3,
+   "centroid_hz": 7174,
+   "attack_ms": 8.6,
+   "onset_ms": 0.1,
+   "active_s": 0.665,
+   "crest_db": 13.5,
+   "dc": -0.00022
+  },
+  {
+   "id": "lv9-bottle-flipper",
+   "group": "lv9-bottle-flipper",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, bottle swung by the neck: replaces flipper",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-cc0-sfx-2/sfx100v2_glass_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-cc0-sfx-2",
+     "page": "https://opengameart.org/content/100-cc0-sfx-2",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 900->4000 q1.0 > whoosh > basweep 900->450 q8 > load sfx100v2_glass_02.ogg > hp600 > lp400 > thump > sat1.8 > sat1 > norm -14.7LUFS peak<=-1.5",
+   "note": "bottle swing: a swish with a hollow bottle-neck 'whoo' resonance, then a pack glass hit + a ringing glass tone and a thump",
+   "category": "gameplay",
+   "target_lufs": -14.7,
+   "loop": false,
+   "duration_s": 0.479,
+   "peak_dbfs": -3.09,
+   "lufs": -14.8,
+   "centroid_hz": 4126,
+   "attack_ms": 92.0,
+   "onset_ms": 20.9,
+   "active_s": 0.468,
+   "crest_db": 12.6,
+   "dc": 4e-05
+  },
+  {
+   "id": "lv9-lynx-cat",
+   "group": "lv9-lynx-cat",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, lynx pounce (snarl): replaces cat",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp3000-9000 > formant 350/800/1900 > formant 500/1200/2400 > sat1.5 > sat1 > norm -15.1LUFS peak<=-1.5",
+   "note": "snarl: a hiss-spit, then a long growl (saw through vowel formants, strong 28 Hz AM and rasp) with a second short snarl burst",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 0.858,
+   "peak_dbfs": -3.56,
+   "lufs": -15.2,
+   "centroid_hz": 2068,
+   "attack_ms": 11.9,
+   "onset_ms": 0.0,
+   "active_s": 0.85,
+   "crest_db": 12.0,
+   "dc": -0.00015
+  },
+  {
+   "id": "lv9-shotglass-jellyfish",
+   "group": "lv9-shotglass-jellyfish",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, floating shot glass (glassy shimmer): replaces jellyfish",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bubbles 8->14/s > norm -15.1LUFS peak<=-1.5",
+   "note": "glass-harmonica shimmer: inharmonic glass partials with 5 Hz tremolo and a woozy vibrato, glass tings, quiet slosh",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 1.508,
+   "peak_dbfs": -4.35,
+   "lufs": -15.1,
+   "centroid_hz": 3939,
+   "attack_ms": 46.8,
+   "onset_ms": 0.2,
+   "active_s": 1.491,
+   "crest_db": 13.1,
+   "dc": -1e-05
+  },
+  {
+   "id": "lv9-eagle-gull-screech",
+   "group": "lv9-eagle-gull-screech",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, eagle dive (cry): replaces gull-screech",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 3000/5500 > hp3000 > formant 3000/5500 > hp3000 > formant 3000/5500 > hp3000 > formant 3000/5500 > hp3000 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "eagle cry: one long falling piercing FM whistle, then three short ones, breathy noise and a high formant",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.889,
+   "peak_dbfs": -11.88,
+   "lufs": -17.0,
+   "centroid_hz": 7601,
+   "attack_ms": 166.4,
+   "onset_ms": 0.5,
+   "active_s": 0.889,
+   "crest_db": 8.5,
+   "dc": -0.0
+  },
+  {
+   "id": "lv9-mosquito-wasp-buzz",
+   "group": "lv9-mosquito-wasp-buzz",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, huge mosquito (whine, dive): replaces wasp-buzz",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp3000-8000 > sat1.3 > norm -17LUFS peak<=-1.5",
+   "note": "huge mosquito: a thin 480-560 Hz whine with a detuned twin (beating), slow wobble and 14 Hz flutter",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.669,
+   "peak_dbfs": -8.67,
+   "lufs": -16.9,
+   "centroid_hz": 1847,
+   "attack_ms": 451.3,
+   "onset_ms": 2.3,
+   "active_s": 0.667,
+   "crest_db": 7.8,
+   "dc": 0.0
+  },
+  {
+   "id": "lv9-mosquito-wasp-dive",
+   "group": "lv9-mosquito-wasp-dive",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, huge mosquito (whine, dive): replaces wasp-dive",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "basweep 4000->800 q1.0 > whoosh > hp3000 > norm -17LUFS peak<=-1.5",
+   "note": "mosquito dive: whine falling 1300 to 330 Hz (doppler) over a swish, ending in a tiny tick",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.509,
+   "peak_dbfs": -6.45,
+   "lufs": -17.0,
+   "centroid_hz": 2260,
+   "attack_ms": 136.1,
+   "onset_ms": 0.1,
+   "active_s": 0.503,
+   "crest_db": 10.5,
+   "dc": 1e-05
+  },
+  {
+   "id": "lv9-tree-zapper-bolt",
+   "group": "lv9-tree-zapper-bolt",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, lightning-struck tree (crackle charge, bolt): replaces zapper-bolt",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-75-breaking-hit/bfh1_wood_breaking_03.ogg",
+    "oga-100-metal-wood/wood_cracking_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    },
+    {
+     "name": "oga-75-breaking-hit",
+     "page": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "hp1500 > sat2 > lp200 > lp160 > rumble > load bfh1_wood_breaking_03.ogg > load wood_cracking_03.ogg > hp600 > crackle 200/s > hp1200 > sat1.5 > norm -17LUFS peak<=-1.5",
+   "note": "lightning strike: hard crack + falling zap, thunder rumble tail, pack wood splintering and fire-crackle",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.719,
+   "peak_dbfs": -4.18,
+   "lufs": -17.2,
+   "centroid_hz": 5585,
+   "attack_ms": 16.4,
+   "onset_ms": 0.0,
+   "active_s": 0.702,
+   "crest_db": 14.1,
+   "dc": 6e-05
+  },
+  {
+   "id": "lv9-boar-robovac-whir",
+   "group": "lv9-boar-robovac-whir",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, wild boar (grunting trot, squeal): replaces robovac-whir",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/grunt_02.ogg",
+    "oga-80-creature/grunt_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "formant 300/800/1800 > load grunt_02.ogg > formant 300/800/1800 > formant 300/800/1800 > load grunt_03.ogg > formant 300/800/1800 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > bp600-2500 > lp400 > thump > sat1.8 > sat1.3 > norm -19LUFS peak<=-1.5",
+   "note": "trotting boar: four 'hnf' grunts (noisy low formant voice, two with a pack grunt) over paired hoof ticks",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.919,
+   "peak_dbfs": -5.25,
+   "lufs": -19.0,
+   "centroid_hz": 3167,
+   "attack_ms": 82.5,
+   "onset_ms": 2.0,
+   "active_s": 0.894,
+   "crest_db": 12.9,
+   "dc": 8e-05
+  },
+  {
+   "id": "lv9-boar-robovac-crack",
+   "group": "lv9-boar-robovac-crack",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, wild boar (grunting trot, squeal): replaces robovac-crack",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-80-creature/hurt_01.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-80-creature",
+     "page": "https://opengameart.org/content/80-cc0-creature-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "formant 1100/2800/4200 > load hurt_01.ogg > hp1500 > lp400 > thump > sat1.8 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "boar squeal: a driven saw glide 800 to 1900 to 900 Hz with vibrato through high formants, a pack hurt cry, a thump on the hit",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.389,
+   "peak_dbfs": -7.26,
+   "lufs": -17.1,
+   "centroid_hz": 3889,
+   "attack_ms": 7.1,
+   "onset_ms": 0.0,
+   "active_s": 0.388,
+   "crest_db": 10.5,
+   "dc": 6e-05
+  },
+  {
+   "id": "lv9-mushrooms-repeller-hum",
+   "group": "lv9-mushrooms-repeller-hum",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, glowing mushroom ring (hum, ring pulse): replaces repeller-hum",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp800 > norm -19LUFS peak<=-1.5",
+   "note": "glowing mushrooms: a soft three-voice sine chorus (330 Hz, a fifth, an octave) with a 4.5 Hz tremolo and a few small bell twinkles",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.843,
+   "peak_dbfs": -6.83,
+   "lufs": -19.1,
+   "centroid_hz": 2609,
+   "attack_ms": 256.8,
+   "onset_ms": 10.2,
+   "active_s": 0.813,
+   "crest_db": 11.7,
+   "dc": 3e-05
+  },
+  {
+   "id": "lv9-mushrooms-repeller-ring",
+   "group": "lv9-mushrooms-repeller-ring",
+   "variant": "",
+   "section": "Skins: level 9",
+   "event": "Level 9 skin, glowing mushroom ring (hum, ring pulse): replaces repeller-ring",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "echo 0.09s > norm -19LUFS peak<=-1.5",
+   "note": "glow pulse: a soft sine bloom gliding up 520 to 880 Hz with a quiet fifth above and a trailing echo",
+   "category": "obstacle",
+   "target_lufs": -19.0,
+   "loop": false,
+   "duration_s": 0.319,
+   "peak_dbfs": -4.22,
+   "lufs": -18.9,
+   "centroid_hz": 746,
+   "attack_ms": 11.0,
+   "onset_ms": 0.3,
+   "active_s": 0.314,
+   "crest_db": 14.1,
+   "dc": -3e-05
+  },
+  {
+   "id": "lv10-sign-flipper",
+   "group": "lv10-sign-flipper",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, bent enamel street sign swung: replaces flipper",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-metal-wood/metal_sheet_03.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 1500->6000 q1.0 > whoosh > load metal_sheet_03.ogg > hp2000 > sat1 > norm -14.7LUFS peak<=-1.5",
+   "note": "bent street sign: a metallic swish, then a flat sheet-metal clang (pack metal sheet + click) with a wobbling inharmonic ring",
+   "category": "gameplay",
+   "target_lufs": -14.7,
+   "loop": false,
+   "duration_s": 0.471,
+   "peak_dbfs": -2.18,
+   "lufs": -14.9,
+   "centroid_hz": 3991,
+   "attack_ms": 89.8,
+   "onset_ms": 7.4,
+   "active_s": 0.469,
+   "crest_db": 14.1,
+   "dc": 0.0
+  },
+  {
+   "id": "lv10-pipe-newspaper",
+   "group": "lv10-pipe-newspaper",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, corroded metal pipe used as a club: replaces newspaper",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactMetal_medium_004.ogg",
+    "kenney-impact-sounds/Audio/impactMetal_light_001.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "basweep 200->2500 q0.9 > whoosh > load impactMetal_medium_004.ogg > lp3500 > load impactMetal_light_001.ogg > lp3000 > hp2500 > crackle 60/s > lp400 > thump > sat1.8 > sat1 > norm -16LUFS peak<=-1.5",
+   "note": "pipe club: a heavy low swish, a hollow pack metal clonk with a tube ring (harmonics 1, 2, 3), a second small rolling clonk, rust flakes",
+   "category": "gameplay",
+   "target_lufs": -16.0,
+   "loop": false,
+   "duration_s": 1.201,
+   "peak_dbfs": -1.63,
+   "lufs": -16.3,
+   "centroid_hz": 3957,
+   "attack_ms": 199.8,
+   "onset_ms": 45.0,
+   "active_s": 1.092,
+   "crest_db": 13.6,
+   "dc": -0.00016
+  },
+  {
+   "id": "lv10-mutant-cat",
+   "group": "lv10-mutant-cat",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, three-eyed mutant cat pounce: replaces cat",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "formant 700/1500/2800 > formant 700/1500/2800 > formant 700/1500/2800 > bubbles 30->20/s > lp1500 > bp3000-8000 > sat1.5 > norm -15.1LUFS peak<=-1.5",
+   "note": "wrong yowl: two voices a little apart (beating) on a rising-falling pitch with irregular gurgle AM, a low octave-down voice, bubbly gurgle, hiss",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 0.859,
+   "peak_dbfs": -5.1,
+   "lufs": -15.1,
+   "centroid_hz": 1887,
+   "attack_ms": 252.4,
+   "onset_ms": 0.0,
+   "active_s": 0.849,
+   "crest_db": 10.0,
+   "dc": -0.0001
+  },
+  {
+   "id": "lv10-fridge-jellyfish",
+   "group": "lv10-fridge-jellyfish",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, small floating fridge (compressor hum, buzz, cold shimmer): replaces jellyfish",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "sat2 > hp400 > crackle 14/s > bp300-1800 > lp3000 > hp1500 > crackle 400/s > lp3000 > hp1500 > crackle 400/s > norm -15.1LUFS peak<=-1.5",
+   "note": "floating fridge: saturated 100 Hz compressor hum with its harmonics and slow tremolo, a loose-panel rattle, two electric buzz bursts with crackle, a cold high shimmer",
+   "category": "gameplay",
+   "target_lufs": -15.1,
+   "loop": false,
+   "duration_s": 1.508,
+   "peak_dbfs": -2.24,
+   "lufs": -15.1,
+   "centroid_hz": 5338,
+   "attack_ms": 52.2,
+   "onset_ms": 6.9,
+   "active_s": 1.497,
+   "crest_db": 11.5,
+   "dc": -0.00022
+  },
+  {
+   "id": "lv10-vulture-gull-screech",
+   "group": "lv10-vulture-gull-screech",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, wasteland vulture dive (hoarse hiss-croak, wing rush): replaces gull-screech",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "bp2000-8000 > formant 500/1100/2400 > formant 500/1100/2400 > basweep 500->3000 q0.8 > whoosh > sat1.6 > norm -17LUFS peak<=-1.5",
+   "note": "vulture: a hoarse hiss under a croak that falls, a second longer falling croak, a low wing rush; noisy low formant voice with rasp, no whistle",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.865,
+   "peak_dbfs": -4.09,
+   "lufs": -17.3,
+   "centroid_hz": 3870,
+   "attack_ms": 40.4,
+   "onset_ms": 1.7,
+   "active_s": 0.841,
+   "crest_db": 14.6,
+   "dc": -2e-05
+  },
+  {
+   "id": "lv10-drone-wasp-buzz",
+   "group": "lv10-drone-wasp-buzz",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, battered quadcopter drone (rotor whine, bearing rattle): replaces wasp-buzz",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp3500 > bp1500-5000 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "drone rotors: four detuned saw rotors (beating) around 330-380 Hz with a 7 Hz wobble, a gated bearing rattle, a dropout flutter",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.669,
+   "peak_dbfs": -6.88,
+   "lufs": -17.0,
+   "centroid_hz": 2961,
+   "attack_ms": 196.9,
+   "onset_ms": 2.5,
+   "active_s": 0.665,
+   "crest_db": 9.9,
+   "dc": -0.0
+  },
+  {
+   "id": "lv10-drone-wasp-dive",
+   "group": "lv10-drone-wasp-dive",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, battered quadcopter drone (rotor whine, bearing rattle): replaces wasp-dive",
+   "source": "synth",
+   "pack_files": [],
+   "packs": [],
+   "licence": "original synthesis (no third-party material)",
+   "chain": "lp3500 > basweep 700->4500 q0.9 > whoosh > bp1500-5000 > hp1500 > sat1.4 > norm -17LUFS peak<=-1.5",
+   "note": "drone dive: the rotor whine pitching up 250 to 900 Hz and falling away as it passes, a rushing swish, the bearing rattle, a loose clunk at the end",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.544,
+   "peak_dbfs": -7.74,
+   "lufs": -17.2,
+   "centroid_hz": 3917,
+   "attack_ms": 160.6,
+   "onset_ms": 0.1,
+   "active_s": 0.514,
+   "crest_db": 10.0,
+   "dc": -1e-05
+  },
+  {
+   "id": "lv10-trolley-bison",
+   "group": "lv10-trolley-bison",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, runaway supermarket trolley charging: replaces bison",
+   "source": "pack+synth",
+   "pack_files": [
+    "kenney-impact-sounds/Audio/impactTin_medium_003.ogg",
+    "kenney-impact-sounds/Audio/impactTin_medium_001.ogg",
+    "kenney-impact-sounds/Audio/impactTin_medium_002.ogg"
+   ],
+   "packs": [
+    {
+     "name": "kenney-impact-sounds",
+     "page": "https://kenney.nl/assets/impact-sounds",
+     "author": "Kenney (kenney.nl)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "bp1500-6500 > lp45 > hp2500 > crackle 120/s > bp600-3000 > load impactTin_medium_003.ogg > load impactTin_medium_001.ogg > load impactTin_medium_001.ogg > load impactTin_medium_001.ogg > load impactTin_medium_002.ogg > load impactTin_medium_003.ogg > load impactTin_medium_003.ogg > lp220 > norm -16.1LUFS peak<=-1.5",
+   "note": "charging trolley: a dense rattling wire-basket band with a rolling clack, three squealing wonky-wheel phrases (wobbling FM whistle), cans clattering (pack tin hits + tin tings), low rolling rumble; loud for 1.9 s then rolling off",
+   "category": "gameplay",
+   "target_lufs": -16.1,
+   "loop": false,
+   "duration_s": 3.412,
+   "peak_dbfs": -2.22,
+   "lufs": -16.3,
+   "centroid_hz": 6274,
+   "attack_ms": 1243.1,
+   "onset_ms": 4.9,
+   "active_s": 3.404,
+   "crest_db": 12.8,
+   "dc": -4e-05
+  },
+  {
+   "id": "lv10-wire-hedgehog",
+   "group": "lv10-wire-hedgehog",
+   "variant": "",
+   "section": "Skins: level 10",
+   "event": "Level 10 skin, rolling ball of barbed wire winding up: replaces hedgehog",
+   "source": "pack+synth",
+   "pack_files": [
+    "oga-100-metal-wood/metal_spring_02.ogg"
+   ],
+   "packs": [
+    {
+     "name": "oga-100-metal-wood",
+     "page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+     "author": "rubberduck (OpenGameArt user)",
+     "licence": "CC0 1.0 (public-domain dedication)"
+    }
+   ],
+   "licence": "CC0 1.0",
+   "chain": "load metal_spring_02.ogg > bp1500-7000 > hp2500 > crackle 180/s > norm -17LUFS peak<=-1.5",
+   "note": "barbed wire winding up: a springy twang (falling FM with fast vibrato) and a pack metal spring, a scraping gated rasp, metallic rustle crackle, three small barb clinks",
+   "category": "gameplay",
+   "target_lufs": -17.0,
+   "loop": false,
+   "duration_s": 0.526,
+   "peak_dbfs": -2.12,
+   "lufs": -17.1,
+   "centroid_hz": 7907,
+   "attack_ms": 8.5,
+   "onset_ms": 0.1,
+   "active_s": 0.499,
+   "crest_db": 16.6,
+   "dc": -3e-05
   }
  ]
 }

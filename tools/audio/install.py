@@ -8,10 +8,16 @@ picks.json says which variant of each event the owner chose ("current" = the sou
 INSTALL below says where each picked sound goes: game key -> (sound id, file under public/). The lists in
 src/scenes/BootScene.ts (core) and DeferredLoadScene.ts (boss) load the same files; tools/audio/check.py keeps the
 three in step.
+
+The level-skin sounds (skins.py, sounds_skins.py) go to public/audio/skins/<skin>-<base key>.ogg, and
+public/audio/skins/manifest.json says which skin keys have one: { skin id: { base key: sound id } }. A base key that is
+missing for a skin means the skin keeps the base enemy's sound.
 """
 import json, os, shutil, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import skins  # noqa: E402
 PUBLIC = os.path.join(HERE, "..", "..", "public")
 
 # key: (sound id in out/, path under public/)
@@ -89,7 +95,11 @@ BOSS = {
     "bigos-scratch": ("bigos-scratch-a", "boss/sfx/bigos-scratch.ogg"),
 }
 
-INSTALL = {**CORE, **BOSS}
+# The level skins' own sounds (loaded by the game from the manifest, not by key)
+SKINS = {f"skin:{sid}": (sid, f"audio/skins/{sid}.ogg") for sid in skins.made_ids()}
+SKIN_MANIFEST = "audio/skins/manifest.json"
+
+INSTALL = {**CORE, **BOSS, **SKINS}
 
 
 def picked_ids():
@@ -113,7 +123,11 @@ def main():
         dest = os.path.join(PUBLIC, path)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         shutil.copyfile(os.path.join(HERE, "out", sid + ".ogg"), dest)
-    print(f"{len(INSTALL)} sounds installed into public/")
+    manifest = os.path.join(PUBLIC, SKIN_MANIFEST)
+    with open(manifest, "w", encoding="utf-8") as f:
+        json.dump(skins.manifest(), f, indent=1)
+        f.write("\n")
+    print(f"{len(INSTALL)} sounds installed into public/ ({len(SKINS)} of them level-skin sounds, listed in {SKIN_MANIFEST})")
 
 
 if __name__ == "__main__":

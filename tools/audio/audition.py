@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assemble the self-contained audition folder: index.html + new/*.ogg + current/*.ogg (copies of today's game sounds).
 
-    python3 tools/audio/audition.py DEST_DIR
+    python3 tools/audio/audition.py DEST_DIR [GROUP_PREFIX ...]   (only the rows whose group id starts with a prefix)
 
 Needs out/ and manifest.json from build.py. The page makes no external requests; open index.html straight from disk.
 """
@@ -11,14 +11,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(os.path.dirname(os.path.dirname(HERE)), "public")
 
 
-def assemble(dest):
+def assemble(dest, only=None):
     man = json.load(open(os.path.join(HERE, "manifest.json")))
     os.makedirs(os.path.join(dest, "new"), exist_ok=True)
     os.makedirs(os.path.join(dest, "current"), exist_ok=True)
     rows = []
     for gid, g in man["groups"].items():
         vs = [s for s in man["sounds"] if s["group"] == gid]
-        if not vs:
+        if not vs or (only and not gid.startswith(tuple(only))):
             continue
         cur = []
         for c in g["current"]:
@@ -248,4 +248,4 @@ if (rowEls[0]) rowEls[0].tabIndex = 0;
 """
 
 if __name__ == "__main__":
-    assemble(sys.argv[1])
+    assemble(sys.argv[1], sys.argv[2:] or None)

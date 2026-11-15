@@ -1,0 +1,200 @@
+{
+ "lv2-fern": {
+  "onion": "lv2-fern-onion"
+ },
+ "lv2-pipe": {
+  "bleach-drip": "lv2-pipe-bleach-drip"
+ },
+ "lv3-tomato": {
+  "glue-squelch": "lv3-tomato-glue-squelch"
+ },
+ "lv3-flyswatter": {
+  "flipper": "lv3-flyswatter-flipper"
+ },
+ "lv3-barrel": {
+  "bleach-drip": "lv3-barrel-bleach-drip"
+ },
+ "lv4-toadstool": {
+  "onion": "lv4-toadstool-onion"
+ },
+ "lv4-resin": {},
+ "lv4-branch": {
+  "flipper": "lv4-branch-flipper"
+ },
+ "lv4-resin-stub": {
+  "bleach-drip": "lv4-resin-stub-bleach-drip"
+ },
+ "lv4-puffball": {
+  "spray": "lv4-puffball-spray"
+ },
+ "lv4-frond": {
+  "newspaper": "lv4-frond-newspaper"
+ },
+ "lv4-flashlight": {
+  "lamp-flicker": "lv4-flashlight-lamp-flicker",
+  "lamp-snap": "lv4-flashlight-lamp-snap"
+ },
+ "lv4-rake": {
+  "mop-slap": "lv4-rake-mop-slap"
+ },
+ "lv4-molehole": {
+  "vacuum-roar": "lv4-molehole-vacuum-roar"
+ },
+ "lv5-bauble": {
+  "onion": "lv5-bauble-onion"
+ },
+ "lv5-candle": {
+  "bleach-drip": "lv5-candle-bleach-drip"
+ },
+ "lv5-snowcan": {},
+ "lv5-angel": {
+  "bird": "lv5-angel-bird"
+ },
+ "lv5-goose": {
+  "hen-cluck": "lv5-goose-hen-cluck"
+ },
+ "lv5-treelight": {},
+ "lv5-carp": {
+  "frog-croak": "lv5-carp-frog-croak",
+  "frog-tongue": "lv5-carp-frog-tongue"
+ },
+ "lv6-mug": {
+  "flipper": "lv6-mug-flipper"
+ },
+ "lv6-extinguisher": {
+  "spray": "lv6-extinguisher-spray"
+ },
+ "lv6-vinyl": {
+  "newspaper": "lv6-vinyl-newspaper"
+ },
+ "lv6-coaster": {
+  "bird": "lv6-coaster-bird"
+ },
+ "lv6-dog": {
+  "cat": "lv6-dog-cat"
+ },
+ "lv6-blower": {
+  "frog-croak": "lv6-blower-frog-croak",
+  "frog-tongue": "lv6-blower-frog-tongue"
+ },
+ "lv6-spotlight": {},
+ "lv6-speaker": {
+  "vacuum-roar": "lv6-speaker-vacuum-roar"
+ },
+ "lv7-slide": {},
+ "lv7-sunscreen": {},
+ "lv7-windbreak": {
+  "newspaper": "lv7-windbreak-newspaper"
+ },
+ "lv7-cormorant": {
+  "hen-cluck": "lv7-cormorant-hen-cluck"
+ },
+ "lv7-crab": {
+  "cat": "lv7-crab-cat"
+ },
+ "lv7-octopus": {
+  "frog-croak": "lv7-octopus-frog-croak",
+  "frog-tongue": "lv7-octopus-frog-tongue"
+ },
+ "lv7-shrimp": {
+  "centipede-rear": "lv7-shrimp-centipede-rear"
+ },
+ "lv7-sandals": {
+  "boots-stomp": "lv7-sandals-boots-stomp"
+ },
+ "lv7-seaweed": {},
+ "lv8-moonrock": {
+  "aerosol-rattle": "lv8-moonrock-aerosol-rattle",
+  "aerosol-blast": "lv8-moonrock-aerosol-blast"
+ },
+ "lv8-slipper": {},
+ "lv8-thurible": {
+  "spray": "lv8-thurible-spray"
+ },
+ "lv8-scroll": {
+  "newspaper": "lv8-scroll-newspaper"
+ },
+ "lv8-spacehen": {
+  "hen-cluck": "lv8-spacehen-hen-cluck",
+  "hen-peck": "lv8-spacehen-hen-peck"
+ },
+ "lv8-alien": {
+  "cat": "lv8-alien-cat"
+ },
+ "lv8-blob": {
+  "frog-croak": "lv8-blob-frog-croak",
+  "frog-tongue": "lv8-blob-frog-tongue"
+ },
+ "lv8-satellite": {
+  "jellyfish": "lv8-satellite-jellyfish"
+ },
+ "lv8-meteor": {
+  "gull-screech": "lv8-meteor-gull-screech"
+ },
+ "lv8-ufo": {
+  "wasp-buzz": "lv8-ufo-wasp-buzz",
+  "wasp-dive": "lv8-ufo-wasp-dive"
+ },
+ "lv8-antenna": {},
+ "lv8-rover": {
+  "robovac-whir": "lv8-rover-robovac-whir",
+  "robovac-crack": "lv8-rover-robovac-crack"
+ },
+ "lv9-vodka": {
+  "aerosol-rattle": "lv9-vodka-aerosol-rattle",
+  "aerosol-blast": "lv9-vodka-aerosol-blast"
+ },
+ "lv9-bottle": {
+  "flipper": "lv9-bottle-flipper"
+ },
+ "lv9-label": {},
+ "lv9-lynx": {
+  "cat": "lv9-lynx-cat"
+ },
+ "lv9-shotglass": {
+  "jellyfish": "lv9-shotglass-jellyfish"
+ },
+ "lv9-eagle": {
+  "gull-screech": "lv9-eagle-gull-screech"
+ },
+ "lv9-mosquito": {
+  "wasp-buzz": "lv9-mosquito-wasp-buzz",
+  "wasp-dive": "lv9-mosquito-wasp-dive"
+ },
+ "lv9-tree": {
+  "zapper-bolt": "lv9-tree-zapper-bolt"
+ },
+ "lv9-boar": {
+  "robovac-whir": "lv9-boar-robovac-whir",
+  "robovac-crack": "lv9-boar-robovac-crack"
+ },
+ "lv9-mushrooms": {
+  "repeller-hum": "lv9-mushrooms-repeller-hum",
+  "repeller-ring": "lv9-mushrooms-repeller-ring"
+ },
+ "lv10-sign": {
+  "flipper": "lv10-sign-flipper"
+ },
+ "lv10-pipe": {
+  "newspaper": "lv10-pipe-newspaper"
+ },
+ "lv10-mutant": {
+  "cat": "lv10-mutant-cat"
+ },
+ "lv10-fridge": {
+  "jellyfish": "lv10-fridge-jellyfish"
+ },
+ "lv10-vulture": {
+  "gull-screech": "lv10-vulture-gull-screech"
+ },
+ "lv10-drone": {
+  "wasp-buzz": "lv10-drone-wasp-buzz",
+  "wasp-dive": "lv10-drone-wasp-dive"
+ },
+ "lv10-trolley": {
+  "bison": "lv10-trolley-bison"
+ },
+ "lv10-wire": {
+  "hedgehog": "lv10-wire-hedgehog"
+ }
+}

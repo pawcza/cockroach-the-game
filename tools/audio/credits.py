@@ -35,6 +35,10 @@ def main():
          "- **Boss music**: each boss's fight track (`tools/audio/music/build_boss_music.py --mix`, music-*) and the two "
          "ambient loops under the versus screen and the ability screen (boss-prelude, boss-aftermath) are synthesised "
          "here too and listed with the rest below.",
+         "- **Level-skin sounds**: the sounds the level skins play in place of their base enemy's when that one would "
+         "sound wrong (a party blower must not croak like a frog), `tools/audio/sounds_skins.py`, installed in "
+         "`public/audio/skins/`; the skins whose base sound still fits keep it. Synthesised or made from the same packs, "
+         "listed with the rest below.",
          "- Not listed here, and unchanged: the other sound effects (the obstacles' sounds that were kept, the pause "
          "crickets and so on), the level music, and the boss growls adapted from Ogrebane's Monster Sound Pack (CC0, "
          "OpenGameArt.org); see [LICENSE](../LICENSE).", "",

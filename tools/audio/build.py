@@ -5,6 +5,7 @@
     python3 tools/audio/build.py              # all sounds -> tools/audio/out/*.ogg + manifest.json
     python3 tools/audio/build.py --only jump  # ids starting with "jump"
     python3 tools/audio/build.py --audition DIR   # also assemble the audition page (see audition.py)
+    python3 tools/audio/build.py --only lv --audition DIR --audition-only lv   # a page with just the level-skin sounds
 
 Deterministic: every sound has its own RNG seeded from its id. Output is mono, 44.1 kHz, Vorbis q5,
 peaks <= -1 dBFS after encoding, loudness per category (see lib/registry.py CATS).
@@ -15,7 +16,7 @@ sys.path.insert(0, HERE)
 import numpy as np
 from lib import dsp as d
 from lib.registry import SOUNDS, GROUPS, CATS
-import sounds_core, sounds_milestones, sounds_boss, sounds_enemies, sounds_ambient  # noqa: F401  (registering sounds)
+import sounds_core, sounds_milestones, sounds_boss, sounds_enemies, sounds_ambient, sounds_skins  # noqa: F401  (registering sounds)
 
 OUT = os.path.join(HERE, "out")
 PACK_PAGES = {}
@@ -133,11 +134,12 @@ if __name__ == "__main__":
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--out", default=OUT)
     ap.add_argument("--audition")
+    ap.add_argument("--audition-only", nargs="*", help="group id prefixes to put on the audition page")
     a = ap.parse_args()
     m, fails = build(a.only, a.out)
     write_manifest(m)
     if a.audition:
         import audition
-        audition.assemble(a.audition)
+        audition.assemble(a.audition, a.audition_only)
     print(f"\n{len(m)} built, {len(fails)} failed {fails}")
     sys.exit(1 if fails else 0)
